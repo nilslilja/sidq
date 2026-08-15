@@ -29,6 +29,14 @@ export interface OnboardingBridge {
    * read something and leaving the person to take it on faith.
    */
   recentWork: (limit: number) => Promise<unknown[]>;
+  /**
+   * The whole conversation for one session, to hand to another assistant.
+   *
+   * Verbatim, not summarised: a summary is what any assistant can already
+   * produce on request, and it drops the corrections and reversals that are the
+   * reason a handover works at all. Null when the transcript cannot be read.
+   */
+  sessionTranscript: (sessionId: string) => Promise<string | null>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -83,6 +91,10 @@ export function desktopBridge(): OnboardingBridge | null {
     recentWork: async (limit) => {
       const rows = await invoke('recent_work', { limit });
       return Array.isArray(rows) ? rows : [];
+    },
+    sessionTranscript: async (sessionId) => {
+      const text = await invoke('session_transcript', { sessionId });
+      return typeof text === 'string' ? text : null;
     },
     finish: async () => {
       await invoke('finish_onboarding');

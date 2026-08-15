@@ -11,10 +11,18 @@
 //!   - `user` records carry `cwd` and `gitBranch`
 //!
 //! ── The privacy rule, which is the whole design ───────────────────────────────
-//! Only those fields ever leave this file. The transcripts contain entire
-//! working conversations: code, credentials pasted in frustration, half-written
-//! emails. None of it is read into the app, none of it is uploaded, and the
-//! extraction happens on this machine or not at all.
+//! Two very different reads live in this file and the difference is the rule.
+//!
+//! `recent_sessions` runs unprompted, so it takes only the fields above: enough
+//! to label and rank a session, never its contents.
+//!
+//! `session_transcript` returns an entire conversation verbatim, and runs only
+//! when someone picks that session by hand. Transcripts hold code, credentials
+//! pasted in frustration, half-written emails, so nothing reads one on a timer
+//! or in the background.
+//!
+//! Neither is uploaded. Both happen on this machine or not at all, which is also
+//! why a full handover costs nothing and works with the wifi off.
 //!
 //! ── Why it is not just serde over the whole file ──────────────────────────────
 //! These transcripts reach tens of megabytes. Parsing every line as JSON to find
@@ -26,9 +34,11 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// One piece of work, reduced to what a plan can use.
+/// One piece of work, reduced to what the picker needs to rank and label it.
 #[derive(Debug, Clone, Serialize, Default)]
 pub struct WorkSession {
+    /// Filename stem of the transcript. What `session_transcript` is called with.
+    pub session_id: String,
     /// Absolute path of the project directory.
     pub project: String,
     /// Last path component, e.g. "Sidq". What a person calls the project.
@@ -41,6 +51,12 @@ pub struct WorkSession {
     pub branch: String,
     /// Unix milliseconds of the most recent activity.
     pub ended_at: i64,
+    /// User turns. One turn is a passing question, not work to resume.
+    pub turns: u32,
+    /// Minutes actually worked, excluding the gaps where nothing happened.
+    pub active_minutes: u32,
+    /// Which assistant wrote this. Constant here; other readers will differ.
+    pub source: &'static str,
 }
 
 /// Titles and prompts are hints. Anything longer is a paragraph nobody reads.
@@ -48,6 +64,148 @@ const MAX_TITLE: usize = 120;
 const MAX_PROMPT: usize = 200;
 /// A guard against a runaway transcript, not a real limit.
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
+
+/// Which assistant these transcripts belong to.
+const SOURCE: &str = "claude-code";
+
+/**
+ * Ceiling on a handed-over conversation, in characters.
+ *
+ * Not a summary and not a sample: the whole point of the handover is that the
+ * next model sees what was actually said, in order, in the person's own words.
+ * A limit exists only because transcripts here reach 28MB and nothing will
+ * accept that. When one is over, the *end* is kept, because the recent stretch
+ * is what carries the current direction.
+ */
+const MAX_TRANSCRIPT_CHARS: usize = 400_000;
+
+/**
+ * The entire conversation for one session, verbatim.
+ *
+ * Deliberately not summarised. A summary is the thing every assistant can
+ * already do on request, and it loses exactly what makes a handover work: the
+ * back and forth, the corrections, the decisions that got reversed, the tone.
+ * Handing the next model a paragraph about a conversation produces an assistant
+ * that has read about your work. Handing it the conversation produces one that
+ * was there.
+ *
+ * Read only when someone explicitly picks a session. Never at startup, never in
+ * the background, and it goes to their own clipboard rather than to a server.
+ */
+pub fn session_transcript(session_id: &str) -> Option<String> {
+    // The id crosses from the webview, so it is untrusted. Anything that is not
+    // a plain filename stem is refused rather than sanitised, since there is no
+    // legitimate id that needs fixing up.
+    let safe = !session_id.is_empty()
+        && session_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !safe {
+        return None;
+    }
+
+    let path = find_transcript(session_id)?;
+    let meta = fs::metadata(&path).ok()?;
+    if meta.len() > MAX_BYTES {
+        return None;
+    }
+
+    let content = fs::read_to_string(&path).ok()?;
+    let mut out = String::new();
+
+    for line in content.lines() {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let role = match value.get("type").and_then(|t| t.as_str()) {
+            Some("user") => "You",
+            Some("assistant") => "Assistant",
+            _ => continue,
+        };
+
+        let body = message_text(&value);
+        if body.trim().is_empty() {
+            continue;
+        }
+
+        out.push_str(role);
+        out.push_str(":\n");
+        out.push_str(body.trim());
+        out.push_str("\n\n");
+    }
+
+    Some(clamp_to_tail(out))
+}
+
+/// Locate `<session-id>.jsonl` under any project directory.
+fn find_transcript(session_id: &str) -> Option<PathBuf> {
+    let root = projects_root()?;
+    let name = format!("{session_id}.jsonl");
+
+    fs::read_dir(&root)
+        .ok()?
+        .flatten()
+        .map(|dir| dir.path().join(&name))
+        .find(|candidate| candidate.is_file())
+}
+
+/**
+ * The human-readable text of one record.
+ *
+ * Message content is either a plain string or a list of typed blocks. Tool
+ * results are skipped: they are frequently enormous file dumps, and they say
+ * what a machine did rather than what either party meant. Tool *calls* are kept
+ * as a single line each, because "it went and read the config here" is part of
+ * the thread of reasoning and losing it makes the conversation read as jumpy.
+ */
+fn message_text(record: &serde_json::Value) -> String {
+    let Some(content) = record.get("message").and_then(|m| m.get("content")) else {
+        return String::new();
+    };
+
+    match content {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Array(blocks) => blocks
+            .iter()
+            .filter_map(|block| match block.get("type").and_then(|t| t.as_str()) {
+                Some("text") => block
+                    .get("text")
+                    .and_then(|t| t.as_str())
+                    .map(|s| s.to_string()),
+                Some("tool_use") => block
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .map(|name| format!("[used {name}]")),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    }
+}
+
+/// Keep the most recent MAX_TRANSCRIPT_CHARS, cut at a message boundary.
+fn clamp_to_tail(text: String) -> String {
+    if text.chars().count() <= MAX_TRANSCRIPT_CHARS {
+        return text;
+    }
+
+    let skip = text.chars().count() - MAX_TRANSCRIPT_CHARS;
+    let tail: String = text.chars().skip(skip).collect();
+
+    // Start at a speaker rather than mid-sentence, so the handover does not open
+    // halfway through somebody's paragraph.
+    let start = tail
+        .find("\nYou:\n")
+        .or_else(|| tail.find("\nAssistant:\n"))
+        .map(|i| i + 1)
+        .unwrap_or(0);
+
+    format!(
+        "[Earlier part of this conversation omitted for length.]\n\n{}",
+        &tail[start..]
+    )
+}
 
 /// Read the most recent sessions across all projects, newest first.
 ///
@@ -101,11 +259,33 @@ fn read_session(path: &Path) -> Option<WorkSession> {
 
     let content = fs::read_to_string(path).ok()?;
     let mut session = WorkSession {
+        session_id: path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default(),
         ended_at: modified_millis(&meta),
+        source: SOURCE,
         ..Default::default()
     };
 
+    /*
+     * Every user turn's timestamp, for the active-time calculation below.
+     *
+     * Collected by substring rather than by parsing the record: user records are
+     * the bulk of the file and carry the whole message body, so running serde
+     * over all of them to reach one 19-character field is most of the cost of
+     * reading the transcript at all.
+     */
+    let mut stamps: Vec<i64> = Vec::new();
+
     for line in content.lines() {
+        if is_user_record(line) {
+            session.turns += 1;
+            if let Some(ms) = extract_timestamp(line) {
+                stamps.push(ms);
+            }
+        }
+
         /*
          * Cheap gate before any JSON work.
          *
@@ -154,7 +334,84 @@ fn read_session(path: &Path) -> Option<WorkSession> {
         }
     }
 
+    session.active_minutes = active_minutes(&mut stamps);
+
+    /*
+     * Prefer the last real turn over the file's mtime.
+     *
+     * mtime moves when anything touches the file, so a session that was merely
+     * opened reads as recent work. The last thing actually typed does not lie.
+     */
+    if let Some(last) = stamps.last() {
+        session.ended_at = *last;
+    }
+
     Some(session)
+}
+
+/// True for `user` records, tested without parsing the line.
+fn is_user_record(line: &str) -> bool {
+    line.contains("\"type\":\"user\"") || line.contains("\"type\": \"user\"")
+}
+
+/// Pull `"timestamp":"2026-08-15T09:00:00..."` out of a line without serde.
+fn extract_timestamp(line: &str) -> Option<i64> {
+    let key = "\"timestamp\":\"";
+    let start = line.find(key)? + key.len();
+    let rest = line.get(start..)?;
+    iso_to_millis(rest.get(..19)?)
+}
+
+/// Parse `YYYY-MM-DDTHH:MM:SS` (always UTC in these transcripts) to epoch millis.
+fn iso_to_millis(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' {
+        return None;
+    }
+    let num = |a: usize, z: usize| -> Option<i64> { s.get(a..z)?.parse().ok() };
+    let days = days_from_civil(num(0, 4)?, num(5, 7)?, num(8, 10)?);
+    let secs = days * 86_400 + num(11, 13)? * 3_600 + num(14, 16)? * 60 + num(17, 19)?;
+    Some(secs * 1_000)
+}
+
+/// Days since the Unix epoch for a civil date. Hinnant's algorithm.
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+/// A pause longer than this is lunch or tomorrow, not thinking time.
+const ACTIVE_GAP_MS: i64 = 30 * 60 * 1_000;
+
+/**
+ * Minutes actually worked, from the turn timestamps.
+ *
+ * Wall-clock between the first and last message is wrong by a lot, because real
+ * sessions get resumed across days: one transcript on this machine spans 79
+ * hours while holding about 19 hours of work. Gaps beyond a short pause are
+ * excluded so this measures time at the keyboard.
+ */
+fn active_minutes(stamps: &mut [i64]) -> u32 {
+    stamps.sort_unstable();
+    /*
+     * A long gap contributes nothing, rather than contributing the cap.
+     *
+     * Clamping instead would credit three hours away as half an hour of work,
+     * which quietly inflates every session left open overnight. Under-counting
+     * the few minutes someone kept working after their last message is the
+     * smaller and more honest error.
+     */
+    let total: i64 = stamps
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .filter(|d| *d >= 0 && *d <= ACTIVE_GAP_MS)
+        .sum();
+    (total / 60_000) as u32
 }
 
 fn modified_millis(meta: &fs::Metadata) -> i64 {
@@ -190,5 +447,144 @@ mod tests {
     #[test]
     fn truncate_leaves_short_text_alone() {
         assert_eq!(truncate("  hello  ", 50), "hello");
+    }
+
+    #[test]
+    fn parses_an_iso_timestamp_to_epoch_millis() {
+        // 1970-01-01T00:00:00Z is the epoch by definition, so this pins the
+        // civil-date arithmetic rather than merely checking it is self-consistent.
+        assert_eq!(iso_to_millis("1970-01-01T00:00:00"), Some(0));
+        assert_eq!(iso_to_millis("1970-01-02T00:00:00"), Some(86_400_000));
+        assert_eq!(iso_to_millis("2026-08-15T09:00:00"), Some(1_786_784_400_000));
+    }
+
+    #[test]
+    fn rejects_a_malformed_timestamp_instead_of_guessing() {
+        assert_eq!(iso_to_millis("not-a-date"), None);
+        assert_eq!(iso_to_millis("2026/08/15T09:00:00"), None);
+    }
+
+    #[test]
+    fn reads_the_timestamp_out_of_a_real_line() {
+        let line = r#"{"type":"user","timestamp":"2026-08-15T09:00:00.123Z","cwd":"/x"}"#;
+        assert_eq!(extract_timestamp(line), Some(1_786_784_400_000));
+    }
+
+    #[test]
+    fn active_minutes_excludes_the_gap_where_nothing_happened() {
+        let base = 1_700_000_000_000;
+        let min = 60_000;
+        // Ten minutes of work, then away for three hours, then ten more.
+        let mut stamps = vec![base, base + 10 * min, base + 190 * min, base + 200 * min];
+
+        // 20 minutes worked, not the 200 minutes of wall-clock between the ends.
+        assert_eq!(active_minutes(&mut stamps), 20);
+    }
+
+    #[test]
+    fn active_minutes_counts_a_short_pause_as_thinking() {
+        let base = 1_700_000_000_000;
+        let mut stamps = vec![base, base + 5 * 60_000, base + 15 * 60_000];
+
+        assert_eq!(active_minutes(&mut stamps), 15);
+    }
+
+    #[test]
+    fn active_minutes_handles_a_single_turn() {
+        assert_eq!(active_minutes(&mut [1_700_000_000_000]), 0);
+        assert_eq!(active_minutes(&mut []), 0);
+    }
+
+    #[test]
+    fn identifies_user_records_without_parsing() {
+        assert!(is_user_record(r#"{"type":"user","message":{}}"#));
+        assert!(!is_user_record(r#"{"type":"assistant","message":{}}"#));
+        assert!(!is_user_record(r#"{"type":"ai-title","aiTitle":"x"}"#));
+    }
+
+    #[test]
+    fn refuses_a_session_id_that_could_escape_the_directory() {
+        // The id arrives from the webview, so traversal must be impossible.
+        assert_eq!(session_transcript("../../../etc/passwd"), None);
+        assert_eq!(session_transcript("a/b"), None);
+        assert_eq!(session_transcript(""), None);
+    }
+
+    #[test]
+    fn extracts_text_from_both_content_shapes() {
+        let plain: serde_json::Value =
+            serde_json::from_str(r#"{"message":{"content":"hello"}}"#).unwrap();
+        assert_eq!(message_text(&plain), "hello");
+
+        let blocks: serde_json::Value = serde_json::from_str(
+            r#"{"message":{"content":[
+                {"type":"text","text":"first"},
+                {"type":"tool_use","name":"Read"},
+                {"type":"tool_result","content":"a huge file dump"},
+                {"type":"text","text":"second"}
+            ]}}"#,
+        )
+        .unwrap();
+
+        // Tool results are dropped; the call itself is kept as one line.
+        assert_eq!(message_text(&blocks), "first\n[used Read]\nsecond");
+    }
+
+    #[test]
+    fn keeps_the_end_of_an_oversized_conversation_and_says_so() {
+        let long = format!(
+            "You:\n{}\n\nAssistant:\nthe important recent part\n\n",
+            "x".repeat(MAX_TRANSCRIPT_CHARS)
+        );
+
+        let out = clamp_to_tail(long);
+
+        assert!(out.starts_with("[Earlier part of this conversation omitted"));
+        assert!(out.contains("the important recent part"));
+        assert!(out.chars().count() < MAX_TRANSCRIPT_CHARS + 200);
+    }
+
+    /**
+     * A manual diagnostic, not part of the suite.
+     *
+     * Ignored because it reads whatever is actually in ~/.claude on the machine
+     * it runs on, so it can neither assert nor be relied on in CI. It exists
+     * because fixtures kept agreeing with code that was wrong about real files:
+     * titles read as empty for a whole afternoon because the field is `aiTitle`,
+     * and active time was 4x over because sessions resume across days.
+     *
+     * Run with: cargo test --bin sidq real_history -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_history() {
+        let sessions = recent_sessions(10);
+        println!("\n{} sessions\n", sessions.len());
+        for s in &sessions {
+            println!(
+                "  turns {:>5}  active {:>5}m  {:<46} {}",
+                s.turns,
+                s.active_minutes,
+                s.title.chars().take(46).collect::<String>(),
+                s.branch
+            );
+        }
+        if let Some(first) = sessions.first() {
+            match session_transcript(&first.session_id) {
+                Some(text) => println!(
+                    "\n  transcript of {:?}: {} chars, {} messages",
+                    first.title,
+                    text.chars().count(),
+                    text.matches("\nYou:\n").count() + text.matches("\nAssistant:\n").count()
+                ),
+                None => println!("\n  no transcript resolved for {}", first.session_id),
+            }
+        }
+    }
+
+    #[test]
+    fn leaves_a_conversation_that_fits_completely_alone() {
+        let text = "You:\nhi\n\nAssistant:\nhello\n\n".to_string();
+        assert_eq!(clamp_to_tail(text.clone()), text);
     }
 }

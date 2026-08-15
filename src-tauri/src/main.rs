@@ -113,6 +113,24 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
         .unwrap_or_default()
 }
 
+/**
+ * The full conversation for one session, to hand to another assistant.
+ *
+ * Unlike `recent_work` this returns the transcript verbatim, so it runs only
+ * when someone has picked that session themselves. It still never leaves the
+ * machine: the string goes back to the webview and from there to the clipboard.
+ *
+ * Blocking task for the same reason as above, and more so, since this reads and
+ * parses an entire transcript rather than skimming one.
+ */
+#[tauri::command]
+async fn session_transcript(session_id: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || work_history::session_transcript(&session_id))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[tauri::command]
 fn accessibility_granted() -> bool {
     activity::is_trusted()
@@ -384,6 +402,7 @@ fn main() {
             current_activity,
             accessibility_granted,
             recent_work,
+            session_transcript,
             request_accessibility,
             resize_overlay,
             move_overlay,

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 /*
- * "Powered by Claude / ChatGPT / Gemini", rotating.
+ * "Remembers every Claude / ChatGPT / Gemini conversation", rotating.
  *
  * Free bold text, no pill, no container. A badge reads as a sponsor slot; plain
  * type reads as a fact.
@@ -25,8 +25,19 @@ import { cn } from '@/lib/cn';
  * None of them is ever redrawn: an approximated trademark is a wrong trademark.
  *
  * ── On the wording ────────────────────────────────────────────────────────────
- * "Powered by", not "Sidq × Claude". The × convention means a collaboration
- * between two parties and there is no partnership with any of them.
+ * Not "Powered by". That phrasing says the assistants run Sidq, which is both
+ * untrue and the precise accusation the product has to survive: that it is a
+ * wrapper. Nothing here is powered by them. It reads what they already wrote to
+ * this machine, which is the opposite relationship and the actual selling point.
+ *
+ * Not "Sidq × Claude" either. The × convention claims a partnership, and there
+ * is none with any of them.
+ *
+ * "Remembers" is deliberately close to the line. It says plainly that Sidq holds
+ * your conversations, because pretending otherwise while doing exactly that is
+ * worse than saying it. The line underneath is what keeps it the right side of
+ * the line: it never leaves this Mac, so the sentence describes a filing cabinet
+ * you own rather than a company watching you.
  */
 
 interface Model {
@@ -41,6 +52,9 @@ const MODELS: Model[] = [
   { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
 ];
+
+/** Sits under the rotating line and is what makes it not sound like surveillance. */
+const LOCALITY_NOTE = 'Every word stays on this Mac';
 
 /** Long enough to read twice, short enough to notice it changed. */
 const ROTATE_MS = 3200;
@@ -85,21 +99,22 @@ export function PoweredByClaude({
   const model = MODELS[index];
   const light = tone === 'light';
 
+  /*
+   * No longer a link to anthropic.com. That was right for "Powered by Claude",
+   * which was an attribution. This is a claim about what Sidq holds, and sending
+   * someone to Anthropic to read about it would be misdirection.
+   */
   return (
-    <a
-      href="https://www.anthropic.com/claude"
-      target="_blank"
-      rel="noreferrer noopener"
-      aria-label="Sidq reads your work across Claude, ChatGPT and Gemini"
-      className={cn(
-        'inline-flex items-center gap-2.5 text-[1.0625rem] font-semibold tracking-[-0.01em]',
-        'transition-opacity duration-200 hover:opacity-75',
-        light ? 'text-white/70' : 'text-ink/60',
-        className,
-      )}
+    <div
+      aria-label="Sidq remembers your conversations with Claude, ChatGPT and Gemini, stored only on this Mac"
+      className={cn('inline-flex flex-col items-center gap-1', className)}
     >
       <span
-        className="inline-flex items-center gap-2.5 transition-opacity"
+        className={cn(
+          'inline-flex items-center gap-2.5 text-[1.0625rem] font-semibold tracking-[-0.01em]',
+          'transition-opacity',
+          light ? 'text-white/70' : 'text-ink/60',
+        )}
         style={{ opacity: visible ? 1 : 0, transitionDuration: `${FADE_MS}ms` }}
       >
         {!missing[model.logo] && (
@@ -116,9 +131,19 @@ export function PoweredByClaude({
           />
         )}
         <span>
-          Powered by <span style={{ color: model.colour }}>{model.name}</span>
+          Remembers every <span style={{ color: model.colour }}>{model.name}</span> conversation
         </span>
       </span>
-    </a>
+
+      {/* The sentence above is a strong claim. This is the one that makes it safe. */}
+      <span
+        className={cn(
+          'text-[0.75rem] tracking-[-0.005em]',
+          light ? 'text-white/40' : 'text-ink/40',
+        )}
+      >
+        {LOCALITY_NOTE}
+      </span>
+    </div>
   );
 }
