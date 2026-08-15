@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Apple Events is what lets the app ask System Events for the frontmost window
+    title. Without it the companion still runs, but only ever sees the app name.
+    macOS shows the user a permission prompt the first time it is used.
+  -->
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+
+  <!-- Network access for plan generation and sync. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!--
+    Deliberately absent: camera, microphone, screen recording, location, files.
+    The companion reads a window title and nothing else, and the entitlements
+    should be auditable proof of that rather than a promise in a privacy policy.
+  -->
+</dict>
+</plist>

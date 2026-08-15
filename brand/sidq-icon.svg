@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#F7F6F3"/>
+  <!-- The landing stroke, compressed: scatter resolving into one clear line. -->
+  <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236"
+        fill="none" stroke="#4F46E5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M236 236 C258 196 286 256 324 256 L416 256"
+        fill="none" stroke="#4F46E5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="416" cy="256" r="26" fill="#4F46E5"/>
+</svg>

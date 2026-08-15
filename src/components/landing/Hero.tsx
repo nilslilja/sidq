@@ -1,0 +1,106 @@
+import { ProductVideo } from './ProductVideo';
+import { DownloadButton } from './DownloadButton';
+import { PoweredByClaude } from './PoweredByClaude';
+
+/*
+ * The hero.
+ *
+ * A dawn sky, a single sentence, one lit button, and the product sitting under
+ * the fold line so the first scroll lands on it.
+ *
+ * The sky is not decoration borrowed from a competitor. The product is a thing
+ * you meet in the morning, before the day starts, and "one clear day, every
+ * morning" is the whole promise. A sunrise is the most direct possible statement
+ * of that, and it costs nothing: it is four gradient stops and a blurred circle,
+ * no photograph to license and no megabytes to ship.
+ */
+
+export function Hero() {
+  return (
+    <section className="relative overflow-hidden" aria-labelledby="hero">
+      {/* ── The sky ──────────────────────────────────────────────────────── */}
+      <div
+        aria-hidden="true"
+        // The light stops sit low on purpose. Every line of hero copy has to land
+        // on the dark half, or white text on pale peach fails contrast outright,
+        // which is exactly what the first pass did to the "Free. No card." line.
+        // Measured, not guessed: the last line of hero copy ends at 41% of this
+        // block's height, so the sky stays dark to 42% and the dawn runs from
+        // there down. That keeps every piece of white text on a dark field while
+        // still putting real sunrise above the fold on a normal display.
+        className="absolute inset-x-0 top-0 h-[62rem] bg-[linear-gradient(180deg,#33325F_0%,#3E3C70_22%,#514E86_42%,#7D739F_54%,#B08FA0_65%,#D9A88E_76%,#F3D3B0_88%,#F7F6F3_100%)]"
+      />
+      {/* The sun, low and just off centre. Breathing, so the page is alive
+          before anything has been scrolled. */}
+      <div
+        aria-hidden="true"
+        className="bloom-breathe absolute left-[72%] top-[38rem] size-[22rem] -translate-x-1/2 rounded-full bg-[#FFE9C4] opacity-70 blur-[70px]"
+      />
+      {/* A horizon ridge. One path, low contrast, purely to give the sky a floor. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 220"
+        preserveAspectRatio="none"
+        className="absolute inset-x-0 top-[43rem] h-[14rem] w-full"
+      >
+        <path
+          d="M0 190 L180 120 L300 165 L470 70 L610 150 L760 105 L900 170 L1080 95 L1240 160 L1440 110 L1440 220 L0 220 Z"
+          fill="rgba(59,58,118,0.16)"
+        />
+        <path
+          d="M0 210 L220 165 L420 195 L640 140 L860 190 L1080 150 L1290 195 L1440 165 L1440 220 L0 220 Z"
+          fill="rgba(59,58,118,0.10)"
+        />
+      </svg>
+
+      <div className="relative mx-auto max-w-[76rem] px-6 pt-24 lg:pt-32">
+        <div className="mb-7 flex justify-center">
+          <PoweredByClaude />
+        </div>
+
+        <h1
+          id="hero"
+          className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
+        >
+          Your day is decided before you open your laptop
+        </h1>
+
+        <p className="mx-auto mt-8 max-w-[46ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
+          Sidq builds your plan overnight, sits on your screen while you work, and
+          learns what you actually finish.
+        </p>
+
+        <div className="mt-10 flex justify-center">
+          <DownloadButton size="lg" />
+        </div>
+
+        <p className="mt-5 text-center text-[0.8125rem] text-white/55">
+          Free. No card. About a minute to set up.
+        </p>
+
+        {/* The product, breaking the fold. The section below is pulled up over
+            the bottom of the shot so it never sits in dead space. */}
+        {/*
+         * Drop the recording at public/video/drift.mp4 and this becomes real
+         * footage. Until then it renders the drawn mock, so the page is never
+         * waiting on an asset that does not exist.
+         *
+         * The clip to shoot is the drift catch: on task, switch to something
+         * else, the card notices and says one line. It is the only moment on
+         * this page a browser-tab competitor physically cannot show.
+         */}
+        <div className="mt-16 lg:mt-20">
+          <ProductVideo
+            caption="Sidq sits above a code editor. The person switches to another app, and the card quietly notes they have drifted off the task they picked."
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// The CTA itself lives in DownloadButton, re-exported here only so the existing
+// call sites keep working. There is one download button on this site and it is
+// identical everywhere, because a primary action that changes shape three times
+// reads as three different offers.
+export { DownloadButton };

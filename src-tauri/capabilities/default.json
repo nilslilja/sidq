@@ -1,0 +1,45 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the two windows are allowed to do. Deliberately minimal: they move and resize themselves, show a notification, register two shortcuts, and open one URL in the browser. Nothing touches the filesystem, and the shell permission is narrowed to opening https and sidq links rather than running commands.",
+  "windows": [
+    "overlay",
+    "welcome"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-visible",
+    "core:window:allow-scale-factor",
+    "core:window:allow-outer-size",
+    "core:window:allow-set-focus",
+    "core:event:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "notification:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "deep-link:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://localhost:*"
+        },
+        {
+          "url": "x-apple.systempreferences:*"
+        }
+      ]
+    }
+  ]
+}

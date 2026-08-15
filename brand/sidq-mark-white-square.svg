@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -60 500 500" width="1024" height="1024" role="img" aria-label="Sidq mark, white">
+  <!-- transparent -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 176 C64 112 86 240 112 152 C134 80 154 244 180 180" />
+    <path d="M180 180 C202 140 230 200 268 200 L360 200" />
+  </g>
+  <circle cx="360" cy="200" r="26" fill="#FFFFFF" />
+</svg>

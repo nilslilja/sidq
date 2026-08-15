@@ -1,0 +1,397 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Sidq design system: Daylight Glass.
+ *
+ * Warm off-white canvas with a slow drifting colour bloom behind it, frosted
+ * translucent panels, indigo and coral accents. Premium and calm rather than dark
+ * and flat.
+ *
+ * Token NAMES are unchanged from the previous dark system on purpose. Every
+ * component already speaks bg-surface / text-muted / border-line, so retheming is a
+ * change of values here rather than a rewrite of every className in the app.
+ */
+
+@theme {
+  /* Canvas and ink */
+  --color-bg: #f7f6f3;
+  --color-bg-deep: #efedea;
+  --color-text: #12121a;
+  --color-muted: #6b6b76;
+
+  /*
+   * Editorial aliases. The landing is set as a printed document rather than an app
+   * surface, and `border-ink/15` says what it is far better than `border-text/15`.
+   * Same values, so the two vocabularies cannot drift apart.
+   */
+  --color-ink: #12121a;
+  --color-paper: #f7f6f3;
+
+  /* Frosted panel. Always pair with backdrop-blur, it is translucent by design. */
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-surface-solid: #ffffff;
+
+  --color-line: rgba(18, 18, 26, 0.08);
+  --color-line-strong: rgba(18, 18, 26, 0.18);
+
+  /* Indigo carries every interactive meaning. 5.9:1 on the canvas, safe for text. */
+  --color-accent: #4f46e5;
+  --color-accent-soft: #eef0fe;
+  --color-accent-text: #ffffff;
+
+  /*
+   * Coral is decorative only. It sits at 2.4:1 on this canvas, so it must never
+   * carry text or an icon that means something. Fills and glows only.
+   */
+  --color-coral: #ff7a5c;
+  --color-lilac: #b8a6ff;
+  --color-peach: #ffd4c2;
+
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius-sm: 0.625rem;
+  --radius: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 240ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* shadcn / 21st.dev compatibility, repointed at the light palette. */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+  --color-popover: var(--color-surface-solid);
+  --color-popover-foreground: var(--color-text);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-text);
+  --color-secondary: var(--color-bg-deep);
+  --color-secondary-foreground: var(--color-text);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent-foreground: var(--color-accent-text);
+  --color-destructive: #d92d20;
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-accent);
+}
+
+:root {
+  --background: 40 20% 96%;
+  --foreground: 240 18% 9%;
+  --primary: 245 75% 59%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 12% 93%;
+  --secondary-foreground: 240 18% 9%;
+  --muted: 40 12% 93%;
+  --muted-foreground: 240 5% 44%;
+  --accent: 245 75% 59%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 4 71% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 18% 9%;
+  --input: 240 18% 9%;
+  --ring: 245 75% 59%;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+  }
+
+  /*
+   * Display face is the same grotesque as the body, cut tight and set large.
+   * A contrasting serif read as decorative rather than engineered, so the
+   * hierarchy is carried by scale and tracking instead of by a second family.
+   */
+  .font-display {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.038em;
+    line-height: 1.02;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  /*
+   * Liquid glass. Translucent fill, real backdrop blur, and a light rim along the
+   * top edge so the panel reads as a physical pane catching light from above
+   * rather than as a flat grey box.
+   */
+  .glass {
+    background: var(--color-surface);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    /* Ink-side rim, not a white one, for the same reason as glass-subtle. */
+    border: 1px solid rgba(18, 18, 26, 0.06);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.95) inset,
+      0 12px 32px -12px rgba(18, 18, 26, 0.16),
+      0 2px 8px -2px rgba(18, 18, 26, 0.07);
+  }
+
+  /*
+   * On a light canvas a white fill with a white rim is invisible. The rim has to
+   * come from the ink side, and there has to be a shadow, or the panel does not
+   * read as a surface at all. This was the bug that made every card look like
+   * loose text on a page.
+   */
+  .glass-subtle {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(18, 18, 26, 0.07);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
+      0 4px 14px -6px rgba(18, 18, 26, 0.1);
+  }
+
+  /*
+   * The soft CTA.
+   *
+   * Four layers doing four jobs, which is what separates this from a coloured
+   * rectangle: a vertical gradient so the fill has a light source, an inset white
+   * line along the top edge acting as the specular catch, a tight contact shadow
+   * that sits the button on the page, and a wide coloured bloom that makes it
+   * appear lit from within rather than painted on.
+   *
+   * The bloom is the expensive-looking part and the easiest to overdo. It stays
+   * under 40% alpha and never tightens on hover, only grows.
+   */
+  .btn-soft {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-accent) 88%, white) 0%,
+      var(--color-accent) 52%,
+      color-mix(in oklab, var(--color-accent) 88%, black) 100%
+    );
+    color: var(--color-accent-text);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
+      0 0 0 1px color-mix(in oklab, var(--color-accent) 70%, black),
+      0 2px 6px -1px rgba(18, 18, 26, 0.24),
+      0 18px 38px -12px color-mix(in oklab, var(--color-accent) 38%, transparent);
+    transition:
+      transform 220ms var(--ease-out-expo),
+      box-shadow 260ms var(--ease-out-expo);
+  }
+  .btn-soft:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.5) inset,
+      0 0 0 1px color-mix(in oklab, var(--color-accent) 70%, black),
+      0 4px 10px -2px rgba(18, 18, 26, 0.22),
+      0 30px 60px -14px color-mix(in oklab, var(--color-accent) 52%, transparent);
+  }
+  /* Settles rather than shrinking. A scale-down on press reads as a bug at this size. */
+  .btn-soft:active {
+    transform: translateY(0);
+    transition-duration: 90ms;
+  }
+
+  /*
+   * A physical key. White glass, a rim that darkens toward the bottom, and a
+   * shadow far softer and larger than the object, which is what sells weight.
+   */
+  .keycap {
+    background: linear-gradient(
+      168deg,
+      rgba(255, 255, 255, 0.96) 0%,
+      rgba(255, 255, 255, 0.72) 46%,
+      rgba(238, 240, 254, 0.7) 100%
+    );
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    box-shadow:
+      0 1.5px 0 0 rgba(255, 255, 255, 0.95) inset,
+      0 -1px 0 0 rgba(18, 18, 26, 0.05) inset,
+      0 0 0 1px rgba(18, 18, 26, 0.05),
+      0 2px 6px -2px rgba(18, 18, 26, 0.1),
+      0 26px 50px -18px rgba(79, 70, 229, 0.34);
+  }
+
+  /*
+   * Drift.
+   *
+   * Long, offset, and never returning to the same place at the same time, so the
+   * group never reads as a loop. Transform only, so it stays on the compositor.
+   * The global reduced-motion block above stops all of it.
+   */
+  @keyframes drift-a {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(-8deg);
+    }
+    50% {
+      transform: translate3d(-10px, -20px, 0) rotate(-4deg);
+    }
+  }
+  @keyframes drift-b {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotate(11deg);
+    }
+    50% {
+      transform: translate3d(12px, -26px, 0) rotate(6deg);
+    }
+  }
+  @keyframes bloom-breathe {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.78;
+      transform: scale(1.09);
+    }
+  }
+  .drift-a {
+    animation: drift-a 13s ease-in-out infinite;
+  }
+  .drift-b {
+    animation: drift-b 17s ease-in-out infinite;
+  }
+  .bloom-breathe {
+    animation: bloom-breathe 11s ease-in-out infinite;
+  }
+
+  /*
+   * Float, with no rotation.
+   *
+   * drift-a and drift-b both carry a tilt, which is right for a loose keycap and
+   * wrong for a window: a rotated UI card reads as a rendering bug rather than as
+   * depth. Anything rectangular and interface-shaped uses this instead.
+   */
+  @keyframes float-soft {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0);
+    }
+    50% {
+      transform: translate3d(0, -12px, 0);
+    }
+  }
+  .float-soft {
+    animation: float-soft 9s ease-in-out infinite;
+  }
+
+  /* Specular sweep across a panel or button on hover. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.55) 48%,
+      transparent 62%
+    );
+    transform: translateX(-120%);
+    transition: transform 620ms var(--ease-out-expo);
+    pointer-events: none;
+  }
+  .sheen:hover::after {
+    transform: translateX(120%);
+  }
+
+  /* Fine film grain. Keeps large flat areas from looking synthetic. */
+  .grain::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /*
+   * Two verified muted steps, so nobody has to guess an opacity again.
+   *
+   * Measured against the paper canvas: 65% ink lands at 4.6:1 and clears AA for
+   * text of any size. 50% ink lands at 3.45:1, which clears AA for large text only
+   * and is therefore restricted to display type. Ad-hoc ink/45 and ink/55 were both
+   * failing, which is what these replace.
+   */
+  .ink-muted {
+    color: color-mix(in srgb, var(--color-ink) 65%, transparent);
+  }
+
+  /** Display type only, 24px and above. Fails AA below that size. */
+  .ink-quiet {
+    color: color-mix(in srgb, var(--color-ink) 50%, transparent);
+  }
+
+  .hairline-t {
+    border-top: 1px solid var(--color-line);
+  }
+  .hairline-b {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .column {
+    width: 100%;
+    max-width: 34rem;
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .sheen::after {
+    display: none;
+  }
+}

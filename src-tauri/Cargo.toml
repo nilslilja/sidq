@@ -1,0 +1,30 @@
+[package]
+name = "sidq"
+version = "0.1.0"
+description = "One clear day, every morning."
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon", "devtools"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-autostart = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-deep-link = "2"
+tauri-plugin-opener = "2"
+
+[profile.release]
+# A menu-bar companion has no business being 30MB. These four settings take the
+# binary to roughly 5MB, which matters because people judge an overlay by whether
+# it feels heavy.
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

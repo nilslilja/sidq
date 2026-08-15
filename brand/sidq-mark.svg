@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320" role="img" aria-labelledby="title desc">
+  <title id="title">Sidq mark</title>
+  <desc id="desc">A scattered line settling into one straight stroke that ends in a single point.</desc>
+
+  <!--
+    The Sidq mark.
+
+    A scatter resolving into one clear line, ending in a single point. It is the
+    product stated in one gesture: many competing things at the left, one decided
+    thing at the right. Read left to right it is a morning.
+
+    Transparent background on purpose. This is the master for placing on any
+    surface. For the app icon on its own tile, use sidq-icon.svg.
+  -->
+  <g fill="none" stroke="#4F46E5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- The noise. Deliberately uneven: a regular wave reads as a signal, not chaos. -->
+    <path d="M40 176 C64 112 86 240 112 152 C134 80 154 244 180 180" />
+    <!-- The resolve, flattening into a single horizontal. -->
+    <path d="M180 180 C202 140 230 200 268 200 L360 200" />
+  </g>
+  <!-- The decision. One point, filled, at the end of the line. -->
+  <circle cx="360" cy="200" r="26" fill="#4F46E5" />
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "Sidq",
+  "short_name": "Sidq",
+  "description": "One clear day, rebuilt every morning.",
+  "start_url": "/today",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F6F3",
+  "theme_color": "#F7F6F3",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }],
+  "shortcuts": [
+    { "name": "Today", "url": "/today" },
+    { "name": "Shut down", "url": "/shutdown" }
+  ]
+}
