@@ -3,16 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Sidq. One clear day, every morning.</title>
+    <title>Sidq. Start where you actually stopped.</title>
     <meta
       name="description"
-      content="Sidq turns your scattered goals into one clear, gamified daily plan, rebuilt fresh every morning."
+      content="A Mac app that reads your Claude Code sessions, sits above your work, and keeps one thing in front of you until it is done."
     />
     <meta name="theme-color" content="#F7F6F3" />
-    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!--
+      No web-app manifest, deliberately. It made Chrome offer "Install Sidq" as a
+      standalone web app pointing at /today, which is a different and much worse
+      product than the Mac app this site sells. Sidq ships as a signed .dmg.
+    -->
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,12 +24,19 @@
       rel="stylesheet"
     />
 
-    <meta property="og:title" content="Sidq. One clear day, every morning." />
+    <!--
+      What LinkedIn, Slack and iMessage show when the link is pasted. This is the
+      first thing most people will ever see of Sidq, so it says what the product
+      is rather than a slogan.
+    -->
+    <meta property="og:title" content="Sidq. Start where you actually stopped." />
     <meta
       property="og:description"
-      content="Your goals are fine. Starting is the problem. Sidq builds you one honest day, every morning."
+      content="A Mac app that reads your Claude Code sessions, sits above your work, and keeps one thing in front of you until it is done."
     />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sidq" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>
