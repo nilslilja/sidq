@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Hero } from '@/components/landing/Hero';
+import { Reveal } from '@/components/landing/Reveal';
 import { HowItHelps } from '@/components/landing/HowItHelps';
 import { Pricing } from '@/components/landing/Pricing';
 import { Faq } from '@/components/landing/Faq';
@@ -65,7 +66,9 @@ export function Landing() {
       <Hero />
 
       <div id="how">
-        <HowItHelps />
+        <Reveal>
+          <HowItHelps />
+        </Reveal>
       </div>
 
       {/* ── The cost of carrying on ──────────────────────────────────────── */}
@@ -82,21 +85,27 @@ export function Landing() {
           </h2>
 
           <div className="mt-14 grid gap-px border border-paper/15 bg-paper/15 sm:grid-cols-3">
-            <Stat
+            <Reveal delay={0}>
+              <Stat
               n="0"
               k="Words uploaded"
               v="Read from your own disk, written to your own clipboard. It works with the wifi off."
             />
-            <Stat
+            </Reveal>
+            <Reveal delay={0.08}>
+              <Stat
               n="1 key"
               k="To move all of it"
               v="One keystroke moves a whole conversation. Not a summary, not an export, not a copy and paste."
             />
-            <Stat
+            </Reveal>
+            <Reveal delay={0.16}>
+              <Stat
               n="Everything"
               k="Waiting on day one"
               v="Conversations from months before you installed Sidq are there the first time you open it."
             />
+            </Reveal>
           </div>
 
           <p className="mt-10 max-w-[46ch] text-[1rem] leading-relaxed text-paper/70">
@@ -107,14 +116,20 @@ export function Landing() {
       </section>
 
       <div id="download">
-        <Download />
+        <Reveal>
+          <Download />
+        </Reveal>
       </div>
 
       <div id="pricing">
-        <Pricing />
+        <Reveal>
+          <Pricing />
+        </Reveal>
       </div>
 
-      <Faq />
+      <Reveal>
+          <Faq />
+        </Reveal>
 
       <SiteFooter />
     </div>

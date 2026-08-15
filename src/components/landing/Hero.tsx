@@ -1,6 +1,7 @@
 import { ProductVideo } from './ProductVideo';
 import { DownloadButton } from './DownloadButton';
 import { PoweredByClaude } from './PoweredByClaude';
+import { ScrollTilt } from './ScrollTilt';
 
 /*
  * The hero.
@@ -88,11 +89,17 @@ export function Hero() {
          * else, the card notices and says one line. It is the only moment on
          * this page a browser-tab competitor physically cannot show.
          */}
-        <div className="mt-16 lg:mt-20">
+        {/*
+         * The shot lies back and stands up as you scroll onto it. This is the
+         * slot the screen recording drops into, so the frame is sized by its
+         * child rather than fixed: a recording letterboxed by its own frame
+         * would be the page failing at the one thing it exists to show.
+         */}
+        <ScrollTilt className="mt-16 lg:mt-20">
           <ProductVideo
             caption="Sidq sits above the window you are working in. The person switches to another app, and the card quietly notes they have drifted off the thing they picked."
           />
-        </div>
+        </ScrollTilt>
       </div>
     </section>
   );
