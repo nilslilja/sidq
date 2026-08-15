@@ -23,6 +23,27 @@ export interface WorkSession {
   lastPrompt: string;
   branch: string;
   endedAt: number;
+
+  /*
+   * Depth signals, used to tell real work from a passing question.
+   *
+   * Optional because they were added after the extractor shipped, and a session
+   * recorded by an older build must still rank rather than disappear. See
+   * rank-sessions.ts, which degrades to the anchors when both are missing.
+   */
+
+  /** User turns in the session. One turn means nothing was worked through. */
+  turns?: number;
+  /**
+   * Minutes actually spent working, not wall-clock from first message to last.
+   *
+   * Real sessions get resumed across days: measured raw, one of these spans 79
+   * hours while holding about 19 hours of work. Gaps longer than a short pause
+   * are excluded, so this is time at the keyboard rather than time elapsed.
+   */
+  activeMinutes?: number;
+  /** Which assistant this came from, for the picker's glyph. */
+  source?: 'claude-code' | 'cursor' | 'chatgpt' | 'gemini';
 }
 
 export interface ResumePoint {
