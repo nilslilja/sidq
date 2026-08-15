@@ -99,9 +99,10 @@ export function Downloading() {
                 Get it again
               </a>
             ) : (
-              <Link to="/signin" className="text-white/70 underline underline-offset-4">
-                Open the web app instead
-              </Link>
+              // Reached only if someone opens this URL directly on a machine
+              // Sidq does not ship for. There is no browser version to offer, so
+              // it says so rather than routing them somewhere that cannot help.
+              <span className="text-white/50">Sidq is macOS only right now.</span>
             )}
           </p>
 

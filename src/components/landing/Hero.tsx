@@ -62,12 +62,12 @@ export function Hero() {
           id="hero"
           className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
         >
-          Your day is decided before you open your laptop
+          Start where you actually stopped
         </h1>
 
         <p className="mx-auto mt-8 max-w-[46ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          Sidq builds your plan overnight, sits on your screen while you work, and
-          learns what you actually finish.
+          Sidq reads your Claude Code sessions on this Mac, sits above your work, and
+          keeps one thing in front of you until it is done.
         </p>
 
         <div className="mt-10 flex justify-center">
@@ -75,7 +75,7 @@ export function Hero() {
         </div>
 
         <p className="mt-5 text-center text-[0.8125rem] text-white/55">
-          Free. No card. About a minute to set up.
+          Free. No card. Mac app, about a minute to set up.
         </p>
 
         {/* The product, breaking the fold. The section below is pulled up over

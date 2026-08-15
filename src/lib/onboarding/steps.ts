@@ -72,7 +72,7 @@ export const STEPS: Step[] = [
     id: 'welcome',
     phase: 'Get started',
     title: 'Welcome to Sidq',
-    subtitle: 'One clear day, every morning.',
+    subtitle: 'Picks up where you stopped, and holds you to one thing.',
     gate: { kind: 'button', label: 'Continue' },
   },
   {

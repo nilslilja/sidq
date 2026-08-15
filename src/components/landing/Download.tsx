@@ -134,8 +134,8 @@ export function Download() {
             )}
 
             <p className="mt-6 border-t border-ink/10 pt-5 text-[0.75rem] leading-relaxed ink-muted">
-              Free, no card. The web app works on its own if you would rather not install
-              anything.
+              Free, no card. Signed and notarised by Apple, so it opens with no security
+              warning.
             </p>
           </div>
         </div>

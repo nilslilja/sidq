@@ -71,9 +71,9 @@ function PlanCta({ plan }: { plan: Plan }) {
         {info.label}
       </a>
     ) : (
-      <Link to="/signin" className={className}>
-        Open the web app
-      </Link>
+      // Mac only. No browser fallback to send people to, so the button states
+      // the platform instead of promising a product that does not exist.
+      <span className={className}>Mac only for now</span>
     );
   }
 

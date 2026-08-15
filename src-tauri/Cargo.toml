@@ -9,7 +9,11 @@ rust-version = "1.77"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api", "tray-icon", "devtools"] }
+# NOT "devtools". That feature ships the WebKit inspector in release builds and
+# took the binary from 7MB to 66MB, which both blew past storage limits and
+# destroyed the size advantage over Electron that is a real selling point.
+# Debug builds get devtools automatically without it.
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-shell = "2"

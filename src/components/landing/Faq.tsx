@@ -46,8 +46,8 @@ const FAQS = [
     a: `It is built to be reluctant. It watches ${NUDGE.samplesBeforeNudge} consecutive samples before saying anything, waits ${NUDGE.cooldownMinutes} minutes between anything it does say, and stays quiet unless it is fairly confident. One line, then it stops. An overlay that talks too much gets quit in a week, and a quit overlay is worth nothing.`,
   },
   {
-    q: 'Do I have to install the desktop app?',
-    a: 'No, the web app works on its own. But the parts nobody else has, noticing you drifted, catching a thought from inside another app, seeing where the day actually went, only exist because something is on your screen while you work. A browser tab cannot see Figma.',
+    q: 'Is there a web version?',
+    a: 'No. Sidq is a Mac app and only a Mac app. Everything it does depends on being on the machine: reading the Claude Code session you left open, knowing which window is in front of you, sitting above your editor while you work. A browser tab can do none of that, so shipping one would mean selling a different and much worse product under the same name.',
   },
 ];
 

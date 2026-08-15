@@ -38,7 +38,32 @@ export function DownloadButton({
    * landing page starts the same download and then explains the next sixty
    * seconds, which is where installs are actually lost.
    */
-  const href = artifact ? '/downloading' : '/signin';
+  const href = artifact ? '/downloading' : undefined;
+
+  /*
+   * There is no browser fallback, deliberately.
+   *
+   * Sidq is a Mac app. Everything that makes it worth installing (reading the
+   * session you left open, seeing which window is in front of you, sitting above
+   * the editor) requires being on the machine. Offering "open it in a tab"
+   * instead sold a different, worse product to anyone not on a Mac, and left
+   * them on a page that could not do the thing they had just read about.
+   */
+  if (!artifact) {
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center justify-center gap-2.5 rounded-full',
+          'border border-white/15 font-medium text-white/50',
+          size === 'lg' ? 'min-h-[3.75rem] px-9 text-[1.0625rem]' : 'min-h-11 px-5 text-[0.875rem]',
+          className,
+        )}
+      >
+        <Apple className={size === 'lg' ? 'size-5' : 'size-4'} />
+        Mac only for now
+      </span>
+    );
+  }
 
   return (
     <a
@@ -56,7 +81,7 @@ export function DownloadButton({
       ) : (
         <ArrowDownToLine className={size === 'lg' ? 'size-5' : 'size-4'} />
       )}
-      {artifact ? info.label : 'Open the web app'}
+      {info.label}
     </a>
   );
 }

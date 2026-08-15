@@ -634,7 +634,7 @@ export default function Onboarding() {
       case 'discover':
         return (
           <CardPreview
-            task="One clear day, every morning"
+            task="Pick up where you stopped"
             status="Sidq reads where you stopped"
             tone="calm"
             clock="0:00"

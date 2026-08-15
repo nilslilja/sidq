@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
 import { DownloadButton } from './DownloadButton';
-import { artifactFor } from '@/lib/releases';
-import { detectPlatform } from '@/lib/platform';
 
 /*
  * Footer.
@@ -25,9 +23,8 @@ const COLUMNS = [
   {
     heading: 'Product',
     links: [
-      { label: 'Download', to: artifactFor(detectPlatform().platform)?.url ?? '/signin' },
+      { label: 'Download for Mac', to: '/downloading' },
       { label: 'Pricing', to: '/#pricing' },
-      { label: 'Open the web app', to: '/today' },
     ],
   },
   {
@@ -73,7 +70,7 @@ export function SiteFooter() {
           <div>
             <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">Sidq</div>
             <p className="mt-3 max-w-[26ch] text-[0.875rem] leading-relaxed ink-muted">
-              One clear day, every morning.
+              The Mac app that remembers where you stopped.
             </p>
             <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-ink/[0.04] px-3 py-1.5 text-[0.75rem] ink-muted">
               <span className="size-1.5 rounded-full bg-[#34C77B]" />
