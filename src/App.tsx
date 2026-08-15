@@ -29,6 +29,17 @@ const DesktopSignIn = lazy(() =>
   import('@/routes/DesktopSignIn').then((m) => ({ default: m.DesktopSignIn })),
 );
 
+/*
+ * Privacy and Terms, public and outside AppShell.
+ *
+ * They were footer links with no route, so both fell through to the catch-all
+ * and redirected to the homepage. Putting them inside AppShell would have been
+ * worse than nothing: it gates on a session, so the one page a cautious person
+ * reads *before* signing up would have demanded they sign up first.
+ */
+const Privacy = lazy(() => import('@/routes/Legal').then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import('@/routes/Legal').then((m) => ({ default: m.Terms })));
+
 export function App() {
   return (
     <BrowserRouter>
@@ -82,6 +93,22 @@ function Shell() {
       <div className="grain relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route
+            path="/privacy"
+            element={
+              <Suspense fallback={<Blank />}>
+                <Privacy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <Suspense fallback={<Blank />}>
+                <Terms />
+              </Suspense>
+            }
+          />
           <Route
             path="*"
             element={

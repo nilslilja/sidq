@@ -14,8 +14,6 @@ import { Download } from '@/components/landing/Download';
  * carry on as you are, what it costs to fix, the objections, the offer again.
  */
 
-const WORKING_DAYS_PER_YEAR = 250;
-
 export function Landing() {
   return (
     <div className="bg-paper">
@@ -85,19 +83,19 @@ export function Landing() {
 
           <div className="mt-14 grid gap-px border border-paper/15 bg-paper/15 sm:grid-cols-3">
             <Stat
-              n="~20 min"
-              k="Every morning"
-              v="Spent deciding what matters, at the hour you are least equipped to decide it."
-            />
-            <Stat
-              n="23 min"
-              k="Every interruption"
-              v="The documented cost of getting back into the thing you were doing."
-            />
-            <Stat
               n="0"
-              k="Every evening"
-              v="Record of what actually happened, so nothing you learn carries into tomorrow."
+              k="Words uploaded"
+              v="Read from your own disk, written to your own clipboard. It works with the wifi off."
+            />
+            <Stat
+              n="1 key"
+              k="To move all of it"
+              v="One keystroke moves a whole conversation. Not a summary, not an export, not a copy and paste."
+            />
+            <Stat
+              n="Everything"
+              k="Waiting on day one"
+              v="Conversations from months before you installed Sidq are there the first time you open it."
             />
           </div>
 
@@ -133,4 +131,3 @@ function Stat({ k, v, n }: { k: string; v: string; n: string }) {
   );
 }
 
-export { WORKING_DAYS_PER_YEAR };

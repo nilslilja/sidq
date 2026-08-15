@@ -56,7 +56,7 @@ export function SiteFooter() {
       <div className="relative mx-auto max-w-[76rem] px-6">
         <div className="py-20 text-center">
           <h2 className="mx-auto max-w-[18ch] font-display text-[clamp(2rem,5vw,3.75rem)] leading-[0.94] tracking-[-0.045em]">
-            Tomorrow is one of the 250.
+            
           </h2>
           <p className="mx-auto mt-6 max-w-[42ch] text-[1rem] leading-relaxed ink-muted">
             If it has not earned its place on your screen within a week, delete it.
@@ -71,10 +71,6 @@ export function SiteFooter() {
             <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">Sidq</div>
             <p className="mt-3 max-w-[26ch] text-[0.875rem] leading-relaxed ink-muted">
               Your AI conversations, carried from one assistant to the next.
-            </p>
-            <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-ink/[0.04] px-3 py-1.5 text-[0.75rem] ink-muted">
-              <span className="size-1.5 rounded-full bg-[#34C77B]" />
-              All systems operational
             </p>
           </div>
 

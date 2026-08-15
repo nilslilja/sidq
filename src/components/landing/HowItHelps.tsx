@@ -9,9 +9,9 @@ import { cn } from '@/lib/cn';
  * this category converges on, for the sound reason that it forces exactly two
  * claims instead of a grid of nine.
  *
- * The two chosen are the two moments the product exists for: the morning, when
- * nothing has been decided, and the middle of the afternoon, when the plan has
- * already gone wrong. Everything else Sidq does hangs off those.
+ * The two chosen are the two halves of the only thing Sidq does: finding the
+ * conversation you were actually in the middle of, and putting all of it into
+ * whichever assistant you are in now. There is nothing else to show.
  */
 
 export function HowItHelps() {
@@ -21,32 +21,32 @@ export function HowItHelps() {
         id="how"
         className="max-w-[20ch] font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
       >
-        How Sidq helps during the day
+        One keystroke, and it is already there
       </h2>
 
       <div className="mt-14 grid gap-5 lg:grid-cols-2">
         {/* ── Morning ───────────────────────────────────────────────────── */}
         <Panel filled>
           <h3 className="text-[clamp(1.375rem,2.4vw,1.75rem)] leading-snug tracking-[-0.02em] text-white">
-            Sidq <Pill filled>decides</Pill> before you do
+            It knows <Pill filled>which one</Pill> you meant
           </h3>
           {/* /85, not /70. Measured at 3.93:1 on this indigo at /70, which fails
               AA for body text. /85 clears it without flattening the hierarchy. */}
           <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed text-white/85">
-            Three to six real moves, sized to blocks you actually finish, waiting when
-            you sit down. One marked as the thing that matters.
+            Not the last thing you typed, which is usually a passing question. The
+            conversations you actually put hours into, ranked, waiting.
           </p>
 
           <div className="mt-9">
             <CardPreview
-              task="Write the pricing page copy"
-              status="Top priority today"
+              task="Pricing page copy"
+              status="3 conversations worth resuming"
               tone="calm"
               clock="0:00"
               plan={[
-                { title: 'Write the pricing page copy', minutes: 45 },
-                { title: 'Reply to the three from Tuesday', minutes: 15 },
-                { title: 'Fix the signup redirect', minutes: 25 },
+                { title: 'Pricing page copy', minutes: 320 },
+                { title: 'Onboarding email sequence', minutes: 95 },
+                { title: 'Refund policy wording', minutes: 40 },
               ]}
               className="w-full"
             />
@@ -56,23 +56,23 @@ export function HowItHelps() {
         {/* ── Afternoon ─────────────────────────────────────────────────── */}
         <Panel>
           <h3 className="text-[clamp(1.375rem,2.4vw,1.75rem)] leading-snug tracking-[-0.02em]">
-            When it goes wrong, it <Pill>rebuilds</Pill>
+            Then it hands over <Pill>all of it</Pill>
           </h3>
           <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed ink-muted">
-            At 3pm with nothing ticked, every other planner shows you the same eight hours
-            you already failed. Sidq rebuilds the rest of the day around the hours that
-            are actually left.
+            The whole conversation, word for word, into whichever assistant you are in
+            now. Not a summary. It arrives knowing what you already decided and what you
+            already threw out.
           </p>
 
           <div className="mt-9">
             <CardPreview
-              task="Rest of the day"
-              status="Rebuilt around the 1h 40m you actually have"
-              tone="alert"
-              clock="15:02"
+              task="Pricing page copy"
+              status="1,402 messages copied, ready to paste"
+              tone="calm"
+              clock="0:00"
               plan={[
-                { title: 'Reply to the three from Tuesday', minutes: 15 },
-                { title: 'Start the pricing copy, stop after 25', minutes: 25 },
+                { title: 'Every message, in order', minutes: 320 },
+                { title: 'Nothing summarised, nothing dropped', minutes: 0 },
               ]}
               className="w-full"
             />
