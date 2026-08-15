@@ -8,11 +8,10 @@ import { PoweredByClaude } from './PoweredByClaude';
  * A dawn sky, a single sentence, one lit button, and the product sitting under
  * the fold line so the first scroll lands on it.
  *
- * The sky is not decoration borrowed from a competitor. The product is a thing
- * you meet in the morning, before the day starts, and "one clear day, every
- * morning" is the whole promise. A sunrise is the most direct possible statement
- * of that, and it costs nothing: it is four gradient stops and a blurred circle,
- * no photograph to license and no megabytes to ship.
+ * The sky is not decoration borrowed from a competitor. Every handover is a
+ * picking-up-again, and a sunrise is the most direct statement of that without
+ * writing the word. It also costs nothing: four gradient stops and a blurred
+ * circle, no photograph to license and no megabytes to ship.
  */
 
 export function Hero() {
@@ -66,8 +65,8 @@ export function Hero() {
         </h1>
 
         <p className="mx-auto mt-8 max-w-[46ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          Sidq reads your Claude Code sessions on this Mac, sits above your work, and
-          keeps one thing in front of you until it is done.
+          You switch between assistants all day and start from nothing every time.
+          Sidq carries the whole conversation across, word for word.
         </p>
 
         <div className="mt-10 flex justify-center">
@@ -91,7 +90,7 @@ export function Hero() {
          */}
         <div className="mt-16 lg:mt-20">
           <ProductVideo
-            caption="Sidq sits above a code editor. The person switches to another app, and the card quietly notes they have drifted off the task they picked."
+            caption="Sidq sits above the window you are working in. The person switches to another app, and the card quietly notes they have drifted off the thing they picked."
           />
         </div>
       </div>

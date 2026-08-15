@@ -18,7 +18,8 @@ const FREE = entitlementsFor('free');
  * FAQ.
  *
  * Answers the objections that actually stop a download, in the order they occur:
- * what it can see, whether it is another wrapper, what the free plan really is.
+ * what it does, what it reads, whether anything leaves the machine, and why a
+ * summary is not the same thing.
  *
  * Written to be read by someone deciding, not by a search engine. Every answer
  * that could be "yes, but" is written as the plain answer first.
@@ -26,28 +27,40 @@ const FREE = entitlementsFor('free');
 
 const FAQS = [
   {
-    q: 'What can it actually see on my screen?',
-    a: 'The name of the app in front of you and the title of its window. That is all. No screenshots, no screen recording, no vision model, no camera, no microphone. It is read on your machine and never uploaded, which is also why it is instant and works with the wifi off.',
+    q: 'What does it actually do?',
+    a: 'You are in the middle of something with one assistant and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.',
+  },
+  {
+    q: 'Which assistants does it work with?',
+    a: 'Claude Code is read automatically from this Mac, including everything you did before installing Sidq. ChatGPT and Gemini are brought in from the export file each of them gives you, because neither keeps anything readable on your computer. More are being added, and the ones that store their history locally are the ones that get read automatically.',
+  },
+  {
+    q: 'I only installed it today. Is it empty until I build up history?',
+    a: 'No, and this is the part people expect to be worse than it is. Sidq reads what is already on your Mac, so a conversation from two months ago is there the first time you open it. Nothing has to accumulate.',
+  },
+  {
+    q: 'Why not just ask the AI to summarise the chat and paste that?',
+    a: 'Because a summary is the thing you lose. It keeps the conclusions and throws away the corrections, the ideas you rejected, the way you actually talk. The next assistant reads about your work instead of having been there, and you spend the next twenty minutes fixing its assumptions. Sidq hands over the conversation itself, not a description of it.',
+  },
+  {
+    q: 'Does any of this leave my Mac?',
+    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded, there is no account needed to use it, and it works with the wifi off. A conversation is only ever read when you pick it yourself, never on a timer and never in the background.',
+  },
+  {
+    q: 'What can it see on my screen?',
+    a: `The name of the app in front of you and the title of its window, and only while the companion is on. No screenshots, no screen recording, no vision model, no camera, no microphone. It is read on your machine and never uploaded, which is also why it is instant and works offline. It is built to be reluctant with it: ${NUDGE.samplesBeforeNudge} consecutive readings before it says anything, ${NUDGE.cooldownMinutes} minutes between anything it does say, one line, then it stops.`,
   },
   {
     q: 'Is this just a wrapper around a chatbot?',
-    a: 'No. The part that matters is the calibration engine, and it runs on your own history rather than a model: which block sizes you finish, how many tasks you really close in a day, when your good hours are, what you have quietly carried for a week. A model writes the words. Your data decides the plan, and it gets better the longer you use it, which is not something a wrapper can do.',
+    a: 'No, and the honest test is that most of it does not call a model at all. Finding what is worth resuming, reading the transcript and handing it over are file operations on your machine. That is why it is instant, why it costs nothing to run, and why it works offline.',
   },
   {
     q: 'What do I get for free?',
-    a: `The whole product, metered. ${FREE.rebuildsPerWeek} plan rebuilds a week and ${FREE.companionMinutesPerDay} minutes of the companion a day, plus the last ${FREE.historyDays} days of history. Nothing is behind a padlock, you simply run out. Most people who upgrade do it because they hit the meter on a good week, not because a feature was hidden.`,
-  },
-  {
-    q: 'How is it different from a to-do list?',
-    a: 'A to-do list is a place you put things. It has no opinion, it never gets shorter, and it never tells you that eleven tasks was never going to happen. Sidq starts from what you have actually completed before and refuses to write a day you have never once managed.',
-  },
-  {
-    q: 'Does it nag me?',
-    a: `It is built to be reluctant. It watches ${NUDGE.samplesBeforeNudge} consecutive samples before saying anything, waits ${NUDGE.cooldownMinutes} minutes between anything it does say, and stays quiet unless it is fairly confident. One line, then it stops. An overlay that talks too much gets quit in a week, and a quit overlay is worth nothing.`,
+    a: `${FREE.handoffsPerWeek} handovers a week and ${FREE.sources} assistant connected, with your full history and complete transcripts. Nothing is behind a padlock, you simply run out. People upgrade when they start doing this every day, which is the point at which one connected assistant stops being enough.`,
   },
   {
     q: 'Is there a web version?',
-    a: 'No. Sidq is a Mac app and only a Mac app. Everything it does depends on being on the machine: reading the Claude Code session you left open, knowing which window is in front of you, sitting above your editor while you work. A browser tab can do none of that, so shipping one would mean selling a different and much worse product under the same name.',
+    a: 'No. Sidq is a Mac app and only a Mac app, because everything it does depends on being on the machine your conversations are already stored on. A browser tab cannot read them, so shipping one would mean selling a different and much worse product under the same name.',
   },
 ];
 

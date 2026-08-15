@@ -112,11 +112,20 @@ describe('pricing cards match the contract', () => {
   });
 
   test('the free card states its actual numbers', () => {
+    /*
+     * The two limits a free user actually meets.
+     *
+     * This asserted rebuilds and history days while the card advertised them,
+     * and caught the change the moment the product stopped being metered that
+     * way. Whatever the free card meters, the number on it has to be the number
+     * in the contract, which is the only claim on the pricing page a test can
+     * check for itself.
+     */
     const free = entitlementsFor('free');
     const text = PLANS[0].features.join(' ');
 
-    expect(text).toContain(String(free.rebuildsPerWeek));
-    expect(text).toContain(String(free.historyDays));
+    expect(text).toContain(String(free.handoffsPerWeek));
+    expect(text).toContain(String(free.sources));
   });
 
   test('no card sells a capability that is switched off for that plan', () => {

@@ -70,7 +70,7 @@ export function SiteFooter() {
           <div>
             <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">Sidq</div>
             <p className="mt-3 max-w-[26ch] text-[0.875rem] leading-relaxed ink-muted">
-              The Mac app that remembers where you stopped.
+              Your AI conversations, carried from one assistant to the next.
             </p>
             <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-ink/[0.04] px-3 py-1.5 text-[0.75rem] ink-muted">
               <span className="size-1.5 rounded-full bg-[#34C77B]" />
@@ -99,7 +99,7 @@ export function SiteFooter() {
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-ink/10 py-8 text-[0.75rem] ink-muted">
           <span>© {new Date().getFullYear()} Sidq. All rights reserved.</span>
-          <span>Built for people who lose the afternoon.</span>
+          <span>Built for people who live between four assistants.</span>
         </div>
       </div>
     </footer>

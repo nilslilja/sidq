@@ -48,13 +48,11 @@ export const PLANS: Plan[] = [
     inherits: null,
     cta: 'Download for Mac',
     features: [
-      `${free.rebuildsPerWeek} plan rebuilds a week`,
-      // Minutes, not hours. 90/60 renders as "1.5 hours", which reads like a
-      // rounding error rather than a limit somebody chose.
-      `${free.companionMinutesPerDay} minutes of the companion a day`,
-      `The last ${free.historyDays} days of your history`,
-      'Quick capture from any app',
-      'Where every hour went, at the end of the day',
+      `${free.handoffsPerWeek} conversation handovers a week`,
+      `${free.sources} assistant connected`,
+      'Every conversation already on your Mac, from day one',
+      'Full transcripts, never summaries',
+      'Nothing uploaded, ever',
     ],
   },
   {
@@ -64,15 +62,15 @@ export const PLANS: Plan[] = [
     cadence: '/ month',
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
-    promise: 'Sidq starts planning from your own record.',
+    promise: 'Every assistant you use, holding one memory.',
     inherits: 'Starter',
     cta: 'Subscribe',
     featured: true,
     features: [
-      'Learns the block sizes you actually finish, and plans to them',
+      'Learns what you actually finish, and plans to it',
       'Your real daily capacity, measured, not guessed',
-      'Rescues the day at 3pm when it has gone wrong',
-      'Unlimited rebuilds, all-day companion, full history',
+      'Rescues the day when it has gone wrong',
+      'Unlimited handovers, every assistant connected',
       /*
        * Rooms is NOT listed. The engine and the UI both exist, but the panel was
        * taken off the card and nothing renders it, so there is no way for a
@@ -82,7 +80,7 @@ export const PLANS: Plan[] = [
        *
        * Put it back the moment it has a way in.
        */
-      'Picks up where you stopped, from your own work history',
+      'Your whole history, however far back it goes',
     ],
   },
   {

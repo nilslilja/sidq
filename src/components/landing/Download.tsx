@@ -59,19 +59,19 @@ export function Download() {
             </h2>
 
             <p className="mt-7 max-w-[40ch] text-[1.0625rem] leading-relaxed ink-muted">
-              A small glass card, always on top, out of the way. It knows which task you
-              are on, notices when the window in front of you stopped matching it, and
-              tells you when to stop.
+              A small card, always on top, out of the way. One keystroke brings up
+              what you were last in the middle of, in any assistant, and hands the
+              whole conversation to whichever one you are in now.
             </p>
 
             {/* Four claims, one line each. The long spec list that used to live here
                 was the least-read part of the page and it fought the calm. */}
             <ul className="mt-9 flex flex-wrap gap-x-7 gap-y-2.5 text-[0.875rem] ink-muted">
               {[
-                'Window titles, never your screen',
-                'On-device voice',
-                'Answers instantly, offline',
-                'Break timing from your data',
+                'Your history from day one, not from install',
+                'Full transcripts, never summaries',
+                'Nothing leaves your Mac',
+                'Instant, and works offline',
               ].map((claim) => (
                 <li key={claim} className="flex items-center gap-2">
                   <span aria-hidden="true" className="size-1 rounded-full bg-accent/50" />

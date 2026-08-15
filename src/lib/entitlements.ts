@@ -23,6 +23,22 @@ import type { PlanId } from './plans';
  */
 
 export interface Entitlements {
+  /**
+   * Conversations handed to another assistant per rolling week.
+   *
+   * The metered action, because it is the one people came for. Costs nothing to
+   * run (it is a local file read), so the limit exists to mark the value rather
+   * than to cover a bill, and it is set high enough that a casual user never
+   * meets it and a daily user meets it in the first week.
+   */
+  handoffsPerWeek: number;
+  /**
+   * How many assistants can be connected at once.
+   *
+   * One is enough to prove it works and useless for the thing it is actually
+   * for, which is moving between them.
+   */
+  sources: number;
   /** Model calls per rolling week. The one thing that costs us money. */
   rebuildsPerWeek: number;
   /** Minutes the companion watches per day before going quiet. */
@@ -57,6 +73,8 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
    * paid one, which is how you end up with a product nobody pays for.
    */
   free: {
+    handoffsPerWeek: 10,
+    sources: 1,
     rebuildsPerWeek: 3,
     companionMinutesPerDay: 90,
     historyDays: 7,
@@ -67,6 +85,8 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
     seats: 1,
   },
   pro: {
+    handoffsPerWeek: UNLIMITED,
+    sources: UNLIMITED,
     rebuildsPerWeek: UNLIMITED,
     companionMinutesPerDay: UNLIMITED,
     historyDays: UNLIMITED,
@@ -82,6 +102,8 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
    * previous third tier failed.
    */
   duo: {
+    handoffsPerWeek: UNLIMITED,
+    sources: UNLIMITED,
     rebuildsPerWeek: UNLIMITED,
     companionMinutesPerDay: UNLIMITED,
     historyDays: UNLIMITED,
