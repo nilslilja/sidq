@@ -67,10 +67,10 @@ export const PLANS: Plan[] = [
     cta: 'Subscribe',
     featured: true,
     features: [
+      'Unlimited handovers, every day',
+      'Every assistant connected at once',
+      'Your whole history, however far back it goes',
       'Learns what you actually finish, and plans to it',
-      'Your real daily capacity, measured, not guessed',
-      'Rescues the day when it has gone wrong',
-      'Unlimited handovers, every assistant connected',
       /*
        * Rooms is NOT listed. The engine and the UI both exist, but the panel was
        * taken off the card and nothing renders it, so there is no way for a

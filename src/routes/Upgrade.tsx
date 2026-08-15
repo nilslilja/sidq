@@ -54,7 +54,7 @@ export function Upgrade() {
       </h1>
 
       <p className="mt-5 max-w-[40ch] text-[1rem] leading-relaxed text-muted">
-        Less than the two coffees you buy on the mornings you cannot get started.
+        Less than one wasted afternoon re-explaining what you were already doing.
       </p>
 
       <div className="mt-10 grid gap-4">
