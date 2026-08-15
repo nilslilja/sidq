@@ -11,8 +11,8 @@
  * does not survive one more customer, and selling it would have been selling
  * something that does not exist. It is gone.
  *
- * In its place is a second seat. It is real because rooms already exist, a seat
- * is a database row, and nobody has to do any work when someone buys one.
+ * In its place is a second seat. It is real because a seat is a database row and
+ * nobody has to do any work when someone buys one.
  *
  * Every feature line below maps to a field in entitlements.ts, which is what the
  * enforcement points read. Nothing is claimed here that is not enforced there.

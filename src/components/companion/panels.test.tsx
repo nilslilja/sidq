@@ -3,10 +3,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RescueDay } from './RescueDay';
 import { DayReplay } from './DayReplay';
-import { BodyDouble } from './BodyDouble';
 import type { RescuePlan } from '@/lib/companion/day-rescue';
 import type { DayReplay as Replay } from '@/lib/companion/session-replay';
-import type { BodyDouble as BodyDoubleState } from '@/lib/companion/use-body-double';
 import type { Task } from '@/types/domain';
 
 /*
@@ -106,66 +104,3 @@ describe('DayReplay', () => {
   });
 });
 
-describe('BodyDouble', () => {
-  const base: BodyDoubleState = {
-    available: true,
-    code: null,
-    name: '',
-    setName: () => {},
-    room: { peers: [], overflow: 0, working: 0, headline: '', alive: false },
-    error: null,
-    join: () => true,
-    create: () => 'BC23FG',
-    leave: () => {},
-  };
-
-  test('says the feature is unavailable rather than showing an empty room', () => {
-    render(<BodyDouble state={{ ...base, available: false }} onClose={() => {}} />);
-
-    expect(screen.getByText(/needs an account/)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/room code/i)).toBeNull();
-  });
-
-  test('rejects a malformed code without joining', async () => {
-    const join = vi.fn(() => false);
-    render(<BodyDouble state={{ ...base, join }} onClose={() => {}} />);
-
-    await userEvent.type(screen.getByPlaceholderText(/room code/i), 'nope');
-    await userEvent.click(screen.getByRole('button', { name: /^join$/i }));
-
-    expect(join).toHaveBeenCalledWith('nope');
-  });
-
-  test('shows peers with their running clocks, and nothing else about them', () => {
-    render(
-      <BodyDouble
-        state={{
-          ...base,
-          code: 'BC23FG',
-          name: 'Nils',
-          room: {
-            peers: [{ id: 'p1', name: 'Sara', state: 'working', minutes: 40, task: null }],
-            overflow: 0,
-            working: 1,
-            headline: 'Sara is 40 min in.',
-            alive: true,
-          },
-        }}
-        onClose={() => {}}
-      />,
-    );
-
-    expect(screen.getByText('Sara')).toBeInTheDocument();
-    expect(screen.getByText('40m')).toBeInTheDocument();
-  });
-
-  test('asks for a name only until one is set', () => {
-    const { rerender } = render(
-      <BodyDouble state={{ ...base, code: 'BC23FG' }} onClose={() => {}} />,
-    );
-    expect(screen.getByPlaceholderText(/your first name/i)).toBeInTheDocument();
-
-    rerender(<BodyDouble state={{ ...base, code: 'BC23FG', name: 'Nils' }} onClose={() => {}} />);
-    expect(screen.queryByPlaceholderText(/your first name/i)).toBeNull();
-  });
-});

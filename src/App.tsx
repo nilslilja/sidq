@@ -7,8 +7,8 @@ import { Bloom } from '@/components/atmosphere/Bloom';
 // the shader and the hero stroke. Nothing else.
 const AppShell = lazy(() => import('./AppShell'));
 
-// The desktop card is split off too. It reads the store and joins realtime rooms,
-// so importing it eagerly put the whole Supabase client on the landing page and
+// The desktop card is split off too. It reads the store through the Supabase
+// client, so importing it eagerly put that whole client on the landing page and
 // pushed it 60kB past budget. Nobody hitting the marketing site needs any of it.
 const Overlay = lazy(() => import('@/routes/Overlay'));
 

@@ -51,15 +51,6 @@ export interface Entitlements {
   rescue: boolean;
   /** End-of-day breakdown of where the hours went. */
   replay: boolean;
-  /*
-   * Body doubling rooms.
-   *
-   * False on every plan right now. The engine, the presence channel and the
-   * panel all exist and are tested, but the card no longer renders it, so there
-   * is no way in. Kept in the contract rather than deleted because the work is
-   * done and this flips to true the day it gets an entry point.
-   */
-  rooms: boolean;
   /** Seats on the subscription, for the shared plan. */
   seats: number;
 }
@@ -81,7 +72,6 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
     calibration: false,
     rescue: false,
     replay: true,
-    rooms: false,
     seats: 1,
   },
   pro: {
@@ -93,7 +83,6 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
     calibration: true,
     rescue: true,
     replay: true,
-    rooms: false,
     seats: 1,
   },
   /*
@@ -110,7 +99,6 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
     calibration: true,
     rescue: true,
     replay: true,
-    rooms: false,
     seats: 2,
   },
 };

@@ -108,7 +108,6 @@ describe('pricing cards match the contract', () => {
 
     if (!free.calibration) expect(text).not.toMatch(/learns what you|your real capacity/);
     if (!free.rescue) expect(text).not.toMatch(/rescue/);
-    if (!free.rooms) expect(text).not.toMatch(/rooms/);
   });
 
   test('the free card states its actual numbers', () => {
@@ -137,9 +136,8 @@ describe('pricing cards match the contract', () => {
      * Prose has nothing checking it, which is exactly why it drifts.
      */
     const gated: [keyof Entitlements, RegExp][] = [
-      ['rooms', /\brooms?\b/i],
       ['rescue', /\brescues?\b/i],
-      ['calibration', /learns the block sizes|real daily capacity/i],
+      ['calibration', /learns what you actually finish|real daily capacity/i],
     ];
 
     for (const plan of PLANS) {
