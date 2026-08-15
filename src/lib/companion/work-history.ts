@@ -17,6 +17,15 @@
  */
 
 export interface WorkSession {
+  /**
+   * Filename stem of the transcript. What sessionTranscript is called with.
+   *
+   * Optional because not every session has one: history imported from a ChatGPT
+   * or Gemini export has no transcript file on this machine to point at. Those
+   * sessions are real and worth listing elsewhere, but they cannot be handed
+   * over, so the picker leaves them out rather than offering a row that fails.
+   */
+  sessionId?: string;
   project: string;
   projectName: string;
   title: string;

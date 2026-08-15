@@ -37,6 +37,8 @@ export interface OnboardingBridge {
    * reason a handover works at all. Null when the transcript cannot be read.
    */
   sessionTranscript: (sessionId: string) => Promise<string | null>;
+  /** Closes the picker. It dismisses itself the moment it has done the job. */
+  hidePill: () => Promise<void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -95,6 +97,9 @@ export function desktopBridge(): OnboardingBridge | null {
     sessionTranscript: async (sessionId) => {
       const text = await invoke('session_transcript', { sessionId });
       return typeof text === 'string' ? text : null;
+    },
+    hidePill: async () => {
+      await invoke('hide_pill');
     },
     finish: async () => {
       await invoke('finish_onboarding');

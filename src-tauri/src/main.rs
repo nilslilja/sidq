@@ -123,6 +123,20 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
  * Blocking task for the same reason as above, and more so, since this reads and
  * parses an entire transcript rather than skimming one.
  */
+/**
+ * Close the picker.
+ *
+ * Called by the pill itself once it has copied, and on Escape. It hides rather
+ * than closes so the next summon is instant: recreating the webview each time
+ * puts a visible beat between the keypress and the list.
+ */
+#[tauri::command]
+fn hide_pill(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("pill") {
+        let _ = w.hide();
+    }
+}
+
 #[tauri::command]
 async fn session_transcript(session_id: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || work_history::session_transcript(&session_id))
@@ -403,6 +417,7 @@ fn main() {
             accessibility_granted,
             recent_work,
             session_transcript,
+            hide_pill,
             request_accessibility,
             resize_overlay,
             move_overlay,
@@ -476,6 +491,36 @@ fn main() {
                 }
                 if let Some(w) = handle.get_webview_window("overlay") {
                     let _ = toggle_overlay(w);
+                }
+            })?;
+
+            /*
+             * The picker. Cmd+Shift+K.
+             *
+             * This is the product, so it gets the shortcut that is easiest to
+             * hit and it works from inside whatever you are already in. Unlike
+             * the card it takes focus, because it is a text field and a
+             * keyboard list.
+             *
+             * Toggling rather than only showing: pressing the summon key again
+             * is what everybody tries first when they want it gone.
+             */
+            let pick = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyK);
+            let pick_handle = app.handle().clone();
+            app.global_shortcut().on_shortcut(pick, move |_, _, event| {
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+                if let Some(w) = pick_handle.get_webview_window("pill") {
+                    if w.is_visible().unwrap_or(false) {
+                        let _ = w.hide();
+                    } else {
+                        // Centred on every summon. The picker should appear where
+                        // the eyes already are, not where it was left last time.
+                        let _ = w.center();
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
                 }
             })?;
 

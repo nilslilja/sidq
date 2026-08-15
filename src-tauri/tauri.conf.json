@@ -47,6 +47,24 @@
         "resizable": true,
         "center": true,
         "visible": false
+      },
+      {
+        "label": "pill",
+        "url": "/pill",
+        "title": "Sidq",
+        "width": 560,
+        "height": 340,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "center": true,
+        "acceptFirstMouse": true,
+        "focus": true,
+        "visible": false
       }
     ],
     "security": {

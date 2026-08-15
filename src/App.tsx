@@ -12,6 +12,10 @@ const AppShell = lazy(() => import('./AppShell'));
 // pushed it 60kB past budget. Nobody hitting the marketing site needs any of it.
 const Overlay = lazy(() => import('@/routes/Overlay'));
 
+// The picker. Its own window, its own chunk: it is summoned by a global
+// shortcut and must appear instantly, so it carries nothing the list needs not.
+const Pill = lazy(() => import('@/routes/Pill').then((m) => ({ default: m.Pill })));
+
 // First run. Its own window in the desktop app, its own chunk everywhere, since
 // it is seen exactly once per install and never again.
 const Onboarding = lazy(() => import('@/routes/Onboarding'));
@@ -53,6 +57,14 @@ export function App() {
           element={
             <Suspense fallback={null}>
               <Overlay />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/pill"
+          element={
+            <Suspense fallback={null}>
+              <Pill />
             </Suspense>
           }
         />

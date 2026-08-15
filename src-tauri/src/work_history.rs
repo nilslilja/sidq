@@ -35,7 +35,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// One piece of work, reduced to what the picker needs to rank and label it.
+/*
+ * camelCase across the boundary.
+ *
+ * Without this the webview received `project_name` and `ended_at` while every
+ * consumer in TypeScript reads `projectName` and `endedAt`, so each one saw
+ * undefined: the resume line rendered "undefined in undefined" and the ranker
+ * scored real sessions as NaN. Nothing failed loudly because the types on the
+ * other side claimed the camelCase shape and no mapper ever existed to produce
+ * it. The test below pins the wire format so it cannot drift back.
+ */
 #[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkSession {
     /// Filename stem of the transcript. What `session_transcript` is called with.
     pub session_id: String,
@@ -435,6 +446,24 @@ fn truncate(text: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serialises_the_keys_typescript_actually_reads() {
+        // The TS interface is the contract, and it is camelCase. A rename here
+        // silently turns every field into undefined on the other side.
+        let json = serde_json::to_string(&WorkSession::default()).unwrap();
+
+        for key in [
+            "sessionId",
+            "projectName",
+            "lastPrompt",
+            "endedAt",
+            "activeMinutes",
+        ] {
+            assert!(json.contains(&format!("\"{key}\"")), "missing {key} in {json}");
+        }
+        assert!(!json.contains("project_name"), "snake_case leaked: {json}");
+    }
 
     #[test]
     fn truncate_never_splits_a_character() {
