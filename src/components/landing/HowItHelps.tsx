@@ -1,4 +1,4 @@
-import { CardPreview } from '@/components/onboarding/CardPreview';
+import { PillPreview } from './PillPreview';
 import { cn } from '@/lib/cn';
 
 /*
@@ -38,15 +38,11 @@ export function HowItHelps() {
           </p>
 
           <div className="mt-9">
-            <CardPreview
-              task="Pricing page copy"
-              status="3 conversations worth resuming"
-              tone="calm"
-              clock="0:00"
-              plan={[
-                { title: 'Pricing page copy', minutes: 320 },
-                { title: 'Onboarding email sequence', minutes: 95 },
-                { title: 'Refund policy wording', minutes: 40 },
+            <PillPreview
+              rows={[
+                { title: 'Pricing page copy', meta: '5h session · Sidq' },
+                { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
+                { title: 'Refund policy wording', meta: '40m · Sidq' },
               ]}
               className="w-full"
             />
@@ -65,15 +61,12 @@ export function HowItHelps() {
           </p>
 
           <div className="mt-9">
-            <CardPreview
-              task="Pricing page copy"
-              status="1,402 messages copied, ready to paste"
-              tone="calm"
-              clock="0:00"
-              plan={[
-                { title: 'Every message, in order', minutes: 320 },
-                { title: 'Nothing summarised, nothing dropped', minutes: 0 },
-              ]}
+            <PillPreview
+              query="pricing"
+              rows={[{ title: 'Pricing page copy', meta: '5h session · Sidq' }]}
+              selected={0}
+              status="1,402 messages"
+              footer="Copied. Paste it anywhere."
               className="w-full"
             />
           </div>

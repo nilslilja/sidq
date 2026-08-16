@@ -1,4 +1,4 @@
-import { CardPreview } from '@/components/onboarding/CardPreview';
+import { PillPreview } from './PillPreview';
 import { cn } from '@/lib/cn';
 
 /*
@@ -63,15 +63,14 @@ export function DesktopMock({ className }: { className?: string }) {
        * float-soft rather than drift-a, because the drift keyframes tilt. Right
        * for a loose keycap, and it makes a UI card look like a rendering fault.
        */}
-      <div className="absolute left-1/2 top-[7%] w-[min(26rem,72%)] -translate-x-1/2">
-        <CardPreview
+      <div className="absolute left-1/2 top-[7%] w-[min(34rem,82%)] -translate-x-1/2">
+        <PillPreview
           className="float-soft w-full"
-          task="Write the pricing page copy"
-          // Short enough to survive the card's single-line truncation at this
-          // width. The overlay clips by design; the marketing shot must not.
-          status="25 min in. The one that matters."
-          tone="calm"
-          clock="25:04"
+          rows={[
+            { title: 'Pricing page copy', meta: '5h session · Sidq' },
+            { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
+            { title: 'Refund policy wording', meta: '40m · Sidq' },
+          ]}
         />
       </div>
     </div>

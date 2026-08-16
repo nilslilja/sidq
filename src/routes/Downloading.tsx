@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
 import { artifactFor } from '@/lib/releases';
-import { CardPreview } from '@/components/onboarding/CardPreview';
+import { PillPreview } from '@/components/landing/PillPreview';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { cn } from '@/lib/cn';
 
@@ -134,11 +134,11 @@ export function Downloading() {
               It already knows where you stopped.
             </p>
             <div className="mt-8">
-              <CardPreview
-                task="Fix the retry that drops the second event"
-                status="Earlier today, in Sidq"
-                tone="calm"
-                clock="0:00"
+              <PillPreview
+                rows={[
+                  { title: 'Pricing page copy', meta: '5h session · Sidq' },
+                  { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
+                ]}
                 className="w-full"
               />
             </div>

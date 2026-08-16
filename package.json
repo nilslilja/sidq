@@ -14,6 +14,7 @@
     "eval:offline": "tsx prompt/eval/run.ts --offline",
     "setup": "bash scripts/setup.sh",
     "desktop": "tauri dev",
+    "tauri": "tauri",
     "desktop:build": "tauri build"
   },
   "dependencies": {
