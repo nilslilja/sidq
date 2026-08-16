@@ -7,10 +7,6 @@ import { Bloom } from '@/components/atmosphere/Bloom';
 // the shader and the hero stroke. Nothing else.
 const AppShell = lazy(() => import('./AppShell'));
 
-// The desktop card is split off too. It reads the store through the Supabase
-// client, so importing it eagerly put that whole client on the landing page and
-// pushed it 60kB past budget. Nobody hitting the marketing site needs any of it.
-const Overlay = lazy(() => import('@/routes/Overlay'));
 
 // The picker. Its own window, its own chunk: it is summoned by a global
 // shortcut and must appear instantly, so it carries nothing the list needs not.
@@ -52,14 +48,6 @@ export function App() {
         {/* The desktop card renders alone: transparent, no bloom, no grain. The
             fallback is empty rather than a spinner, so the transparent window
             stays transparent while the chunk resolves. */}
-        <Route
-          path="/overlay"
-          element={
-            <Suspense fallback={null}>
-              <Overlay />
-            </Suspense>
-          }
-        />
         <Route
           path="/pill"
           element={

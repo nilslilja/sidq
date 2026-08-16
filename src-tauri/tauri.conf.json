@@ -13,30 +13,6 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "label": "overlay",
-        "url": "/overlay",
-        "title": "Sidq",
-        "width": 380,
-        "height": 132,
-        "minWidth": 300,
-        "minHeight": 64,
-        "maxWidth": 520,
-        "transparent": true,
-        "decorations": false,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "visibleOnAllWorkspaces": true,
-        "skipTaskbar": true,
-        "resizable": true,
-        "center": false,
-        "x": 40,
-        "y": 60,
-        "acceptFirstMouse": true,
-        "focus": false,
-        "visible": false,
-        "maxHeight": 640
-      },
-      {
         "label": "welcome",
         "url": "/welcome",
         "title": "Welcome to Sidq",
@@ -61,10 +37,12 @@
         "visibleOnAllWorkspaces": true,
         "skipTaskbar": true,
         "resizable": false,
-        "center": true,
+        "center": false,
         "acceptFirstMouse": true,
         "focus": true,
-        "visible": false
+        "visible": false,
+        "x": 0,
+        "y": 120
       }
     ],
     "security": {

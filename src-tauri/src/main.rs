@@ -146,6 +146,25 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
  * than closes so the next summon is instant: recreating the webview each time
  * puts a visible beat between the keypress and the list.
  */
+/**
+ * Put the pill where it always goes and show it.
+ *
+ * Horizontally centred, a fixed distance from the top, every single time. It is
+ * deliberately not movable and does not remember a position: it is on screen for
+ * a few seconds at a time, and a window you can drag is a window you have to
+ * decide about before you can use it.
+ */
+fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
+    if let (Ok(Some(monitor)), Ok(size)) = (w.current_monitor(), w.outer_size()) {
+        let screen = monitor.size();
+        let x = (screen.width as i32 - size.width as i32) / 2;
+        let y = (screen.height as f64 * 0.16) as i32;
+        let _ = w.set_position(tauri::PhysicalPosition::new(x.max(0), y));
+    }
+    w.show()?;
+    w.set_focus()
+}
+
 #[tauri::command]
 fn hide_pill(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pill") {
@@ -510,8 +529,8 @@ fn main() {
                 if claim_for_onboarding(&handle, "shortcut-hide") {
                     return;
                 }
-                if let Some(w) = handle.get_webview_window("overlay") {
-                    let _ = toggle_overlay(w);
+                if let Some(w) = handle.get_webview_window("pill") {
+                    let _ = show_pill(&w);
                 }
             })?;
 
@@ -536,11 +555,7 @@ fn main() {
                     if w.is_visible().unwrap_or(false) {
                         let _ = w.hide();
                     } else {
-                        // Centred on every summon. The picker should appear where
-                        // the eyes already are, not where it was left last time.
-                        let _ = w.center();
-                        let _ = w.show();
-                        let _ = w.set_focus();
+                        let _ = show_pill(&w);
                     }
                 }
             })?;
@@ -557,10 +572,8 @@ fn main() {
                 if claim_for_onboarding(&capture_handle, "shortcut-capture") {
                     return;
                 }
-                if let Some(w) = capture_handle.get_webview_window("overlay") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                    let _ = w.emit("quick-capture", ());
+                if let Some(w) = capture_handle.get_webview_window("pill") {
+                    let _ = show_pill(&w);
                 }
             })?;
 
