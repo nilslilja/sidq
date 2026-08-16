@@ -1,9 +1,19 @@
-//! Reading where you actually stopped.
+//! Reading where you actually stopped, everywhere Claude writes it down.
 //!
-//! Claude Code keeps a JSONL transcript per session under
-//! `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. Three record types in
-//! there are worth more than everything the rest of this product asks a person
-//! to type:
+//! Claude keeps a JSONL transcript per session, in the same format, in more than
+//! one place. Reading only the first missed Cowork entirely, which is often
+//! where the longest conversations are:
+//!
+//!   - `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`
+//!     Claude Code from a terminal.
+//!
+//!   - `~/Library/Application Support/Claude/local-agent-mode-sessions/`
+//!     `<workspace>/<account>/local_<uuid>/.claude/projects/...`
+//!     Cowork. Every session nests its own `.claude` directory laid out exactly
+//!     like the one above, so one parser reads both.
+//!
+//! Three record types in there are worth more than everything the rest of this
+//! product asks a person to type:
 //!
 //!   - `ai-title` / `custom-title` — what the session was about
 //!   - `last-prompt`               — the last thing they asked, which is exactly
@@ -150,13 +160,12 @@ pub fn session_transcript(session_id: &str) -> Option<String> {
 
 /// Locate `<session-id>.jsonl` under any project directory.
 fn find_transcript(session_id: &str) -> Option<PathBuf> {
-    let root = projects_root()?;
     let name = format!("{session_id}.jsonl");
 
-    fs::read_dir(&root)
-        .ok()?
-        .flatten()
-        .map(|dir| dir.path().join(&name))
+    project_roots()
+        .iter()
+        .flat_map(|root| read_dirs(root))
+        .map(|dir| dir.join(&name))
         .find(|candidate| candidate.is_file())
 }
 
@@ -223,18 +232,10 @@ fn clamp_to_tail(text: String) -> String {
 /// Returns an empty list rather than an error when the directory does not exist:
 /// most people do not have Claude Code installed and that is not a failure.
 pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
-    let Some(root) = projects_root() else {
-        return Vec::new();
-    };
-
-    let Ok(entries) = fs::read_dir(&root) else {
-        return Vec::new();
-    };
-
-    let mut sessions: Vec<WorkSession> = entries
-        .flatten()
-        .filter(|e| e.path().is_dir())
-        .flat_map(|dir| sessions_in_project(&dir.path()))
+    let mut sessions: Vec<WorkSession> = project_roots()
+        .iter()
+        .flat_map(|root| read_dirs(root))
+        .flat_map(|dir| sessions_in_project(&dir))
         .collect();
 
     // Newest first, so "where did I stop" is the first element.
@@ -243,10 +244,67 @@ pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
     sessions
 }
 
-fn projects_root() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    let path = PathBuf::from(home).join(".claude").join("projects");
-    path.is_dir().then_some(path)
+/**
+ * Every place Claude writes a transcript on this Mac.
+ *
+ * There is more than one, which is easy to miss because they hold the identical
+ * JSONL format. Reading only the first meant Cowork conversations — often the
+ * longest and most involved someone has — were invisible.
+ *
+ *   ~/.claude/projects
+ *       Claude Code from a terminal.
+ *
+ *   ~/Library/Application Support/Claude/local-agent-mode-sessions/
+ *       <workspace>/<account>/local_<uuid>/.claude/projects
+ *       Cowork. Each session carries its own nested .claude directory, laid out
+ *       exactly like the one above, so the same parser reads both.
+ */
+fn project_roots() -> Vec<PathBuf> {
+    let Some(home) = std::env::var_os("HOME") else {
+        return Vec::new();
+    };
+    let home = PathBuf::from(home);
+    let mut roots = Vec::new();
+
+    let cli = home.join(".claude").join("projects");
+    if cli.is_dir() {
+        roots.push(cli);
+    }
+
+    /*
+     * Cowork nests two levels of opaque id before the session folders, so this
+     * walks rather than globs: workspace, then account, then one directory per
+     * conversation, each containing a full .claude/projects tree of its own.
+     */
+    let cowork = home
+        .join("Library")
+        .join("Application Support")
+        .join("Claude")
+        .join("local-agent-mode-sessions");
+
+    for workspace in read_dirs(&cowork) {
+        for account in read_dirs(&workspace) {
+            for session in read_dirs(&account) {
+                let nested = session.join(".claude").join("projects");
+                if nested.is_dir() {
+                    roots.push(nested);
+                }
+            }
+        }
+    }
+
+    roots
+}
+
+/// Sub-directories of `dir`, or nothing if it cannot be read.
+fn read_dirs(dir: &Path) -> Vec<PathBuf> {
+    fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect()
 }
 
 fn sessions_in_project(dir: &Path) -> Vec<WorkSession> {
