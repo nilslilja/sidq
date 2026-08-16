@@ -330,9 +330,10 @@ fn finish_onboarding(app: AppHandle) -> Result<(), String> {
     if let Some(welcome) = app.get_webview_window("welcome") {
         let _ = welcome.close();
     }
-    if let Some(overlay) = app.get_webview_window("overlay") {
-        let _ = overlay.show();
-        let _ = overlay.set_focus();
+    // Bring the pill up once, so the first thing after setup is the product
+    // rather than an empty desktop and a shortcut they have to remember.
+    if let Some(pill) = app.get_webview_window("pill") {
+        let _ = show_pill(&pill);
     }
     Ok(())
 }
@@ -423,12 +424,14 @@ fn spawn_activity_watch(app: AppHandle) {
          * window for the main thread, and it was a large part of why the whole
          * flow felt like it was seizing up.
          */
-        let overlay_visible = app
-            .get_webview_window("overlay")
+        // Idle while setup is open. Nothing reads activity during first run and
+        // the poll competes with the setup window for the main thread.
+        let onboarding_open = app
+            .get_webview_window("welcome")
             .and_then(|w| w.is_visible().ok())
             .unwrap_or(false);
 
-        if !overlay_visible {
+        if onboarding_open {
             std::thread::sleep(POLL_INTERVAL);
             continue;
         }
@@ -487,17 +490,24 @@ fn main() {
             finish_onboarding
         ])
         .setup(|app| {
-            let window = app
-                .get_webview_window("overlay")
-                .expect("overlay window is declared in tauri.conf.json");
+            /*
+             * The pill, not the old card.
+             *
+             * This used to `.expect()` an "overlay" window. When that window was
+             * removed from tauri.conf.json the expect became a panic on the very
+             * first line of setup, so the app exited before showing anything at
+             * all. Looked up rather than unwrapped now: a missing window should
+             * cost a feature, never the whole launch.
+             */
+            let window = app.get_webview_window("pill");
 
             // Sit above full-screen apps too, not just normal windows. Without this
-            // the card vanishes the moment someone full-screens their editor, which
-            // is exactly when they need it.
+            // the pill vanishes the moment someone full-screens their editor, which
+            // is exactly when they reach for it.
             #[cfg(target_os = "macos")]
-            {
-                let _ = window.set_visible_on_all_workspaces(true);
-                let _ = window.set_always_on_top(true);
+            if let Some(w) = &window {
+                let _ = w.set_visible_on_all_workspaces(true);
+                let _ = w.set_always_on_top(true);
             }
 
             /*
@@ -514,9 +524,9 @@ fn main() {
                     let _ = welcome.show();
                     let _ = welcome.set_focus();
                 }
-            } else {
-                window.show()?;
             }
+            // Nothing is shown on a normal launch. The pill is summoned by
+            // Cmd+Shift+K and is not meant to sit on screen waiting.
 
             /*
              * The browser hands the session back through sidq://auth?...
