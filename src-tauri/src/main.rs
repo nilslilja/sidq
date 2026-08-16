@@ -535,23 +535,6 @@ fn main() {
                 }
             });
 
-            // Cmd/Ctrl+Shift+S toggles the card. Chosen to avoid collisions with
-            // the common editor and browser shortcuts.
-            let toggle = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyS);
-            let handle = app.handle().clone();
-            app.global_shortcut().on_shortcut(toggle, move |_, _, event| {
-                if event.state() != ShortcutState::Pressed {
-                    return;
-                }
-                // Setup owns the shortcuts while it is open. See the note on
-                // `claim_for_onboarding` below.
-                if claim_for_onboarding(&handle, "shortcut-hide") {
-                    return;
-                }
-                if let Some(w) = handle.get_webview_window("pill") {
-                    let _ = show_pill(&w);
-                }
-            })?;
 
             /*
              * The picker. Cmd+Shift+K.
@@ -570,6 +553,17 @@ fn main() {
                 if event.state() != ShortcutState::Pressed {
                     return;
                 }
+                /*
+                 * Setup owns this key while it is open.
+                 *
+                 * The last setup step waits on ⌘⇧K genuinely firing, which is
+                 * the only honest proof the shortcut registered at all. Opening
+                 * the picker over the setup window at that moment would hide
+                 * the very screen asking for the keypress.
+                 */
+                if claim_for_onboarding(&pick_handle, "shortcut-pill") {
+                    return;
+                }
                 if let Some(w) = pick_handle.get_webview_window("pill") {
                     if w.is_visible().unwrap_or(false) {
                         let _ = w.hide();
@@ -579,22 +573,6 @@ fn main() {
                 }
             })?;
 
-            // Quick capture. The whole point is that it works from inside any other
-            // application, so it has to be a global shortcut rather than anything
-            // the card itself owns.
-            let capture = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyN);
-            let capture_handle = app.handle().clone();
-            app.global_shortcut().on_shortcut(capture, move |_, _, event| {
-                if event.state() != ShortcutState::Pressed {
-                    return;
-                }
-                if claim_for_onboarding(&capture_handle, "shortcut-capture") {
-                    return;
-                }
-                if let Some(w) = capture_handle.get_webview_window("pill") {
-                    let _ = show_pill(&w);
-                }
-            })?;
 
             // On by default, and the card says so on first run.
             let launcher = app.autolaunch();

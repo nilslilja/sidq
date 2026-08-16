@@ -37,15 +37,9 @@ export type StepId =
   | 'discover'
   | 'signin'
   | 'permissions'
-  | 'ready'
   | 'sources'
-  | 'capture'
-  | 'hide'
-  | 'move'
   | 'intake'
-  | 'plan'
-  | 'upgrade'
-  | 'subscribed';
+  | 'pill';
 
 /** How a step is allowed to advance. */
 export type Gate =
@@ -97,13 +91,6 @@ export const STEPS: Step[] = [
     gate: { kind: 'button', label: 'Allow accessibility access' },
   },
   {
-    id: 'ready',
-    phase: 'Permissions',
-    title: 'All set',
-    subtitle: 'Nothing else to configure.',
-    gate: { kind: 'button', label: 'Continue' },
-  },
-  {
     id: 'sources',
     phase: 'Connect',
     title: 'Connect your assistants',
@@ -117,53 +104,24 @@ export const STEPS: Step[] = [
     subtitle: 'Pick what fits. You can change all of it later.',
     gate: { kind: 'button', label: 'Continue' },
   },
-  {
-    id: 'capture',
-    phase: 'Learn',
-    title: 'Press ⌘⇧N to catch a thought',
-    subtitle: 'From inside any app. Two seconds, then back to work.',
-    gate: { kind: 'shortcut', hint: 'Use the shortcut to continue', skippable: false },
-  },
-  {
-    id: 'hide',
-    phase: 'Learn',
-    title: 'Press ⌘⇧S to get it out of the way',
-    subtitle: 'Same keys bring it back. It never traps you.',
-    gate: { kind: 'shortcut', hint: 'Use the shortcut to continue', skippable: true },
-  },
-  {
-    id: 'move',
-    phase: 'Learn',
-    title: 'Now move it somewhere it belongs',
-    subtitle: 'Drag it anywhere. Or click it, then arrows. Hold ⌘ to jump.',
-    gate: { kind: 'button', label: 'Continue' },
-  },
-  {
-    id: 'plan',
-    phase: 'Set up',
-    title: 'Sidq just built your day',
-    subtitle: 'Tomorrow morning this is waiting before you open your laptop.',
-    gate: { kind: 'button', label: 'Continue' },
-  },
-  {
-    id: 'upgrade',
-    phase: 'Set up',
-    title: 'Unlock everything',
-    gate: { kind: 'button', label: 'Start with free' },
-  },
   /*
-   * The screen after paying.
+   * The only thing anybody has to learn.
    *
-   * Cluely has one and we did not: someone who has just entered card details was
-   * dropped straight out of the flow with no acknowledgement. That is the single
-   * worst moment to go silent.
+   * This replaces four screens that each taught a feature the product no longer
+   * has: quick capture, hiding the card, dragging the card, and a day the
+   * planner used to build. One of them could not be completed at all, because
+   * the window it told you to drag is deliberately fixed.
+   *
+   * Gated on the shortcut genuinely firing rather than on a Continue button.
+   * Sidq is one keystroke, and somebody who has not pressed it once has not
+   * seen the product. Skippable so a keyboard conflict cannot trap anyone.
    */
   {
-    id: 'subscribed',
-    phase: 'Set up',
-    title: 'You are in',
-    subtitle: 'Everything is unlocked. Your first day is waiting.',
-    gate: { kind: 'button', label: 'Open Sidq' },
+    id: 'pill',
+    phase: 'Learn',
+    title: 'Press ⌘⇧K',
+    subtitle: 'From inside anything. Everything you were working on, ranked.',
+    gate: { kind: 'shortcut', hint: 'Press ⌘⇧K to continue', skippable: true },
   },
 ];
 

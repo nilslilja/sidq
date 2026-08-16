@@ -28,7 +28,7 @@ export interface OnboardingBridge {
    * The shortcut steps cannot use a keydown listener: these are global
    * shortcuts, so Rust receives them instead of the focused window.
    */
-  onShortcut: (event: 'shortcut-capture' | 'shortcut-hide', callback: () => void) => Promise<() => void>;
+  onShortcut: (event: 'shortcut-pill', callback: () => void) => Promise<() => void>;
   /**
    * Claude Code sessions found on disk.
    *

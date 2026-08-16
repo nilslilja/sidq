@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/Shell';
-import { CardPreview } from '@/components/onboarding/CardPreview';
+import { PillPreview } from '@/components/landing/PillPreview';
 import { Permissions, SystemDialogPreview, type PermissionState } from '@/components/onboarding/Permissions';
 import { IntakeChips } from '@/components/onboarding/IntakeChips';
 import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
-import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
 import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
 import { desktopBridge } from '@/lib/onboarding/bridge';
 import { getSupabase } from '@/lib/supabase';
-import { buildFirstPlan } from '@/lib/onboarding/first-plan';
-import type { Day } from '@/types/domain';
 import { cn } from '@/lib/cn';
 
 /*
@@ -28,17 +25,6 @@ import { cn } from '@/lib/cn';
  * building the Rust shell every time would mean it never gets polished.
  */
 
-/*
- * Turning the chips into a plan takes a model call, so the reveal step has
- * three states rather than one. Nothing here is faked: if generation fails the
- * step says so and offers to retry, because a made-up plan on the screen that
- * introduces the product would poison everything after it.
- */
-type PlanState =
-  | { status: 'idle' }
-  | { status: 'building' }
-  | { status: 'ready'; day: Day; isDemo: boolean }
-  | { status: 'failed'; message: string };
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -60,7 +46,6 @@ export default function Onboarding() {
   const [rhythm, setRhythm] = useState<string | null>(null);
   const [discovery, setDiscovery] = useState<string | null>(null);
   const [intents, setIntents] = useState<string[]>([]);
-  const [plan, setPlan] = useState<PlanState>({ status: 'idle' });
   // What Sidq can already see, shown on the sources step so the claim is
   // evidenced rather than asserted.
   const [claudeSessions, setClaudeSessions] = useState(0);
@@ -92,27 +77,22 @@ export default function Onboarding() {
 
   // Shortcut gates. Only armed on their own step, so the listeners are never
   // sitting on the window swallowing keys during the rest of the flow.
-  const captureGate = useShortcutGate({
-    armed: step === 'capture',
-    combo: { meta: true, shift: true, code: 'KeyN' },
-    onComplete: advance,
-  });
-  const hideGate = useShortcutGate({
-    armed: step === 'hide',
-    combo: { meta: true, shift: true, code: 'KeyS' },
+  const pillGate = useShortcutGate({
+    armed: step === 'pill',
+    combo: { meta: true, shift: true, code: 'KeyK' },
     onComplete: advance,
   });
 
   /*
    * Never trap anyone on a shortcut step.
    *
-   * Global shortcuts collide. If another app already owns ⌘⇧N, registration
+   * Global shortcuts collide. If another app already owns ⌘⇧K, registration
    * silently loses and the keypress never reaches us, so a step that only
    * advances on that shortcut is a dead end with no visible cause. After a few
    * seconds of nothing happening, an escape appears.
    */
   useEffect(() => {
-    if (step !== 'capture' && step !== 'hide') {
+    if (step !== 'pill') {
       setShortcutStuck(false);
       return;
     }
@@ -132,7 +112,7 @@ export default function Onboarding() {
    */
   useEffect(() => {
     if (!bridge) return;
-    const wanted = step === 'capture' ? 'shortcut-capture' : step === 'hide' ? 'shortcut-hide' : null;
+    const wanted = step === 'pill' ? 'shortcut-pill' : null;
     if (!wanted) return;
 
     let unlisten: (() => void) | undefined;
@@ -201,23 +181,26 @@ export default function Onboarding() {
    * Advances to the reveal immediately and generates behind it, so the wait
    * happens on a screen that explains itself rather than under a dead button.
    */
-  const generateFirstPlan = useCallback(async () => {
-    setPlan({ status: 'building' });
-    // Advance rather than jumping to the reveal. Intake now sits before the
-    // shortcut demos, so generation runs while the person learns ⌘⇧N and ⌘⇧S,
-    // and the plan is already waiting by the time they reach it. The model call
-    // costs a few seconds and nobody spends them staring at a spinner.
-    advance();
+  /*
+   * Keep the two setup answers, then move on.
+   *
+   * This used to call a model to generate a first day. The planner is gone, but
+   * the answers are not pointless: they are the only two questions setup asks
+   * for our benefit rather than the person's, and dropping them on the floor
+   * would make asking them dishonest.
+   *
+   * Local storage only. Neither answer belongs on a server and neither is worth
+   * failing setup over, so a browser that refuses to store them is ignored.
+   */
+  const saveIntake = useCallback(() => {
     try {
-      const { day, isDemo } = await buildFirstPlan({ focus, blockers, rhythm, discovery, intents });
-      setPlan({ status: 'ready', day, isDemo });
-    } catch (err) {
-      setPlan({
-        status: 'failed',
-        message: err instanceof Error ? err.message : 'Could not build your day.',
-      });
+      if (discovery) localStorage.setItem('sidq.discovery', discovery);
+      if (intents.length) localStorage.setItem('sidq.intents', JSON.stringify(intents));
+    } catch {
+      /* private mode; losing an analytics answer is not worth a dead end */
     }
-  }, [focus, blockers, rhythm, discovery, intents, advance]);
+    advance();
+  }, [discovery, intents, advance]);
 
   /**
    * Ask macOS again, on demand.
@@ -245,14 +228,6 @@ export default function Onboarding() {
     if (key === 'notifications' && value) void bridge?.requestNotifications();
   };
 
-  // The upgrade step is the one screen that drops the two-pane layout, the same
-  // way the products this is modelled on do. A paywall beside a feature preview
-  // reads as another lesson rather than as a decision.
-  if (step === 'upgrade') {
-    // advance() from the last step is what closes the window and shows the card,
-    // so "Start with free" goes through it rather than routing on its own.
-    return <UpgradeStep onSkip={advance} />;
-  }
 
   return (
     <Shell
@@ -408,79 +383,6 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      case 'ready':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <PrimaryAction label="Continue" onClick={advance} />
-          </Instruction>
-        );
-
-      case 'capture':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <div className="flex items-center gap-2">
-              <Key lit={captureGate.held.meta}>⌘</Key>
-              <Key lit={captureGate.held.shift}>⇧</Key>
-              <Key lit={captureGate.held.key}>N</Key>
-            </div>
-            <div className="mt-7">
-              <PrimaryAction label="Use the shortcut to continue" waiting />
-            </div>
-            {(!bridge || shortcutStuck) && (
-              <ShortcutEscape
-                onSkip={advance}
-                reason={bridge ? 'collision' : 'browser'}
-              />
-            )}
-          </Instruction>
-        );
-
-      case 'hide':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <div className="flex items-center gap-2">
-              <Key lit={hideGate.held.meta}>⌘</Key>
-              <Key lit={hideGate.held.shift}>⇧</Key>
-              <Key lit={hideGate.held.key}>S</Key>
-            </div>
-            <div className="mt-7">
-              <PrimaryAction label="Use the shortcut to continue" waiting />
-            </div>
-            {shortcutStuck || !bridge ? (
-              <ShortcutEscape onSkip={advance} reason={bridge ? 'collision' : 'browser'} />
-            ) : (
-              <button
-                onClick={advance}
-                className="mt-5 w-full text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/70"
-              >
-                Skip ›
-              </button>
-            )}
-          </Instruction>
-        );
-
-      case 'move':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            {/* No ⌘ here any more. The arrows work on their own once the card
-                has focus, which is what the code actually does. */}
-            <div className="grid w-fit grid-cols-3 gap-1.5">
-              <span />
-              <Key>↑</Key>
-              <span />
-              <Key>←</Key>
-              <Key>↓</Key>
-              <Key>→</Key>
-            </div>
-            <p className="mt-4 text-[0.75rem] leading-relaxed text-white/35">
-              Hold shift while pressing an arrow for fine adjustment.
-            </p>
-            <div className="mt-7">
-              <PrimaryAction label="Continue" onClick={advance} />
-            </div>
-          </Instruction>
-        );
-
       case 'sources':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
@@ -493,6 +395,29 @@ export default function Onboarding() {
               }}
               onSkip={advance}
             />
+          </Instruction>
+        );
+
+      /*
+       * The only lesson in setup.
+       *
+       * Waiting on the real keypress rather than a Continue button, because a
+       * person who has not pressed ⌘⇧K once has not seen the product. The
+       * escape below appears after twelve seconds so a shortcut collision
+       * cannot trap anybody here.
+       */
+      case 'pill':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <div className="flex items-center gap-2">
+              <Key lit={pillGate.held.meta}>⌘</Key>
+              <Key lit={pillGate.held.shift}>⇧</Key>
+              <Key lit={pillGate.held.key}>K</Key>
+            </div>
+            <div className="mt-7">
+              <PrimaryAction label="Press ⌘⇧K to continue" waiting />
+            </div>
+            {shortcutStuck && <ShortcutEscape onSkip={advance} reason="collision" />}
           </Instruction>
         );
 
@@ -528,64 +453,11 @@ export default function Onboarding() {
               <PrimaryAction
                 label={focus.length === 0 ? 'Pick at least one' : 'Continue'}
                 waiting={focus.length === 0}
-                onClick={() => void generateFirstPlan()}
+                onClick={() => void saveIntake()}
               />
             </div>
           </Instruction>
         );
-
-      case 'subscribed':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <PrimaryAction label="Open Sidq" onClick={advance} />
-          </Instruction>
-        );
-
-      case 'plan': {
-        if (plan.status === 'building') {
-          return (
-            <Instruction
-              title="Building your day"
-              subtitle="Reading what you picked and sizing it to a real morning."
-            >
-              <PrimaryAction label="One moment" waiting />
-            </Instruction>
-          );
-        }
-
-        if (plan.status === 'failed') {
-          // Never a fabricated plan as a fallback. The first day someone sees is
-          // the whole promise of the product; inventing it here would be lying
-          // at the exact moment trust is being established.
-          return (
-            <Instruction
-              title="That did not work"
-              subtitle={plan.message}
-            >
-              <PrimaryAction label="Try again" onClick={() => void generateFirstPlan()} />
-              <button
-                onClick={advance}
-                className="mt-5 w-full text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/70"
-              >
-                Skip, I will build it later ›
-              </button>
-            </Instruction>
-          );
-        }
-
-        return (
-          <Instruction
-            title={current.title}
-            subtitle={
-              plan.status === 'ready' && plan.isDemo
-                ? 'Built locally, because no account is connected yet.'
-                : current.subtitle
-            }
-          >
-            <PrimaryAction label="Continue" onClick={advance} />
-          </Instruction>
-        );
-      }
 
       default:
         return null;
@@ -594,96 +466,36 @@ export default function Onboarding() {
 
   function renderRight() {
     switch (step) {
+      // The genuine macOS pane, not a drawn imitation of one. Building a replica
+      // of a system security dialog is impersonation, whatever the intent.
       case 'permissions':
-      case 'ready':
         return (
           <SystemDialogPreview
-            granted={step === 'ready' || permissions.accessibility}
+            granted={permissions.accessibility}
             onOpenSettings={() => void bridge?.openAccessibilitySettings()}
           />
         );
 
-      case 'capture':
-        return (
-          <CardPreview
-            task="Write the pricing page copy"
-            status="Cursor"
-            clock="12:04"
-            capturing
-          />
-        );
-
-      case 'hide':
-        return (
-          <CardPreview
-            task="Write the pricing page copy"
-            status="Cursor"
-            clock="12:41"
-            dimmed={hideGate.held.meta}
-          />
-        );
-
-      case 'move':
-        return (
-          <div className="relative grid place-items-center">
-            <Arrows />
-            <CardPreview task="Write the pricing page copy" status="Cursor" clock="18:22" />
-          </div>
-        );
-
-      case 'discover':
-        return (
-          <CardPreview
-            task="Pick up where you stopped"
-            status="Sidq reads where you stopped"
-            tone="calm"
-            clock="0:00"
-          />
-        );
-
       case 'sources':
-        return (
-          <ConnectModelsPreview found={claudeSessions} />
-        );
+        return <ConnectModelsPreview found={claudeSessions} />;
 
-      case 'intake':
-        return (
-          <CardPreview
-            task="Building your day"
-            status="One moment"
-            tone="calm"
-            clock="0:00"
-          />
-        );
-
-      case 'plan':
-        if (plan.status !== 'ready') {
-          return (
-            <CardPreview
-              task="Building your day"
-              status="One moment"
-              tone="calm"
-              clock="0:00"
-            />
-          );
-        }
-        return (
-          <CardPreview
-            task={plan.day.topPriority || plan.day.tasks[0]?.title || 'Your day'}
-            status="Top priority today"
-            tone="calm"
-            clock="0:00"
-            // The real generated tasks, not a sample.
-            plan={plan.day.tasks.map((t) => ({ title: t.title, minutes: t.estMinutes }))}
-          />
-        );
-
+      /*
+       * Every other step shows the pill.
+       *
+       * It is the product, so there is nothing else worth showing beside a
+       * setup screen. What used to sit here was the prototype card with a
+       * running timer, which taught a first-time user the wrong thing about
+       * what they had just installed.
+       */
       default:
         return (
-          <CardPreview
-            task="Write the pricing page copy"
-            status="Cursor"
-            clock="24:18"
+          <PillPreview
+            rows={[
+              { title: 'Pricing page copy', meta: '5h session · Sidq' },
+              { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
+              { title: 'Refund policy wording', meta: '40m · Sidq' },
+            ]}
+            className="w-full max-w-[26rem]"
           />
         );
     }
@@ -782,24 +594,3 @@ function ShortcutEscape({
   );
 }
 
-function Arrows() {
-  return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-[-4rem]">
-      {(
-        [
-          ['left-0 top-1/2 -translate-y-1/2', '←'],
-          ['right-0 top-1/2 -translate-y-1/2', '→'],
-          ['left-1/2 top-0 -translate-x-1/2', '↑'],
-          ['bottom-0 left-1/2 -translate-x-1/2', '↓'],
-        ] as const
-      ).map(([position, glyph]) => (
-        <span
-          key={glyph}
-          className={cn('absolute text-[1.25rem] text-white/20', position)}
-        >
-          {glyph}
-        </span>
-      ))}
-    </div>
-  );
-}
