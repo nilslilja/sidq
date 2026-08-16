@@ -18,7 +18,6 @@ import { attentionLine } from '@/lib/companion/attention';
 import { buildFirstPlan } from '@/lib/onboarding/first-plan';
 import { findResumePoint, type ResumePoint, type WorkSession } from '@/lib/companion/work-history';
 import { loadImported } from '@/lib/companion/import-history';
-import { ImportHistory } from '@/components/companion/ImportHistory';
 import { DayReplay } from '@/components/companion/DayReplay';
 import { RescueDay } from '@/components/companion/RescueDay';
 import { TodayPlan } from '@/components/companion/TodayPlan';
@@ -145,7 +144,6 @@ export default function Overlay() {
    * Imported ChatGPT and Gemini history, held in state so a fresh drop updates
    * the resume line without a reload.
    */
-  const [imported, setImported] = useState<WorkSession[]>(() => loadImported());
   const [liveSessions, setLiveSessions] = useState<WorkSession[]>([]);
 
   useEffect(() => {
@@ -176,6 +174,15 @@ export default function Overlay() {
    * Claude, and Gemini cannot see either. Merging them here and picking the
    * single most recent is the entire point of reading three sources.
    */
+  /*
+   * Anything imported during setup still counts.
+   *
+   * Read once rather than held in state: the card no longer offers the import
+   * itself, so this can only change in onboarding, and re-reading it on every
+   * render would be work for an event that cannot happen while the card is up.
+   */
+  const imported = useMemo(() => loadImported(), []);
+
   useEffect(() => {
     setResume(findResumePoint([...liveSessions, ...imported]));
   }, [liveSessions, imported]);
@@ -802,14 +809,15 @@ export default function Overlay() {
           </div>
         )}
 
-        {/* Offered only when there is nothing to resume, so it is a fix for a
-            visible gap rather than another thing on a working card. */}
-        {!resume && !capturing && panel === null && (
-          <div className="mt-3 border-t border-white/10 pt-3">
-            <ImportHistory onImported={setImported} />
-          </div>
-        )}
-
+        {/*
+         * No import on the card.
+         *
+         * Bringing in ChatGPT or Gemini means requesting an export, waiting days
+         * for OpenAI to mail a link, and walking through Takeout for Google.
+         * That is a setup task at best and it has no business interrupting
+         * somebody mid-work. It lives in onboarding, once, and the sources that
+         * need no export at all now cover the common case.
+         */}
         {!hasPlan && !capturing && panel === null && (
           <div className="mt-3 border-t border-white/10 pt-3">
             <button

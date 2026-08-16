@@ -11,6 +11,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod activity;
+mod cursor_history;
 mod work_history;
 
 use std::sync::{Arc, Mutex};
@@ -108,9 +109,24 @@ fn current_activity() -> activity::Activity {
  */
 #[tauri::command]
 async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
-    tauri::async_runtime::spawn_blocking(move || work_history::recent_sessions(limit.min(50)))
-        .await
-        .unwrap_or_default()
+    tauri::async_runtime::spawn_blocking(move || {
+        let capped = limit.min(50);
+
+        /*
+         * Every readable source, merged and re-sorted.
+         *
+         * Each reader is asked for the full limit rather than a share of it: a
+         * day spent entirely in one tool should fill the list with that tool
+         * rather than reserving half the rows for an editor that was not opened.
+         */
+        let mut all = work_history::recent_sessions(capped);
+        all.extend(cursor_history::recent_sessions(capped));
+        all.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
+        all.truncate(capped);
+        all
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /**
@@ -139,10 +155,15 @@ fn hide_pill(app: tauri::AppHandle) {
 
 #[tauri::command]
 async fn session_transcript(session_id: String) -> Option<String> {
-    tauri::async_runtime::spawn_blocking(move || work_history::session_transcript(&session_id))
-        .await
-        .ok()
-        .flatten()
+    tauri::async_runtime::spawn_blocking(move || {
+        // Both id spaces are uuids, so trying one then the other cannot collide
+        // and saves threading a source tag through the picker for no gain.
+        work_history::session_transcript(&session_id)
+            .or_else(|| cursor_history::session_transcript(&session_id))
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 #[tauri::command]

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 /*
- * "Remembers every Claude / ChatGPT / Gemini conversation", rotating.
+ * "Remembers every Claude / Cursor / ChatGPT / Gemini conversation", rotating.
  *
  * Free bold text, no pill, no container. A badge reads as a sponsor slot; plain
  * type reads as a fact.
@@ -47,8 +47,15 @@ interface Model {
   colour: string;
 }
 
+/*
+ * Claude first and Cursor second, because those two are read with nothing to
+ * set up. ChatGPT and Gemini stay in the rotation because people do use them and
+ * Sidq does read them, but they need an export, so leading with either would be
+ * advertising the slowest path into the product.
+ */
 const MODELS: Model[] = [
   { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
+  { name: 'Cursor', logo: '', colour: '#E5E5E5' },
   { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
 ];
@@ -106,7 +113,7 @@ export function PoweredByClaude({
    */
   return (
     <div
-      aria-label="Sidq remembers your conversations with Claude, ChatGPT and Gemini, stored only on this Mac"
+      aria-label="Sidq remembers your conversations with Claude, Cursor, ChatGPT and Gemini, stored only on this Mac"
       className={cn('inline-flex flex-col items-center gap-1', className)}
     >
       <span
@@ -117,7 +124,7 @@ export function PoweredByClaude({
         )}
         style={{ opacity: visible ? 1 : 0, transitionDuration: `${FADE_MS}ms` }}
       >
-        {!missing[model.logo] && (
+        {model.logo && !missing[model.logo] && (
           <img
             src={model.logo}
             alt=""
