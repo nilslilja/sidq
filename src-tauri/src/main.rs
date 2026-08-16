@@ -472,9 +472,21 @@ fn main() {
                     let _ = welcome.show();
                     let _ = welcome.set_focus();
                 }
+            } else if let Some(w) = &window {
+                /*
+                 * Launching the app shows the picker.
+                 *
+                 * This showed nothing at all on a normal launch, on the
+                 * reasoning that the pill is summoned by a shortcut and should
+                 * not sit on screen. That is right for the shortcut and wrong
+                 * for the Dock: double-clicking an app and getting an icon that
+                 * bounces, a process that starts, and no window anywhere reads
+                 * as a broken install, not as a design choice.
+                 *
+                 * If you opened Sidq, you wanted Sidq.
+                 */
+                let _ = show_pill(w);
             }
-            // Nothing is shown on a normal launch. The pill is summoned by
-            // Cmd+Shift+K and is not meant to sit on screen waiting.
 
             /*
              * The browser hands the session back through sidq://auth?...
@@ -539,6 +551,21 @@ fn main() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Sidq");
+        .build(tauri::generate_context!())
+        .expect("error while running Sidq")
+        .run(|app, event| {
+            /*
+             * Clicking the Dock icon of an already-running Sidq shows the picker.
+             *
+             * Without this, the second click does nothing at all: the process is
+             * already up, macOS sends Reopen rather than launching again, and
+             * nobody handles it. From the outside that is an app that opened
+             * once and then stopped responding to its own icon.
+             */
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(w) = app.get_webview_window("pill") {
+                    let _ = show_pill(&w);
+                }
+            }
+        });
 }
