@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { startCheckout, type BillingInterval } from '@/lib/billing';
+import { getAccessToken } from '@/lib/supabase';
 import { PLANS, type Plan, type PlanId } from '@/lib/plans';
 import { cn } from '@/lib/cn';
 
@@ -25,6 +26,25 @@ const PAID = PLANS.filter((p) => p.id !== 'free');
 export function Upgrade() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * Say it before the click, not after.
+   *
+   * Checkout already refused without a session and returned a clear sentence,
+   * but only once somebody had pressed Subscribe and waited. Being told the
+   * requirement after the attempt reads as a broken payment button, which is
+   * the worst thing this page can look like.
+   */
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void getAccessToken().then((token) => {
+      if (!cancelled) setSignedIn(Boolean(token));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const go = async (plan: PaidPlanId, interval: BillingInterval) => {
     setBusy(`${plan}:${interval}`);
@@ -77,6 +97,21 @@ export function Upgrade() {
       >
         {busy === 'pro:annual' ? 'Opening checkout…' : 'Or pay yearly, $192, two months free'}
       </button>
+
+      {signedIn === false && (
+        <div className="mt-8 rounded-(--radius) border border-line bg-accent-soft/60 p-4">
+          <p className="text-[0.875rem] leading-relaxed">
+            <strong className="font-medium">Sign in first.</strong> A subscription has to
+            land on an account, or there is nothing to attach it to.
+          </p>
+          <Link
+            to="/signin"
+            className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-accent transition-opacity duration-(--duration-fast) hover:opacity-70"
+          >
+            Sign in, then come back
+          </Link>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="mt-6 text-sm text-muted">

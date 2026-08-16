@@ -66,10 +66,19 @@ export function SignIn() {
     return () => sub.subscription.unsubscribe();
   }, [forDesktop]);
 
-  /** Come back here after OAuth rather than to intake, so the hand-off can run. */
+  /*
+   * Where the magic link lands.
+   *
+   * This pointed at /intake, a route deleted with the planner. So the link
+   * worked, Supabase authenticated, and the browser landed on a dead path that
+   * bounced to the homepage — which looks exactly like a sign-in that failed.
+   *
+   * /upgrade is the one place a signed-in person on the web actually needs, and
+   * it now reads the session on mount, so arriving there proves it worked.
+   */
   const returnTo = forDesktop
     ? `${window.location.origin}/signin?redirect=${encodeURIComponent(DESKTOP_CALLBACK)}`
-    : `${window.location.origin}/intake`;
+    : `${window.location.origin}/upgrade`;
 
 
   const magicLink = async (e: React.FormEvent) => {
