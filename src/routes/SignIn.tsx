@@ -135,13 +135,13 @@ export function SignIn() {
   return (
     <Shell>
       <h1 className="font-display text-[2.75rem] leading-[1.02]">
-        Let's build
+        Keep your
         <br />
-        your first day.
+        history.
       </h1>
       <p className="mt-4 max-w-[34ch] text-[0.9375rem] leading-relaxed text-muted">
-        Takes about a minute. Your account keeps your streak, your history, and tomorrow's
-        plan waiting for you.
+        Takes about a minute. An account is only needed for billing and for keeping your
+        settings across machines. Reading your conversations never needs one.
       </p>
 
       <div className="mt-10 grid gap-2.5">

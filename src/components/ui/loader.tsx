@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 /*
- * Component B. The "building your day" screen.
+ * Component B. The waiting state.
  *
  * Two treatments. `ring` is the default because the goo reads playful against a
  * dark editorial layout, and this product is a premium tool rather than a toy.
@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn';
  * for good. Swap the variant, look at both, delete the loser.
  */
 
-const DEFAULT_STATUS = ['Reading your goals', 'Ordering your day', 'Setting your focus'];
+const DEFAULT_STATUS = ['Reading your conversations', 'Ranking what matters', 'Almost there'];
 
 interface LoaderProps {
   variant?: 'ring' | 'goo';
@@ -59,7 +59,7 @@ export function Loader({
 
 function RingSpinner() {
   return (
-    <div className="size-8" role="status" aria-label="Building your day">
+    <div className="size-8" role="status" aria-label="Loading">
       <svg viewBox="0 0 32 32" className="size-8 animate-spin [animation-duration:900ms]">
         <circle cx="16" cy="16" r="14" fill="none" stroke="var(--color-line)" strokeWidth="1.5" />
         <path
@@ -77,7 +77,7 @@ function RingSpinner() {
 /** Single accent on the canvas. The original's two-colour goo reads as a toy here. */
 function GooSpinner() {
   return (
-    <div className="relative h-8 w-20" role="status" aria-label="Building your day">
+    <div className="relative h-8 w-20" role="status" aria-label="Loading">
       <svg className="absolute size-0" aria-hidden="true">
         <defs>
           <filter id="sidq-goo">
