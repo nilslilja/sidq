@@ -73,12 +73,13 @@ if hdiutil attach "$TMP/$NAME" -mountpoint "$MNT" -nobrowse -quiet 2>/dev/null; 
     else
       fail "Gatekeeper REJECTS it — it will not open on someone else's Mac"
     fi
-    # The window the app used to .expect() on startup. Its absence from the
-    # config while present in the binary is exactly what caused the panic.
-    if grep -qa '"pill"' "$APP/Contents/MacOS/sidq" 2>/dev/null; then
-      pass "pill window is in this build"
+    # A command name that only exists in builds with the picker. Window labels
+    # and route strings both live in compressed frontend assets rather than as
+    # plain text, so two earlier greps reported a correct release as stale.
+    if grep -qa "session_transcript" "$APP/Contents/MacOS/sidq" 2>/dev/null; then
+      pass "picker is in this build"
     else
-      fail "no pill window — this is an old build"
+      fail "no picker — this is an old build"
     fi
   else
     fail "no Sidq.app inside the image"
