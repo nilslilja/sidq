@@ -101,8 +101,8 @@ export const STEPS: Step[] = [
   {
     id: 'intake',
     phase: 'Set up',
-    title: 'What are you actually trying to do?',
-    subtitle: 'Pick what fits. You can change all of it later.',
+    title: 'Which do you use most?',
+    subtitle: 'Pick any. It tells us which to support next.',
     gate: { kind: 'button', label: 'Continue' },
   },
   /*
@@ -172,38 +172,27 @@ export const DISCOVERY: IntakeOption[] = [
  * the product does today. An option nobody can deliver is a promise made during
  * setup and broken on day one.
  */
+/*
+ * Which assistants they actually use.
+ *
+ * This asked what someone wanted Sidq to do for them, and four of the six
+ * answers were features that no longer exist: decide my day, catch me when I
+ * drift, show me where my time goes, save days that go wrong. Someone reading
+ * that in setup is being told about a different product in the same breath as
+ * installing this one.
+ *
+ * The replacement is the one question whose answer changes what gets built
+ * next. It also teaches, in the moment they answer it, what Sidq is actually
+ * for: these are the things it moves work between.
+ */
 export const INTENTS: IntakeOption[] = [
-  { id: 'resume', label: 'Remember where I stopped' },
-  { id: 'decide', label: 'Decide my day for me' },
-  { id: 'drift', label: 'Catch me when I drift' },
-  { id: 'measure', label: 'Show me where my time goes' },
-  { id: 'finish', label: 'Help me finish what I start' },
-  { id: 'rescue', label: 'Save days that go wrong' },
+  { id: 'claude-code', label: 'Claude Code' },
+  { id: 'claude', label: 'Claude' },
+  { id: 'chatgpt', label: 'ChatGPT' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'perplexity', label: 'Perplexity' },
+  { id: 'copilot', label: 'GitHub Copilot' },
+  { id: 'other', label: 'Something else' },
 ];
 
-export const FOCUS_AREAS: IntakeOption[] = [
-  { id: 'ship', label: 'Ship a product' },
-  { id: 'study', label: 'Study or coursework' },
-  { id: 'clients', label: 'Client work' },
-  { id: 'writing', label: 'Writing' },
-  { id: 'jobhunt', label: 'Job hunting' },
-  { id: 'admin', label: 'Dig out of admin' },
-  { id: 'fitness', label: 'Training' },
-  { id: 'side', label: 'A side project' },
-];
-
-export const BLOCKERS: IntakeOption[] = [
-  { id: 'start', label: 'Starting is the hard part' },
-  { id: 'switch', label: 'I switch tabs constantly' },
-  { id: 'overplan', label: 'I plan more than I do' },
-  { id: 'finish', label: 'I start things and drop them' },
-  { id: 'toomuch', label: 'Everything feels urgent' },
-  { id: 'evenings', label: 'I lose the afternoon' },
-];
-
-export const RHYTHMS: IntakeOption[] = [
-  { id: 'morning', label: 'Mornings' },
-  { id: 'afternoon', label: 'Afternoons' },
-  { id: 'night', label: 'Late night' },
-  { id: 'chaos', label: 'No pattern at all' },
-];

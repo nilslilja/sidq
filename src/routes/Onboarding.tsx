@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/Shell';
 import { PillPreview } from '@/components/landing/PillPreview';
-import { IntakeChips } from '@/components/onboarding/IntakeChips';
 import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
@@ -33,9 +32,6 @@ export default function Onboarding() {
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [shortcutStuck, setShortcutStuck] = useState(false);
-  const [focus, setFocus] = useState<string[]>([]);
-  const [blockers, setBlockers] = useState<string[]>([]);
-  const [rhythm, setRhythm] = useState<string | null>(null);
   const [discovery, setDiscovery] = useState<string | null>(null);
   const [intents, setIntents] = useState<string[]>([]);
   // What Sidq can already see, shown on the sources step so the claim is
@@ -309,7 +305,7 @@ export default function Onboarding() {
           <Instruction title={current.title} subtitle={current.subtitle}>
             <div className="mb-7">
               <p className="text-[0.625rem] uppercase tracking-[0.2em] text-white/35">
-                What should Sidq do for you
+                Where your conversations happen
               </p>
               <div className="mt-3">
                 <Chips
@@ -324,19 +320,16 @@ export default function Onboarding() {
               </div>
             </div>
 
-            <IntakeChips
-              focus={focus}
-              blockers={blockers}
-              rhythm={rhythm}
-              onFocus={setFocus}
-              onBlockers={setBlockers}
-              onRhythm={setRhythm}
-            />
+            {/*
+             * The focus, blocker and rhythm chips are gone with the planner
+             * they fed. They asked what someone struggles with in a day, which
+             * this product no longer has an opinion about.
+             */}
             <div className="mt-7">
               <PrimaryAction
-                label={focus.length === 0 ? 'Pick at least one' : 'Continue'}
-                waiting={focus.length === 0}
-                onClick={() => void saveIntake()}
+                label={intents.length === 0 ? 'Pick at least one' : 'Continue'}
+                waiting={intents.length === 0}
+                onClick={saveIntake}
               />
             </div>
           </Instruction>
