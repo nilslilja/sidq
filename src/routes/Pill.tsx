@@ -170,7 +170,7 @@ export function Pill() {
                   aria-hidden="true"
                   className={cn(
                     'size-1.5 shrink-0 rounded-full',
-                    i === selected ? 'bg-[#6366F1]' : 'bg-white/20',
+                    i === selected ? 'bg-[#B8A6FF]' : 'bg-white/20',
                   )}
                 />
                 <span className="min-w-0 flex-1">

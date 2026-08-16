@@ -92,7 +92,7 @@ function Group({
                 // three groups past the fold on a 13 inch screen.
                 'min-h-10 rounded-full px-3.5 text-[0.8125rem] transition-all duration-150',
                 on
-                  ? 'bg-[#6366F1] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]'
+                  ? 'bg-[#B8A6FF] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]'
                   : 'bg-white/[0.06] text-white/65 hover:bg-white/[0.11] hover:text-white',
               )}
             >

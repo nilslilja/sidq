@@ -68,7 +68,7 @@ export function Permissions({
             key={key}
             className={cn(
               'rounded-[14px] border p-4 transition-colors duration-300',
-              on ? 'border-[#6366F1]/35 bg-[#6366F1]/[0.07]' : 'border-white/[0.07] bg-white/[0.02]',
+              on ? 'border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.07]' : 'border-white/[0.07] bg-white/[0.02]',
             )}
           >
             <div className="flex items-start gap-3">
@@ -89,7 +89,7 @@ export function Permissions({
                 <span
                   className={cn(
                     'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full',
-                    on ? 'bg-[#6366F1]' : 'border border-white/15',
+                    on ? 'bg-[#B8A6FF]' : 'border border-white/15',
                   )}
                 >
                   {on && <Check className="size-3 text-white" />}

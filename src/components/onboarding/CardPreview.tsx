@@ -122,7 +122,7 @@ export function CardPreview({
               <span
                 className={cn(
                   'mt-px grid size-4 shrink-0 place-items-center rounded-[5px] text-[0.625rem]',
-                  i === 0 ? 'bg-[#6366F1] text-white' : 'bg-white/10 text-white/50',
+                  i === 0 ? 'bg-[#B8A6FF] text-white' : 'bg-white/10 text-white/50',
                 )}
               >
                 {i + 1}

@@ -106,8 +106,8 @@ export const STEPS: Step[] = [
   {
     id: 'sources',
     phase: 'Connect',
-    title: 'Where your work already lives',
-    subtitle: 'Three assistants that cannot see each other. Sidq can see all of them.',
+    title: 'Connect your assistants',
+    subtitle: 'The ones on this Mac are already done. The rest take one click.',
     gate: { kind: 'button', label: 'Continue' },
   },
   {

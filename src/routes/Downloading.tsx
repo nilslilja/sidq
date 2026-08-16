@@ -125,7 +125,7 @@ export function Downloading() {
         />
         <div
           aria-hidden="true"
-          className="bloom-breathe pointer-events-none absolute left-1/2 top-1/3 size-[34rem] -translate-x-1/2 rounded-full bg-[#6366F1] opacity-[0.10] blur-[110px]"
+          className="bloom-breathe pointer-events-none absolute left-1/2 top-1/3 size-[34rem] -translate-x-1/2 rounded-full bg-[#7C6BC4] opacity-[0.12] blur-[110px]"
         />
 
         <div className="relative grid h-full place-items-center p-12">

@@ -95,7 +95,7 @@ export function DesktopSignIn() {
     <div className="grid min-h-[100dvh] place-items-center bg-[#0B0B10] px-6 text-white">
       <div
         aria-hidden="true"
-        className="bloom-breathe pointer-events-none fixed left-1/2 top-1/4 size-[32rem] -translate-x-1/2 rounded-full bg-[#6366F1] opacity-[0.13] blur-[110px]"
+        className="bloom-breathe pointer-events-none fixed left-1/2 top-1/4 size-[32rem] -translate-x-1/2 rounded-full bg-[#B8A6FF] opacity-[0.13] blur-[110px]"
       />
 
       <main className="relative w-full max-w-[24rem]">

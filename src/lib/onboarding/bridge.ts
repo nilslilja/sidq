@@ -13,6 +13,13 @@ export interface OnboardingBridge {
   setAutostart: (enabled: boolean) => Promise<void>;
   requestNotifications: () => Promise<void>;
   openSignIn: () => Promise<void>;
+  /**
+   * Opens the browser at the page that connects the web assistants.
+   *
+   * ChatGPT, Gemini and Perplexity keep nothing readable on this Mac, so the
+   * only honest way in is the browser itself.
+   */
+  openConnectPage: () => Promise<void>;
   /** Fires when the browser hands the session back through sidq://. */
   onSignedIn: (callback: (urls: string[]) => void) => Promise<() => void>;
   /**
@@ -80,6 +87,9 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     openSignIn: async () => {
       await invoke('open_sign_in');
+    },
+    openConnectPage: async () => {
+      await invoke('open_connect_page');
     },
     onSignedIn: (callback) =>
       event.listen('deep-link', (e) => {

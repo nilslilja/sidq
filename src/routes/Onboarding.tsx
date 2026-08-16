@@ -4,9 +4,7 @@ import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/
 import { CardPreview } from '@/components/onboarding/CardPreview';
 import { Permissions, SystemDialogPreview, type PermissionState } from '@/components/onboarding/Permissions';
 import { IntakeChips } from '@/components/onboarding/IntakeChips';
-import { ConnectSources } from '@/components/onboarding/ConnectSources';
-import { loadImported } from '@/lib/companion/import-history';
-import type { WorkSession } from '@/lib/companion/work-history';
+import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
 import { UpgradeStep } from '@/components/onboarding/UpgradeStep';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
@@ -66,7 +64,7 @@ export default function Onboarding() {
   // What Sidq can already see, shown on the sources step so the claim is
   // evidenced rather than asserted.
   const [claudeSessions, setClaudeSessions] = useState(0);
-  const [imported, setImported] = useState<WorkSession[]>(() => loadImported());
+  const [browserOpened, setBrowserOpened] = useState(false);
 
   useEffect(() => {
     if (!bridge) return;
@@ -486,13 +484,15 @@ export default function Onboarding() {
       case 'sources':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <ConnectSources
-              status={{ claudeSessions, importedSessions: imported.length }}
-              onImported={setImported}
+            <ConnectModels
+              found={claudeSessions}
+              visited={browserOpened}
+              onConnect={() => {
+                setBrowserOpened(true);
+                void bridge?.openConnectPage();
+              }}
+              onSkip={advance}
             />
-            <div className="mt-6">
-              <PrimaryAction label="Continue" onClick={advance} />
-            </div>
           </Instruction>
         );
 
@@ -643,16 +643,7 @@ export default function Onboarding() {
 
       case 'sources':
         return (
-          <CardPreview
-            task="Pick up where you stopped"
-            status={
-              claudeSessions + imported.length > 0
-                ? `${claudeSessions + imported.length} conversations Sidq can see`
-                : 'Nothing connected yet'
-            }
-            tone={claudeSessions + imported.length > 0 ? 'calm' : 'quiet'}
-            clock="0:00"
-          />
+          <ConnectModelsPreview found={claudeSessions} />
         );
 
       case 'intake':
@@ -755,7 +746,7 @@ function Chips({
             className={cn(
               'min-h-10 rounded-full px-3.5 text-[0.8125rem] transition-all duration-150',
               on
-                ? 'bg-[#6366F1] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]'
+                ? 'bg-[#B8A6FF] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]'
                 : 'bg-white/[0.06] text-white/65 hover:bg-white/[0.11] hover:text-white',
             )}
           >

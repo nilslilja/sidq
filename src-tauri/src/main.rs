@@ -232,6 +232,24 @@ fn web_origin() -> Option<String> {
 /// authenticate inside one, and the browser already holds the session and the
 /// password manager, so this is both the only thing that works and the fastest
 /// path for the user. The redirect brings them back through the sidq:// scheme.
+/**
+ * Open the browser at the page that connects the web assistants.
+ *
+ * ChatGPT, Gemini and Perplexity keep nothing readable on this Mac, so the only
+ * honest route in is the browser they are already signed into. Same reasoning as
+ * sign-in below: refuse rather than guess a host.
+ */
+#[tauri::command]
+fn open_connect_page(app: AppHandle) -> Result<(), String> {
+    let origin = web_origin().ok_or_else(|| {
+        "No web address is configured for this build, so the connect page cannot open."
+            .to_string()
+    })?;
+    app.opener()
+        .open_url(format!("{}/connect", origin), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_sign_in(app: AppHandle) -> Result<(), String> {
     // Refuse rather than guess. The onboarding step shows this message and lets
@@ -464,6 +482,7 @@ fn main() {
             autostart_enabled,
             set_autostart,
             open_sign_in,
+            open_connect_page,
             open_accessibility_settings,
             finish_onboarding
         ])

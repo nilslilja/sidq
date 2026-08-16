@@ -111,7 +111,7 @@ function Source({
       className={cn(
         'rounded-[14px] border p-4 transition-colors duration-300',
         connected
-          ? 'border-[#6366F1]/35 bg-[#6366F1]/[0.07]'
+          ? 'border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.07]'
           : 'border-white/[0.07] bg-white/[0.02]',
       )}
     >
@@ -125,7 +125,7 @@ function Source({
         </div>
 
         {connected && (
-          <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#6366F1]">
+          <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-[#B8A6FF]">
             <Check className="size-3 text-white" />
           </span>
         )}

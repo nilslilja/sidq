@@ -49,7 +49,7 @@ export function UpgradeStep({ onSkip }: { onSkip: () => void }) {
     <div className="relative min-h-[100dvh] overflow-hidden bg-[#0B0B10] text-white">
       <div
         aria-hidden="true"
-        className="bloom-breathe pointer-events-none absolute left-1/2 top-0 size-[40rem] -translate-x-1/2 rounded-full bg-[#6366F1] opacity-[0.12] blur-[120px]"
+        className="bloom-breathe pointer-events-none absolute left-1/2 top-0 size-[40rem] -translate-x-1/2 rounded-full bg-[#B8A6FF] opacity-[0.12] blur-[120px]"
       />
 
       <div className="relative mx-auto flex min-h-[100dvh] max-w-[54rem] flex-col justify-center px-8 py-16">
@@ -124,7 +124,7 @@ function IntervalToggle({
         >
           {option}
           {option === 'annual' && (
-            <span className="rounded-full bg-[#6366F1] px-2 py-0.5 text-[0.6875rem] text-white">
+            <span className="rounded-full bg-[#B8A6FF] px-2 py-0.5 text-[0.6875rem] text-white">
               Save {ANNUAL_SAVING}
             </span>
           )}
@@ -160,7 +160,7 @@ function Card({
       className={cn(
         'flex flex-col rounded-[18px] p-6',
         featured
-          ? 'bg-[linear-gradient(165deg,#6366F1_0%,#4F46E5_58%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_30px_60px_-20px_rgba(79,70,229,0.65)]'
+          ? 'bg-[linear-gradient(165deg,#B8A6FF_0%,#4F46E5_58%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_30px_60px_-20px_rgba(79,70,229,0.65)]'
           : 'border border-white/[0.09] bg-white/[0.035]',
       )}
     >

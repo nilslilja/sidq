@@ -82,7 +82,7 @@ function Panel({ children, filled }: { children: React.ReactNode; filled?: boole
       className={cn(
         'overflow-hidden rounded-[22px] p-8 lg:p-10',
         filled
-          ? 'bg-[linear-gradient(165deg,#6366F1_0%,#4F46E5_55%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.22)_inset,0_36px_80px_-30px_rgba(79,70,229,0.5)]'
+          ? 'bg-[linear-gradient(165deg,#B8A6FF_0%,#4F46E5_55%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.22)_inset,0_36px_80px_-30px_rgba(79,70,229,0.5)]'
           : 'glass',
       )}
     >

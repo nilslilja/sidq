@@ -45,7 +45,7 @@ export function DesktopMock({ className }: { className?: string }) {
               <span
                 className={cn(
                   'h-2 rounded-full',
-                  i % 3 === 0 ? 'bg-[#6366F1]/40' : i % 3 === 1 ? 'bg-white/15' : 'bg-white/10',
+                  i % 3 === 0 ? 'bg-[#B8A6FF]/40' : i % 3 === 1 ? 'bg-white/15' : 'bg-white/10',
                 )}
                 style={{ width: `${width}%` }}
               />

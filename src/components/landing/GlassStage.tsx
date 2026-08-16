@@ -42,7 +42,7 @@ export function GlassStage({ className }: { className?: string }) {
       <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_78%_8%,rgba(238,240,254,0.95)_0%,rgba(238,240,254,0)_55%),radial-gradient(90%_70%_at_18%_92%,rgba(224,228,252,0.7)_0%,rgba(224,228,252,0)_60%)]" />
 
       {/* The bloom, breathing. Slow enough to be felt rather than watched. */}
-      <div className="bloom-breathe absolute right-[12%] top-[18%] size-[26rem] rounded-full bg-[#6366F1] opacity-[0.14] blur-[90px]" />
+      <div className="bloom-breathe absolute right-[12%] top-[18%] size-[26rem] rounded-full bg-[#B8A6FF] opacity-[0.14] blur-[90px]" />
 
       {/* Hidden below the two-column breakpoint. In one column the copy fills the
           width, and floating keycaps stop being atmosphere the moment they land on
