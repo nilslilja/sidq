@@ -40,6 +40,13 @@ export interface OnboardingBridge {
    * reason a handover works at all. Null when the transcript cannot be read.
    */
   sessionTranscript: (sessionId: string) => Promise<string | null>;
+  /**
+   * Write the conversation to a file in Downloads and return its path.
+   *
+   * Attaching that file costs far less than pasting, because it goes to
+   * retrieval rather than into the context window of every following turn.
+   */
+  saveTranscript: (sessionId: string, title: string) => Promise<string | null>;
   /** Closes the picker. It dismisses itself the moment it has done the job. */
   hidePill: () => Promise<void>;
   /** Closes first run and brings the card up. */
@@ -90,6 +97,10 @@ export function desktopBridge(): OnboardingBridge | null {
     sessionTranscript: async (sessionId) => {
       const text = await invoke('session_transcript', { sessionId });
       return typeof text === 'string' ? text : null;
+    },
+    saveTranscript: async (sessionId, title) => {
+      const path = await invoke('save_transcript', { sessionId, title });
+      return typeof path === 'string' ? path : null;
     },
     hidePill: async () => {
       await invoke('hide_pill');

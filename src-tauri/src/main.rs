@@ -145,6 +145,47 @@ fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
     w.set_focus()
 }
 
+/**
+ * Write a conversation to a file and return its path.
+ *
+ * The alternative to pasting, and the only genuine saving available. Pasting
+ * puts the whole conversation into the context window of every single turn that
+ * follows. Attaching a file sends it to the retrieval layer in Claude Projects
+ * and ChatGPT instead, so it is read when relevant rather than re-read forever.
+ *
+ * Trimming the text saves about 6%; this is the one that changes the number
+ * meaningfully, and it does it without deleting a word.
+ *
+ * Goes to Downloads because that is where a person expects to find a file they
+ * just made, and because the file picker in every assistant opens there.
+ */
+#[tauri::command]
+async fn save_transcript(session_id: String, title: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let text = work_history::session_transcript(&session_id)
+            .or_else(|| cursor_history::session_transcript(&session_id))?;
+
+        let home = std::env::var_os("HOME")?;
+        let dir = std::path::PathBuf::from(home).join("Downloads");
+
+        // The title becomes a filename, so anything that is not plainly safe in
+        // one is replaced rather than escaped.
+        let stem: String = title
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '-' })
+            .collect();
+        let stem = stem.trim().replace(' ', "-");
+        let stem = if stem.is_empty() { "sidq-conversation".to_string() } else { stem };
+
+        let path = dir.join(format!("{}.md", &stem[..stem.len().min(60)]));
+        std::fs::write(&path, text).ok()?;
+        Some(path.to_string_lossy().to_string())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 #[tauri::command]
 fn hide_pill(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pill") {
@@ -387,6 +428,7 @@ fn main() {
             recent_work,
             session_transcript,
             hide_pill,
+            save_transcript,
             resize_overlay,
             move_overlay,
             autostart_enabled,

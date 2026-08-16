@@ -26,7 +26,12 @@ import { cn } from '@/lib/cn';
 /** Long enough to read "Copied", short enough that it never feels like waiting. */
 const CLOSE_AFTER_COPY_MS = 900;
 
-type Phase = { kind: 'browsing' } | { kind: 'working' } | { kind: 'done' } | { kind: 'failed' };
+type Phase =
+  | { kind: 'browsing' }
+  | { kind: 'working' }
+  | { kind: 'done' }
+  | { kind: 'saved'; path: string }
+  | { kind: 'failed' };
 
 export function Pill() {
   const bridge = useMemo(() => desktopBridge(), []);
@@ -74,6 +79,36 @@ export function Pill() {
     void bridge?.hidePill();
   }, [bridge]);
 
+  /*
+   * Enter copies. Cmd+Enter writes a file instead.
+   *
+   * Pasting a long conversation puts every word into the context window of
+   * every turn that follows it. Attaching a file sends it to retrieval instead,
+   * which is the only change here that meaningfully lowers what a handover
+   * costs, and it does it without dropping a single word.
+   */
+  const saveFile = useCallback(async () => {
+    const target = visible[selected];
+    if (!target?.session.sessionId || phase.kind === 'working') return;
+
+    setPhase({ kind: 'working' });
+    try {
+      const path = await bridge?.saveTranscript(
+        target.session.sessionId,
+        target.session.title || 'sidq-conversation',
+      );
+      if (!path) {
+        setPhase({ kind: 'failed' });
+        return;
+      }
+      playCue('done');
+      setPhase({ kind: 'saved', path });
+      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS * 2);
+    } catch {
+      setPhase({ kind: 'failed' });
+    }
+  }, [bridge, phase.kind, selected, visible]);
+
   const handOver = useCallback(async () => {
     const target = visible[selected];
     if (!target || phase.kind === 'working') return;
@@ -112,7 +147,8 @@ export function Pill() {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      void handOver();
+      if (e.metaKey) void saveFile();
+      else void handOver();
     }
   };
 
@@ -192,12 +228,14 @@ export function Pill() {
           <span className="text-[0.6875rem] text-white/30">
             {phase.kind === 'working' && 'Reading the conversation…'}
             {phase.kind === 'done' && 'Copied. Paste it anywhere.'}
+            {phase.kind === 'saved' && `Saved to Downloads. Attach it instead of pasting.`}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && 'Whole conversation, not a summary'}
+            {phase.kind === 'browsing' && '↵ copy · ⌘↵ save a file, cheaper to attach'}
           </span>
           <span className="flex items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>
             <Key>↵</Key>
+            <Key>⌘↵</Key>
             <Key>esc</Key>
           </span>
         </div>

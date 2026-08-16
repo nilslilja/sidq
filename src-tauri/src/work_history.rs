@@ -155,7 +155,7 @@ pub fn session_transcript(session_id: &str) -> Option<String> {
         out.push_str("\n\n");
     }
 
-    Some(clamp_to_tail(out))
+    Some(clamp_to_tail(strip_boilerplate(&out)))
 }
 
 /// Locate `<session-id>.jsonl` under any project directory.
@@ -202,6 +202,98 @@ fn message_text(record: &serde_json::Value) -> String {
             .join("\n"),
         _ => String::new(),
     }
+}
+
+/**
+ * Remove what a machine wrote, keep everything a person did.
+ *
+ * Measured on a real 625,000 character transcript this recovers about 6%. That
+ * is a lot less than it sounds like it should be, and the reason is the good
+ * one: tool *results* are already dropped when the transcript is assembled, so
+ * what is left is very nearly all conversation. There is no clever compression
+ * hiding here, and anything that claimed a big saving would be deleting
+ * somebody's words.
+ *
+ * Three things go, none of which anyone typed:
+ *
+ *   - `<system-reminder>` and command wrapper blocks, which are harness
+ *     plumbing injected around messages.
+ *   - The "continued from a previous conversation" preamble, which describes a
+ *     summarisation that already happened and means nothing to the next model.
+ *   - Runs of blank lines left behind by the above.
+ *
+ * `[used X]` markers stay. They are 4.5% on their own and it is tempting, but
+ * they are the only trace of what the assistant actually went and did, and a
+ * conversation reads as jumpy without them.
+ */
+fn strip_boilerplate(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+
+    // Paired blocks, removed by scanning rather than regex to avoid the
+    // dependency. Each open tag consumes through its matching close.
+    const BLOCKS: [(&str, &str); 4] = [
+        ("<system-reminder>", "</system-reminder>"),
+        ("<command-name>", "</command-name>"),
+        ("<command-message>", "</command-message>"),
+        ("<local-command-stdout>", "</local-command-stdout>"),
+    ];
+
+    'outer: while !rest.is_empty() {
+        // The earliest opening tag of any kind, so blocks are removed in the
+        // order they appear rather than one type at a time.
+        let next = BLOCKS
+            .iter()
+            .filter_map(|(open, close)| rest.find(open).map(|i| (i, *open, *close)))
+            .min_by_key(|(i, _, _)| *i);
+
+        match next {
+            Some((at, open, close)) => {
+                out.push_str(&rest[..at]);
+                let after_open = at + open.len();
+                match rest[after_open..].find(close) {
+                    Some(end) => rest = &rest[after_open + end + close.len()..],
+                    // Unclosed tag: keep the remainder rather than swallow the
+                    // rest of somebody's conversation.
+                    None => {
+                        out.push_str(&rest[at..]);
+                        break 'outer;
+                    }
+                }
+            }
+            None => {
+                out.push_str(rest);
+                break;
+            }
+        }
+    }
+
+    // The preamble describing an earlier summarisation.
+    if let Some(at) = out.find("This session is being continued from a previous conversation") {
+        if let Some(end) = out[at..].find("\n\n") {
+            out.replace_range(at..at + end + 2, "");
+        }
+    }
+
+    collapse_blank_runs(&out)
+}
+
+/// Three or more consecutive newlines become two.
+fn collapse_blank_runs(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut newlines = 0;
+    for ch in text.chars() {
+        if ch == '\n' {
+            newlines += 1;
+            if newlines <= 2 {
+                out.push(ch);
+            }
+        } else {
+            newlines = 0;
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// Keep the most recent MAX_TRANSCRIPT_CHARS, cut at a message boundary.
@@ -667,6 +759,56 @@ mod tests {
                 None => println!("\n  no transcript resolved for {}", first.session_id),
             }
         }
+    }
+
+    #[test]
+    fn strips_harness_blocks_nobody_typed() {
+        let input = "You:\nreal question\n<system-reminder>ignore this</system-reminder>\nmore\n";
+        let out = strip_boilerplate(input);
+
+        assert!(out.contains("real question"));
+        assert!(out.contains("more"));
+        assert!(!out.contains("system-reminder"));
+        assert!(!out.contains("ignore this"));
+    }
+
+    #[test]
+    fn strips_several_block_kinds_in_the_order_they_appear() {
+        let input = "a<command-name>x</command-name>b<system-reminder>y</system-reminder>c";
+        assert_eq!(strip_boilerplate(input), "abc");
+    }
+
+    #[test]
+    fn keeps_everything_when_a_tag_is_never_closed() {
+        // Swallowing to end-of-string here would delete the rest of somebody's
+        // conversation because one tag was malformed.
+        let input = "important<system-reminder>never closed and then more text";
+        let out = strip_boilerplate(input);
+
+        assert!(out.contains("important"));
+        assert!(out.contains("more text"));
+    }
+
+    #[test]
+    fn keeps_the_tool_markers() {
+        // 4.5% of a real transcript, and the only trace of what the assistant
+        // actually did. A conversation reads as jumpy without them.
+        let out = strip_boilerplate("You:\nask\n[used Read]\nAssistant:\nanswer");
+        assert!(out.contains("[used Read]"));
+    }
+
+    #[test]
+    fn collapses_blank_runs_left_behind() {
+        assert_eq!(collapse_blank_runs("a\n\n\n\n\nb"), "a\n\nb");
+        assert_eq!(collapse_blank_runs("a\n\nb"), "a\n\nb");
+        assert_eq!(collapse_blank_runs("a\nb"), "a\nb");
+    }
+
+    #[test]
+    fn leaves_an_ordinary_conversation_untouched() {
+        // The common case must cost nothing and change nothing.
+        let plain = "You:\nwhat about the retry\n\nAssistant:\nit drops the second event\n";
+        assert_eq!(strip_boilerplate(plain), plain);
     }
 
     #[test]
