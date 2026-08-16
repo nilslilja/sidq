@@ -4,7 +4,6 @@ import { ArrowLeft, ArrowRight, Mail } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { isBackendConfigured } from '@/lib/env';
-import { ProviderButton, type Provider } from '@/components/auth/ProviderButtons';
 import { cn } from '@/lib/cn';
 
 /*
@@ -33,7 +32,7 @@ export function SignIn() {
   const forDesktop = searchParams.get('redirect') === DESKTOP_CALLBACK;
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
-  const [busy, setBusy] = useState<Provider | 'email' | null>(null);
+  const [busy, setBusy] = useState<'email' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showEmail, setShowEmail] = useState(false);
 
@@ -72,23 +71,6 @@ export function SignIn() {
     ? `${window.location.origin}/signin?redirect=${encodeURIComponent(DESKTOP_CALLBACK)}`
     : `${window.location.origin}/intake`;
 
-  const oauth = async (provider: Provider) => {
-    const supabase = getSupabase();
-    if (!supabase) {
-      setError('Accounts are not connected in this environment yet.');
-      return;
-    }
-    setBusy(provider);
-    setError(null);
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: returnTo },
-    });
-    if (authError) {
-      setError(authError.message);
-      setBusy(null);
-    }
-  };
 
   const magicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,23 +119,24 @@ export function SignIn() {
         history.
       </h1>
       <p className="mt-4 max-w-[34ch] text-[0.9375rem] leading-relaxed text-muted">
-        Takes about a minute. An account is only needed for billing and for keeping your
-        settings across machines. Reading your conversations never needs one.
+        One email, one link, no password. It keeps your history and your subscription
+        across machines. Your conversations are never part of it.
       </p>
 
-      <div className="mt-10 grid gap-2.5">
-        <ProviderButton provider="google" onClick={oauth} busy={busy === 'google'} disabled={!!busy} />
-        <ProviderButton provider="apple" onClick={oauth} busy={busy === 'apple'} disabled={!!busy} />
-        <ProviderButton provider="github" onClick={oauth} busy={busy === 'github'} disabled={!!busy} />
-      </div>
-
-      <div className="my-6 flex items-center gap-4">
-        <span className="h-px flex-1 bg-line" />
-        <span className="text-xs uppercase tracking-[0.16em] text-muted">or</span>
-        <span className="h-px flex-1 bg-line" />
-      </div>
-
-      {showEmail ? (
+      {/*
+       * Email only, deliberately.
+       *
+       * Google, Apple and GitHub buttons sat here and every one of them did
+       * nothing: the providers are not enabled in the Supabase project, so the
+       * redirect failed silently and the person was left pressing a button that
+       * looked fine. A control that does nothing is worse than no control.
+       *
+       * Magic link needs no provider configuration at all — Supabase sends it
+       * out of the box — so it is the one method that is true right now. The
+       * others come back when they are actually wired, not before.
+       */}
+      <div className="mt-10">
+        {showEmail ? (
         <form onSubmit={magicLink}>
           <label htmlFor="email" className="sr-only">
             Email address
@@ -190,7 +173,8 @@ export function SignIn() {
           <Mail className="size-[18px]" />
           Continue with email
         </button>
-      )}
+        )}
+      </div>
 
       {error && (
         <p role="alert" className="mt-5 text-sm text-muted">

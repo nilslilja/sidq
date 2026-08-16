@@ -185,7 +185,7 @@ export function DesktopSignIn() {
         {!isBackendConfigured && (
           <p className="mt-6 text-[0.75rem] leading-relaxed text-white/30">
             No backend is connected in this environment, so sign-in is unavailable. The app
-            works without an account.
+            keeps your history and your subscription across machines.
           </p>
         )}
       </main>

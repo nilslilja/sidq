@@ -77,7 +77,7 @@ export function Privacy() {
           'We do not sell your data, because we sell software.',
           'We do not train any model on your conversations.',
           'We do not use advertising or analytics trackers on the desktop app.',
-          'We do not require an account to use the part of Sidq that reads and hands over your conversations.',
+          'We do not put your conversations in your account. Signing in stores an email address and a subscription status, nothing else; what Sidq reads stays on your Mac.',
         ]}
       />
 

@@ -256,12 +256,13 @@ export default function Onboarding() {
                 {signInError}
               </p>
             )}
-            <button
-              onClick={advance}
-              className="mt-5 w-full text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/70"
-            >
-              Skip, try it without an account ›
-            </button>
+            {/*
+             * No skip. An account is required.
+             *
+             * This let someone finish setup with nothing signed in, which meant
+             * no way to reach them, no subscription to attach, and a product
+             * that quietly forgot them on the next machine.
+             */}
           </Instruction>
         );
 

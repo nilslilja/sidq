@@ -43,7 +43,7 @@ const FAQS = [
   },
   {
     q: 'Does any of this leave my Mac?',
-    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded, there is no account needed to use it, and it works with the wifi off. A conversation is only ever read when you pick it yourself, never on a timer and never in the background.',
+    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded and it works with the wifi off. An account is needed to set Sidq up, so your history and subscription follow you to a new machine, but your conversations are never part of it. A conversation is only ever read when you pick it yourself, never on a timer and never in the background.',
   },
   {
     q: 'What can it see on my screen?',
