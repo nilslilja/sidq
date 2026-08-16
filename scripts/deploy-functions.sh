@@ -58,7 +58,11 @@ $CLI secrets set --env-file "$SECRETS_FILE"
 echo "==> Deploying functions"
 # generate-day is the one that matters: without it the app silently falls back
 # to the local planner and every plan is generic.
-for fn in generate-day create-checkout stripe-webhook register-push send-ritual-push coach-brief speak; do
+# Only the two that still exist. The others served the planner, the morning
+# ritual, the coach dashboard and the voice, all of which are deleted — and
+# deploying them would demand an Anthropic key, VAPID keys and an ElevenLabs key
+# for features nobody can reach.
+for fn in create-checkout stripe-webhook; do
   echo "    $fn"
   # The webhook is called by Stripe, which cannot present a user JWT.
   if [ "$fn" = "stripe-webhook" ]; then
