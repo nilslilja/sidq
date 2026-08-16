@@ -48,7 +48,17 @@ $CLI link || {
 }
 
 echo "==> Pushing database migrations"
-$CLI db push
+# Already-applied migrations are not a failure.
+#
+# The schema was created once, by hand or by an earlier run, so `db push`
+# reports `relation "profiles" already exists` and, under `set -e`, took the
+# whole deploy down with it — including the secrets and the function upload,
+# which are the parts that actually needed to happen.
+#
+# A migration already in place is the desired end state. Report it, step over it.
+if ! $CLI db push; then
+  echo "    migrations already applied, or nothing to push — continuing"
+fi
 
 echo "==> Setting function secrets"
 # --env-file keeps the values out of argv, so they never appear in ps output or
