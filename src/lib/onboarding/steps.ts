@@ -29,14 +29,22 @@
  * a short process with a visible end, which is the same information framed as
  * something finishable.
  */
-export const PHASES = ['Get started', 'Permissions', 'Connect', 'Set up', 'Learn'] as const;
+/*
+ * No Permissions phase.
+ *
+ * Setup used to ask for macOS Accessibility. Nothing needs it any more: that
+ * permission existed for the window watcher, which is gone, and copying a
+ * conversation to the clipboard needs no permission at all. Asking for the
+ * scariest thing macOS can grant, for a capability the app does not use, is the
+ * most expensive sentence in an install.
+ */
+export const PHASES = ['Get started', 'Connect', 'Set up', 'Learn'] as const;
 export type Phase = (typeof PHASES)[number];
 
 export type StepId =
   | 'welcome'
   | 'discover'
   | 'signin'
-  | 'permissions'
   | 'sources'
   | 'intake'
   | 'pill';
@@ -82,13 +90,6 @@ export const STEPS: Step[] = [
     title: 'Sign in to keep your history',
     subtitle: 'Opens in your browser, then comes straight back here.',
     gate: { kind: 'condition', waiting: 'Waiting for the browser' },
-  },
-  {
-    id: 'permissions',
-    phase: 'Permissions',
-    title: "Let's get you set up",
-    subtitle: 'One permission. Here is exactly what it does.',
-    gate: { kind: 'button', label: 'Allow accessibility access' },
   },
   {
     id: 'sources',

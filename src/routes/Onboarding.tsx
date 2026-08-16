@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/Shell';
 import { PillPreview } from '@/components/landing/PillPreview';
-import { Permissions, SystemDialogPreview, type PermissionState } from '@/components/onboarding/Permissions';
 import { IntakeChips } from '@/components/onboarding/IntakeChips';
 import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
@@ -31,15 +30,8 @@ export default function Onboarding() {
   const bridge = useMemo(desktopBridge, []);
 
   const [step, setStep] = useState<StepId>('welcome');
-  const [permissions, setPermissions] = useState<PermissionState>({
-    accessibility: false,
-    notifications: false,
-    autostart: true,
-  });
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
-  const [rechecking, setRechecking] = useState(false);
-  const [recheckFailed, setRecheckFailed] = useState(false);
   const [shortcutStuck, setShortcutStuck] = useState(false);
   const [focus, setFocus] = useState<string[]>([]);
   const [blockers, setBlockers] = useState<string[]>([]);
@@ -154,26 +146,7 @@ export default function Onboarding() {
     };
   }, [step, bridge, advance]);
 
-  // Accessibility is granted in System Settings, not here, so the only way to know
-  // is to keep asking. Polling stops the moment it flips.
-  useEffect(() => {
-    if (step !== 'permissions' || permissions.accessibility || !bridge) return;
 
-    const id = window.setInterval(async () => {
-      const granted = await bridge.hasAccessibility();
-      if (granted) setPermissions((p) => ({ ...p, accessibility: true }));
-    }, 1200);
-    return () => window.clearInterval(id);
-  }, [step, permissions.accessibility, bridge]);
-
-  // Advance itself once the permission lands, rather than making someone who has
-  // just been to System Settings come back and press another button.
-  useEffect(() => {
-    if (step === 'permissions' && permissions.accessibility) {
-      const id = window.setTimeout(advance, 700);
-      return () => window.clearTimeout(id);
-    }
-  }, [step, permissions.accessibility, advance]);
 
   /**
    * Save the answers and generate the real first day.
@@ -202,31 +175,7 @@ export default function Onboarding() {
     advance();
   }, [discovery, intents, advance]);
 
-  /**
-   * Ask macOS again, on demand.
-   *
-   * The background poll already runs, but someone who has just granted the
-   * permission and is being told they have not needs a button that visibly does
-   * something. Failure is reported rather than silently doing nothing.
-   */
-  const recheckAccessibility = useCallback(async () => {
-    if (!bridge) return;
-    setRechecking(true);
-    setRecheckFailed(false);
-    try {
-      const granted = await bridge.hasAccessibility();
-      if (granted) setPermissions((p) => ({ ...p, accessibility: true }));
-      else setRecheckFailed(true);
-    } finally {
-      setRechecking(false);
-    }
-  }, [bridge]);
 
-  const setPermission = (key: keyof PermissionState, value: boolean) => {
-    setPermissions((p) => ({ ...p, [key]: value }));
-    if (key === 'autostart') void bridge?.setAutostart(value);
-    if (key === 'notifications' && value) void bridge?.requestNotifications();
-  };
 
 
   return (
@@ -316,73 +265,6 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      case 'permissions':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <Permissions state={permissions} onToggle={setPermission} />
-            <div className="mt-6">
-              <PrimaryAction
-                label={
-                  permissions.accessibility ? 'Granted' : 'Allow accessibility access'
-                }
-                waiting={permissions.accessibility}
-                onClick={() => void bridge?.openAccessibilitySettings()}
-              />
-            </div>
-
-            {/*
-             * Two ways past, both real buttons.
-             *
-             * The escape used to be faint grey text, which nobody reads as
-             * clickable, so this screen was still a dead end in practice.
-             *
-             * The re-check exists because of ad-hoc signing: macOS identifies an
-             * unsigned app by a hash that changes on every rebuild, so a
-             * permission granted to yesterday's build does not apply to today's.
-             * People correctly say "I already gave it access" and are correctly
-             * ignored. A manual check turns a trap into one more click.
-             */}
-            {!permissions.accessibility && (
-              <div className="mt-4 grid gap-2">
-                <button
-                  onClick={() => void recheckAccessibility()}
-                  disabled={rechecking}
-                  className={cn(
-                    'min-h-[2.75rem] rounded-[12px] border border-white/12 px-4',
-                    'text-[0.8125rem] text-white/70 transition-colors duration-150',
-                    'hover:border-white/25 hover:text-white disabled:opacity-50',
-                  )}
-                >
-                  {rechecking ? 'Checking…' : 'Already granted it? Check again'}
-                </button>
-
-                <button
-                  onClick={advance}
-                  className={cn(
-                    'min-h-[2.75rem] rounded-[12px] px-4',
-                    'text-[0.8125rem] text-white/45 transition-colors duration-150 hover:text-white',
-                  )}
-                >
-                  Continue without it ›
-                </button>
-
-                <p className="mt-1 text-[0.75rem] leading-relaxed text-white/30">
-                  Without it Sidq sees app names but not window titles, and ⌘⇧N will
-                  not work from inside other apps. You can turn it on later in settings.
-                </p>
-
-                {recheckFailed && (
-                  <p className="text-[0.75rem] leading-relaxed text-[#FFB4A2]">
-                    macOS still reports it as off. This build is unsigned, so macOS
-                    treats each rebuild as a new app: remove Sidq from Privacy &amp;
-                    Security → Accessibility, then add it again.
-                  </p>
-                )}
-              </div>
-            )}
-          </Instruction>
-        );
-
       case 'sources':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
@@ -468,14 +350,6 @@ export default function Onboarding() {
     switch (step) {
       // The genuine macOS pane, not a drawn imitation of one. Building a replica
       // of a system security dialog is impersonation, whatever the intent.
-      case 'permissions':
-        return (
-          <SystemDialogPreview
-            granted={permissions.accessibility}
-            onOpenSettings={() => void bridge?.openAccessibilitySettings()}
-          />
-        );
-
       case 'sources':
         return <ConnectModelsPreview found={claudeSessions} />;
 

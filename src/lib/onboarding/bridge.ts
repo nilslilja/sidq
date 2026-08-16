@@ -7,11 +7,7 @@
  */
 
 export interface OnboardingBridge {
-  hasAccessibility: () => Promise<boolean>;
-  /** Fires the genuine macOS prompt and opens Apple's Accessibility pane. */
-  openAccessibilitySettings: () => Promise<void>;
   setAutostart: (enabled: boolean) => Promise<void>;
-  requestNotifications: () => Promise<void>;
   openSignIn: () => Promise<void>;
   /**
    * Opens the browser at the page that connects the web assistants.
@@ -69,21 +65,8 @@ export function desktopBridge(): OnboardingBridge | null {
   const invoke = core.invoke;
 
   return {
-    hasAccessibility: async () => {
-      // A dedicated command, not current_activity. The latter shells out to
-      // osascript twice per call, which at one poll a second froze the window.
-      return Boolean(await invoke('accessibility_granted'));
-    },
-    openAccessibilitySettings: async () => {
-      await invoke('open_accessibility_settings');
-    },
     setAutostart: async (enabled) => {
       await invoke('set_autostart', { enabled });
-    },
-    requestNotifications: async () => {
-      // The plugin prompts on first use; asking here means the OS dialog appears
-      // while the person is still reading the sentence that explains why.
-      await invoke('plugin:notification|request_permission').catch(() => undefined);
     },
     openSignIn: async () => {
       await invoke('open_sign_in');

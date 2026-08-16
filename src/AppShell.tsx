@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { SidqProvider } from '@/state/SidqProvider';
 import { Upgrade } from '@/routes/Upgrade';
 import { SignIn } from '@/routes/SignIn';
 
@@ -24,8 +23,7 @@ import { SignIn } from '@/routes/SignIn';
 
 export default function AppShell() {
   return (
-    <SidqProvider>
-      <Routes>
+    <Routes>
         <Route path="/signin" element={<SignIn />} />
         <Route path="/upgrade" element={<Upgrade />} />
         {/*
@@ -35,6 +33,5 @@ export default function AppShell() {
          */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </SidqProvider>
   );
 }

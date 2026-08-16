@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { entitlementsFor } from '@/lib/entitlements';
-import { DEFAULT_NUDGE_POLICY as NUDGE } from '@/lib/focus-engine';
 
 /*
  * The numbers come from the code, never from memory.
@@ -48,7 +47,7 @@ const FAQS = [
   },
   {
     q: 'What can it see on my screen?',
-    a: `The name of the app in front of you and the title of its window, and only while the companion is on. No screenshots, no screen recording, no vision model, no camera, no microphone. It is read on your machine and never uploaded, which is also why it is instant and works offline. It is built to be reluctant with it: ${NUDGE.samplesBeforeNudge} consecutive readings before it says anything, ${NUDGE.cooldownMinutes} minutes between anything it does say, one line, then it stops.`,
+    a: 'Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your assistants already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.',
   },
   {
     q: 'Is this just a wrapper around a chatbot?',

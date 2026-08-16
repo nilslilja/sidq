@@ -10,12 +10,9 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod activity;
 mod cursor_history;
 mod work_history;
 
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
@@ -26,19 +23,6 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 // OpenerExt puts .opener() on AppHandle. This is the supported way to hand a URL
 // to the system browser; shell().open() still works but is deprecated.
 use tauri_plugin_opener::OpenerExt;
-
-/// How often we look at the frontmost window.
-///
-/// Five seconds is deliberate. Sub-second polling buys nothing (nobody switches
-/// task meaningfully in under five seconds) and costs battery on a laptop that has
-/// to last a working day.
-const POLL_INTERVAL: Duration = Duration::from_secs(5);
-
-#[derive(Default)]
-struct AppState {
-    /// Last activity we emitted, so we only wake the UI on an actual change.
-    last: Mutex<activity::Activity>,
-}
 
 /// Show or hide the card. Bound to a global shortcut so it can be dismissed
 /// without reaching for the mouse mid-task.
@@ -85,10 +69,6 @@ fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-fn current_activity() -> activity::Activity {
-    activity::current()
-}
 
 /// Is Accessibility granted, without spawning anything.
 ///
@@ -185,10 +165,6 @@ async fn session_transcript(session_id: String) -> Option<String> {
     .flatten()
 }
 
-#[tauri::command]
-fn accessibility_granted() -> bool {
-    activity::is_trusted()
-}
 
 /*
  * Where the browser sign-in lives.
@@ -267,31 +243,6 @@ fn open_sign_in(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Opens the real Accessibility pane in System Settings.
-///
-/// macOS grants this permission in exactly one place and no application can grant
-/// it for you, so the honest thing is to take the person there in one click. The
-/// URL scheme is Apple's own; there is nothing to fake and nothing to imitate.
-#[tauri::command]
-fn open_accessibility_settings(app: AppHandle) -> Result<(), String> {
-    // Also fires the real system prompt, so whichever the person responds to
-    // first works. Both paths end in the same checkbox.
-    activity::request_permission();
-
-    #[cfg(target_os = "macos")]
-    {
-        app.opener()
-            .open_url(
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-                None::<&str>,
-            )
-            .map_err(|e| e.to_string())?;
-    }
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
-
-    Ok(())
-}
 
 /*
  * Whether setup has been completed, as its own marker file.
@@ -338,10 +289,6 @@ fn finish_onboarding(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn request_accessibility() {
-    activity::request_permission();
-}
 
 /*
  * Nudge the card with the arrow keys.
@@ -409,56 +356,20 @@ fn claim_for_onboarding(app: &AppHandle, event: &str) -> bool {
     true
 }
 
-/// Watches the frontmost window and emits only when it changes.
-///
-/// The relevance decision is NOT made here. It lives in the TypeScript focus
-/// engine, which is unit tested and shared with the web app, so there is one
-/// definition of "are you on task" rather than two that drift.
-fn spawn_activity_watch(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        /*
-         * Do nothing while the card is hidden or setup is still open.
-         *
-         * Each pass spawns two osascript processes. During onboarding the card
-         * is not even visible, so that was pure cost competing with the setup
-         * window for the main thread, and it was a large part of why the whole
-         * flow felt like it was seizing up.
-         */
-        // Idle while setup is open. Nothing reads activity during first run and
-        // the poll competes with the setup window for the main thread.
-        let onboarding_open = app
-            .get_webview_window("welcome")
-            .and_then(|w| w.is_visible().ok())
-            .unwrap_or(false);
-
-        if onboarding_open {
-            std::thread::sleep(POLL_INTERVAL);
-            continue;
-        }
-
-        let current = activity::current();
-
-        let changed = {
-            let state = app.state::<Arc<AppState>>();
-            let mut last = state.last.lock().unwrap();
-            if *last != current {
-                *last = current.clone();
-                true
-            } else {
-                false
-            }
-        };
-
-        if changed {
-            let _ = app.emit("activity", &current);
-        }
-
-        std::thread::sleep(POLL_INTERVAL);
-    });
-}
+/*
+ * The frontmost-window watcher is gone.
+ *
+ * It polled every five seconds, spawned two osascript processes each pass, and
+ * emitted an "activity" event that nothing listened to: the card that consumed
+ * it was deleted along with the rest of the planner. So it was reading which
+ * app somebody had open, all day, on battery, and throwing the answer away.
+ *
+ * Removing it makes the privacy claim simpler and stronger. Sidq does not look
+ * at your screen at all now, which is a better sentence than any careful
+ * explanation of what it did with window titles.
+ */
 
 fn main() {
-    let state = Arc::new(AppState::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -470,23 +381,18 @@ fn main() {
             MacosLauncher::LaunchAgent,
             None,
         ))
-        .manage(state)
         .invoke_handler(tauri::generate_handler![
             toggle_overlay,
             focus_overlay,
-            current_activity,
-            accessibility_granted,
             recent_work,
             session_transcript,
             hide_pill,
-            request_accessibility,
             resize_overlay,
             move_overlay,
             autostart_enabled,
             set_autostart,
             open_sign_in,
             open_connect_page,
-            open_accessibility_settings,
             finish_onboarding
         ])
         .setup(|app| {
@@ -589,8 +495,6 @@ fn main() {
             if !launcher.is_enabled().unwrap_or(false) {
                 let _ = launcher.enable();
             }
-
-            spawn_activity_watch(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Mail } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { isBackendConfigured } from '@/lib/env';
 import { ProviderButton, type Provider } from '@/components/auth/ProviderButtons';
-import { useSidq } from '@/state/SidqProvider';
 import { cn } from '@/lib/cn';
 
 /*
@@ -30,9 +29,7 @@ const DESKTOP_CALLBACK = 'sidq://auth';
  * to store, no reset flow to build, and no password to leak.
  */
 export function SignIn() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { continueWithoutAccount } = useSidq();
   const forDesktop = searchParams.get('redirect') === DESKTOP_CALLBACK;
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -201,22 +198,20 @@ export function SignIn() {
         </p>
       )}
 
+      {/*
+       * No "look around without an account" any more.
+       *
+       * It set a guest flag nothing reads and then navigated to /intake, a
+       * route that no longer exists, so it silently bounced to the homepage.
+       * There is also nothing left to look around: the product is the Mac app,
+       * and it already works without an account. Signing in is for billing.
+       */}
       {!isBackendConfigured && (
         <div className="mt-8 rounded-(--radius) border border-line bg-accent-soft/60 p-4">
           <p className="text-[0.8125rem] leading-relaxed text-muted">
-            Accounts are not connected in this build yet. You can still take a look around,
-            and everything stays on this device.
+            Accounts are not connected in this build yet. Sidq itself does not need one:
+            it reads your conversations from this Mac either way.
           </p>
-          <button
-            onClick={() => {
-              continueWithoutAccount();
-              navigate('/intake');
-            }}
-            className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-accent transition-opacity duration-(--duration-fast) hover:opacity-70"
-          >
-            Look around without an account
-            <ArrowRight className="ml-1.5 size-4" />
-          </button>
         </div>
       )}
 
