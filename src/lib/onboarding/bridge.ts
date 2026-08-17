@@ -46,7 +46,14 @@ export interface OnboardingBridge {
    * Attaching that file costs far less than pasting, because it goes to
    * retrieval rather than into the context window of every following turn.
    */
-  saveTranscript: (sessionId: string, title: string) => Promise<string | null>;
+  saveTranscript: (args: {
+    sessionId: string;
+    title: string;
+    source: string;
+    resumePoint: string;
+    when: string;
+    project: string;
+  }) => Promise<string | null>;
   /** Closes the picker. It dismisses itself the moment it has done the job. */
   hidePill: () => Promise<void>;
   /** Closes first run and brings the card up. */
@@ -98,8 +105,8 @@ export function desktopBridge(): OnboardingBridge | null {
       const text = await invoke('session_transcript', { sessionId });
       return typeof text === 'string' ? text : null;
     },
-    saveTranscript: async (sessionId, title) => {
-      const path = await invoke('save_transcript', { sessionId, title });
+    saveTranscript: async (args) => {
+      const path = await invoke('save_transcript', args);
       return typeof path === 'string' ? path : null;
     },
     hidePill: async () => {

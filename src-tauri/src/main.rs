@@ -10,6 +10,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod browser_bridge;
+mod handover;
 mod cursor_history;
 mod work_history;
 
@@ -160,10 +162,35 @@ fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
  * just made, and because the file picker in every assistant opens there.
  */
 #[tauri::command]
-async fn save_transcript(session_id: String, title: String) -> Option<String> {
+async fn save_transcript(
+    session_id: String,
+    title: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let text = work_history::session_transcript(&session_id)
+        let transcript = work_history::session_transcript(&session_id)
             .or_else(|| cursor_history::session_transcript(&session_id))?;
+
+        /*
+         * The instruction goes in with it.
+         *
+         * A transcript on its own produced a model that commented on the
+         * conversation instead of continuing it. The preamble is the difference
+         * between a handover and a paste.
+         */
+        let text = handover::wrap(
+            &handover::Handover {
+                source: &source,
+                title: &title,
+                resume_point: &resume_point,
+                when: &when,
+                project: &project,
+            },
+            &transcript,
+        );
 
         let home = std::env::var_os("HOME")?;
         let dir = std::path::PathBuf::from(home).join("Downloads");
@@ -467,6 +494,10 @@ fn main() {
              * "Has run before" is the autostart flag, which is enabled below on
              * the very first launch and never disabled by us again.
              */
+            // Listens on 127.0.0.1 for the browser extension. Failure to bind is
+            // not fatal: the shortcut still works and the extension says so.
+            browser_bridge::spawn(app.handle().clone());
+
             if !has_onboarded(&app.handle().clone()) {
                 if let Some(welcome) = app.get_webview_window("welcome") {
                     let _ = welcome.show();

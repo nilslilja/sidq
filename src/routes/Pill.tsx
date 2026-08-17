@@ -26,6 +26,14 @@ import { cn } from '@/lib/cn';
 /** Long enough to read "Copied", short enough that it never feels like waiting. */
 const CLOSE_AFTER_COPY_MS = 900;
 
+/**
+ * How long the success card stays up.
+ *
+ * 900ms was too short to read, which is why a handover that worked looked like
+ * nothing had happened. This is long enough to take in a filename.
+ */
+const CLOSE_AFTER_SAVE_MS = 2600;
+
 type Phase =
   | { kind: 'browsing' }
   | { kind: 'working' }
@@ -93,17 +101,23 @@ export function Pill() {
 
     setPhase({ kind: 'working' });
     try {
-      const path = await bridge?.saveTranscript(
-        target.session.sessionId,
-        target.session.title || 'sidq-conversation',
-      );
+      const path = await bridge?.saveTranscript({
+        sessionId: target.session.sessionId,
+        title: target.session.title || 'sidq-conversation',
+        source: target.session.source ?? 'claude-code',
+        // Where it stopped. The last prompt is sharper than the title: an
+        // unanswered question is a better starting instruction than a topic.
+        resumePoint: target.session.lastPrompt || target.session.title || '',
+        when: target.reason,
+        project: target.session.projectName ?? '',
+      });
       if (!path) {
         setPhase({ kind: 'failed' });
         return;
       }
       playCue('done');
       setPhase({ kind: 'saved', path });
-      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS * 2);
+      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
     } catch {
       setPhase({ kind: 'failed' });
     }
@@ -147,13 +161,26 @@ export function Pill() {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (e.metaKey) void saveFile();
-      else void handOver();
+      /*
+       * Enter writes a file. Cmd+Enter copies.
+       *
+       * The clipboard was the primary action and it was the wrong one: a paste
+       * is something anybody can do with two keystrokes and no Sidq, it costs
+       * full context on every following turn, and it cannot be reused. A file
+       * carries the instruction with it, attaches to any assistant, and is
+       * still there tomorrow.
+       */
+      if (e.metaKey) void handOver();
+      else void saveFile();
     }
   };
 
   return (
     <div
+      // Marks the window as transparent so global.css stops painting a
+      // background behind it. Without this the page colour shows as a white
+      // border around every edge of the card.
+      data-transparent-window
       className="flex h-[100dvh] w-full items-start justify-center bg-transparent p-3"
       onKeyDown={onKeyDown}
     >
@@ -185,16 +212,50 @@ export function Pill() {
           </span>
         </div>
 
-        {visible.length > 0 && <div className="h-px bg-white/[0.07]" />}
+        {/*
+         * The success state takes over the card.
+         *
+         * It used to be one grey line in the footer for 900ms, which is why a
+         * handover that had worked perfectly looked like nothing happened. The
+         * moment it succeeds is the only moment this window has to prove it did
+         * something, so it gets the whole card and long enough to read.
+         */}
+        {phase.kind === 'saved' && (
+          <div className="border-t border-white/[0.07] px-4 py-5">
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[#B8A6FF]/20 text-[0.75rem] text-[#B8A6FF]"
+              >
+                ✓
+              </span>
+              <div className="min-w-0">
+                <p className="text-[0.9375rem] font-medium text-white">
+                  Saved to Downloads
+                </p>
+                <p className="mt-1 truncate text-[0.8125rem] text-white/50">
+                  {phase.path.split('/').pop()}
+                </p>
+                <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/40">
+                  Attach it to any assistant. It already tells them to read it and carry
+                  on rather than summarise it back to you.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {phase.kind !== 'saved' && visible.length > 0 && <div className="h-px bg-white/[0.07]" />}
 
         {/* ── Results ───────────────────────────────────────────────────── */}
+        {phase.kind !== 'saved' && (
         <ul className="max-h-[17rem] overflow-y-auto">
           {visible.map((row, i) => (
             <li key={row.session.sessionId}>
               <button
                 onClick={() => {
                   setIndex(i);
-                  void handOver();
+                  void saveFile();
                 }}
                 onMouseEnter={() => setIndex(i)}
                 className={cn(
@@ -222,15 +283,16 @@ export function Pill() {
             </li>
           ))}
         </ul>
+        )}
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-t border-white/[0.07] px-4 py-2">
           <span className="text-[0.6875rem] text-white/30">
             {phase.kind === 'working' && 'Reading the conversation…'}
             {phase.kind === 'done' && 'Copied. Paste it anywhere.'}
-            {phase.kind === 'saved' && `Saved to Downloads. Attach it instead of pasting.`}
+            {phase.kind === 'saved' && 'Ready to attach'}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && '↵ copy · ⌘↵ save a file, cheaper to attach'}
+            {phase.kind === 'browsing' && '↵ make a file to attach · ⌘↵ copy instead'}
           </span>
           <span className="flex items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>

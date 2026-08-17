@@ -109,6 +109,21 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /*
+   * The transparent windows have to opt out of the page background.
+   *
+   * `body` paints the site's off-white, and the pill and overlay windows are
+   * transparent — so that colour bled out around the card as a white frame on
+   * every edge. It reads as a rendering fault, and it does not reproduce in a
+   * browser tab, which is why it survived several rounds of checking.
+   *
+   * Keyed off the route so nothing global changes: only these windows are
+   * transparent, and only they want a see-through body.
+   */
+  body:has(#root [data-transparent-window]) {
+    background-color: transparent;
+  }
+
   body {
     background-color: var(--color-bg);
     color: var(--color-text);
