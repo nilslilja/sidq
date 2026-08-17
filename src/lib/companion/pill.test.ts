@@ -103,12 +103,25 @@ describe('moveSelection', () => {
 
 describe('statusLine', () => {
   test('counts, and gets the singular right', () => {
-    expect(statusLine(1, '')).toBe('1 conversation');
-    expect(statusLine(4, '')).toBe('4 conversations');
+    expect(statusLine(1, 1, '')).toBe('1 conversation');
+    expect(statusLine(4, 4, '')).toBe('4 conversations');
+  });
+
+  test('reports the total, not the number of rows on screen', () => {
+    /*
+     * The bug this replaces. Twenty-nine conversations were loaded, five were
+     * shown, and the header said "5 conversations" — telling somebody their
+     * history was a fifth of its real size.
+     */
+    expect(statusLine(12, 29, '')).toBe('29 conversations, showing 12');
+  });
+
+  test('does not mention a slice when nothing is hidden', () => {
+    expect(statusLine(3, 3, '')).toBe('3 conversations');
   });
 
   test('distinguishes an empty history from a query that matched nothing', () => {
-    expect(statusLine(0, '')).toBe('No conversations found yet');
-    expect(statusLine(0, 'xyz')).toBe('Nothing matches that');
+    expect(statusLine(0, 0, '')).toBe('No conversations found yet');
+    expect(statusLine(0, 0, 'xyz')).toBe('Nothing matches that');
   });
 });

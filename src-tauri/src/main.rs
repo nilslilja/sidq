@@ -12,6 +12,7 @@
 
 mod browser_bridge;
 mod handover;
+mod index_store;
 mod cursor_history;
 mod work_history;
 

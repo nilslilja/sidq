@@ -11,16 +11,27 @@ import type { RankedSession } from './rank-sessions';
  * conversation, a query that matches nothing because of a capital letter.
  */
 
-/** More than this on screen and it stops being a glance. */
-export const MAX_VISIBLE = 5;
+/**
+ * How many rows the list shows at once.
+ *
+ * This was 5, and it was wrong in a way that read as a much worse bug than it
+ * was: the picker loaded 50 conversations, showed five, and then labelled that
+ * "5 conversations" — so somebody with twenty-nine of them was told they had
+ * five. The cap was for glanceability and it silently became a claim about how
+ * much history existed.
+ *
+ * Twelve fits the expanded card without scrolling, and the count now reports the
+ * total rather than the slice.
+ */
+export const MAX_VISIBLE = 12;
 
 /**
  * Sessions matching what has been typed.
  *
  * Substring, not fuzzy. Fuzzy matching is the obvious reach here and it is wrong
- * for this list: it is five items long, the person is typing a word they already
- * remember, and fuzzy ranking would reorder results under their fingers between
- * one keystroke and the next.
+ * for this list: the person is typing a word they already remember, and fuzzy
+ * ranking would reorder results under their fingers between one keystroke and
+ * the next.
  *
  * Matches the project as well as the title, because "sidq" is what someone types
  * when they mean "the thing I was doing in that folder".
@@ -54,12 +65,16 @@ export function moveSelection(index: number, delta: number, length: number): num
 }
 
 /**
- * The header line, which is the only status the pill shows.
+ * The header count.
  *
- * Says what is about to happen rather than what the app is doing. "Copying…" is
- * about us; "Ready to paste" is about them.
+ * Takes the total, not the number of visible rows. Reporting the slice told
+ * people they had five conversations when they had twenty-nine, which is the
+ * kind of wrong that makes someone distrust everything else on the screen.
  */
-export function statusLine(count: number, query: string): string {
-  if (count > 0) return count === 1 ? '1 conversation' : `${count} conversations`;
-  return query.trim() ? 'Nothing matches that' : 'No conversations found yet';
+export function statusLine(shown: number, total: number, query: string): string {
+  if (total === 0) return query.trim() ? 'Nothing matches that' : 'No conversations found yet';
+
+  const label = total === 1 ? '1 conversation' : `${total} conversations`;
+  // Only mention the slice when there genuinely is one being hidden.
+  return shown < total ? `${label}, showing ${shown}` : label;
 }
