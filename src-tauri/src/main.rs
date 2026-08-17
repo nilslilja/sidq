@@ -13,6 +13,7 @@
 mod browser_bridge;
 mod handover;
 mod index_store;
+mod indexer;
 mod cursor_history;
 mod work_history;
 
@@ -212,6 +213,43 @@ async fn save_transcript(
     .await
     .ok()
     .flatten()
+}
+
+/**
+ * Search every indexed conversation.
+ *
+ * `since` is the history window the plan allows. It is applied in SQL rather
+ * than in the client, so a free account cannot read older conversations by
+ * editing the page. The second return value is how many older matches exist —
+ * a real count, with none of their text — which is what the upgrade prompt
+ * shows.
+ */
+#[tauri::command]
+async fn search_conversations(
+    query: String,
+    since: i64,
+    limit: usize,
+) -> (Vec<index_store::SearchHit>, usize) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(conn) = index_store::open() else {
+            return (Vec::new(), 0);
+        };
+        index_store::search(&conn, &query, since, limit.min(100))
+    })
+    .await
+    .unwrap_or((Vec::new(), 0))
+}
+
+/// Conversations and messages indexed. Real numbers for the stats panel.
+#[tauri::command]
+async fn index_stats() -> (usize, usize) {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open()
+            .map(|conn| index_store::counts(&conn))
+            .unwrap_or((0, 0))
+    })
+    .await
+    .unwrap_or((0, 0))
 }
 
 #[tauri::command]
@@ -456,6 +494,8 @@ fn main() {
             recent_work,
             session_transcript,
             hide_pill,
+            search_conversations,
+            index_stats,
             save_transcript,
             resize_overlay,
             move_overlay,
@@ -498,6 +538,11 @@ fn main() {
             // Listens on 127.0.0.1 for the browser extension. Failure to bind is
             // not fatal: the shortcut still works and the extension says so.
             browser_bridge::spawn(app.handle().clone());
+
+            // Keeps the index current in the background. Search reads from it;
+            // the picker still works without it, so a failure here costs a
+            // feature rather than the app.
+            indexer::spawn();
 
             if !has_onboarded(&app.handle().clone()) {
                 if let Some(welcome) = app.get_webview_window("welcome") {
