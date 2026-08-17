@@ -6,6 +6,17 @@
  * localhost:5173/welcome or it will never get iterated on.
  */
 
+/** One search result: the matching text plus where it came from. */
+export interface SearchHit {
+  sessionId: string;
+  source: string;
+  title: string;
+  project: string;
+  endedAt: number;
+  /** The matching passage, with query terms wrapped in « ». */
+  snippet: string;
+}
+
 export interface OnboardingBridge {
   setAutostart: (enabled: boolean) => Promise<void>;
   openSignIn: () => Promise<void>;
@@ -54,6 +65,22 @@ export interface OnboardingBridge {
     when: string;
     project: string;
   }) => Promise<string | null>;
+  /**
+   * Search every indexed conversation.
+   *
+   * `since` is the history window the plan allows, applied in SQL rather than
+   * here. The second element is how many older matches were withheld — a real
+   * count with none of their text, which is what the upgrade prompt shows.
+   */
+  searchConversations: (
+    query: string,
+    since: number,
+    limit: number,
+  ) => Promise<[SearchHit[], number]>;
+  /** Conversations and messages indexed. Real numbers, never placeholders. */
+  indexStats: () => Promise<[number, number]>;
+  /** Opens the window behind the pill. */
+  openHome: () => Promise<void>;
   /** Closes the picker. It dismisses itself the moment it has done the job. */
   hidePill: () => Promise<void>;
   /** Closes first run and brings the card up. */
@@ -108,6 +135,17 @@ export function desktopBridge(): OnboardingBridge | null {
     saveTranscript: async (args) => {
       const path = await invoke('save_transcript', args);
       return typeof path === 'string' ? path : null;
+    },
+    searchConversations: async (query, since, limit) => {
+      const out = await invoke('search_conversations', { query, since, limit });
+      return Array.isArray(out) ? (out as [SearchHit[], number]) : [[], 0];
+    },
+    indexStats: async () => {
+      const out = await invoke('index_stats');
+      return Array.isArray(out) ? (out as [number, number]) : [0, 0];
+    },
+    openHome: async () => {
+      await invoke('open_home');
     },
     hidePill: async () => {
       await invoke('hide_pill');

@@ -13,6 +13,18 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "home",
+        "url": "/home",
+        "title": "Sidq",
+        "width": 1000,
+        "height": 680,
+        "minWidth": 820,
+        "minHeight": 560,
+        "resizable": true,
+        "center": true,
+        "visible": false
+      },
+      {
         "label": "welcome",
         "url": "/welcome",
         "title": "Welcome to Sidq",

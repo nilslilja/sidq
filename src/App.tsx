@@ -12,6 +12,10 @@ const AppShell = lazy(() => import('./AppShell'));
 // shortcut and must appear instantly, so it carries nothing the list needs not.
 const Pill = lazy(() => import('@/routes/Pill').then((m) => ({ default: m.Pill })));
 
+// The window behind the pill: search, handovers, sources, stats. Its own chunk
+// because it is opened deliberately, not summoned, so it can afford to load.
+const Home = lazy(() => import('@/routes/Home').then((m) => ({ default: m.Home })));
+
 // First run. Its own window in the desktop app, its own chunk everywhere, since
 // it is seen exactly once per install and never again.
 const Onboarding = lazy(() => import('@/routes/Onboarding'));
@@ -51,6 +55,14 @@ export function App() {
         {/* The desktop card renders alone: transparent, no bloom, no grain. The
             fallback is empty rather than a spinner, so the transparent window
             stays transparent while the chunk resolves. */}
+        <Route
+          path="/home"
+          element={
+            <Suspense fallback={<div className="min-h-[100dvh] bg-[#0B0B10]" />}>
+              <Home />
+            </Suspense>
+          }
+        />
         <Route
           path="/pill"
           element={

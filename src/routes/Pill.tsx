@@ -294,6 +294,21 @@ export function Pill() {
             {phase.kind === 'failed' && 'Could not read that one.'}
             {phase.kind === 'browsing' && '↵ make a file to attach · ⌘↵ copy instead'}
           </span>
+          {/*
+            * The way into the window.
+            *
+            * Without it the pill is the only surface and everything behind it —
+            * search, sources, what you have already extracted — is unreachable.
+            */}
+          <button
+            onClick={() => {
+              void bridge?.openHome();
+              void bridge?.hidePill();
+            }}
+            className="mr-auto text-[0.6875rem] text-white/30 transition-colors duration-100 hover:text-white/70"
+          >
+            Search all history ›
+          </button>
           <span className="flex items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>
             <Key>↵</Key>

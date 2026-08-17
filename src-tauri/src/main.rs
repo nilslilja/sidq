@@ -252,6 +252,23 @@ async fn index_stats() -> (usize, usize) {
     .unwrap_or((0, 0))
 }
 
+/**
+ * Open the window behind the pill.
+ *
+ * Closing it must not quit Sidq: the pill is the product and it keeps working
+ * with the window shut, the same way Wispr's dictation bar outlives its
+ * settings window. So this shows and focuses rather than creating, and the
+ * window's own close button only hides it.
+ */
+#[tauri::command]
+fn open_home(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("home") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 #[tauri::command]
 fn hide_pill(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pill") {
@@ -494,6 +511,7 @@ fn main() {
             recent_work,
             session_transcript,
             hide_pill,
+            open_home,
             search_conversations,
             index_stats,
             save_transcript,
@@ -537,6 +555,42 @@ fn main() {
              */
             // Listens on 127.0.0.1 for the browser extension. Failure to bind is
             // not fatal: the shortcut still works and the extension says so.
+            /*
+             * A menu bar item, so quitting is deliberate.
+             *
+             * Sidq has no dock window most of the time: the pill is summoned and
+             * dismissed, and the main window hides rather than closing. Without
+             * something in the menu bar there is no visible evidence the app is
+             * running and no obvious way to quit it — which is how a background
+             * process gets force-quit and never reopened.
+             */
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::TrayIconBuilder;
+
+                let open = MenuItem::with_id(app, "open", "Open Sidq", true, None::<&str>)?;
+                let pick = MenuItem::with_id(app, "pick", "Pick up a conversation", true, Some("Cmd+Shift+K"))?;
+                let quit = MenuItem::with_id(app, "quit", "Quit Sidq", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&open, &pick, &quit])?;
+                let _ = TrayIconBuilder::with_id("sidq")
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    // The menu is the whole interaction; a left click that also
+                    // did something would fight it.
+                    .show_menu_on_left_click(true)
+                    .on_menu_event(move |app, event| match event.id().as_ref() {
+                        "open" => open_home(app.clone()),
+                        "pick" => {
+                            if let Some(w) = app.get_webview_window("pill") {
+                                let _ = show_pill(&w);
+                            }
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    })
+                    .build(app);
+            }
+
             browser_bridge::spawn(app.handle().clone());
 
             // Keeps the index current in the background. Search reads from it;
@@ -627,6 +681,22 @@ fn main() {
                 let _ = launcher.enable();
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            /*
+             * Closing the main window hides it rather than destroying it.
+             *
+             * The pill is the product and it must survive the window being shut,
+             * which is the shape Wispr uses: the bar stays, the window is
+             * something you dismiss. Without this, closing the window on macOS
+             * tears down the webview and the shortcut stops finding anything.
+             */
+            if window.label() == "home" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .build(tauri::generate_context!())
         .expect("error while running Sidq")
