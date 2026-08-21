@@ -508,27 +508,26 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
   return (
     <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.05] p-4">
       <p className="text-[0.875rem] font-medium text-white">
-        Bring in the history you already have
+        Already have an export file?
       </p>
+      {/*
+        * Deliberately the last thing on this panel, and phrased as an
+        * afterthought.
+        *
+        * It used to be the headline. Requesting an export from Claude or
+        * ChatGPT is emailed to you and can take days to arrive, so putting it
+        * in front of somebody who has just installed Sidq means their first
+        * experience of the product is waiting. Opening an assistant here works
+        * in one click, so that is the offer; this is for the people who
+        * happen to have a file already.
+        */}
       <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
-        Assistants that run in a browser keep nothing readable on this Mac, so the extension
-        can only see what happens after you install it. Each of them will hand you your whole
-        history as a file. Drop any of these in and Sidq works out which it is.
+        Only worth it if you already downloaded one, since they take a day or two to
+        arrive. It brings in everything you did before installing Sidq. Claude and ChatGPT
+        both call it <code className="text-white/65">conversations.json</code>; Google
+        Takeout calls it <code className="text-white/65">MyActivity.json</code>. Sidq works
+        out which is which.
       </p>
-      <ul className="mt-2.5 space-y-1 text-[0.8125rem] text-white/45">
-        <li>
-          <span className="text-white/70">ChatGPT</span> &mdash; Settings, Data controls, Export
-          data. Open the emailed zip and use <code className="text-white/65">conversations.json</code>
-        </li>
-        <li>
-          <span className="text-white/70">Claude</span> &mdash; Settings, Privacy, Export data.
-          Same filename
-        </li>
-        <li>
-          <span className="text-white/70">Gemini</span> &mdash; takeout.google.com, choose My
-          Activity, then the Gemini <code className="text-white/65">MyActivity.json</code>
-        </li>
-      </ul>
 
       <label
         className={cn(

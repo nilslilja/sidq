@@ -1,95 +1,97 @@
 # Posts
 
-Fill in the bracket, post it. Every number below is real and measured on one
-laptop — replace them only with numbers you have actually measured, never with
-rounder ones that read better.
+Age is the hook, every time. Then the number, immediately, so the hook is not
+the whole meal. Every figure below is real and measured on one laptop. Replace
+them only with numbers you have actually measured, never with rounder ones that
+read better.
 
-Voice rules in [voice.md](voice.md). The short version: say the number or say
-nothing.
+Voice rules in [voice.md](voice.md).
 
 ---
 
-## Launch — LinkedIn
+## The argument, in one paragraph
 
-> I measured what my AI assistants actually keep.
->
-> 5,414 messages. 16 conversations. Four different tools.
->
-> Not one of them can read a single word of the others.
->
-> Then I looked inside one transcript. 370,055 characters of the model's own
-> reasoning — the part it thinks before it answers — that I have never seen and
-> never will. It gets dropped from the model's context after the turn. It only
-> exists in a file on my laptop that nothing reads.
->
-> So every morning I re-explain my stack. My conventions. What I am building.
-> To a machine that wrote 370,000 characters about it yesterday.
->
-> I built Sidq to stop doing that.
->
-> It reads the conversation files your assistants already write to your Mac,
-> and carries a whole conversation into a different one. Not a summary — anyone
-> can ask for a summary. The reasoning, the tool calls that failed, the places
-> you cut it off mid-sentence.
->
-> Nothing is uploaded. It reads what is already on your disk.
->
-> Mac only. Free. sidq.tech
+Every AI you use forgets you the moment you close the tab. The workaround
+everybody has settled on is asking it to summarise, and a summary is exactly
+where the detail dies: the reasoning, the things it tried and rejected, the
+part where you stopped it and said no. I measured it. In one conversation on my
+laptop there were 370,055 characters of the model's own thinking that I have
+never seen and never will, because it gets dropped from its own context after
+the turn. It exists in one place, a file on my disk, and not a single one of my
+assistants can read it.
 
-## Launch — X
+---
 
-> I measured what my AI assistants actually remember about me.
+## LinkedIn, launch day
+
+> I am 18 and I have spent the last month reading my own AI conversations.
 >
-> 5,414 messages across 4 tools.
-> Zero of them can read each other.
+> Not using them. Reading the files.
 >
-> Then I opened one transcript properly:
+> Here is what I found on my laptop: 5,414 messages, 16 conversations, four
+> different assistants. Not one of them can read a single word of the others.
+>
+> Then I opened one transcript properly. 3,416 turns. 561 blocks of the model's
+> private reasoning, 370,055 characters of it, that I have never seen and never
+> will. It gets dropped from the model's own context after the turn. It exists
+> in exactly one place: a file on my disk that nothing reads.
+>
+> The spoken part of that conversation, the bit you actually see in the app, is
+> 14% of the file.
+>
+> Everybody's answer to this is "just ask it to summarise". That is the problem,
+> not the fix. A summary is where the detail goes to die. It keeps the
+> conclusion and throws away the reasoning, the three approaches that were tried
+> and rejected, and the moment you cut it off mid-sentence and said no, not like
+> that. Those are the parts that took you two hours to arrive at.
+>
+> So I built Sidq. It reads the conversation files your assistants already write
+> to your Mac, and carries a whole conversation into a different assistant. Word
+> for word. Including the 86% you were never shown.
+>
+> Nothing is uploaded. It reads what is already on your machine.
+>
+> I am 18, I built this alone, and I would rather you tell me it is wrong than
+> say nothing.
+>
+> sidq.tech
+
+## X, same day
+
+> I'm 18 and I spent a month reading my own AI conversation files.
+>
+> 5,414 messages. 4 assistants. Zero of them can read each other.
+>
+> Then I opened one properly:
 >
 > 370,055 characters of the model's private reasoning I have never seen.
 >
 > Dropped from its own context after the turn. Sitting on my disk. Read by
 > nothing.
 >
-> Built Sidq to carry it across. Mac, free, nothing uploaded.
+> Everyone says "just ask it to summarise". Summaries are where the detail dies.
+>
+> Built Sidq to carry the whole thing across instead. Mac. Nothing uploaded.
 
-## Launch — Show HN
+## X, the clip
 
-> **Show HN: Sidq — carry a whole AI conversation into a different assistant**
+> This is 86% of an AI conversation that you have never seen.
 >
-> Sidq reads the transcript files Claude Code, Cowork, Cursor, Windsurf and VS
-> Code already write to your Mac, indexes them locally with SQLite FTS5, and
-> compiles any one of them into a file you attach to a different assistant.
+> [video]
 >
-> The part I did not expect: the spoken half of a transcript is about 14% of
-> the file. In my largest conversation — 3,416 turns — there were 561 blocks of
-> reasoning totalling 370,055 characters, plus 1,594 tool calls and their
-> results. None of it is visible in the UI, and none of it is recoverable by
-> asking the model to summarise itself, because it is dropped from the model's
-> own context between turns.
->
-> Sidq carries that across, and formats per target: XML for Claude, markdown
-> for GPT and Gemini, with the instruction repeated at the end where it is
-> actually followed.
->
-> Everything is local. The index is a file in Application Support. Browser
-> assistants are read by an extension that posts to 127.0.0.1.
->
-> It is Mac only, the browser extension is not in the store yet, and the local
-> limit enforcement is SQLite on a disk you own, so a determined person can
-> edit it. Making it stronger would mean sending a record of every handover to
-> a server, which is the one thing this cannot do.
+> Built by an 18 year old who got tired of explaining his stack every morning.
 
 ---
 
-## Finding — the template
+## The four recurring formats
 
-> [Number], [unit], measured on my own machine this week.
->
-> [The one-sentence consequence.]
->
-> [What that means for anyone using more than one assistant.]
+### 1. The measurement
 
-Filled in:
+> [Number], measured on my own machine this week.
+>
+> [One-sentence consequence.]
+>
+> [What it means for anyone using more than one assistant.]
 
 > 86% of what Claude wrote to me last month, I never saw.
 >
@@ -98,64 +100,63 @@ Filled in:
 >
 > Your assistant knows more about your project than you can get it to tell you.
 
-> Four assistants open right now. 5,414 messages between them.
->
-> If I ask any one of them what I decided on Tuesday, it says it has no memory
-> of previous conversations.
->
-> The memory exists. It is 40MB, on this laptop, and none of them can open it.
+### 2. The summary problem
 
----
-
-## Build note — the template
-
-> [Thing broke.] [In one sentence, how.]
+> I asked four assistants to summarise the same conversation.
 >
-> [The detail that makes it interesting.]
+> All four kept the conclusion. All four dropped the two approaches we tried
+> first and abandoned, which is the only part that would stop the next one
+> repeating them.
 >
-> [What you actually changed.]
+> A summary is a lossy compression of the thing you actually needed.
 
-Filled in:
+### 3. The build note
+
+> [Thing broke.] [How, in one sentence.] [The interesting detail.] [What changed.]
 
 > Spent an afternoon on a bug where a window resized and the UI never noticed.
 >
-> Tauri's `emit_to(label, …)` builds one kind of event target. The JS
-> `listen()` registers a different one. The matcher has no arm for that pair,
-> so it returns false. No error, no warning, no type complaint. The event
-> simply reached nobody.
+> Tauri's emit_to builds one kind of event target. The JS listen() registers a
+> different one. The matcher has no arm for that pair, so it returns false. No
+> error, no warning, no type complaint. The event simply reached nobody.
 >
-> Fixed it by deleting the event. The window now measures its own width. A fact
+> Fixed it by deleting the event. The window measures its own width now. A fact
 > you can read cannot fail to arrive.
 
-> Found my own privacy policy claiming Sidq reads your window titles.
+### 4. The age post, used sparingly
+
+Once a week at most, or it stops being a fact and starts being a bit.
+
+> Things I did not have at 18: a degree, a network, a co-founder, a clue.
 >
-> It did, for a feature deleted three weeks earlier. Worse, it promised nothing
-> reads your transcripts in the background — which the indexer I shipped last
-> week makes false.
->
-> A privacy policy that under-describes what the software does is the only kind
-> of stale copy that actually matters. Rewrote it against the code, line by
-> line.
+> Things I did have: a laptop with 5,414 AI messages on it that no assistant
+> could read, and enough free time to find out why.
 
 ---
 
-## Answering "isn't this just a wrapper"
+## Answering the two objections
 
-Do not get defensive. Agree with the version that was true, then give the
-number.
+**"Isn't this just a wrapper?"**
 
 > It was. For about three weeks it copied the text of a conversation and pasted
-> it somewhere else, which anyone can do by asking the model to summarise
-> itself.
+> it somewhere else, which anybody can do by asking for a summary.
 >
-> What changed is that the text is 14% of the file. The other 86% — 370,055
-> characters of reasoning in one conversation, the tool calls, the failures —
-> cannot be asked for, because the model does not have it either. It is dropped
-> from its context after the turn.
+> What changed is that the text is 14% of the file. The other 86%, the 370,055
+> characters of reasoning, the tool calls, the failures, cannot be asked for,
+> because the model does not have it either. It is dropped from its context
+> after the turn.
 >
 > Reading it off your own disk is the only way to get it. That is the product.
 
-## Answering "why not just use projects/memory"
+**"Why not use Projects or memory?"**
 
 > Because those live inside one assistant. The whole problem is that you use
 > four.
+
+---
+
+## Never post
+
+A roadmap. A "thrilled to announce". A milestone about yourself that is not a
+number about the product. Anything a competitor could post about their own
+product by swapping two words.
