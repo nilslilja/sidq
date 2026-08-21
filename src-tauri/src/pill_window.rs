@@ -17,6 +17,19 @@
 //! window that eats a keystroke meant for your editor. Collapsed, the window is
 //! marked non-focusable, so clicks still reach it but the caret stays where it
 //! was. Expanding makes it focusable again, because then it is a text field.
+//!
+//! ── The cost of that, measured ───────────────────────────────────────────────
+//! A non-focusable window drops out of the macOS accessibility tree: querying
+//! the process through System Events reports zero windows while the bar is
+//! plainly on screen, which is how this was found. So assistive technology
+//! cannot reach the collapsed bar by pointing at it.
+//!
+//! That is acceptable only because the bar is not the sole way in. ⌘⇧K reaches
+//! the picker from anywhere, and so does "Pick up a conversation" in the menu
+//! bar; both are keyboard-reachable and both land on the expanded window, which
+//! is focusable and behaves like the list it is. If either of those two ever
+//! goes away, this trade stops being defensible and the bar has to become
+//! focusable again.
 
 use tauri::{Emitter, LogicalPosition, LogicalSize, WebviewWindow};
 
