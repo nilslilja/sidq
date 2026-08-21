@@ -54,10 +54,10 @@ interface Model {
  * advertising the slowest path into the product.
  */
 const MODELS: Model[] = [
-  { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
-  { name: 'Cursor', logo: '', colour: '#E5E5E5' },
   { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F' },
+  { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
+  { name: 'Cursor', logo: '', colour: '#E5E5E5' },
 ];
 
 /** Sits under the rotating line and is what makes it not sound like surveillance. */

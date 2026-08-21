@@ -62,32 +62,33 @@ export function Hero() {
           id="hero"
           className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
         >
-          Every AI you open starts from zero
+          Where your AI work adds up
         </h1>
 
+        {/*
+          * This headline is the product, not a campaign.
+          *
+          * It was rewritten three times in three days: "Start where you
+          * actually stopped", then "Your AI is hiding half of what it thinks",
+          * then "Every AI you open starts from zero". Each was a true sentence
+          * about a symptom, and each meant the site said something different
+          * from the site a week earlier, which is how a product ends up with no
+          * identity at all.
+          *
+          * What has not changed since the beginning is what Sidq is: every
+          * conversation you have had with every assistant, in one place on your
+          * own machine, and any one of them carried whole into another. Symptoms
+          * belong in the posts. The page says what the thing is.
+          */}
         <p className="mx-auto mt-8 max-w-[50ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          You explain your project to one. Then the same thing to the next. And when you
-          finally want a second opinion from a different model, all you can give it is a
-          summary, so what comes back is an opinion on the summary.
+          Every conversation you have had with every assistant, together on your Mac. Pick any
+          one and carry it into a different AI, whole.
         </p>
 
-        {/*
-          * The number, second and not first.
-          *
-          * It led the page for a day and it was the wrong order. "Your AI is
-          * hiding half of what it thinks" is true and it reads as a conspiracy
-          * theory about a technical detail nobody has ever thought about. The
-          * problem people actually have is explaining themselves four times a
-          * day and never being able to get a real second opinion.
-          *
-          * So the number is the twist that explains why the obvious workaround
-          * cannot work, which is the job it is actually good at.
-          */}
         <p className="mx-auto mt-6 max-w-[52ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
-          And a summary is the best you can do, because 44% of what your assistant worked out
-          about your project was never shown to you in the first place. It writes the reasoning
-          to your own disk, renders none of it, and forgets it after the turn. Sidq moves the
-          whole conversation across instead. Every word, including that part.
+          Word for word, not a summary. Including the reasoning your assistant wrote down and
+          never showed you, which is 44% of what it worked out about your work and the reason
+          a second opinion from another model has never been worth much.
         </p>
 
         <div className="mt-10 flex justify-center">
@@ -113,7 +114,6 @@ export function Hero() {
          */}
         <ScrollTilt className="mt-16 lg:mt-20">
           <ProductVideo
-            mp4="/video/sidq.mp4"
             caption="Sidq hangs off the menu bar. One keystroke opens every conversation you have had with any assistant, and the one you pick is carried into the next one word for word."
           />
         </ScrollTilt>
