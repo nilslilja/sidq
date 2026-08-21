@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   desktopBridge,
+  type HandoverRecord,
   type PlanStatus,
   type ProfileFact,
   type SearchHit,
@@ -105,7 +106,7 @@ export function Home() {
       <main className="min-w-0 overflow-y-auto px-8 py-7">
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'profile' && <Profile bridge={bridge} />}
-        {tab === 'handovers' && <Handovers />}
+        {tab === 'handovers' && <Handovers bridge={bridge} />}
         {tab === 'sources' && <Sources sessions={sessions} />}
       </main>
     </div>
@@ -352,28 +353,72 @@ function Hit({ hit }: { hit: SearchHit }) {
 
 /* ── Handovers ────────────────────────────────────────────────────────────── */
 
-function Handovers() {
-  /*
-   * Deliberately not a list yet.
-   *
-   * Handovers are written to Downloads and nothing records them, so any list
-   * here would be invented. Saying that plainly is the only honest thing this
-   * panel can do until the app keeps its own record, and it is a better
-   * placeholder than a fake row.
-   */
+function Handovers({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [rows, setRows] = useState<HandoverRecord[] | null>(null);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.recentHandovers().then(setRows);
+  }, [bridge]);
+
   return (
     <>
       <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">Handovers</h1>
       <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
-        Every handover is written to your Downloads folder as a Markdown file, so nothing is
-        lost to a misclick the way a clipboard is. Sidq does not yet keep its own record of
-        them, so there is no list here — when it does, this is where it will be.
+        Every one is written to your Downloads folder as a Markdown file, so nothing is lost
+        to a misclick the way a clipboard is.
       </p>
-      <p className="mt-3 text-[0.8125rem] text-white/30">
-        Look for files starting with the conversation&rsquo;s name in Downloads.
-      </p>
+
+      {rows !== null && rows.length === 0 && (
+        /*
+         * Empty says empty. This panel used to claim Sidq kept no record at
+         * all, which stopped being true the day the handovers table landed;
+         * inventing rows to fill it would be the same mistake pointed the
+         * other way.
+         */
+        <p className="mt-8 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
+          You have not handed one over yet. Press ⌘⇧K, pick a conversation, press Enter, and
+          it shows up here.
+        </p>
+      )}
+
+      {rows !== null && rows.length > 0 && (
+        <ul className="mt-8 space-y-px">
+          {rows.map((row) => (
+            <li
+              key={`${row.sessionId}-${row.madeAt}`}
+              className={cn(
+                'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
+                'transition-colors duration-100 hover:bg-white/[0.04]',
+              )}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[0.875rem] text-white/85">
+                  {row.title || 'Untitled conversation'}
+                </span>
+                <span className="block truncate text-[0.75rem] text-white/35">
+                  {row.source}
+                  {row.project && ` · ${row.project}`}
+                </span>
+              </span>
+              <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+                {whenHandedOver(row.madeAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
+}
+
+/** Rust stores seconds; everything in the browser is milliseconds. */
+function whenHandedOver(seconds: number): string {
+  const days = Math.floor((Date.now() - seconds * 1000) / DAY_MS);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return `${days} days ago`;
+  return new Date(seconds * 1000).toLocaleDateString();
 }
 
 /* ── Sources ──────────────────────────────────────────────────────────────── */

@@ -298,6 +298,21 @@ async fn search_conversations(
     .unwrap_or((Vec::new(), 0))
 }
 
+/// Handovers to list. A page of history, not an archive.
+const HANDOVER_LIMIT: usize = 50;
+
+/// What you have handed over, newest first.
+#[tauri::command]
+async fn recent_handovers() -> Vec<index_store::Handover> {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open()
+            .map(|conn| index_store::recent_handovers(&conn, HANDOVER_LIMIT))
+            .unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// How many rules to offer. More than this and nobody reads to the bottom.
 const PROFILE_LIMIT: usize = 25;
 
@@ -675,6 +690,7 @@ fn main() {
             expand_pill,
             plan_status,
             memory_profile,
+            recent_handovers,
             set_desktop_session,
             open_home,
             search_conversations,

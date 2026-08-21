@@ -48,6 +48,16 @@ export interface PlanStatus {
  * stated in six conversations is a standing instruction, and one you stated
  * once is a decision you made that day.
  */
+/** One conversation you handed to another assistant. */
+export interface HandoverRecord {
+  sessionId: string;
+  /** Seconds since the epoch, which is what Rust records. */
+  madeAt: number;
+  title: string;
+  source: string;
+  project: string;
+}
+
 export interface ProfileFact {
   text: string;
   conversations: number;
@@ -126,6 +136,8 @@ export interface OnboardingBridge {
    * so it costs nothing to run and cannot say anything you did not.
    */
   memoryProfile: () => Promise<[ProfileFact[], string]>;
+  /** What you have handed over, newest first. Read from the index, not invented. */
+  recentHandovers: () => Promise<HandoverRecord[]>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
   /**
@@ -208,6 +220,10 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryProfile: async () => {
       const out = await invoke('memory_profile');
       return Array.isArray(out) ? (out as [ProfileFact[], string]) : [[], ''];
+    },
+    recentHandovers: async () => {
+      const out = await invoke('recent_handovers');
+      return Array.isArray(out) ? (out as HandoverRecord[]) : [];
     },
     planStatus: async () => {
       const out = (await invoke('plan_status')) as PlanStatus | null;

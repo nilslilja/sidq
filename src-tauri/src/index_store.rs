@@ -228,6 +228,45 @@ pub fn own_turns(conn: &Connection, limit: usize) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// One conversation you handed to another assistant.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Handover {
+    pub session_id: String,
+    pub made_at: i64,
+    /// From the index, so a handover of a since-deleted conversation still
+    /// shows something rather than a bare uuid.
+    pub title: String,
+    pub source: String,
+    pub project: String,
+}
+
+/// Handovers made, newest first.
+pub fn recent_handovers(conn: &Connection, limit: usize) -> Vec<Handover> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT h.session_id, h.made_at,
+                COALESCE(s.title, ''), COALESCE(s.source, ''), COALESCE(s.project, '')
+           FROM handovers h
+           LEFT JOIN sessions s ON s.session_id = h.session_id
+          ORDER BY h.made_at DESC
+          LIMIT ?1",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map([limit], |row| {
+        Ok(Handover {
+            session_id: row.get(0)?,
+            made_at: row.get(1)?,
+            title: row.get(2)?,
+            source: row.get(3)?,
+            project: row.get(4)?,
+        })
+    })
+    .map(|rows| rows.filter_map(Result::ok).collect())
+    .unwrap_or_default()
+}
+
 /// Has this transcript already been indexed in exactly this state?
 pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> bool {
     conn.query_row(

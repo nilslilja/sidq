@@ -78,26 +78,22 @@ export function Hero() {
           Free. No card. Mac app, about a minute to set up.
         </p>
 
-        {/* The product, breaking the fold. The section below is pulled up over
-            the bottom of the shot so it never sits in dead space. */}
         {/*
-         * Drop the recording at public/video/drift.mp4 and this becomes real
+         * The product, breaking the fold.
+         *
+         * Drop the recording at public/video/sidq.mp4 and this becomes real
          * footage. Until then it renders the drawn mock, so the page is never
          * waiting on an asset that does not exist.
          *
-         * The clip to shoot is the drift catch: on task, switch to something
-         * else, the card notices and says one line. It is the only moment on
-         * this page a browser-tab competitor physically cannot show.
-         */}
-        {/*
-         * The shot lies back and stands up as you scroll onto it. This is the
-         * slot the screen recording drops into, so the frame is sized by its
-         * child rather than fixed: a recording letterboxed by its own frame
-         * would be the page failing at the one thing it exists to show.
+         * The clip to shoot is the handover: the bar hanging off the menu bar,
+         * ⌘⇧K, a real list of real conversations, Enter, and the file landing
+         * in another assistant that picks the thread up mid-thought. That last
+         * beat is the whole argument and no competitor can film it, because
+         * none of them can read the conversation you had somewhere else.
          */}
         <ScrollTilt className="mt-16 lg:mt-20">
           <ProductVideo
-            caption="Sidq sits above the window you are working in. The person switches to another app, and the card quietly notes they have drifted off the thing they picked."
+            caption="Sidq hangs off the menu bar. One keystroke opens every conversation you have had with any assistant, and the one you pick is carried into the next one word for word."
           />
         </ScrollTilt>
       </div>

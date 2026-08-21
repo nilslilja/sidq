@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowDownToLine, Command } from 'lucide-react';
-import { detectPlatform, refinePlatform, ALL_PLATFORMS, type PlatformInfo } from '@/lib/platform';
+import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
+import { WaitlistForPlatform } from './WaitlistForPlatform';
 import { artifactFor, RELEASE_VERSION } from '@/lib/releases';
 import { GlassStage } from './GlassStage';
 import { cn } from '@/lib/cn';
@@ -20,7 +21,6 @@ import { cn } from '@/lib/cn';
 
 export function Download() {
   const [info, setInfo] = useState<PlatformInfo>(() => detectPlatform());
-  const [showAll, setShowAll] = useState(false);
   const artifact = artifactFor(info.platform);
 
   useEffect(() => {
@@ -104,34 +104,14 @@ export function Download() {
 
             <p className="mt-3.5 text-center text-[0.8125rem] ink-muted">{info.detail}</p>
 
-            <button
-              onClick={() => setShowAll((v) => !v)}
-              aria-expanded={showAll}
-              className="mt-6 min-h-11 w-full text-[0.6875rem] uppercase tracking-[0.18em] ink-muted transition-colors duration-150 hover:text-ink"
-            >
-              {showAll ? 'Hide other platforms' : 'Other platforms'}
-            </button>
-
-            {showAll && (
-              <ul className="border-t border-ink/10">
-                {ALL_PLATFORMS.map((p) => {
-                  const other = artifactFor(p.platform);
-                  if (!other) return null;
-                  return (
-                    <li key={p.platform} className="border-b border-ink/10 last:border-b-0">
-                      <a
-                        href={other.url}
-                        download={other.filename}
-                        className="flex min-h-11 items-center justify-between gap-4 py-2 text-[0.875rem] transition-colors duration-150 hover:text-accent"
-                      >
-                        <span>{p.label}</span>
-                        <span className="text-[0.75rem] ink-muted">{other.size}</span>
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {/*
+              * No "other platforms" toggle any more.
+              *
+              * It expanded into a list of builds that did not exist. There is
+              * one artifact, it is for this Mac, and anyone on another machine
+              * is told so above rather than being given a row to click.
+              */}
+            <WaitlistForPlatform platform={info.platform} />
 
             <p className="mt-6 border-t border-ink/10 pt-5 text-[0.75rem] leading-relaxed ink-muted">
               Free, no card. Signed and notarised by Apple, so it opens with no security

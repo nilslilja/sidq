@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     q: 'Which assistants does it work with?',
-    a: 'Claude Code, Cursor, Windsurf and VS Code are read straight off this Mac with nothing to connect and nothing to set up, including everything you did before installing Sidq. ChatGPT and Gemini keep nothing readable on your computer, so those two need the export file each of them gives you, which is slow enough that it sits in setup rather than in your way. Every tool that stores its history locally is read automatically.',
+    a: 'Claude Code, Cowork, Cursor, Windsurf and VS Code are read straight off this Mac with nothing to connect and nothing to set up, including everything you did before you installed Sidq. ChatGPT, Claude, Gemini and the rest run in a browser and keep nothing readable on your computer, so those are read by the Sidq extension while the tab is open. Nothing is uploaded either way: the extension hands the text to the app over your own machine\u2019s loopback address, which cannot leave it.',
   },
   {
     q: 'I only installed it today. Is it empty until I build up history?',

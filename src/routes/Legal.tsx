@@ -48,18 +48,30 @@ export function Privacy() {
       </P>
       <List
         items={[
-          'To list your recent sessions, Sidq reads only enough to label and rank them: the title, the project folder, the git branch, how many messages there were and roughly how long you worked. Never the contents.',
-          'To hand a conversation over, Sidq reads that one transcript in full. This happens only when you pick that conversation yourself. Nothing reads a transcript on a timer or in the background.',
+          'To list your recent sessions, Sidq reads only enough to label and rank them: the title, the project folder, the git branch, how many messages there were and roughly how long you worked.',
+          'To make your history searchable, Sidq reads your transcripts in full and builds an index of them on your own disk. This runs in the background, about every ninety seconds, and skips any conversation that has not changed since it was last read. The index is a file on your Mac. It is never uploaded, and deleting Sidq deletes it.',
+          'To hand a conversation over, Sidq reads that one transcript in full, at the moment you pick it.',
         ]}
       />
 
-      <H>The companion, and your screen</H>
+      <H>Your screen</H>
       <P>
-        If you turn the companion on, Sidq reads the name of the application in front of
-        you and the title of its window, so it can notice when you have drifted off what
-        you picked. There are no screenshots, no screen recording, no vision model, no
-        camera and no microphone. That reading happens on your machine and is never
-        uploaded. Turning the companion off stops it entirely.
+        Sidq does not read it. There are no screenshots, no screen recording, no vision
+        model, no camera and no microphone, and Sidq does not look at which application is
+        in front of you or what its window is called. An earlier version of Sidq did read
+        window titles, for a planning feature that no longer exists; that reading was
+        removed along with it.
+      </P>
+
+      <H>The browser extension</H>
+      <P>
+        Assistants that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
+        keep nothing readable on your Mac, so the Sidq extension reads the conversation from
+        the page instead. It only does so on the assistant sites it names in its permissions,
+        only while one of those tabs is open, and it sends what it reads to the Sidq app on
+        your own machine over the loopback address 127.0.0.1, which by definition cannot
+        leave the computer. No server of ours is involved at any point, and the extension
+        has no ability to send it anywhere else.
       </P>
 
       <H>What we do collect</H>

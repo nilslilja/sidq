@@ -57,16 +57,20 @@ const ARTIFACTS: Partial<Record<Platform, ReleaseArtifact>> = {
     filename: `Sidq ${RELEASE_VERSION}.dmg`,
     size: '11 MB',
   },
-  windows: {
-    url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_x64-setup.exe`,
-    filename: `Sidq ${RELEASE_VERSION} Setup.exe`,
-    size: '~7 MB',
-  },
-  linux: {
-    url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_amd64.AppImage`,
-    filename: `Sidq-${RELEASE_VERSION}.AppImage`,
-    size: '~80 MB',
-  },
+  /*
+   * There is no Windows or Linux entry, and that is not an oversight.
+   *
+   * This map used to carry a `.exe` at "~7 MB" and an `.AppImage` at "~80 MB".
+   * Neither file was ever built, so both buttons 404'd, and neither size was
+   * ever measured — they were invented to make the rows look finished.
+   *
+   * The app is Mac-only in the code and not merely in the build: it shells to
+   * /usr/bin/curl to confirm a plan, reads ~/Library/Application Support for
+   * transcripts, and hangs its window off the macOS menu bar. Shipping a
+   * Windows build is weeks of work, and until that work is done the honest
+   * thing is an empty entry here, which every caller already renders as "Mac
+   * only for now" before anybody clicks.
+   */
 };
 
 /**
