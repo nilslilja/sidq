@@ -3,6 +3,7 @@ import {
   desktopBridge,
   type HandoverRecord,
   type PlanStatus,
+  type WithheldReport,
   type ProfileFact,
   type SearchHit,
 } from '@/lib/onboarding/bridge';
@@ -28,9 +29,10 @@ import { cn } from '@/lib/cn';
  * this is the only place all of yours sits together.
  */
 
-type Tab = 'search' | 'profile' | 'handovers' | 'sources';
+type Tab = 'withheld' | 'search' | 'profile' | 'handovers' | 'sources';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'withheld', label: 'What it didn\u2019t tell you' },
   { id: 'search', label: 'Search' },
   { id: 'profile', label: 'How you work' },
   { id: 'handovers', label: 'Handovers' },
@@ -44,7 +46,7 @@ const COPIED_FOR_MS = 1600;
 
 export function Home() {
   const bridge = useMemo(() => desktopBridge(), []);
-  const [tab, setTab] = useState<Tab>('search');
+  const [tab, setTab] = useState<Tab>('withheld');
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
 
@@ -104,6 +106,7 @@ export function Home() {
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
       <main className="min-w-0 overflow-y-auto px-8 py-7">
+        {tab === 'withheld' && <WhatItDidntTell bridge={bridge} />}
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'profile' && <Profile bridge={bridge} />}
         {tab === 'handovers' && <Handovers bridge={bridge} />}
@@ -208,6 +211,105 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ── What it didn't tell you ─────────────────────────────────────────────── */
+
+/**
+ * The reasoning your assistant wrote about your work and never showed you.
+ *
+ * Every model that thinks before it answers produces two things: the reply, and
+ * the reasoning behind it. You get the first. The second is written to a file
+ * on your own disk, rendered nowhere, and dropped from the model's own context
+ * after the turn, so it cannot be recovered by asking either.
+ *
+ * Sidq already lived off this material, because it is most of what makes a
+ * handover worth more than a paste. But it was only ever visible as a
+ * consequence. Nothing ever put a person in front of the sentence their
+ * assistant wrote about their work and decided not to show them.
+ *
+ * That sentence is the product. Everything else follows from believing it: if
+ * this is hidden from you, it is certainly hidden from the next assistant.
+ */
+function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [report, setReport] = useState<WithheldReport | null>(null);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.withheldReport().then(setReport);
+  }, [bridge]);
+
+  if (!report) {
+    return <p className="text-[0.875rem] text-white/35">Reading your conversations</p>;
+  }
+
+  if (report.hidden === 0) {
+    return (
+      <>
+        <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">
+          What it didn&rsquo;t tell you
+        </h1>
+        <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
+          Nothing hidden yet. This fills up from assistants that reason before they answer and
+          write that reasoning to disk. Have a few conversations in Claude Code, Cowork or
+          Cursor and come back.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/*
+        * The number first, at a size that makes the point on its own.
+        *
+        * Measured, not asserted: shown and hidden are character counts from
+        * files on this disk, and the excerpts under them are verbatim, so
+        * anybody who doubts it can go and open the file.
+        */}
+      <p className="text-[0.8125rem] uppercase tracking-[0.16em] text-white/35">
+        Across {report.conversations} conversations on this Mac
+      </p>
+      <h1 className="mt-3 font-display text-[3.5rem] leading-[0.95] tracking-[-0.04em] text-white">
+        {Math.round(report.share * 100)}%
+      </h1>
+      <p className="mt-3 max-w-[50ch] text-[1.0625rem] leading-relaxed text-white/80">
+        of everything your assistants wrote about your work, you were never shown.
+      </p>
+      <p className="mt-2 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
+        {report.hidden.toLocaleString()} characters across {report.thoughts.toLocaleString()}{' '}
+        separate thoughts. Written to your disk, rendered nowhere, and dropped from the
+        model&rsquo;s own memory after the turn, so you cannot get it by asking either.
+      </p>
+
+      <p className="mt-10 text-[0.8125rem] uppercase tracking-[0.16em] text-white/35">
+        The longest things it kept to itself
+      </p>
+      <ul className="mt-4 space-y-2">
+        {report.excerpts.slice(0, 12).map((row, i) => (
+          <li
+            key={`${row.sessionId}-${i}`}
+            className={cn(
+              'rounded-[12px] border border-white/[0.07] bg-white/[0.02] p-4',
+              'transition-colors duration-150 hover:border-white/15',
+            )}
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="min-w-0 truncate text-[0.8125rem] text-white/50">
+                {row.title || 'Untitled conversation'} &middot; {row.source}
+              </span>
+              <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+                {row.chars.toLocaleString()} chars
+              </span>
+            </div>
+            <p className="mt-2 whitespace-pre-wrap text-[0.875rem] leading-relaxed text-white/80">
+              {row.text}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

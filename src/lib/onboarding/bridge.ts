@@ -48,6 +48,27 @@ export interface PlanStatus {
  * stated in six conversations is a standing instruction, and one you stated
  * once is a decision you made that day.
  */
+/** One thing an assistant thought about your work and did not say. */
+export interface Withheld {
+  sessionId: string;
+  title: string;
+  source: string;
+  /** The reasoning, verbatim. Never paraphrased, never generated. */
+  text: string;
+  chars: number;
+}
+
+/** The gap between what was written about your work and what you were shown. */
+export interface WithheldReport {
+  shown: number;
+  hidden: number;
+  thoughts: number;
+  conversations: number;
+  excerpts: Withheld[];
+  /** Share never shown, 0 to 1. */
+  share: number;
+}
+
 /** One conversation you handed to another assistant. */
 export interface HandoverRecord {
   sessionId: string;
@@ -161,6 +182,13 @@ export interface OnboardingBridge {
    * conversations in it" is actionable and "something went wrong" is not.
    */
   importExport: (json: string) => Promise<number>;
+  /**
+   * What your assistants thought and did not say.
+   *
+   * Read out of transcripts already on this disk, so every character can be
+   * checked against a file the person owns.
+   */
+  withheldReport: () => Promise<WithheldReport>;
   /** Assistants Sidq can open in its own window. Nothing to install. */
   assistantList: () => Promise<{ id: string; label: string }[]>;
   /** Open one. Sign in once, inside Sidq, and it reads as you use it. */
@@ -259,6 +287,12 @@ export function desktopBridge(): OnboardingBridge | null {
     importExport: async (json) => {
       const count = await invoke('import_export', { json });
       return typeof count === 'number' ? count : 0;
+    },
+    withheldReport: async () => {
+      const out = (await invoke('withheld_report')) as WithheldReport | null;
+      return (
+        out ?? { shown: 0, hidden: 0, thoughts: 0, conversations: 0, excerpts: [], share: 0 }
+      );
     },
     assistantList: async () => {
       const rows = await invoke('assistant_list');

@@ -9,73 +9,83 @@ Voice rules in [voice.md](voice.md).
 
 ---
 
+## The line
+
+> Your AI is hiding 44% of what it writes about your work from you.
+
+Everything else is evidence for that sentence. It is true, it is checkable on
+anybody's own machine in ten seconds, and no competitor can say it because none
+of them read the file.
+
+Open Sidq and the first screen is that number, computed from your own disk,
+with the longest things your assistant kept to itself printed underneath it
+verbatim. That screen is the demo, the ad and the product in one.
+
 ## The argument, in one paragraph
 
-Every AI you use forgets you the moment you close the tab. The workaround
-everybody has settled on is asking it to summarise, and a summary is exactly
-where the detail dies: the reasoning, the things it tried and rejected, the
-part where you stopped it and said no. I measured it. In one conversation on my
-laptop there were 370,055 characters of the model's own thinking that I have
-never seen and never will, because it gets dropped from its own context after
-the turn. It exists in one place, a file on my disk, and not a single one of my
-assistants can read it.
+Every model that reasons before it answers writes two things: the reply, and
+the thinking behind it. You are shown the first. The second goes to a file on
+your own disk, is rendered nowhere, and is dropped from the model's own context
+after the turn, so you cannot get it by asking either. Across fifteen
+conversations on my laptop that is 1,157,450 characters in 1,436 separate
+thoughts, which is 44% of everything my assistants wrote about my work. The
+answer everybody has settled on, asking it to summarise, is the exact
+mechanism that throws that away: a summary keeps the conclusion and discards
+the reasoning, the approaches tried and abandoned, and the moment you stopped
+it and said no.
 
 ---
 
 ## LinkedIn, launch day
 
-> I am 18 and I have spent the last month reading my own AI conversations.
+> I am 18 and I spent last month reading my own AI conversations.
 >
-> Not using them. Reading the files.
+> Not using them. Opening the files.
 >
-> Here is what I found on my laptop: 5,414 messages, 16 conversations, four
-> different assistants. Not one of them can read a single word of the others.
+> Your assistant writes two things every time it answers you. The reply, and the
+> reasoning behind it. You are shown one of them.
 >
-> Then I opened one transcript properly. 3,416 turns. 561 blocks of the model's
-> private reasoning, 370,055 characters of it, that I have never seen and never
-> will. It gets dropped from the model's own context after the turn. It exists
-> in exactly one place: a file on my disk that nothing reads.
+> On my laptop, across fifteen conversations, the half I was never shown is
+> 1,157,450 characters. 1,436 separate thoughts about my own work, written to my
+> own disk, rendered nowhere, and deleted from the model's memory the moment the
+> turn ended. 44% of everything it wrote about my work.
 >
-> The spoken part of that conversation, the bit you actually see in the app, is
-> 14% of the file.
+> I can show you the longest ones. Word for word. Things it worked out about
+> what I was building and decided not to mention.
 >
-> Everybody's answer to this is "just ask it to summarise". That is the problem,
-> not the fix. A summary is where the detail goes to die. It keeps the
-> conclusion and throws away the reasoning, the three approaches that were tried
-> and rejected, and the moment you cut it off mid-sentence and said no, not like
-> that. Those are the parts that took you two hours to arrive at.
+> And everybody's answer to this is "just ask it to summarise". That is not the
+> fix, it is the mechanism. A summary keeps the conclusion and throws away the
+> reasoning, the three approaches it tried and rejected, and the moment you cut
+> it off and said no, not like that. Those are the parts that cost you two hours.
 >
-> So I built Sidq. It reads the conversation files your assistants already write
-> to your Mac, and carries a whole conversation into a different assistant. Word
-> for word. Including the 86% you were never shown.
+> So I built Sidq. Open it and the first thing you see is your own number,
+> computed from your own machine, with the things your assistant kept to itself
+> printed underneath. Then it carries any of it into a different assistant,
+> whole, including the part you were never shown.
 >
-> Nothing is uploaded. It reads what is already on your machine.
+> Nothing is uploaded. It reads what is already on your disk.
 >
-> I am 18, I built this alone, and I would rather you tell me it is wrong than
-> say nothing.
+> I am 18, I built it alone, and I would rather you tell me it is wrong than say
+> nothing.
 >
 > sidq.tech
 
 ## X, same day
 
-> I'm 18 and I spent a month reading my own AI conversation files.
+> I'm 18. I spent a month opening my own AI conversation files.
 >
-> 5,414 messages. 4 assistants. Zero of them can read each other.
+> Your assistant writes two things: the answer, and the reasoning. You see one.
 >
-> Then I opened one properly:
+> On my laptop the half I never saw is 1,157,450 characters.
 >
-> 370,055 characters of the model's private reasoning I have never seen.
+> 44% of everything it wrote about my work. Deleted from its own memory after
+> the turn. Still sitting on my disk. Read by nothing.
 >
-> Dropped from its own context after the turn. Sitting on my disk. Read by
-> nothing.
->
-> Everyone says "just ask it to summarise". Summaries are where the detail dies.
->
-> Built Sidq to carry the whole thing across instead. Mac. Nothing uploaded.
+> Built Sidq. First screen shows you your own number.
 
 ## X, the clip
 
-> This is 86% of an AI conversation that you have never seen.
+> This is the 44% of your AI conversations you have never been shown.
 >
 > [video]
 >
@@ -93,12 +103,12 @@ assistants can read it.
 >
 > [What it means for anyone using more than one assistant.]
 
-> 86% of what Claude wrote to me last month, I never saw.
+> 1,436 times last month, my assistant worked something out about my project and
+> did not tell me.
 >
-> Thinking blocks, tool calls, results. All on my disk. All invisible in every
-> interface I own.
+> I know because it wrote all of them down, on my disk, in a file with no reader.
 >
-> Your assistant knows more about your project than you can get it to tell you.
+> Your assistant knows more about your work than you can get it to say.
 
 ### 2. The summary problem
 
@@ -141,10 +151,10 @@ Once a week at most, or it stops being a fact and starts being a bit.
 > It was. For about three weeks it copied the text of a conversation and pasted
 > it somewhere else, which anybody can do by asking for a summary.
 >
-> What changed is that the text is 14% of the file. The other 86%, the 370,055
-> characters of reasoning, the tool calls, the failures, cannot be asked for,
-> because the model does not have it either. It is dropped from its context
-> after the turn.
+> What changed is that I started reading the half nobody renders. 44% of what
+> my assistants wrote about my work was never shown to me, and it cannot be
+> asked for, because the model does not have it either. It is dropped from its
+> context after the turn.
 >
 > Reading it off your own disk is the only way to get it. That is the product.
 

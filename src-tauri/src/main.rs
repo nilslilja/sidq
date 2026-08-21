@@ -22,6 +22,7 @@ mod capture;
 mod imports;
 mod compiler;
 mod cursor_history;
+mod withheld;
 mod work_history;
 
 
@@ -367,6 +368,23 @@ async fn search_conversations(
     })
     .await
     .unwrap_or((Vec::new(), 0))
+}
+
+/// How many conversations to weigh. Enough to be a real number, fast enough to wait for.
+const WITHHELD_DEPTH: usize = 30;
+
+/**
+ * What your assistants thought about your work and did not say.
+ *
+ * Reads the reasoning blocks straight out of the transcripts already on this
+ * disk. Nothing is generated and nothing is paraphrased, so every character of
+ * it can be checked against a file the person owns.
+ */
+#[tauri::command]
+async fn withheld_report() -> withheld::Report {
+    tauri::async_runtime::spawn_blocking(|| withheld::build(WITHHELD_DEPTH))
+        .await
+        .unwrap_or_default()
 }
 
 /// The list of assistants Sidq can open, for the UI to draw.
@@ -924,6 +942,7 @@ fn main() {
             plan_status,
             memory_profile,
             recent_handovers,
+            withheld_report,
             assistant_list,
             open_assistant,
             import_export,
