@@ -78,8 +78,14 @@ export function Home() {
       .then(setPlan);
   }, [bridge]);
 
+  // Real working time, summed from what the readers measured. Not an estimate.
+  const hoursRead = useMemo(
+    () => Math.round(sessions.reduce((sum, s) => sum + (s.activeMinutes ?? 0), 0) / 60),
+    [sessions],
+  );
+
   return (
-    <div className="grid h-[100dvh] grid-cols-[13rem_1fr] bg-[#0B0B10] text-white">
+    <div className="grid h-[100dvh] grid-cols-[13.5rem_1fr] bg-[#0B0B10] text-white">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="flex flex-col border-r border-white/[0.07] px-3 py-4">
         <div className="px-3 font-display text-[1.25rem] leading-none tracking-[-0.05em]">Sidq</div>
@@ -90,27 +96,68 @@ export function Home() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                'rounded-[9px] px-3 py-2 text-left text-[0.875rem] transition-colors duration-100',
+                'group flex items-center gap-2.5 rounded-[9px] px-3 py-2 text-left',
+                'text-[0.875rem] transition-colors duration-100',
                 tab === t.id ? 'bg-white/[0.08] text-white' : 'text-white/45 hover:text-white/80',
               )}
             >
-              {t.label}
+              {/* A mark rather than an icon set. It says which row is live
+                  without pulling in a library for six glyphs. */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'size-1.5 shrink-0 rounded-full transition-colors duration-100',
+                  tab === t.id ? 'bg-[#B8A6FF]' : 'bg-white/15 group-hover:bg-white/30',
+                )}
+              />
+              <span className="min-w-0 truncate">{t.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="mt-auto">
-          <Stats sessions={sessions} indexed={stats} />
+        {/* The plan sits where an account does in every app of this shape. */}
+        <div className="mt-auto px-3">
+          <div className="border-t border-white/[0.07] pt-4">
+            <p className="text-[0.75rem] capitalize text-white/60">{plan?.plan ?? 'free'}</p>
+            <p className="mt-1 text-[0.6875rem] leading-relaxed text-white/30">
+              {plan?.handoversCap
+                ? `${plan.handoversUsed} of ${plan.handoversCap} handovers this week`
+                : 'Unlimited handovers'}
+            </p>
+          </div>
         </div>
       </aside>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
-      <main className="min-w-0 overflow-y-auto px-8 py-7">
+      <main className="min-w-0 overflow-y-auto">
+        {/*
+          * The numbers, across the top, on every screen.
+          *
+          * They used to be three small lines in the bottom corner of the
+          * sidebar, which is where an app puts something it does not want
+          * looked at. They are the proof that Sidq has actually read this
+          * machine, so they open the window instead.
+          *
+          * Every one is measured. Nothing here is an estimate and nothing is
+          * rounded up to look better.
+          */}
+        <header className="sticky top-0 z-10 grid grid-cols-4 gap-px border-b border-white/[0.07] bg-[#0B0B10]/95 backdrop-blur-xl">
+          <Stat value={stats[0].toLocaleString()} label="conversations" />
+          <Stat value={stats[1].toLocaleString()} label="messages read" />
+          <Stat value={`${hoursRead}h`} label="of work indexed" />
+          <Stat
+            value={plan?.handoversUsed?.toLocaleString() ?? '0'}
+            label="handovers, 7 days"
+          />
+        </header>
+
+        <div className="px-8 py-7">
         {tab === 'withheld' && <WhatItDidntTell bridge={bridge} />}
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'profile' && <Profile bridge={bridge} />}
         {tab === 'handovers' && <Handovers bridge={bridge} />}
         {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
+        </div>
       </main>
     </div>
   );
@@ -414,9 +461,9 @@ function Search({
 
       {!searched && (
         <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-white/35">
-          Every conversation, from every assistant you use, searched together. Nobody else can
-          do this: no assistant can read another one&rsquo;s history, and this is the only
-          place yours sits in one pile.
+          Every conversation on this Mac, plus every assistant you have opened in Sidq,
+          searched together. No assistant can read another one&rsquo;s history, so this is
+          the only place yours sits in one pile.
         </p>
       )}
     </>
@@ -739,25 +786,15 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 
 /* ── Stats ────────────────────────────────────────────────────────────────── */
 
-function Stats({ sessions, indexed }: { sessions: WorkSession[]; indexed: [number, number] }) {
-  const [conversations, messages] = indexed;
-
-  // Real working time, summed from what the readers measured. Not an estimate.
-  const hours = Math.round(sessions.reduce((sum, s) => sum + (s.activeMinutes ?? 0), 0) / 60);
-
+/** One measured number, at the top of the window. */
+function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <dl className="space-y-3 px-3 pb-1">
-      {[
-        [conversations.toLocaleString(), 'conversations'],
-        [messages.toLocaleString(), 'messages indexed'],
-        [`${hours}h`, 'of work read'],
-      ].map(([value, label]) => (
-        <div key={label}>
-          <dt className="text-[1.125rem] tabular-nums leading-none text-white/90">{value}</dt>
-          <dd className="mt-1 text-[0.6875rem] text-white/30">{label}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="bg-white/[0.02] px-6 py-5">
+      <p className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.03em] text-white">
+        {value}
+      </p>
+      <p className="mt-1.5 text-[0.6875rem] uppercase tracking-[0.12em] text-white/30">{label}</p>
+    </div>
   );
 }
 

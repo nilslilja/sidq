@@ -49,7 +49,18 @@ export const PLANS: Plan[] = [
     cta: 'Download for Mac',
     features: [
       `${free.handoffsPerWeek} conversation handovers a week`,
-      `${free.sources} assistant connected`,
+      /*
+       * There is no "assistants connected" line any more.
+       *
+       * It promised `${free.sources} assistant connected`, and nothing in the
+       * app has ever enforced a source limit — entitlement.rs caps handovers
+       * and the history window, and that is all. A paid feature the code does
+       * not implement is a claim with a payment form attached.
+       *
+       * It also stopped describing anything real when the assistants moved
+       * inside Sidq: there is no connecting step left to limit.
+       */
+      `Search back ${free.historyDays} days`,
       'Every conversation already on your Mac, from day one',
       'Full transcripts, never summaries',
       'Nothing uploaded, ever',
@@ -68,7 +79,7 @@ export const PLANS: Plan[] = [
     featured: true,
     features: [
       'Unlimited handovers, every day',
-      'Every assistant connected at once',
+      'Search everything you have ever asked',
       'Your whole history, however far back it goes',
       'Learns what you actually finish, and plans to it',
       /*

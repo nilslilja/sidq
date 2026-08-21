@@ -43,7 +43,7 @@ const FAQS = [
   },
   {
     q: 'Does any of this leave my Mac?',
-    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded and it works with the wifi off. An account is needed to set Sidq up, so your history and subscription follow you to a new machine, but your conversations are never part of it. A conversation is only ever read when you pick it yourself, never on a timer and never in the background.',
+    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded and it works with the wifi off. An account is needed to set Sidq up, so your history and subscription follow you to a new machine, but your conversations are never part of it. Sidq does read your transcripts in the background, about every ninety seconds, to keep search working, and it skips any conversation that has not changed since it last looked. That index is a file on your Mac. It is never uploaded, and deleting Sidq deletes it.',
   },
   {
     q: 'What can it see on my screen?',

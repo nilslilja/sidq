@@ -410,3 +410,71 @@
     display: none;
   }
 }
+
+/* ── The product shot on the landing page ──────────────────────────────────
+ *
+ * A short loop showing where the bar actually lives: hanging off the menu bar,
+ * doing nothing, until it is opened into the picker and closes again.
+ *
+ * Two elements cross-fading rather than one element resizing, because the
+ * collapsed bar and the picker are different layouts and animating between
+ * them would mean animating height, which is a layout property and the one
+ * thing motion should never touch.
+ */
+@keyframes shot-bar {
+  0%,
+  38% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  44%,
+  88% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  94%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shot-picker {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.985);
+  }
+  46%,
+  86% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0) scale(0.985);
+  }
+}
+
+.shot-bar {
+  animation: shot-bar 9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.shot-picker {
+  animation: shot-picker 9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Somebody who has asked for less motion is shown the state that explains the
+   most on its own: the picker, open. */
+@media (prefers-reduced-motion: reduce) {
+  .shot-bar {
+    animation: none;
+    opacity: 0;
+  }
+
+  .shot-picker {
+    animation: none;
+    opacity: 1;
+  }
+}

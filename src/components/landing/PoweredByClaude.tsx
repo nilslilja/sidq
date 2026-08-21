@@ -138,7 +138,7 @@ export function PoweredByClaude({
           />
         )}
         <span>
-          Remembers every <span style={{ color: model.colour }}>{model.name}</span> conversation
+          Reads your <span style={{ color: model.colour }}>{model.name}</span> conversations
         </span>
       </span>
 
