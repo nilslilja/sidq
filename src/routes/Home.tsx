@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { desktopBridge, type PlanStatus, type SearchHit } from '@/lib/onboarding/bridge';
+import {
+  desktopBridge,
+  type PlanStatus,
+  type ProfileFact,
+  type SearchHit,
+} from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
 import { shareSessionWithDesktop } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
@@ -22,15 +27,19 @@ import { cn } from '@/lib/cn';
  * this is the only place all of yours sits together.
  */
 
-type Tab = 'search' | 'handovers' | 'sources';
+type Tab = 'search' | 'profile' | 'handovers' | 'sources';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'search', label: 'Search' },
+  { id: 'profile', label: 'How you work' },
   { id: 'handovers', label: 'Handovers' },
   { id: 'sources', label: 'Sources' },
 ];
 
 const DAY_MS = 86_400_000;
+
+/** Long enough to read "Copied", short enough that it never feels stuck. */
+const COPIED_FOR_MS = 1600;
 
 export function Home() {
   const bridge = useMemo(() => desktopBridge(), []);
@@ -95,9 +104,108 @@ export function Home() {
       {/* ── Content ──────────────────────────────────────────────────────── */}
       <main className="min-w-0 overflow-y-auto px-8 py-7">
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
+        {tab === 'profile' && <Profile bridge={bridge} />}
         {tab === 'handovers' && <Handovers />}
         {tab === 'sources' && <Sources sessions={sessions} />}
       </main>
+    </div>
+  );
+}
+
+/* ── How you work ─────────────────────────────────────────────────────────── */
+
+/**
+ * The instructions you have given assistants, collected in one place.
+ *
+ * Every line is a sentence taken word for word out of one of your own turns.
+ * Nothing here is generated or paraphrased, which is why each one is shown as a
+ * quotation with a count next to it rather than as a claim about you: the count
+ * is the evidence, and you can see for yourself whether it is right.
+ */
+function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [facts, setFacts] = useState<ProfileFact[] | null>(null);
+  const [preamble, setPreamble] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.memoryProfile().then(([found, text]) => {
+      setFacts(found);
+      setPreamble(text);
+    });
+  }, [bridge]);
+
+  if (facts === null) {
+    return <p className="text-[0.875rem] text-white/35">Reading your conversations&hellip;</p>;
+  }
+
+  /*
+   * Nothing found says nothing found.
+   *
+   * The alternative is a handful of vague lines dressed up as a profile, and
+   * the first wrong one costs the whole feature its credibility.
+   */
+  if (facts.length === 0) {
+    return (
+      <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/35">
+        Nothing yet. This fills up from the instructions you give assistants
+        &mdash; the rules you repeat, the stack you keep explaining &mdash; and it
+        only counts sentences you actually typed, so it needs a few real
+        conversations behind it first.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/45">
+          Taken word for word from your own messages, across every assistant. Paste
+          it at the top of a new conversation and skip explaining yourself again.
+        </p>
+        <button
+          onClick={() => {
+            void navigator.clipboard.writeText(preamble).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), COPIED_FOR_MS);
+            });
+          }}
+          className={cn(
+            'shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
+            'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
+            'cursor-pointer hover:opacity-90',
+          )}
+        >
+          {copied ? 'Copied' : 'Copy as a preamble'}
+        </button>
+      </div>
+
+      <ul className="mt-6 space-y-px">
+        {facts.map((fact) => (
+          <li
+            key={fact.text}
+            className={cn(
+              'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
+              'transition-colors duration-100 hover:bg-white/[0.04]',
+            )}
+          >
+            <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-white/85">
+              {fact.text}
+            </span>
+            {/*
+              * The count, not a badge saying "important".
+              *
+              * Said in six conversations is a fact about the transcripts and
+              * can be checked. Any label we invented on top of it could not.
+              */}
+            <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+              {fact.conversations === 1
+                ? 'once'
+                : `${fact.conversations} conversations`}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

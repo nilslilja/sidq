@@ -203,6 +203,31 @@ pub fn handovers_since(conn: &Connection, since: i64) -> u32 {
     .unwrap_or(0)
 }
 
+/**
+ * Every turn you typed, newest conversation first.
+ *
+ * Your side only. The profile is built from what you have told assistants, and
+ * an assistant's own words are not evidence of anything about you — including
+ * them would fill the profile with things models say a lot, which is roughly
+ * the opposite of a personal profile.
+ */
+pub fn own_turns(conn: &Connection, limit: usize) -> Vec<(String, String)> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT m.session_id, m.body
+           FROM messages m
+           JOIN sessions s ON s.session_id = m.session_id
+          WHERE m.role = 'You'
+          ORDER BY s.ended_at DESC
+          LIMIT ?1",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map([limit], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
 /// Has this transcript already been indexed in exactly this state?
 pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> bool {
     conn.query_row(

@@ -16,6 +16,7 @@ mod index_store;
 mod entitlement;
 mod indexer;
 mod pill_window;
+mod profile;
 mod cursor_history;
 mod work_history;
 
@@ -295,6 +296,31 @@ async fn search_conversations(
     })
     .await
     .unwrap_or((Vec::new(), 0))
+}
+
+/// How many rules to offer. More than this and nobody reads to the bottom.
+const PROFILE_LIMIT: usize = 25;
+
+/**
+ * What you keep telling assistants, gathered out of your own turns.
+ *
+ * Built here rather than by a model: every line is a sentence you typed,
+ * returned word for word. That makes it free to run, keeps it on this machine,
+ * and means the profile cannot say anything you did not.
+ */
+#[tauri::command]
+async fn memory_profile() -> (Vec<profile::Fact>, String) {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(conn) = index_store::open() else {
+            return (Vec::new(), String::new());
+        };
+        let turns = index_store::own_turns(&conn, profile::TURN_BUDGET);
+        let facts = profile::build(&turns, PROFILE_LIMIT);
+        let preamble = profile::as_preamble(&facts);
+        (facts, preamble)
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// What the plan allows and how much of it is left. For display only.
@@ -648,6 +674,7 @@ fn main() {
             hide_pill,
             expand_pill,
             plan_status,
+            memory_profile,
             set_desktop_session,
             open_home,
             search_conversations,

@@ -40,6 +40,19 @@ export interface PlanStatus {
   historyDays: number | null;
 }
 
+/**
+ * One thing you keep telling assistants, quoted from your own messages.
+ *
+ * `conversations` is how many separate conversations you said some version of
+ * it in. It is shown rather than hidden because it is the evidence: a rule you
+ * stated in six conversations is a standing instruction, and one you stated
+ * once is a decision you made that day.
+ */
+export interface ProfileFact {
+  text: string;
+  conversations: number;
+}
+
 /** The pill has two sizes: a bar that is always there, and the picker. */
 export type PillState = 'collapsed' | 'expanded';
 
@@ -100,6 +113,13 @@ export interface OnboardingBridge {
    * with none of their text, which is what the upgrade prompt shows.
    */
   searchConversations: (query: string, limit: number) => Promise<[SearchHit[], number]>;
+  /**
+   * What you keep telling assistants, and the same list ready to paste.
+   *
+   * Assembled on this machine out of sentences you typed. No model is involved,
+   * so it costs nothing to run and cannot say anything you did not.
+   */
+  memoryProfile: () => Promise<[ProfileFact[], string]>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
   /**
@@ -185,6 +205,10 @@ export function desktopBridge(): OnboardingBridge | null {
     searchConversations: async (query, limit) => {
       const out = await invoke('search_conversations', { query, limit });
       return Array.isArray(out) ? (out as [SearchHit[], number]) : [[], 0];
+    },
+    memoryProfile: async () => {
+      const out = await invoke('memory_profile');
+      return Array.isArray(out) ? (out as [ProfileFact[], string]) : [[], ''];
     },
     planStatus: async () => {
       const out = (await invoke('plan_status')) as PlanStatus | null;
