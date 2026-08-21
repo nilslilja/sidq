@@ -107,7 +107,7 @@ export function Home() {
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'profile' && <Profile bridge={bridge} />}
         {tab === 'handovers' && <Handovers bridge={bridge} />}
-        {tab === 'sources' && <Sources sessions={sessions} />}
+        {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
       </main>
     </div>
   );
@@ -429,7 +429,7 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
   { id: 'cowork', label: 'Claude Cowork', local: true },
   { id: 'cursor', label: 'Cursor, Windsurf, VS Code', local: true },
   { id: 'chatgpt', label: 'ChatGPT', local: false },
-  { id: 'claude', label: 'Claude.ai', local: false },
+  { id: 'claude.ai', label: 'Claude.ai', local: false },
   { id: 'gemini', label: 'Gemini', local: false },
   { id: 'perplexity', label: 'Perplexity', local: false },
   { id: 'grok', label: 'Grok', local: false },
@@ -437,7 +437,89 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
   { id: 'mistral', label: 'Mistral', local: false },
 ];
 
-function Sources({ sessions }: { sessions: WorkSession[] }) {
+/**
+ * Import everything you have ever said to Claude on the web.
+ *
+ * claude.ai keeps nothing readable on this Mac. Its desktop app has an
+ * IndexedDB at Application Support/Claude, and that store holds no conversation
+ * text — checked, not assumed: 2.2MB, 31% printable, and the only readable
+ * string in it is the name of the store.
+ *
+ * The extension covers the tab you have open. This covers the rest, which for
+ * most people is nearly all of it.
+ *
+ * The file is read here and the JSON handed to Rust, rather than Rust opening
+ * the path. That means no file-dialog plugin, and it means Sidq only ever sees
+ * the one file somebody deliberately chose.
+ */
+function ImportClaude({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [state, setState] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
+  const [message, setMessage] = useState('');
+
+  return (
+    <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.05] p-4">
+      <p className="text-[0.875rem] font-medium text-white">Bring in your Claude.ai history</p>
+      <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-white/45">
+        Claude.ai keeps nothing on this Mac that can be read, so the extension only sees the
+        tab you have open. Your export has all of it, including everything from before you
+        installed Sidq. Settings → Privacy → Export data, then drop{' '}
+        <code className="text-white/65">conversations.json</code> here.
+      </p>
+
+      <label
+        className={cn(
+          'mt-3 inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5',
+          'bg-[#B8A6FF] text-[0.8125rem] font-medium text-[#141319]',
+          'transition-opacity duration-150 hover:opacity-90',
+          state === 'reading' && 'pointer-events-none opacity-50',
+        )}
+      >
+        {state === 'reading' ? 'Importing…' : 'Choose conversations.json'}
+        <input
+          type="file"
+          accept="application/json,.json"
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file || !bridge) return;
+
+            setState('reading');
+            void file
+              .text()
+              .then((json) => bridge.importClaudeExport(json))
+              .then((count) => {
+                setState('done');
+                setMessage(
+                  `${count} conversation${count === 1 ? '' : 's'} imported. They are searchable now.`,
+                );
+              })
+              .catch((err: unknown) => {
+                setState('failed');
+                // Rust says what is actually wrong with the file. Replacing that
+                // with "something went wrong" throws away the only useful part.
+                setMessage(err instanceof Error ? err.message : String(err));
+              });
+            // Let the same file be chosen twice, after a failed first attempt.
+            e.target.value = '';
+          }}
+        />
+      </label>
+
+      {state !== 'idle' && state !== 'reading' && (
+        <p
+          className={cn(
+            'mt-2.5 text-[0.8125rem]',
+            state === 'done' ? 'text-white/55' : 'text-red-300',
+          )}
+        >
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: ReturnType<typeof desktopBridge> }) {
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of sessions) {
@@ -482,6 +564,7 @@ function Sources({ sessions }: { sessions: WorkSession[] }) {
           );
         })}
       </ul>
+      <ImportClaude bridge={bridge} />
     </>
   );
 }

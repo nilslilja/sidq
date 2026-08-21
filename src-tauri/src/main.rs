@@ -18,6 +18,7 @@ mod indexer;
 mod pill_window;
 mod profile;
 mod capture;
+mod claude_export;
 mod compiler;
 mod cursor_history;
 mod work_history;
@@ -261,8 +262,7 @@ fn write_handover(
         let text = match work_history::session_capture(&session_id) {
             Some(turns) => compiler::compile(&turns, &brief, compiler::Target::for_source(&source)),
             None => {
-                let transcript = work_history::session_transcript(&session_id)
-                    .or_else(|| cursor_history::session_transcript(&session_id))?;
+                let transcript = transcript_of(&session_id)?;
                 handover::wrap(
                     &handover::Handover {
                         source: &source,
@@ -475,17 +475,80 @@ fn expand_pill(app: tauri::AppHandle) {
     }
 }
 
+/**
+ * The whole conversation, from wherever it lives.
+ *
+ * Three places, tried in order: a Claude Code or Cowork transcript, a Cursor
+ * database, and the index. The index is last because it is the only one that
+ * has been through a parser already, but it is also the only home some
+ * conversations have — claude.ai imports and anything the extension read out
+ * of a browser tab exist nowhere else on the disk.
+ *
+ * Both of those were searchable and neither could be handed over until this
+ * fallback existed, which made them look like sources that half worked.
+ */
+fn transcript_of(session_id: &str) -> Option<String> {
+    work_history::session_transcript(session_id)
+        .or_else(|| cursor_history::session_transcript(session_id))
+        .or_else(|| index_store::open().and_then(|c| index_store::session_transcript(&c, session_id)))
+}
+
 #[tauri::command]
 async fn session_transcript(session_id: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || transcript_of(&session_id))
+        .await
+        .ok()
+        .flatten()
+}
+
+/// How large a Claude export may be. Beyond this it is not an export.
+const MAX_EXPORT_BYTES: usize = 200 * 1024 * 1024;
+
+/**
+ * Import everything you have ever said to Claude on the web.
+ *
+ * claude.ai keeps nothing readable on this Mac — its IndexedDB is a binary
+ * keyval store with no conversation text in it — so the only route to the
+ * history you already have is the export Claude gives you in Settings.
+ *
+ * Straight into the index, with the text, which puts claude.ai on the same
+ * footing as Claude Code: searchable, quoted in the profile, handoverable.
+ */
+#[tauri::command]
+async fn import_claude_export(json: String) -> Result<usize, String> {
+    if json.len() > MAX_EXPORT_BYTES {
+        return Err("That file is too large to be a Claude export.".into());
+    }
+
     tauri::async_runtime::spawn_blocking(move || {
-        // Both id spaces are uuids, so trying one then the other cannot collide
-        // and saves threading a source tag through the picker for no gain.
-        work_history::session_transcript(&session_id)
-            .or_else(|| cursor_history::session_transcript(&session_id))
+        let conversations = claude_export::parse(&json)?;
+        let conn = index_store::open().ok_or("Could not open the index.")?;
+
+        let mut imported = 0usize;
+        for c in &conversations {
+            let _ = index_store::put_session(
+                &conn,
+                &c.session_id,
+                "claude.ai",
+                &c.title,
+                "claude.ai",
+                "",
+                c.ended_at,
+                c.turns.len() as u32,
+                0,
+            );
+            // Fingerprinted by turn count, so re-importing a later export
+            // updates the conversations that grew and skips the rest.
+            let fingerprint = format!("export:{}:{}", c.ended_at, c.turns.len());
+            if index_store::put_messages(&conn, &c.session_id, &c.turns, &fingerprint).is_some() {
+                imported += 1;
+            }
+        }
+
+        Ok(imported)
     })
     .await
-    .ok()
-    .flatten()
+    .unwrap_or_else(|_| Err("The import stopped unexpectedly.".into()))
 }
 
 
@@ -714,6 +777,7 @@ fn main() {
             plan_status,
             memory_profile,
             recent_handovers,
+            import_claude_export,
             set_desktop_session,
             open_home,
             search_conversations,

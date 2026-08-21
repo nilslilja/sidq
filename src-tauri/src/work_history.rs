@@ -87,7 +87,23 @@ const MAX_PROMPT: usize = 200;
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Which assistant these transcripts belong to.
-const SOURCE: &str = "claude-code";
+/*
+ * ── The Claude surfaces on this Mac ──────────────────────────────────────────
+ * Every session used to be labelled `claude-code`, including the ones from
+ * Cowork. They were being read — the roots below have covered both for a while
+ * — but a Cowork conversation arrived in the picker, the index and the handover
+ * calling itself Claude Code, so as far as anything downstream could tell there
+ * was one Claude on this machine.
+ *
+ * There is not. There are two that write transcripts here, and the surface a
+ * conversation came from is part of what it is.
+ *
+ * The two that do not appear: the Claude desktop app keeps no conversations on
+ * disk at all — checked directly, its IndexedDB, Local Storage, Session Storage
+ * and HTTP cache hold none — and claude.ai in a browser is the extension's job.
+ */
+const SOURCE_CLI: &str = "claude-code";
+const SOURCE_COWORK: &str = "cowork";
 
 /**
  * Ceiling on a handed-over conversation, in characters.
@@ -236,7 +252,7 @@ fn find_transcript(session_id: &str) -> Option<PathBuf> {
 
     project_roots()
         .iter()
-        .flat_map(|root| read_dirs(root))
+        .flat_map(|(root, _)| read_dirs(root))
         .map(|dir| dir.join(&name))
         .find(|candidate| candidate.is_file())
 }
@@ -396,10 +412,32 @@ fn clamp_to_tail(text: String) -> String {
 /// Returns an empty list rather than an error when the directory does not exist:
 /// most people do not have Claude Code installed and that is not a failure.
 pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
+    let titles = cowork_titles();
+
     let mut sessions: Vec<WorkSession> = project_roots()
         .iter()
-        .flat_map(|root| read_dirs(root))
-        .flat_map(|dir| sessions_in_project(&dir))
+        .flat_map(|(root, source)| {
+            read_dirs(root)
+                .into_iter()
+                .flat_map(move |dir| sessions_in_project(&dir, source))
+        })
+        .map(|mut session| {
+            /*
+             * Cowork writes the conversation's real title beside the
+             * transcript rather than inside it, so a session whose JSONL has
+             * no `ai-title` record still has a name — it is just in another
+             * directory. Without this those rows fall back to the last prompt,
+             * which is whatever half-sentence the person happened to end on.
+             */
+            if session.source == SOURCE_COWORK {
+                if let Some(title) = titles.get(&session.session_id) {
+                    if session.title.is_empty() || title.len() > session.title.len() {
+                        session.title = title.clone();
+                    }
+                }
+            }
+            session
+        })
         .collect();
 
     // Newest first, so "where did I stop" is the first element.
@@ -423,7 +461,7 @@ pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
  *       Cowork. Each session carries its own nested .claude directory, laid out
  *       exactly like the one above, so the same parser reads both.
  */
-fn project_roots() -> Vec<PathBuf> {
+fn project_roots() -> Vec<(PathBuf, &'static str)> {
     let Some(home) = std::env::var_os("HOME") else {
         return Vec::new();
     };
@@ -432,7 +470,7 @@ fn project_roots() -> Vec<PathBuf> {
 
     let cli = home.join(".claude").join("projects");
     if cli.is_dir() {
-        roots.push(cli);
+        roots.push((cli, SOURCE_CLI));
     }
 
     /*
@@ -451,13 +489,58 @@ fn project_roots() -> Vec<PathBuf> {
             for session in read_dirs(&account) {
                 let nested = session.join(".claude").join("projects");
                 if nested.is_dir() {
-                    roots.push(nested);
+                    roots.push((nested, SOURCE_COWORK));
                 }
             }
         }
     }
 
     roots
+}
+
+/**
+ * Cowork's own titles, keyed by the transcript they belong to.
+ *
+ * `claude-code-sessions` holds one small JSON per conversation with the title
+ * Claude generated or the person set, and `cliSessionId` in it is the stem of
+ * the transcript file. It is metadata only — no conversation content — so this
+ * reads a few kilobytes rather than opening anything large.
+ */
+fn cowork_titles() -> std::collections::HashMap<String, String> {
+    let mut out = std::collections::HashMap::new();
+    let Some(home) = std::env::var_os("HOME") else {
+        return out;
+    };
+
+    let root = PathBuf::from(home)
+        .join("Library")
+        .join("Application Support")
+        .join("Claude")
+        .join("claude-code-sessions");
+
+    for workspace in read_dirs(&root) {
+        for account in read_dirs(&workspace) {
+            let Ok(entries) = fs::read_dir(&account) else { continue };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_none_or(|e| e != "json") {
+                    continue;
+                }
+                let Ok(text) = fs::read_to_string(&path) else { continue };
+                let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+
+                let id = value.get("cliSessionId").and_then(|v| v.as_str());
+                let title = value.get("title").and_then(|v| v.as_str());
+                if let (Some(id), Some(title)) = (id, title) {
+                    if !title.trim().is_empty() {
+                        out.insert(id.to_string(), title.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    out
 }
 
 /// Sub-directories of `dir`, or nothing if it cannot be read.
@@ -471,7 +554,7 @@ fn read_dirs(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn sessions_in_project(dir: &Path) -> Vec<WorkSession> {
+fn sessions_in_project(dir: &Path, source: &'static str) -> Vec<WorkSession> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -479,12 +562,12 @@ fn sessions_in_project(dir: &Path) -> Vec<WorkSession> {
     entries
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|ext| ext == "jsonl"))
-        .filter_map(|e| read_session(&e.path()))
+        .filter_map(|e| read_session(&e.path(), source))
         .filter(|s| !s.title.is_empty() || !s.last_prompt.is_empty())
         .collect()
 }
 
-fn read_session(path: &Path) -> Option<WorkSession> {
+fn read_session(path: &Path, source: &'static str) -> Option<WorkSession> {
     let meta = fs::metadata(path).ok()?;
     if meta.len() > MAX_BYTES {
         return None;
@@ -497,7 +580,7 @@ fn read_session(path: &Path) -> Option<WorkSession> {
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default(),
         ended_at: modified_millis(&meta),
-        source: SOURCE,
+        source,
         ..Default::default()
     };
 
@@ -672,6 +755,42 @@ mod tests {
      *
      * cargo test --bin sidq real_capture -- --ignored --nocapture
      */
+    /**
+     * What each Claude surface actually contributes, on this machine.
+     *
+     * cargo test --bin sidq real_sources -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_sources() {
+        use std::collections::HashMap;
+
+        let sessions = super::recent_sessions(500);
+        let mut by_source: HashMap<&str, usize> = HashMap::new();
+        for s in &sessions {
+            *by_source.entry(s.source).or_default() += 1;
+        }
+
+        println!("\n  roots:");
+        for (root, source) in super::project_roots() {
+            println!("    [{source}] {}", root.display());
+        }
+
+        println!("\n  sessions by source:");
+        let mut rows: Vec<_> = by_source.into_iter().collect();
+        rows.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+        for (source, n) in rows {
+            println!("    {source:<14} {n}");
+        }
+
+        let titles = super::cowork_titles();
+        println!("\n  cowork titles found: {}", titles.len());
+        for s in sessions.iter().filter(|s| s.source == super::SOURCE_COWORK).take(4) {
+            println!("    {} — {}", &s.session_id[..8], s.title);
+        }
+        println!();
+    }
+
     #[test]
     #[ignore]
     fn real_capture() {

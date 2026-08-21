@@ -138,6 +138,14 @@ export interface OnboardingBridge {
   memoryProfile: () => Promise<[ProfileFact[], string]>;
   /** What you have handed over, newest first. Read from the index, not invented. */
   recentHandovers: () => Promise<HandoverRecord[]>;
+  /**
+   * Import a Claude.ai export into the index.
+   *
+   * Resolves with how many conversations landed, and rejects with the reason
+   * the file could not be read — which is worth surfacing verbatim, because
+   * "that is a ChatGPT export" is actionable and "something went wrong" is not.
+   */
+  importClaudeExport: (json: string) => Promise<number>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
   /**
@@ -224,6 +232,10 @@ export function desktopBridge(): OnboardingBridge | null {
     recentHandovers: async () => {
       const out = await invoke('recent_handovers');
       return Array.isArray(out) ? (out as HandoverRecord[]) : [];
+    },
+    importClaudeExport: async (json) => {
+      const count = await invoke('import_claude_export', { json });
+      return typeof count === 'number' ? count : 0;
     },
     planStatus: async () => {
       const out = (await invoke('plan_status')) as PlanStatus | null;

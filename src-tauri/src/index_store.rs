@@ -267,6 +267,34 @@ pub fn recent_handovers(conn: &Connection, limit: usize) -> Vec<Handover> {
     .unwrap_or_default()
 }
 
+/**
+ * Rebuild a conversation from the index.
+ *
+ * The fallback for everything that has no file on disk: claude.ai imports and
+ * conversations the extension read out of a browser tab. Both were indexed and
+ * searchable and neither could be handed over, because the handover path went
+ * looking for a transcript file and found nothing.
+ */
+pub fn session_transcript(conn: &Connection, session_id: &str) -> Option<String> {
+    let mut stmt = conn
+        .prepare("SELECT role, body FROM messages WHERE session_id = ?1")
+        .ok()?;
+
+    let turns: Vec<String> = stmt
+        .query_map([session_id], |row| {
+            Ok(format!(
+                "{}:\n{}",
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?
+            ))
+        })
+        .ok()?
+        .filter_map(Result::ok)
+        .collect();
+
+    (!turns.is_empty()).then(|| turns.join("\n\n"))
+}
+
 /// Has this transcript already been indexed in exactly this state?
 pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> bool {
     conn.query_row(
