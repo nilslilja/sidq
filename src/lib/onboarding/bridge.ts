@@ -17,6 +17,32 @@ export interface SearchHit {
   snippet: string;
 }
 
+/**
+ * What came of asking for a handover.
+ *
+ * `limited` and a missing path are different failures and have to stay
+ * distinguishable: one means the week is used up, the other means the
+ * conversation could not be read, and telling somebody the wrong one sends them
+ * to the wrong place.
+ */
+export interface HandoverResult {
+  path: string | null;
+  limited: boolean;
+  used: number;
+  cap: number | null;
+}
+
+/** What the plan allows. For describing only; every limit is applied in Rust. */
+export interface PlanStatus {
+  plan: string;
+  handoversUsed: number;
+  handoversCap: number | null;
+  historyDays: number | null;
+}
+
+/** The pill has two sizes: a bar that is always there, and the picker. */
+export type PillState = 'collapsed' | 'expanded';
+
 export interface OnboardingBridge {
   setAutostart: (enabled: boolean) => Promise<void>;
   openSignIn: () => Promise<void>;
@@ -64,25 +90,45 @@ export interface OnboardingBridge {
     resumePoint: string;
     when: string;
     project: string;
-  }) => Promise<string | null>;
+  }) => Promise<HandoverResult>;
   /**
    * Search every indexed conversation.
    *
-   * `since` is the history window the plan allows, applied in SQL rather than
-   * here. The second element is how many older matches were withheld — a real
-   * count with none of their text, which is what the upgrade prompt shows.
+   * There is deliberately no way to say how far back to look. The history
+   * window belongs to the plan, Rust works it out, and Rust applies it in SQL.
+   * The second element is how many older matches were withheld — a real count
+   * with none of their text, which is what the upgrade prompt shows.
    */
-  searchConversations: (
-    query: string,
-    since: number,
-    limit: number,
-  ) => Promise<[SearchHit[], number]>;
+  searchConversations: (query: string, limit: number) => Promise<[SearchHit[], number]>;
+  /** The plan, as Rust understands it. Read for wording, never for gating. */
+  planStatus: () => Promise<PlanStatus>;
+  /**
+   * Hand the signed-in session to Rust so it can confirm the plan itself.
+   *
+   * Without this the app would have to believe whatever tier the page claimed,
+   * and the page is the one thing on this machine a person can rewrite.
+   */
+  setDesktopSession: (accessToken: string) => Promise<void>;
   /** Conversations and messages indexed. Real numbers, never placeholders. */
   indexStats: () => Promise<[number, number]>;
   /** Opens the window behind the pill. */
   openHome: () => Promise<void>;
-  /** Closes the picker. It dismisses itself the moment it has done the job. */
+  /**
+   * Shrinks the picker back to the bar.
+   *
+   * Named for what it used to do. Nothing is hidden any more: the bar stays on
+   * screen, because a tool you cannot see is a tool you forget you installed.
+   */
   hidePill: () => Promise<void>;
+  /** Grows the bar into the picker. What clicking it does. */
+  expandPill: () => Promise<void>;
+  /**
+   * Fires when Rust resizes the window between its two states.
+   *
+   * The shortcut is global, so Rust hears it first and the frontend has to be
+   * told which of the two it is now drawing.
+   */
+  onPillState: (callback: (state: PillState) => void) => Promise<() => void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -133,12 +179,19 @@ export function desktopBridge(): OnboardingBridge | null {
       return typeof text === 'string' ? text : null;
     },
     saveTranscript: async (args) => {
-      const path = await invoke('save_transcript', args);
-      return typeof path === 'string' ? path : null;
+      const out = (await invoke('save_transcript', args)) as HandoverResult | null;
+      return out ?? { path: null, limited: false, used: 0, cap: null };
     },
-    searchConversations: async (query, since, limit) => {
-      const out = await invoke('search_conversations', { query, since, limit });
+    searchConversations: async (query, limit) => {
+      const out = await invoke('search_conversations', { query, limit });
       return Array.isArray(out) ? (out as [SearchHit[], number]) : [[], 0];
+    },
+    planStatus: async () => {
+      const out = (await invoke('plan_status')) as PlanStatus | null;
+      return out ?? { plan: 'free', handoversUsed: 0, handoversCap: null, historyDays: null };
+    },
+    setDesktopSession: async (accessToken) => {
+      await invoke('set_desktop_session', { accessToken });
     },
     indexStats: async () => {
       const out = await invoke('index_stats');
@@ -150,6 +203,13 @@ export function desktopBridge(): OnboardingBridge | null {
     hidePill: async () => {
       await invoke('hide_pill');
     },
+    expandPill: async () => {
+      await invoke('expand_pill');
+    },
+    onPillState: (callback) =>
+      event.listen('pill:state', (e) => {
+        if (e.payload === 'collapsed' || e.payload === 'expanded') callback(e.payload);
+      }),
     finish: async () => {
       await invoke('finish_onboarding');
     },

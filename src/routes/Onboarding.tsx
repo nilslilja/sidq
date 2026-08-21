@@ -7,7 +7,7 @@ import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
 import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
 import { desktopBridge } from '@/lib/onboarding/bridge';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase , shareSessionWithDesktop } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 
 /*
@@ -394,7 +394,12 @@ async function adoptSession(urls: string[]): Promise<void> {
     if (!access_token || !refresh_token) continue;
 
     const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (!error) return;
+    if (!error) {
+      // Rust needs it too, to confirm the plan against billing rather than
+      // taking this page's word for which tier the account is on.
+      await shareSessionWithDesktop();
+      return;
+    }
   }
 }
 

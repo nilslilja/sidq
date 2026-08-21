@@ -13,7 +13,9 @@
 mod browser_bridge;
 mod handover;
 mod index_store;
+mod entitlement;
 mod indexer;
+mod pill_window;
 mod cursor_history;
 mod work_history;
 
@@ -131,22 +133,15 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
  * puts a visible beat between the keypress and the list.
  */
 /**
- * Put the pill where it always goes and show it.
+ * Bring the picker up.
  *
- * Horizontally centred, a fixed distance from the top, every single time. It is
- * deliberately not movable and does not remember a position: it is on screen for
- * a few seconds at a time, and a window you can drag is a window you have to
- * decide about before you can use it.
+ * Everything about where it goes and how big it is now lives in `pill_window`,
+ * because the window has two sizes and one of them is permanent. This is the
+ * name the rest of the file already calls, kept so that "show the picker" reads
+ * the same at every call site.
  */
 fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
-    if let (Ok(Some(monitor)), Ok(size)) = (w.current_monitor(), w.outer_size()) {
-        let screen = monitor.size();
-        let x = (screen.width as i32 - size.width as i32) / 2;
-        let y = (screen.height as f64 * 0.16) as i32;
-        let _ = w.set_position(tauri::PhysicalPosition::new(x.max(0), y));
-    }
-    w.show()?;
-    w.set_focus()
+    pill_window::expand(w)
 }
 
 /**
@@ -163,6 +158,20 @@ fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
  * Goes to Downloads because that is where a person expects to find a file they
  * just made, and because the file picker in every assistant opens there.
  */
+/// What came of asking for a handover: a file, or the reason there isn't one.
+#[derive(Debug, Clone, serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct HandoverResult {
+    /// Where the file landed. Absent when nothing was written.
+    path: Option<String>,
+    /// True when the weekly limit refused it, as opposed to a read failing.
+    limited: bool,
+    /// Handovers made in the last rolling week, counting this one if it happened.
+    used: u32,
+    /// The cap, or absent on a paid plan.
+    cap: Option<u32>,
+}
+
 #[tauri::command]
 async fn save_transcript(
     session_id: String,
@@ -171,8 +180,57 @@ async fn save_transcript(
     resume_point: String,
     when: String,
     project: String,
-) -> Option<String> {
+) -> HandoverResult {
     tauri::async_runtime::spawn_blocking(move || {
+        /*
+         * The limit is checked here, before a single byte is read.
+         *
+         * It used to be checked in the page, which meant it was checked nowhere:
+         * the number lived in a React module and refusing was something the UI
+         * chose to do. Anything the client decides on its own behalf is a
+         * request, not a limit.
+         */
+        let conn = index_store::open();
+        let plan = conn.as_ref().map(entitlement::current).unwrap_or(entitlement::Plan::Free);
+
+        if let Some(conn) = conn.as_ref() {
+            if !entitlement::may_hand_over(conn, plan) {
+                let (used, cap) = entitlement::handover_allowance(conn, plan);
+                return HandoverResult { path: None, limited: true, used, cap };
+            }
+        }
+
+        let written = write_handover(session_id.clone(), title, source, resume_point, when, project);
+
+        if let (Some(conn), Some(_)) = (conn.as_ref(), written.as_ref()) {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            let _ = index_store::record_handover(conn, &session_id, stamp);
+        }
+
+        let (used, cap) = conn
+            .as_ref()
+            .map(|c| entitlement::handover_allowance(c, plan))
+            .unwrap_or((0, plan.handovers_per_week()));
+
+        HandoverResult { path: written, limited: false, used, cap }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Build the file and put it in Downloads. The part that touches no limits.
+fn write_handover(
+    session_id: String,
+    title: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+) -> Option<String> {
+    (|| {
         let transcript = work_history::session_transcript(&session_id)
             .or_else(|| cursor_history::session_transcript(&session_id))?;
 
@@ -209,35 +267,96 @@ async fn save_transcript(
         let path = dir.join(format!("{}.md", &stem[..stem.len().min(60)]));
         std::fs::write(&path, text).ok()?;
         Some(path.to_string_lossy().to_string())
-    })
-    .await
-    .ok()
-    .flatten()
+    })()
 }
 
 /**
  * Search every indexed conversation.
  *
- * `since` is the history window the plan allows. It is applied in SQL rather
- * than in the client, so a free account cannot read older conversations by
- * editing the page. The second return value is how many older matches exist —
- * a real count, with none of their text — which is what the upgrade prompt
- * shows.
+ * The history window comes from the plan and is worked out here. It used to
+ * arrive as an argument from the page, which made the limit advisory: pass zero
+ * and every conversation ever indexed came back. Now the caller cannot say how
+ * far to reach, only what to look for.
+ *
+ * The second return value is how many older matches exist — a real count, with
+ * none of their text — which is what the upgrade prompt shows.
  */
 #[tauri::command]
 async fn search_conversations(
     query: String,
-    since: i64,
     limit: usize,
 ) -> (Vec<index_store::SearchHit>, usize) {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(conn) = index_store::open() else {
             return (Vec::new(), 0);
         };
-        index_store::search(&conn, &query, since, limit.min(100))
+        let floor = entitlement::history_floor(entitlement::current(&conn));
+        index_store::search(&conn, &query, floor, limit.min(100))
     })
     .await
     .unwrap_or((Vec::new(), 0))
+}
+
+/// What the plan allows and how much of it is left. For display only.
+#[derive(Debug, Clone, serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct PlanStatus {
+    plan: String,
+    handovers_used: u32,
+    handovers_cap: Option<u32>,
+    history_days: Option<i64>,
+}
+
+/**
+ * The plan, for the UI to describe.
+ *
+ * Nothing reads this to decide anything. Every limit is applied inside the
+ * command that would breach it, so a page that lies about the plan changes what
+ * a person is told and not what they get.
+ */
+#[tauri::command]
+async fn plan_status() -> PlanStatus {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(conn) = index_store::open() else {
+            return PlanStatus::default();
+        };
+        let plan = entitlement::current(&conn);
+        let (used, cap) = entitlement::handover_allowance(&conn, plan);
+
+        PlanStatus {
+            plan: serde_json::to_value(plan)
+                .ok()
+                .and_then(|v| v.as_str().map(str::to_string))
+                .unwrap_or_else(|| "free".into()),
+            handovers_used: used,
+            handovers_cap: cap,
+            history_days: plan.history_days(),
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/**
+ * Hand the signed-in session down to Rust.
+ *
+ * The token is what lets the app ask the billing database what this account is
+ * on, instead of taking the page's word for it. Stored rather than held in
+ * memory so the answer survives a restart and the check does not have to happen
+ * before the first handover of the day.
+ */
+#[tauri::command]
+async fn set_desktop_session(access_token: String) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(conn) = index_store::open() {
+            let _ = index_store::put_setting(&conn, "access_token", &access_token);
+            // Forces a fresh check rather than trusting whatever the last
+            // account on this machine happened to be on.
+            let _ = index_store::put_setting(&conn, "tier_checked_at", "0");
+        }
+    })
+    .await
+    .ok();
 }
 
 /// Conversations and messages indexed. Real numbers for the stats panel.
@@ -269,10 +388,26 @@ fn open_home(app: tauri::AppHandle) {
     }
 }
 
+/**
+ * Shrink the picker back to the bar.
+ *
+ * Still called `hide_pill` by the frontend, and it no longer hides anything.
+ * Esc, a finished handover and "search all history" all end here, and every one
+ * of them used to leave an empty desktop and a shortcut you had to remember.
+ * There is now always something on screen to click.
+ */
 #[tauri::command]
 fn hide_pill(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pill") {
-        let _ = w.hide();
+        let _ = pill_window::collapse(&w);
+    }
+}
+
+/// Clicking the bar. The only way in that needs no keyboard at all.
+#[tauri::command]
+fn expand_pill(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("pill") {
+        let _ = pill_window::expand(&w);
     }
 }
 
@@ -511,6 +646,9 @@ fn main() {
             recent_work,
             session_transcript,
             hide_pill,
+            expand_pill,
+            plan_status,
+            set_desktop_session,
             open_home,
             search_conversations,
             index_stats,
@@ -615,8 +753,13 @@ fn main() {
                  * as a broken install, not as a design choice.
                  *
                  * If you opened Sidq, you wanted Sidq.
+                 *
+                 * It comes up collapsed: the bar, near the bottom, not asking
+                 * for anything. Launching straight into the expanded picker
+                 * would put a text field in front of somebody who opened the app
+                 * for a reason they have not told us yet.
                  */
-                let _ = show_pill(w);
+                let _ = pill_window::collapse(w);
             }
 
             /*
@@ -666,11 +809,10 @@ fn main() {
                     return;
                 }
                 if let Some(w) = pick_handle.get_webview_window("pill") {
-                    if w.is_visible().unwrap_or(false) {
-                        let _ = w.hide();
-                    } else {
-                        let _ = show_pill(&w);
-                    }
+                    // Toggles between the two sizes. Pressing it again while the
+                    // picker is open shrinks it back to the bar rather than
+                    // taking it off the screen entirely.
+                    let _ = pill_window::toggle(&w);
                 }
             })?;
 

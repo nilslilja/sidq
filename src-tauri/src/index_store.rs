@@ -28,7 +28,13 @@ use serde::Serialize;
 use std::path::PathBuf;
 
 /// Bumped when the schema changes in a way that needs a rebuild.
-const SCHEMA_VERSION: i64 = 1;
+///
+/// 2 added `settings` and `handovers`. Every statement below is
+/// `IF NOT EXISTS`, so a bump costs one extra pass over an existing index and
+/// never rebuilds what is already there — but without the bump, an index
+/// created before the change would skip the new tables entirely and every read
+/// of them would fail on a machine that had run an earlier build.
+const SCHEMA_VERSION: i64 = 2;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -121,12 +127,80 @@ fn migrate(conn: &Connection) -> Option<()> {
             session_id TEXT PRIMARY KEY,
             fingerprint TEXT NOT NULL
         );
+
+        -- Small facts the app has to remember between launches: which tier this
+        -- account is on, when that was last confirmed, and the token used to
+        -- confirm it. Not conversation content, and it never leaves the machine
+        -- except as an Authorization header to the account's own provider.
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+
+        -- One row per conversation handed over, so the weekly limit is counted
+        -- against something durable rather than against a number the page holds
+        -- in memory and forgets on reload.
+        CREATE TABLE IF NOT EXISTS handovers (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            made_at    INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS handovers_made ON handovers(made_at DESC);
         ",
     )
     .ok()?;
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION).ok()?;
     Some(())
+}
+
+/// Read one remembered fact. `None` when it was never written.
+pub fn setting(conn: &Connection, key: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        [key],
+        |row| row.get::<_, String>(0),
+    )
+    .ok()
+}
+
+/// Write one remembered fact, replacing whatever was there.
+pub fn put_setting(conn: &Connection, key: &str, value: &str) -> Option<()> {
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+    .ok()
+    .map(|_| ())
+}
+
+/// Record that a conversation was handed over, at a moment in seconds.
+pub fn record_handover(conn: &Connection, session_id: &str, made_at: i64) -> Option<()> {
+    conn.execute(
+        "INSERT INTO handovers (session_id, made_at) VALUES (?1, ?2)",
+        (session_id, made_at),
+    )
+    .ok()
+    .map(|_| ())
+}
+
+/**
+ * How many handovers have been made since a moment.
+ *
+ * Every one counts, including the same conversation handed over twice. Making
+ * repeats free sounds generous and is really an instruction: hand over the same
+ * conversation ten times and the limit never moves.
+ */
+pub fn handovers_since(conn: &Connection, since: i64) -> u32 {
+    conn.query_row(
+        "SELECT COUNT(*) FROM handovers WHERE made_at >= ?1",
+        [since],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|n| n.max(0) as u32)
+    .unwrap_or(0)
 }
 
 /// Has this transcript already been indexed in exactly this state?
@@ -305,11 +379,11 @@ pub fn now_millis() -> i64 {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    /// An in-memory index with the real schema.
-    fn memory() -> Connection {
+    /// An in-memory index with the real schema. Shared with `entitlement`.
+    pub(crate) fn memory() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         migrate(&conn).unwrap();
         conn

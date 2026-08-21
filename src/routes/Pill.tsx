@@ -3,6 +3,7 @@ import { rankSessions } from '@/lib/companion/rank-sessions';
 import { filterSessions, moveSelection, statusLine } from '@/lib/companion/pill';
 import { playCue } from '@/lib/companion/sound';
 import { desktopBridge } from '@/lib/onboarding/bridge';
+import type { PillState } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
 import { cn } from '@/lib/cn';
 
@@ -18,9 +19,16 @@ import { cn } from '@/lib/cn';
  * them is a reason for somebody to look at the window rather than through it.
  * The list is at most five rows because five is a glance and ten is reading.
  *
- * It is invisible until summoned and it closes itself the moment it has done the
- * job. A companion that stays on screen after it has finished is a companion you
- * quit within a week.
+ * ── Two sizes, one window ───────────────────────────────────────────────────
+ * Collapsed it is a bar near the bottom of the screen that is always there.
+ * Expanded it is the picker above. Nothing dismisses it: Esc, a finished
+ * handover and the link into the window all shrink it back to the bar.
+ *
+ * It used to vanish after every use, on the reasoning that a companion which
+ * stays on screen is one you quit within a week. That was half right. What it
+ * actually produced was a product with no surface at all — the only way back in
+ * was a keystroke you had to remember from setup, and forgetting it meant Sidq
+ * was running and unreachable at the same time.
  */
 
 /** Long enough to read "Copied", short enough that it never feels like waiting. */
@@ -34,11 +42,15 @@ const CLOSE_AFTER_COPY_MS = 900;
  */
 const CLOSE_AFTER_SAVE_MS = 2600;
 
+/** The index only moves on a sweep, and a sweep is every 90 seconds. */
+const INDEX_POLL_MS = 60_000;
+
 type Phase =
   | { kind: 'browsing' }
   | { kind: 'working' }
   | { kind: 'done' }
   | { kind: 'saved'; path: string }
+  | { kind: 'limited'; used: number; cap: number }
   | { kind: 'failed' };
 
 export function Pill() {
@@ -47,6 +59,9 @@ export function Pill() {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>({ kind: 'browsing' });
+  // Launch shows the bar, so that is what this draws until Rust says otherwise.
+  const [mode, setMode] = useState<PillState>('collapsed');
+  const [indexed, setIndexed] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   /*
@@ -71,16 +86,56 @@ export function Pill() {
    */
   const selected = Math.min(index, Math.max(0, visible.length - 1));
 
+  /*
+   * Reload every time it opens, not once at launch.
+   *
+   * The window now outlives every use of it, so a list fetched at startup would
+   * still be yesterday's by the afternoon — and the conversation you most want
+   * to hand over is almost always the one you just finished.
+   */
+  useEffect(() => {
+    if (!bridge || mode !== 'expanded') return;
+    void bridge.recentWork(50).then((rows) => setSessions(rows as WorkSession[]));
+  }, [bridge, mode]);
+
+  /*
+   * How much it has read, shown on the bar.
+   *
+   * From the index rather than the picker's list, because the index is the
+   * thing that is actually complete: the picker loads the most recent fifty.
+   * Polled slowly, since the only thing that moves it is a sweep every 90s.
+   */
+  useEffect(() => {
+    if (!bridge || mode !== 'collapsed') return;
+
+    const read = () => void bridge.indexStats().then(([count]) => setIndexed(count));
+    read();
+    const timer = setInterval(read, INDEX_POLL_MS);
+    return () => clearInterval(timer);
+  }, [bridge, mode]);
+
+  // Rust owns the resize, because the shortcut that triggers it is global.
   useEffect(() => {
     if (!bridge) return;
-    void bridge.recentWork(50).then((rows) => setSessions(rows as WorkSession[]));
+    const stop = bridge.onPillState(setMode);
+    return () => void stop.then((off) => off());
   }, [bridge]);
 
-  // Summoned. The window is shown by Rust, so the cue and the focus belong here.
+  /*
+   * Opening is the moment worth marking, not mounting.
+   *
+   * Reset as well as focus: an expanded picker still showing last night's
+   * success card, with last night's search still typed into it, is the state
+   * this window would otherwise open in every time.
+   */
   useEffect(() => {
+    if (mode !== 'expanded') return;
     playCue('summon');
+    setPhase({ kind: 'browsing' });
+    setQuery('');
+    setIndex(0);
     inputRef.current?.focus();
-  }, []);
+  }, [mode]);
 
   const dismiss = useCallback(() => {
     playCue('dismiss');
@@ -101,7 +156,7 @@ export function Pill() {
 
     setPhase({ kind: 'working' });
     try {
-      const path = await bridge?.saveTranscript({
+      const result = await bridge?.saveTranscript({
         sessionId: target.session.sessionId,
         title: target.session.title || 'sidq-conversation',
         source: target.session.source ?? 'claude-code',
@@ -111,12 +166,25 @@ export function Pill() {
         when: target.reason,
         project: target.session.projectName ?? '',
       });
-      if (!path) {
+
+      /*
+       * Running out and failing are different, and they say different things.
+       *
+       * Rust refuses past the weekly limit, so this is the app reporting a
+       * decision it already made rather than the page choosing to stop. Telling
+       * somebody "could not read that one" when they have simply used the week
+       * up sends them to look for a bug that is not there.
+       */
+      if (result?.limited) {
+        setPhase({ kind: 'limited', used: result.used, cap: result.cap ?? result.used });
+        return;
+      }
+      if (!result?.path) {
         setPhase({ kind: 'failed' });
         return;
       }
       playCue('done');
-      setPhase({ kind: 'saved', path });
+      setPhase({ kind: 'saved', path: result.path });
       setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
     } catch {
       setPhase({ kind: 'failed' });
@@ -174,6 +242,50 @@ export function Pill() {
       else void saveFile();
     }
   };
+
+  /*
+   * The bar.
+   *
+   * Everything it says is either true or absent: the count comes from the index
+   * and simply is not drawn until there is one, rather than sitting at zero
+   * while the first sweep runs and reading as an app that found nothing.
+   */
+  if (mode === 'collapsed') {
+    return (
+      <div
+        data-transparent-window
+        className="flex h-[100dvh] w-full items-center justify-center bg-transparent px-1 py-1"
+      >
+        <button
+          onClick={() => void bridge?.expandPill()}
+          aria-label="Open Sidq and pick up a conversation"
+          className={cn(
+            'group flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5',
+            'bg-[#141319]/95 ring-1 ring-inset ring-white/10 backdrop-blur-xl',
+            'shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5),0_12px_28px_-12px_rgba(0,0,0,0.6)]',
+            // Transform and opacity only, so the lift never touches layout.
+            'origin-center transition-[transform,background-color] duration-150',
+            'hover:scale-[1.03] hover:bg-[#1b1a22]/95 active:scale-[0.99]',
+            'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8A6FF]/70',
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
+              'opacity-70 group-hover:opacity-100',
+            )}
+          />
+          <span className="min-w-0 flex-1 truncate text-left text-[0.75rem] text-white/55">
+            {indexed > 0
+              ? `${indexed} conversation${indexed === 1 ? '' : 's'}`
+              : 'Sidq'}
+          </span>
+          <Key>⌘⇧K</Key>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -245,10 +357,37 @@ export function Pill() {
           </div>
         )}
 
-        {phase.kind !== 'saved' && visible.length > 0 && <div className="h-px bg-white/[0.07]" />}
+        {phase.kind === 'limited' && (
+          <div className="border-t border-white/[0.07] px-4 py-5">
+            <p className="text-[0.9375rem] font-medium text-white">
+              That is {phase.cap} handovers this week
+            </p>
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/45">
+              The count rolls, so the oldest one frees up seven days after you made
+              it. Pro removes the limit and the seven-day reach on search.
+            </p>
+            <button
+              onClick={() => {
+                void bridge?.openHome();
+                void bridge?.hidePill();
+              }}
+              className={cn(
+                'mt-3 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
+                'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
+                'cursor-pointer hover:opacity-90',
+              )}
+            >
+              See the plans
+            </button>
+          </div>
+        )}
+
+        {phase.kind !== 'saved' && phase.kind !== 'limited' && visible.length > 0 && (
+          <div className="h-px bg-white/[0.07]" />
+        )}
 
         {/* ── Results ───────────────────────────────────────────────────── */}
-        {phase.kind !== 'saved' && (
+        {phase.kind !== 'saved' && phase.kind !== 'limited' && (
         <ul className="max-h-[17rem] overflow-y-auto">
           {visible.map((row, i) => (
             <li key={row.session.sessionId}>
@@ -291,6 +430,7 @@ export function Pill() {
             {phase.kind === 'working' && 'Reading the conversation…'}
             {phase.kind === 'done' && 'Copied. Paste it anywhere.'}
             {phase.kind === 'saved' && 'Ready to attach'}
+            {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
             {phase.kind === 'failed' && 'Could not read that one.'}
             {phase.kind === 'browsing' && '↵ make a file to attach · ⌘↵ copy instead'}
           </span>

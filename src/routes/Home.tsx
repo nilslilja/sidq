@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { desktopBridge, type SearchHit } from '@/lib/onboarding/bridge';
-import { entitlementsFor, isUnlimited } from '@/lib/entitlements';
+import { desktopBridge, type PlanStatus, type SearchHit } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
+import { shareSessionWithDesktop } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 
 /*
@@ -38,14 +38,32 @@ export function Home() {
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
 
-  // Free until billing says otherwise. The desktop app has no session of its
-  // own yet, so this is the honest default rather than an optimistic one.
-  const plan = entitlementsFor('free');
+  /*
+   * The plan as Rust understands it.
+   *
+   * Asked rather than assumed, and only ever used for wording. Rust confirms
+   * the tier against the billing database and applies every limit inside the
+   * command that would breach it, so this being wrong changes what somebody is
+   * told and not what they are given.
+   */
+  const [plan, setPlan] = useState<PlanStatus | null>(null);
 
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentWork(200).then((rows) => setSessions(rows as WorkSession[]));
     void bridge.indexStats().then(setStats);
+    /*
+     * Refresh the token, then ask what the plan is.
+     *
+     * Access tokens expire after an hour and Rust's stored copy goes stale with
+     * them, so opening this window is the moment to hand over a live one. It
+     * also means somebody who has just paid sees it here rather than waiting
+     * for a cache to lapse.
+     */
+    void shareSessionWithDesktop()
+      .catch(() => {})
+      .then(() => bridge.planStatus())
+      .then(setPlan);
   }, [bridge]);
 
   return (
@@ -76,7 +94,7 @@ export function Home() {
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
       <main className="min-w-0 overflow-y-auto px-8 py-7">
-        {tab === 'search' && <Search bridge={bridge} historyDays={plan.historyDays} />}
+        {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'handovers' && <Handovers />}
         {tab === 'sources' && <Sources sessions={sessions} />}
       </main>
@@ -91,7 +109,8 @@ function Search({
   historyDays,
 }: {
   bridge: ReturnType<typeof desktopBridge>;
-  historyDays: number;
+  /** How far back the plan reaches, or null for everything. */
+  historyDays: number | null;
 }) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -100,13 +119,12 @@ function Search({
   const timer = useRef<number | undefined>(undefined);
 
   /*
-   * The window the plan allows, as a timestamp.
+   * There is no window to pass.
    *
-   * Sent to Rust and applied in SQL. Doing it here would be decoration: the
-   * point of a limit is that it holds when somebody edits the page.
+   * This used to compute the cutoff and send it down, which meant the limit was
+   * whatever the page felt like sending. Rust works it out from the plan now,
+   * and the only thing this can say is what to look for.
    */
-  const since = isUnlimited(historyDays) ? 0 : Date.now() - historyDays * DAY_MS;
-
   const run = useCallback(
     (q: string) => {
       if (!bridge || q.trim().length < 2) {
@@ -115,13 +133,13 @@ function Search({
         setSearched(false);
         return;
       }
-      void bridge.searchConversations(q, since, 50).then(([found, older]) => {
+      void bridge.searchConversations(q, 50).then(([found, older]) => {
         setHits(found);
         setWithheld(older);
         setSearched(true);
       });
     },
-    [bridge, since],
+    [bridge],
   );
 
   // Debounced, because every keystroke otherwise runs a full-text query against
@@ -169,7 +187,7 @@ function Search({
        * they are missing has a reason to pay, and someone who cannot has no
        * idea there is anything there.
        */}
-      {withheld > 0 && (
+      {withheld > 0 && historyDays !== null && (
         <div className="mt-5 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.06] p-4">
           <p className="text-[0.875rem] text-white/85">
             <span className="font-medium text-white">{withheld} more</span>{' '}

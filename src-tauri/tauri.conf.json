@@ -40,8 +40,8 @@
         "label": "pill",
         "url": "/pill",
         "title": "Sidq",
-        "width": 560,
-        "height": 340,
+        "width": 232,
+        "height": 52,
         "transparent": true,
         "decorations": false,
         "shadow": false,
@@ -51,10 +51,11 @@
         "resizable": false,
         "center": false,
         "acceptFirstMouse": true,
-        "focus": true,
+        "focus": false,
         "visible": false,
         "x": 0,
-        "y": 120
+        "y": 120,
+        "closable": false
       }
     ],
     "security": {
