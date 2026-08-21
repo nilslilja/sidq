@@ -79,10 +79,11 @@ pub fn spawn(app: tauri::AppHandle) {
 }
 
 fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
-    let Some((body, origin_ok)) = read_request(&mut stream) else {
+    let Some(request) = read_request(&mut stream) else {
         respond(&mut stream, 400, "bad request");
         return;
     };
+    let Request { method, path, body, origin_ok } = request;
 
     /*
      * Only the extension may post here.
@@ -93,6 +94,49 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
      */
     if !origin_ok {
         respond(&mut stream, 403, "forbidden");
+        return;
+    }
+
+    /*
+     * The extension asking what the app knows.
+     *
+     * It needs real numbers to put on the page — how many conversations, how
+     * many rules — and it cannot see the index itself. Counts only: no titles,
+     * no text, nothing that would put a conversation into a web page before
+     * somebody has asked for it.
+     */
+    if method == Method::Get && path.starts_with("/status") {
+        respond_json(&mut stream, &status_json());
+        return;
+    }
+
+    /*
+     * An assistant was opened.
+     *
+     * Fires the notification from the app rather than the extension, because a
+     * browser notification asks for its own permission prompt and is silenced
+     * per-site, while this one comes from an app the person deliberately
+     * installed.
+     */
+    /*
+     * The chip was clicked. Show the picker.
+     *
+     * The picking happens in the app, not in the page. Rebuilding the whole
+     * list inside somebody else's document would mean shipping their users a
+     * second copy of the picker, kept in step by hand, and putting every
+     * conversation title into a page belonging to OpenAI or Google to do it.
+     */
+    if method == Method::Post && path.starts_with("/open") && !path.starts_with("/opened") {
+        if let Some(w) = tauri::Manager::get_webview_window(app, "pill") {
+            let _ = crate::pill_window::expand(&w);
+        }
+        respond(&mut stream, 200, "ok");
+        return;
+    }
+
+    if method == Method::Post && path.starts_with("/opened") {
+        announce_assistant(app, &body);
+        respond(&mut stream, 200, "ok");
         return;
     }
 
@@ -112,15 +156,35 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
     }
 }
 
-/// Body plus whether the Origin header names a browser extension.
-fn read_request(stream: &mut TcpStream) -> Option<(String, bool)> {
+#[derive(Debug, PartialEq, Eq)]
+enum Method {
+    Get,
+    Post,
+    Options,
+}
+
+/// One parsed request: enough to route it and decide whether to trust it.
+struct Request {
+    method: Method,
+    path: String,
+    body: String,
+    /// Whether the Origin header names a browser extension.
+    origin_ok: bool,
+}
+
+fn read_request(stream: &mut TcpStream) -> Option<Request> {
     let mut reader = BufReader::new(stream.try_clone().ok()?);
     let mut line = String::new();
 
     reader.read_line(&mut line).ok()?;
-    if !line.starts_with("POST") {
-        return None;
-    }
+    let mut parts = line.split_whitespace();
+    let method = match parts.next()? {
+        "GET" => Method::Get,
+        "POST" => Method::Post,
+        "OPTIONS" => Method::Options,
+        _ => return None,
+    };
+    let path = parts.next()?.to_string();
 
     let mut length = 0usize;
     let mut origin_ok = false;
@@ -145,13 +209,100 @@ fn read_request(stream: &mut TcpStream) -> Option<(String, bool)> {
         }
     }
 
-    if length == 0 || length > MAX_BODY_BYTES {
+    if length > MAX_BODY_BYTES {
         return None;
     }
 
-    let mut body = vec![0u8; length];
-    reader.read_exact(&mut body).ok()?;
-    Some((String::from_utf8(body).ok()?, origin_ok))
+    // A GET carries no body, and requiring one used to be how this rejected
+    // every request that was not a conversation.
+    let body = if length == 0 {
+        String::new()
+    } else {
+        let mut raw = vec![0u8; length];
+        reader.read_exact(&mut raw).ok()?;
+        String::from_utf8(raw).ok()?
+    };
+
+    Some(Request { method, path, body, origin_ok })
+}
+
+/**
+ * What the app can offer, as numbers.
+ *
+ * Deliberately not a list. The extension puts this on a page belonging to
+ * OpenAI or Google, and a count says "there is something here" without putting
+ * a single word of anybody's conversation into someone else's document.
+ */
+fn status_json() -> String {
+    let Some(conn) = crate::index_store::open() else {
+        return String::from(r#"{"running":true,"conversations":0,"rules":0}"#);
+    };
+
+    let (conversations, _) = crate::index_store::counts(&conn);
+    let turns = crate::index_store::own_turns(&conn, crate::profile::TURN_BUDGET);
+    let rules = crate::profile::build(&turns, 25).len();
+
+    format!(r#"{{"running":true,"conversations":{conversations},"rules":{rules}}}"#)
+}
+
+/**
+ * Say something when an assistant opens, at most once a day per assistant.
+ *
+ * Without the limit this fires on every tab, every reload and every navigation
+ * inside a single-page app, which is the behaviour that gets an app uninstalled
+ * in its first week.
+ */
+fn announce_assistant(app: &tauri::AppHandle, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+
+    let name = body
+        .split_once(r#""source":""#)
+        .and_then(|(_, rest)| rest.split_once('"'))
+        .map(|(name, _)| name.to_string())
+        .filter(|n| !n.is_empty() && n.len() < 40)
+        .unwrap_or_else(|| "your assistant".into());
+
+    let Some(conn) = crate::index_store::open() else { return };
+    let (conversations, _) = crate::index_store::counts(&conn);
+    if conversations == 0 {
+        // Nothing to offer. A notification here would be an advertisement.
+        return;
+    }
+
+    let key = format!("announced:{}", name.to_lowercase());
+    let today = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+        / 86_400)
+        .to_string();
+
+    if crate::index_store::setting(&conn, &key).as_deref() == Some(today.as_str()) {
+        return;
+    }
+    let _ = crate::index_store::put_setting(&conn, &key, &today);
+
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("{conversations} conversations Sidq can hand {name}"))
+        .body("Press ⌘⇧K to pick one.")
+        .show();
+}
+
+/// A JSON reply, with the same CORS headers the POST path needs.
+fn respond_json(stream: &mut TcpStream, body: &str) {
+    let response = format!(
+        "HTTP/1.1 200\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {}\r\n\
+         Access-Control-Allow-Origin: *\r\n\
+         Access-Control-Allow-Headers: Content-Type\r\n\
+         Connection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let _ = stream.write_all(response.as_bytes());
+    let _ = stream.flush();
 }
 
 /**

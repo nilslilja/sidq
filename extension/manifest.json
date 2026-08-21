@@ -3,7 +3,11 @@
   "name": "Sidq",
   "version": "0.1.0",
   "description": "Reads the conversation you are already looking at, so Sidq can hand it to another assistant. Nothing is uploaded.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
@@ -11,12 +15,15 @@
     "https://gemini.google.com/*",
     "https://www.perplexity.ai/*",
     "https://grok.com/*",
+    "https://x.com/i/grok*",
     "https://chat.deepseek.com/*",
     "https://chat.mistral.ai/*",
     "https://github.com/copilot/*",
     "http://127.0.0.1/*"
   ],
-  "background": { "service_worker": "background.js" },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
@@ -26,14 +33,21 @@
         "https://gemini.google.com/*",
         "https://www.perplexity.ai/*",
         "https://grok.com/*",
+        "https://x.com/i/grok*",
         "https://chat.deepseek.com/*",
         "https://chat.mistral.ai/*",
         "https://github.com/copilot/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-  "action": { "default_title": "Send this conversation to Sidq" },
-  "icons": { "128": "icon.png" }
+  "action": {
+    "default_title": "Send this conversation to Sidq"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
 }

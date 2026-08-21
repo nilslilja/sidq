@@ -199,3 +199,193 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   // Keeps the message channel open for the async respond above.
   return true;
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The chip.
+ *
+ * Everything above this line is pull-only: it waits to be asked, and until
+ * somebody clicks the toolbar button it does nothing at all. Which means the
+ * one moment Sidq exists for — a blank composer, with two hundred conversations
+ * sitting on the same machine that this assistant cannot see — passed in
+ * silence every single time.
+ *
+ * So on an empty conversation the chip appears and says what is available. Not
+ * a nag: it goes away when dismissed, per site, and it never shows up in the
+ * middle of a conversation you are already having.
+ *
+ * ── Why a shadow root ────────────────────────────────────────────────────────
+ * This is somebody else's document. A plain div inherits their CSS, gets caught
+ * by their global selectors, and can be restyled into nonsense by a deploy we
+ * do not control — and our styles can do the same to them. A closed shadow root
+ * means neither side can reach the other.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Where the app answers. Same port as the POST path. */
+const SIDQ_STATUS = 'http://127.0.0.1:17872/status';
+
+/** How long to wait for the app before giving up and staying quiet. */
+const STATUS_TIMEOUT_MS = 1500;
+
+/** Poll for a while: these are single-page apps and the composer arrives late. */
+const SETTLE_MS = 1200;
+
+const HOST_ID = 'sidq-chip-host';
+
+/** Is this a fresh conversation, or one already under way? */
+function isBlankConversation() {
+  const def = site();
+  if (!def) return false;
+  return findTurns(def).length === 0;
+}
+
+async function askApp() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), STATUS_TIMEOUT_MS);
+  try {
+    const res = await fetch(SIDQ_STATUS, { signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    // Sidq is not running. Say nothing at all: an assistant's page is not the
+    // place to advertise that another app of ours is closed.
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Dismissal is per site and sticks, so "no" means no on this one. */
+async function isDismissed() {
+  const key = `dismissed:${location.hostname}`;
+  const stored = await chrome.storage.local.get(key);
+  return Boolean(stored[key]);
+}
+
+function dismiss() {
+  void chrome.storage.local.set({ [`dismissed:${location.hostname}`]: true });
+  document.getElementById(HOST_ID)?.remove();
+}
+
+/**
+ * Put the text where the person was about to type.
+ *
+ * This is the whole trick, and it is why a copy button would not do. Every one
+ * of these sites uses either a textarea or a contenteditable, and both need to
+ * be told the value changed in the way their own framework listens for, or the
+ * send button stays disabled over text that is visibly in the box.
+ */
+function writeToComposer(text) {
+  const box =
+    document.querySelector('textarea:not([readonly])') ||
+    document.querySelector('[contenteditable="true"]');
+  if (!box) return false;
+
+  box.focus();
+
+  if (box.tagName === 'TEXTAREA') {
+    // Through the native setter, so React's onChange sees it. Assigning
+    // `box.value` directly updates the DOM and React overwrites it on the next
+    // render, which looks like the paste silently failing.
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
+    setter ? setter.call(box, text) : (box.value = text);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    box.textContent = text;
+    box.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
+  }
+
+  return true;
+}
+
+function render(status) {
+  if (document.getElementById(HOST_ID)) return;
+
+  const host = document.createElement('div');
+  host.id = HOST_ID;
+  // The host itself carries no visual style, only position, so the page's CSS
+  // has nothing of ours to fight over.
+  host.style.cssText = 'position:fixed;right:20px;bottom:96px;z-index:2147483647;';
+  const root = host.attachShadow({ mode: 'closed' });
+
+  const rules = status.rules > 0 ? `, ${status.rules} rule${status.rules === 1 ? '' : 's'} you set` : '';
+
+  root.innerHTML = `
+    <style>
+      :host { all: initial; }
+      .chip {
+        display: flex; align-items: center; gap: 10px;
+        font: 500 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: rgba(255,255,255,.92);
+        background: #0d0d12; border: 1px solid rgba(255,255,255,.12);
+        border-radius: 999px; padding: 9px 14px; cursor: pointer;
+        box-shadow: 0 8px 28px -10px rgba(0,0,0,.7);
+        /* Compositor-friendly only: this sits on someone else's page and must
+           never cause a reflow in it. */
+        transition: transform .15s, background-color .15s;
+      }
+      .chip:hover { transform: translateY(-1px); background: #16161d; }
+      .dot { width: 6px; height: 6px; border-radius: 999px; background: #B8A6FF; flex: none; }
+      .x {
+        all: unset; cursor: pointer; padding: 0 2px; margin-left: 2px;
+        color: rgba(255,255,255,.35); font-size: 15px; line-height: 1;
+      }
+      .x:hover { color: rgba(255,255,255,.8); }
+      @media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+    </style>
+    <div class="chip" role="button" tabindex="0"
+         aria-label="Bring a previous conversation into this one with Sidq">
+      <span class="dot"></span>
+      <span class="label">${status.conversations} conversation${status.conversations === 1 ? '' : 's'}${rules}</span>
+      <button class="x" aria-label="Dismiss Sidq here">×</button>
+    </div>
+  `;
+
+  root.querySelector('.x').addEventListener('click', (e) => {
+    e.stopPropagation();
+    dismiss();
+  });
+
+  const open = () => {
+    // The app owns the picking. Opening its window is one message and avoids
+    // rebuilding the whole picker inside somebody else's document.
+    chrome.runtime.sendMessage({ type: 'sidq:open' });
+  };
+  root.querySelector('.chip').addEventListener('click', open);
+  root.querySelector('.chip').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      open();
+    }
+  });
+
+  document.body.appendChild(host);
+}
+
+/** Fill the composer when the app sends a conversation back. */
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'sidq:insert' && typeof message.text === 'string') {
+    writeToComposer(message.text);
+  }
+  return false;
+});
+
+async function considerChip() {
+  if (!site() || await isDismissed()) return;
+  if (!isBlankConversation()) return;
+
+  const status = await askApp();
+  if (!status?.running || !status.conversations) return;
+
+  render(status);
+
+  // Tell the app an assistant is open, so it can say so once a day. Rate
+  // limiting lives there, not here: a content script cannot see the other tabs.
+  chrome.runtime.sendMessage({ type: 'sidq:opened', source: site()?.name ?? 'your assistant' });
+}
+
+// These are single-page apps: the composer is not there at document_idle, and
+// navigating between chats never reloads the page.
+setTimeout(considerChip, SETTLE_MS);

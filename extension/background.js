@@ -84,3 +84,48 @@ chrome.action.onClicked.addListener(async () => {
     console.error('[Sidq]', err instanceof Error ? err.message : err);
   }
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Messages from the chip on the page.
+ *
+ * The content script cannot reach 127.0.0.1 itself on every one of these sites:
+ * a page's own connect-src is set by its Content-Security-Policy, and several
+ * of these assistants set one strict enough to block it. The service worker has
+ * no page CSP, so every call to the app goes through here.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Where the app answers when asked to show itself. */
+const SIDQ_OPEN = 'http://127.0.0.1:17872/open';
+
+/** And where it is told an assistant was opened. */
+const SIDQ_OPENED = 'http://127.0.0.1:17872/opened';
+
+async function tell(url, payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload ?? {}),
+      signal: controller.signal,
+    });
+  } catch {
+    // Sidq is closed. Nothing to do and nothing worth saying on somebody
+    // else's page — the chip only ever appears when the app answered.
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === 'sidq:open') {
+    void tell(SIDQ_OPEN, { source: message.source ?? null });
+  }
+  if (message?.type === 'sidq:opened') {
+    void tell(SIDQ_OPENED, { source: message.source ?? null });
+  }
+  // Nothing here answers asynchronously, so the channel closes immediately.
+  void sender;
+  return false;
+});
