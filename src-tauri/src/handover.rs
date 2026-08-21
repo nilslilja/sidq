@@ -205,3 +205,6 @@ mod tests {
         assert!(overhead < 900, "preamble was {overhead} bytes");
     }
 }
+
+/// The compiler owns the brief now; this keeps one name for it at the call site.
+pub use crate::compiler::Brief;

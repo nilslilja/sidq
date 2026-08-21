@@ -17,6 +17,8 @@ mod entitlement;
 mod indexer;
 mod pill_window;
 mod profile;
+mod capture;
+mod compiler;
 mod cursor_history;
 mod work_history;
 
@@ -232,26 +234,47 @@ fn write_handover(
     project: String,
 ) -> Option<String> {
     (|| {
-        let transcript = work_history::session_transcript(&session_id)
-            .or_else(|| cursor_history::session_transcript(&session_id))?;
-
         /*
-         * The instruction goes in with it.
+         * Compile the full capture where one exists.
          *
-         * A transcript on its own produced a model that commented on the
-         * conversation instead of continuing it. The preamble is the difference
-         * between a handover and a paste.
+         * The old path formatted the spoken half — replies, and a `[used Read]`
+         * label — which is about 14% of the file and precisely the part anybody
+         * can get by asking the model to summarise itself. That is what made
+         * the handover a wrapper.
+         *
+         * The capture carries the reasoning nobody saw, the calls that failed,
+         * and the places a person stopped the model. None of that can be asked
+         * for, because the model does not have it either: reasoning is dropped
+         * from its own context between turns and survives only in this file.
+         *
+         * Cursor and captured browser conversations have no such file, so they
+         * fall back to the plain transcript. Better a smaller handover than
+         * none.
          */
-        let text = handover::wrap(
-            &handover::Handover {
-                source: &source,
-                title: &title,
-                resume_point: &resume_point,
-                when: &when,
-                project: &project,
-            },
-            &transcript,
-        );
+        let brief = handover::Brief {
+            source: &source,
+            when: &when,
+            project: &project,
+            resume_point: &resume_point,
+        };
+
+        let text = match work_history::session_capture(&session_id) {
+            Some(turns) => compiler::compile(&turns, &brief, compiler::Target::for_source(&source)),
+            None => {
+                let transcript = work_history::session_transcript(&session_id)
+                    .or_else(|| cursor_history::session_transcript(&session_id))?;
+                handover::wrap(
+                    &handover::Handover {
+                        source: &source,
+                        title: &title,
+                        resume_point: &resume_point,
+                        when: &when,
+                        project: &project,
+                    },
+                    &transcript,
+                )
+            }
+        };
 
         let home = std::env::var_os("HOME")?;
         let dir = std::path::PathBuf::from(home).join("Downloads");

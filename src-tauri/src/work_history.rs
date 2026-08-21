@@ -158,6 +158,78 @@ pub fn session_transcript(session_id: &str) -> Option<String> {
     Some(clamp_to_tail(strip_boilerplate(&out)))
 }
 
+/**
+ * The same conversation, with everything that was hidden.
+ *
+ * `session_transcript` above returns what was said, which is what the picker
+ * lists and the index searches. This returns what actually happened: the
+ * reasoning nobody saw, every tool call and result, and the points where a
+ * person stopped the model mid-answer.
+ *
+ * They are separate functions on purpose. Search wants the spoken half — the
+ * words a person would remember and type into a search box — and indexing the
+ * other 86% would multiply the index for results nobody is looking for. A
+ * handover wants all of it, because the hidden part is the only part the
+ * receiving model could not have produced by being asked.
+ */
+pub fn session_capture(session_id: &str) -> Option<Vec<crate::capture::Turn>> {
+    use crate::capture::{blocks_of, Role, Turn};
+
+    let safe = !session_id.is_empty()
+        && session_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !safe {
+        return None;
+    }
+
+    let path = find_transcript(session_id)?;
+    if fs::metadata(&path).ok()?.len() > MAX_BYTES {
+        return None;
+    }
+
+    let content = fs::read_to_string(&path).ok()?;
+    let mut turns: Vec<Turn> = Vec::new();
+
+    for line in content.lines() {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+
+        /*
+         * Sidechains are the assistant talking to itself in a subagent.
+         *
+         * Real reasoning, and not this conversation's. Carrying it in would
+         * hand the next model a second, interleaved thread with no marker
+         * saying which turn belongs to which.
+         */
+        if value.get("isSidechain").and_then(|v| v.as_bool()) == Some(true) {
+            continue;
+        }
+
+        let role = match value.get("type").and_then(|t| t.as_str()) {
+            Some("user") => Role::You,
+            Some("assistant") => Role::Assistant,
+            _ => continue,
+        };
+
+        let mut blocks = blocks_of(&value);
+        if blocks.is_empty() {
+            continue;
+        }
+
+        // Consecutive records from the same speaker are one turn. Every
+        // assistant reply that calls a tool is split across several records,
+        // and left alone that reads as a dozen separate replies.
+        match turns.last_mut() {
+            Some(last) if last.role == role => last.blocks.append(&mut blocks),
+            _ => turns.push(Turn { role, blocks }),
+        }
+    }
+
+    (!turns.is_empty()).then_some(turns)
+}
+
 /// Locate `<session-id>.jsonl` under any project directory.
 fn find_transcript(session_id: &str) -> Option<PathBuf> {
     let name = format!("{session_id}.jsonl");
@@ -595,6 +667,60 @@ fn truncate(text: &str, max: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    /**
+     * What the capture recovers, on this machine's real transcripts.
+     *
+     * cargo test --bin sidq real_capture -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_capture() {
+        use crate::capture::Block;
+
+        let sessions = super::recent_sessions(20);
+        let session = sessions
+            .iter()
+            .max_by_key(|s| s.turns)
+            .expect("some conversation exists");
+
+        let spoken = super::session_transcript(&session.session_id).unwrap_or_default();
+        let turns = super::session_capture(&session.session_id).expect("capture");
+
+        let (mut said, mut thought, mut did, mut saw, mut stopped) = (0, 0, 0, 0, 0);
+        let mut thinking_chars = 0usize;
+        for turn in &turns {
+            for block in &turn.blocks {
+                match block {
+                    Block::Said(t) => { said += 1; let _ = t; }
+                    Block::Thought(t) => { thought += 1; thinking_chars += t.chars().count(); }
+                    Block::Did { .. } => did += 1,
+                    Block::Saw { .. } => saw += 1,
+                    Block::Interrupted => stopped += 1,
+                }
+            }
+        }
+
+        let brief = crate::compiler::Brief {
+            source: &session.source,
+            when: "today",
+            project: &session.project_name,
+            resume_point: &session.last_prompt,
+        };
+        let compiled = crate::compiler::compile(
+            &turns,
+            &brief,
+            crate::compiler::Target::for_source(&session.source),
+        );
+
+        println!("\n  {}", session.title);
+        println!("  {} turns", turns.len());
+        println!("  said {said} · thought {thought} · ran {did} · returned {saw} · stopped {stopped}");
+        println!("  reasoning recovered: {thinking_chars} chars");
+        println!("  spoken handover:   {} chars", spoken.chars().count());
+        println!("  compiled handover: {} chars", compiled.chars().count());
+        println!();
+    }
+
     use super::*;
 
     #[test]
