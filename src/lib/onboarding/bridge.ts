@@ -161,6 +161,10 @@ export interface OnboardingBridge {
    * conversations in it" is actionable and "something went wrong" is not.
    */
   importExport: (json: string) => Promise<number>;
+  /** Assistants Sidq can open in its own window. Nothing to install. */
+  assistantList: () => Promise<{ id: string; label: string }[]>;
+  /** Open one. Sign in once, inside Sidq, and it reads as you use it. */
+  openAssistant: (id: string) => Promise<void>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
   /**
@@ -255,6 +259,13 @@ export function desktopBridge(): OnboardingBridge | null {
     importExport: async (json) => {
       const count = await invoke('import_export', { json });
       return typeof count === 'number' ? count : 0;
+    },
+    assistantList: async () => {
+      const rows = await invoke('assistant_list');
+      return Array.isArray(rows) ? (rows as { id: string; label: string }[]) : [];
+    },
+    openAssistant: async (id) => {
+      await invoke('open_assistant', { id });
     },
     planStatus: async () => {
       const out = (await invoke('plan_status')) as PlanStatus | null;

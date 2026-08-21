@@ -10,6 +10,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod assistants;
 mod browser_bridge;
 mod handover;
 mod index_store;
@@ -366,6 +367,94 @@ async fn search_conversations(
     })
     .await
     .unwrap_or((Vec::new(), 0))
+}
+
+/// The list of assistants Sidq can open, for the UI to draw.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantRow {
+    id: String,
+    label: String,
+}
+
+#[tauri::command]
+fn assistant_list() -> Vec<AssistantRow> {
+    assistants::ASSISTANTS
+        .iter()
+        .map(|a| AssistantRow { id: a.id.into(), label: a.label.into() })
+        .collect()
+}
+
+/// Open an assistant inside Sidq. Nothing to install.
+#[tauri::command]
+fn open_assistant(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    assistants::open(&app, &id)
+}
+
+/// What an assistant page hands back as it is used.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Conversation {
+    source: String,
+    title: String,
+    url: String,
+    text: String,
+}
+
+/**
+ * Index a conversation read out of an assistant running inside Sidq.
+ *
+ * Keyed on the page's own URL rather than on a new id each time, so a
+ * conversation that is still being added to replaces its earlier state instead
+ * of accumulating a copy per exchange.
+ */
+fn absorb(conversation: &Conversation) {
+    let Some(conn) = index_store::open() else { return };
+
+    let turns: Vec<(String, String)> = conversation
+        .text
+        .split("\n\n")
+        .filter_map(|block| {
+            let (role, body) = block.split_once(":\n")?;
+            (!body.trim().is_empty()).then(|| (role.to_string(), body.to_string()))
+        })
+        .collect();
+    if turns.is_empty() {
+        return;
+    }
+
+    // The conversation's own address is its identity. Stable while you are in
+    // it, different for every other one.
+    let session_id: String = conversation
+        .url
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    if session_id.is_empty() {
+        return;
+    }
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+
+    let title = conversation
+        .title
+        .split(" - ")
+        .next()
+        .unwrap_or(&conversation.title)
+        .trim()
+        .to_string();
+
+    let _ = index_store::put_session(
+        &conn, &session_id, &conversation.source, &title,
+        &conversation.source, "", now, turns.len() as u32, 0,
+    );
+    let _ = index_store::put_messages(
+        &conn, &session_id, &turns,
+        &format!("live:{}", conversation.text.len()),
+    );
 }
 
 /// Handovers to list. A page of history, not an archive.
@@ -835,6 +924,8 @@ fn main() {
             plan_status,
             memory_profile,
             recent_handovers,
+            assistant_list,
+            open_assistant,
             import_export,
             handover_text,
             set_desktop_session,
@@ -916,6 +1007,23 @@ fn main() {
                         _ => {}
                     })
                     .build(app);
+            }
+
+            /*
+             * Conversations from assistants running inside Sidq.
+             *
+             * The page emits; this indexes. An event rather than a command
+             * because an event needs only `core:event` in the capability, so a
+             * remote page gets exactly one narrow way to hand text to the app
+             * and no access to anything else in it.
+             */
+            {
+                use tauri::Listener;
+                app.listen("assistant:conversation", move |event| {
+                    if let Ok(c) = serde_json::from_str::<Conversation>(event.payload()) {
+                        std::thread::spawn(move || absorb(&c));
+                    }
+                });
             }
 
             browser_bridge::spawn(app.handle().clone());

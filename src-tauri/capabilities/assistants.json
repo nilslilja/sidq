@@ -1,0 +1,23 @@
+{
+  "identifier": "assistants",
+  "description": "Lets an assistant page loaded inside Sidq hand its conversation to the app. One command, nothing else.",
+  "windows": [
+    "assistant"
+  ],
+  "remote": {
+    "urls": [
+      "https://chatgpt.com/*",
+      "https://chat.openai.com/*",
+      "https://claude.ai/*",
+      "https://gemini.google.com/*",
+      "https://www.perplexity.ai/*",
+      "https://grok.com/*",
+      "https://chat.deepseek.com/*",
+      "https://chat.mistral.ai/*"
+    ]
+  },
+  "permissions": [
+    "core:app:default",
+    "core:event:default"
+  ]
+}

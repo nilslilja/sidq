@@ -312,9 +312,9 @@ function Search({
 
       {!searched && (
         <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-white/35">
-          Every conversation from Claude Code, Cowork, Cursor and anything the extension has
-          captured, searched together. Nobody else can do this: no assistant can read another
-          one&rsquo;s history, and this is the only place yours sits in one pile.
+          Every conversation, from every assistant you use, searched together. Nobody else can
+          do this: no assistant can read another one&rsquo;s history, and this is the only
+          place yours sits in one pile.
         </p>
       )}
     </>
@@ -452,6 +452,55 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
  * the path. That means no file-dialog plugin, and it means Sidq only ever sees
  * the one file somebody deliberately chose.
  */
+/**
+ * The assistants, opened inside Sidq.
+ *
+ * This replaces the browser extension as the way a browser assistant is read.
+ * The extension worked and was the wrong shape: a store listing, a review
+ * queue, a different install per browser, and a person deciding to trust a
+ * second thing before Sidq could read anything at all. For a product whose
+ * whole pitch is that it already knows, that is the wrong first minute.
+ *
+ * Sidq is a Tauri app, so it already has a browser engine in it. Verified in
+ * this webview: ChatGPT, Claude and Gemini all render completely, with sign-in
+ * offered and no "unsupported browser" anywhere.
+ */
+function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [rows, setRows] = useState<{ id: string; label: string }[]>([]);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.assistantList().then(setRows);
+  }, [bridge]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="mt-8">
+      <p className="text-[0.875rem] font-medium text-white">Open one here</p>
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
+        Sign in once, in Sidq, and everything you do in it from then on is read as it happens.
+        Nothing to install and no extension.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {rows.map((row) => (
+          <button
+            key={row.id}
+            onClick={() => void bridge?.openAssistant(row.id)}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
+              'bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10',
+              'cursor-pointer transition-colors duration-150 hover:bg-white/[0.12] hover:text-white',
+            )}
+          >
+            {row.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [state, setState] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
   const [message, setMessage] = useState('');
@@ -550,8 +599,8 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
         Sidq is not tied to any one assistant. The ones that write conversations to this Mac
         are read with nothing to set up. The ones that run in a browser keep nothing readable
-        here, so they are connected once through the extension and then read as you use them.
-        You never click anything again.
+        here, so you open them inside Sidq instead. Sign in once and everything after that is
+        read as it happens. Nothing to install.
       </p>
 
       <ul className="mt-6 space-y-1.5">
@@ -581,6 +630,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           );
         })}
       </ul>
+      <OpenAssistants bridge={bridge} />
       <ImportHistory bridge={bridge} />
     </>
   );
