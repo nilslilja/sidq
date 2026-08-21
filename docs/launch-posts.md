@@ -11,97 +11,108 @@ Voice rules in [voice.md](voice.md).
 
 ## The line
 
-> Your AI is hiding 44% of what it writes about your work from you.
+> You cannot get a real second opinion from another AI.
 
-Everything else is evidence for that sentence. It is true, it is checkable on
-anybody's own machine in ten seconds, and no competitor can say it because none
-of them read the file.
+Not because the models are bad. Because you can only ever hand the second one a
+summary, so what you get back is an opinion on the summary rather than on your
+actual problem.
 
-Open Sidq and the first screen is that number, computed from your own disk,
-with the longest things your assistant kept to itself printed underneath it
-verbatim. That screen is the demo, the ad and the product in one.
+That is the pitch. The 44% is what explains why the summary cannot be fixed,
+and it goes second, never first.
 
 ## The argument, in one paragraph
 
-Every model that reasons before it answers writes two things: the reply, and
-the thinking behind it. You are shown the first. The second goes to a file on
-your own disk, is rendered nowhere, and is dropped from the model's own context
-after the turn, so you cannot get it by asking either. Across fifteen
-conversations on my laptop that is 1,157,450 characters in 1,436 separate
-thoughts, which is 44% of everything my assistants wrote about my work. The
-answer everybody has settled on, asking it to summarise, is the exact
-mechanism that throws that away: a summary keeps the conclusion and discards
-the reasoning, the approaches tried and abandoned, and the moment you stopped
-it and said no.
+You explain your project to one assistant. Then you explain it again to the
+next, because none of them can read each other. And when you actually want a
+second opinion, the thing a second model is for, all you can give it is a
+paste or a summary, so it is answering a compressed version of your question.
+Here is the part that makes it unfixable: 44% of what your assistant worked out
+about your project was never shown to you either. It writes the reasoning to
+your own disk, renders none of it, and drops it from its own memory after the
+turn. So you could not include it even if you tried. That is 1,157,450
+characters on my laptop across fifteen conversations.
 
 ---
 
 ## LinkedIn, launch day
 
-> I am 18 and I spent last month reading my own AI conversations.
+> I am 18 and I got sick of explaining my own project to four different AIs
+> every single day.
 >
-> Not using them. Opening the files.
+> You know the loop. You are deep in something with one of them. You want a
+> second opinion so you open another, and now you are typing out the stack, the
+> constraints, what you already tried, and why you threw away the obvious answer.
 >
-> Your assistant writes two things every time it answers you. The reply, and the
-> reasoning behind it. You are shown one of them.
+> So you paste a summary instead. And the second opinion you get back is an
+> opinion on your summary. Not on your problem. Which makes it worth nothing.
 >
-> On my laptop, across fifteen conversations, the half I was never shown is
-> 1,157,450 characters. 1,436 separate thoughts about my own work, written to my
-> own disk, rendered nowhere, and deleted from the model's memory the moment the
-> turn ended. 44% of everything it wrote about my work.
+> Then I opened the actual files these assistants write to my laptop, and found
+> the part that made me build this: 44% of what they had worked out about my
+> work, I had never seen. The reasoning. The approaches they tried and rejected.
+> It is written to my own disk, rendered nowhere, and deleted from their memory
+> after every turn.
 >
-> I can show you the longest ones. Word for word. Things it worked out about
-> what I was building and decided not to mention.
+> So a second opinion was never a second opinion. It was a first opinion on half
+> a story, and no amount of summarising was going to fix that, because the other
+> half never reached me either.
 >
-> And everybody's answer to this is "just ask it to summarise". That is not the
-> fix, it is the mechanism. A summary keeps the conclusion and throws away the
-> reasoning, the three approaches it tried and rejected, and the moment you cut
-> it off and said no, not like that. Those are the parts that cost you two hours.
+> I built Sidq. It reads the conversations your AIs already write to your Mac
+> and moves an entire one into a different assistant. Whole. Including the part
+> you were never shown.
 >
-> So I built Sidq. Open it and the first thing you see is your own number,
-> computed from your own machine, with the things your assistant kept to itself
-> printed underneath. Then it carries any of it into a different assistant,
-> whole, including the part you were never shown.
->
-> Nothing is uploaded. It reads what is already on your disk.
->
-> I am 18, I built it alone, and I would rather you tell me it is wrong than say
-> nothing.
+> Mac only. Nothing leaves your machine. I built it alone and I would rather you
+> tell me it is wrong than say nothing.
 >
 > sidq.tech
 
 ## X, same day
 
-> I'm 18. I spent a month opening my own AI conversation files.
+> I'm 18 and I got sick of explaining my project to four different AIs a day.
 >
-> Your assistant writes two things: the answer, and the reasoning. You see one.
+> Want a second opinion from another model? You can only give it a summary. So
+> you get an opinion on the summary.
 >
-> On my laptop the half I never saw is 1,157,450 characters.
+> Then I opened the files. 44% of what my assistant worked out about my work was
+> never shown to me at all.
 >
-> 44% of everything it wrote about my work. Deleted from its own memory after
-> the turn. Still sitting on my disk. Read by nothing.
+> You were never getting a second opinion. You were getting a first one on half
+> a story.
 >
-> Built Sidq. First screen shows you your own number.
+> Built Sidq to move the whole conversation across instead.
 
 ## X, the clip
 
-> This is the 44% of your AI conversations you have never been shown.
+> Second opinion from a different AI, with everything the first one knew.
 >
 > [video]
 >
-> Built by an 18 year old who got tired of explaining his stack every morning.
+> Built by an 18 year old who got tired of typing the same explanation four
+> times a day.
 
 ---
 
 ## The four recurring formats
 
-### 1. The measurement
+### 1. The second-opinion post
 
-> [Number], measured on my own machine this week.
+The strongest one. Everybody has had this exact afternoon.
+
+> Asked a second model to check my work today.
 >
-> [One-sentence consequence.]
+> To do that I had to summarise two hours of reasoning into a paragraph. It gave
+> me a confident answer about the paragraph.
 >
-> [What it means for anyone using more than one assistant.]
+> That is not a second opinion. That is a first impression.
+
+### 2. The re-explaining post
+
+> Counted it. I explained the same three constraints about my project to four
+> different assistants this week.
+>
+> Not because they forgot. Because none of them can read each other, and there
+> is no reason for that except that nobody built the thing that lets them.
+
+### 3. The measurement
 
 > 1,436 times last month, my assistant worked something out about my project and
 > did not tell me.
@@ -110,17 +121,7 @@ it and said no.
 >
 > Your assistant knows more about your work than you can get it to say.
 
-### 2. The summary problem
-
-> I asked four assistants to summarise the same conversation.
->
-> All four kept the conclusion. All four dropped the two approaches we tried
-> first and abandoned, which is the only part that would stop the next one
-> repeating them.
->
-> A summary is a lossy compression of the thing you actually needed.
-
-### 3. The build note
+### 4. The build note
 
 > [Thing broke.] [How, in one sentence.] [The interesting detail.] [What changed.]
 
@@ -133,14 +134,14 @@ it and said no.
 > Fixed it by deleting the event. The window measures its own width now. A fact
 > you can read cannot fail to arrive.
 
-### 4. The age post, used sparingly
+### 5. The age post, once a week at most
 
-Once a week at most, or it stops being a fact and starts being a bit.
+More than that and it stops being a fact and starts being a bit.
 
 > Things I did not have at 18: a degree, a network, a co-founder, a clue.
 >
-> Things I did have: a laptop with 5,414 AI messages on it that no assistant
-> could read, and enough free time to find out why.
+> Things I did have: four AI assistants that could not read each other, and
+> enough free time to be annoyed about it.
 
 ---
 
@@ -148,20 +149,19 @@ Once a week at most, or it stops being a fact and starts being a bit.
 
 **"Isn't this just a wrapper?"**
 
-> It was. For about three weeks it copied the text of a conversation and pasted
-> it somewhere else, which anybody can do by asking for a summary.
+> It was, for about three weeks. It copied the text of a conversation and pasted
+> it somewhere else, which is a thing anybody can do.
 >
-> What changed is that I started reading the half nobody renders. 44% of what
-> my assistants wrote about my work was never shown to me, and it cannot be
-> asked for, because the model does not have it either. It is dropped from its
-> context after the turn.
+> What changed is that I stopped copying the visible half. 44% of what your
+> assistant works out about your project is never rendered to you, and cannot be
+> asked for, because the model drops it from its own context after the turn.
 >
 > Reading it off your own disk is the only way to get it. That is the product.
 
 **"Why not use Projects or memory?"**
 
-> Because those live inside one assistant. The whole problem is that you use
-> four.
+> Because those live inside one assistant, and the whole problem is the moment
+> you open a different one.
 
 ---
 

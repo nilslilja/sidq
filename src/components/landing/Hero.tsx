@@ -62,26 +62,32 @@ export function Hero() {
           id="hero"
           className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
         >
-          Your AI is hiding half of what it thinks
+          Every AI you open starts from zero
         </h1>
 
-        <p className="mx-auto mt-8 max-w-[52ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          Every time it answers you it writes two things: the reply, and the reasoning behind
-          it. You are shown one. The other is on your own disk, rendered nowhere, and deleted
-          from its memory after the turn.
+        <p className="mx-auto mt-8 max-w-[50ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
+          You explain your project to one. Then the same thing to the next. And when you
+          finally want a second opinion from a different model, all you can give it is a
+          summary, so what comes back is an opinion on the summary.
         </p>
 
         {/*
-          * The number, from the machine this was built on.
+          * The number, second and not first.
           *
-          * Stated as measured rather than as a claim about everybody, because
-          * it is one laptop and the honest version is the one somebody can go
-          * and reproduce. The app computes their own on first open.
+          * It led the page for a day and it was the wrong order. "Your AI is
+          * hiding half of what it thinks" is true and it reads as a conspiracy
+          * theory about a technical detail nobody has ever thought about. The
+          * problem people actually have is explaining themselves four times a
+          * day and never being able to get a real second opinion.
+          *
+          * So the number is the twist that explains why the obvious workaround
+          * cannot work, which is the job it is actually good at.
           */}
-        <p className="mx-auto mt-6 max-w-[46ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
-          On the laptop this was built on that is 1,157,450 characters, across 1,436 separate
-          thoughts about work I was doing. 44% of everything it wrote. Sidq shows you yours,
-          then carries any of it into a different assistant.
+        <p className="mx-auto mt-6 max-w-[52ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
+          And a summary is the best you can do, because 44% of what your assistant worked out
+          about your project was never shown to you in the first place. It writes the reasoning
+          to your own disk, renders none of it, and forgets it after the turn. Sidq moves the
+          whole conversation across instead. Every word, including that part.
         </p>
 
         <div className="mt-10 flex justify-center">
