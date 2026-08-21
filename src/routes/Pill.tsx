@@ -254,34 +254,51 @@ export function Pill() {
     return (
       <div
         data-transparent-window
-        className="flex h-[100dvh] w-full items-center justify-center bg-transparent px-1 py-1"
+        className="flex h-[100dvh] w-full items-start justify-center bg-transparent"
       >
         <button
           onClick={() => void bridge?.expandPill()}
           aria-label="Open Sidq and pick up a conversation"
           className={cn(
-            'group flex w-full items-center gap-2.5 rounded-full px-3.5 py-2.5',
-            'bg-[#141319]/95 ring-1 ring-inset ring-white/10 backdrop-blur-xl',
-            'shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5),0_12px_28px_-12px_rgba(0,0,0,0.6)]',
-            // Transform and opacity only, so the lift never touches layout.
-            'origin-center transition-[transform,background-color] duration-150',
-            'hover:scale-[1.03] hover:bg-[#1b1a22]/95 active:scale-[0.99]',
-            'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8A6FF]/70',
+            'group flex h-full w-full items-center gap-2.5 px-3.5',
+            /*
+             * Squared at the top, deeply rounded at the bottom.
+             *
+             * That silhouette is a notch. Hung flush under the menu bar it
+             * reads as the hardware continuing downward rather than as a window
+             * somebody left open, and on a MacBook it lines up with the real
+             * one. It is the whole reason this does not look like every other
+             * floating dark capsule.
+             */
+            'rounded-b-[14px] border-x border-b border-white/[0.08]',
+            // Near-black rather than a tinted surface: it has to belong to the
+            // bezel it is hanging off, not to the window behind it.
+            'bg-[#08080B]/95 backdrop-blur-xl',
+            'shadow-[0_10px_24px_-12px_rgba(0,0,0,0.75)]',
+            // No scale on hover. Anything that moves it breaks the seam with
+            // the menu bar, which is the one thing holding the illusion up.
+            'transition-colors duration-150 hover:bg-[#131319]/95',
+            'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
           )}
         >
           <span
             aria-hidden="true"
             className={cn(
               'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
-              'opacity-70 group-hover:opacity-100',
+              'opacity-60 group-hover:opacity-100',
             )}
           />
-          <span className="min-w-0 flex-1 truncate text-left text-[0.75rem] text-white/55">
-            {indexed > 0
-              ? `${indexed} conversation${indexed === 1 ? '' : 's'}`
-              : 'Sidq'}
+          <span className="min-w-0 flex-1 truncate text-left text-[0.6875rem] tracking-wide text-white/50">
+            {indexed > 0 ? `${indexed} conversation${indexed === 1 ? '' : 's'}` : 'Sidq'}
           </span>
-          <Key>⌘⇧K</Key>
+          <span
+            className={cn(
+              'shrink-0 rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[0.625rem]',
+              'text-white/30 transition-colors duration-150 group-hover:text-white/60',
+            )}
+          >
+            ⌘⇧K
+          </span>
         </button>
       </div>
     );
@@ -293,14 +310,19 @@ export function Pill() {
       // background behind it. Without this the page colour shows as a white
       // border around every edge of the card.
       data-transparent-window
-      className="flex h-[100dvh] w-full items-start justify-center bg-transparent p-3"
+      className="flex h-[100dvh] w-full items-start justify-center bg-transparent"
       onKeyDown={onKeyDown}
     >
       <div
         className={cn(
-          'w-full overflow-hidden rounded-[18px]',
-          'bg-[#141319]/95 ring-1 ring-inset ring-white/10 backdrop-blur-xl',
-          'shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5),0_32px_64px_-24px_rgba(0,0,0,0.6)]',
+          // Same silhouette as the lip it grew out of: squared where it meets
+          // the menu bar, rounded where it ends. A card that rounded all four
+          // corners would detach from the top of the screen and become an
+          // ordinary floating panel the moment it opened.
+          'w-full overflow-hidden rounded-b-[18px]',
+          'border-x border-b border-white/[0.08]',
+          'bg-[#0C0C10]/96 backdrop-blur-xl',
+          'shadow-[0_24px_64px_-24px_rgba(0,0,0,0.8)]',
         )}
       >
         {/* ── Query ─────────────────────────────────────────────────────── */}

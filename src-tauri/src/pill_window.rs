@@ -33,14 +33,11 @@
 
 use tauri::{Emitter, LogicalPosition, LogicalSize, WebviewWindow};
 
-/// A bar. Wide enough for a label and a hint, short enough to ignore.
-const COLLAPSED: (f64, f64) = (232.0, 52.0);
+/// A lip hanging off the menu bar. Wide enough for a count and a hint.
+const COLLAPSED: (f64, f64) = (228.0, 36.0);
 
-/// The picker. Matches what the window was before it learned to shrink.
-const EXPANDED: (f64, f64) = (560.0, 340.0);
-
-/// Clear of the Dock without floating in the middle of the screen.
-const BOTTOM_MARGIN: f64 = 72.0;
+/// The picker. Unfurls downward from the same edge the lip hangs from.
+const EXPANDED: (f64, f64) = (560.0, 380.0);
 
 /// Anything wider than this is the picker. Halfway between the two widths.
 const EXPANDED_THRESHOLD: f64 = 396.0;
@@ -51,25 +48,36 @@ pub const STATE_EVENT: &str = "pill:state";
 /**
  * Size the window and put it back on its mark.
  *
- * Bottom-anchored, so growing and shrinking happen against a fixed edge rather
- * than moving the whole card up the screen. The expanded picker appears where
- * the bar was, which is the only reason the two feel like one object.
+ * Top-centred, flush against the underside of the menu bar. Both sizes share
+ * that edge, so growing and shrinking happen against something fixed and the
+ * picker unfurls from exactly where the lip was — the only reason the two read
+ * as one object rather than two windows taking turns.
  *
- * The monitor's own origin is added because on a second display it is not zero,
- * and leaving it out is how a window ends up on the laptop screen every time
- * regardless of which one you were working on.
+ * ── Why the top, and not the bottom ──────────────────────────────────────────
+ * The bottom centre of a Mac screen is the busiest strip on the machine. Wispr
+ * puts its bar there, the Dock lives there, and every video player on the web
+ * puts its scrubber there — a bar sitting in that spot spends its life being
+ * covered by something. The top centre is the one piece of real estate no
+ * companion app has claimed, and on a MacBook it puts Sidq directly under the
+ * notch, which is either the best or the worst thing about it depending on who
+ * you ask. Both of those are better than not being noticed.
+ *
+ * The work area is the screen minus the menu bar, and it is already in global
+ * coordinates, so a second display with a non-zero origin lands correctly
+ * without any arithmetic of our own.
  */
 fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
     w.set_size(LogicalSize::new(size.0, size.1))?;
 
     if let Ok(Some(monitor)) = w.current_monitor() {
         let scale = monitor.scale_factor();
-        let screen = monitor.size().to_logical::<f64>(scale);
-        let origin = monitor.position().to_logical::<f64>(scale);
+        let area = monitor.work_area();
+        let origin = area.position.to_logical::<f64>(scale);
+        let usable = area.size.to_logical::<f64>(scale);
 
         w.set_position(LogicalPosition::new(
-            origin.x + (screen.width - size.0) / 2.0,
-            origin.y + screen.height - BOTTOM_MARGIN - size.1,
+            origin.x + (usable.width - size.0) / 2.0,
+            origin.y,
         ))?;
     }
 
@@ -135,10 +143,18 @@ mod tests {
     }
 
     #[test]
-    fn both_sizes_clear_the_bottom_of_the_screen() {
-        // A 900px-tall card anchored 72px from the bottom would run off the top
-        // of a laptop display, which is the failure mode of bottom-anchoring.
-        let shortest_mac_display = 800.0;
-        assert!(EXPANDED.1 + BOTTOM_MARGIN < shortest_mac_display);
+    fn the_picker_fits_under_the_menu_bar_on_the_smallest_mac() {
+        /*
+         * Top-anchoring moves the failure to the other end: a card taller than
+         * the work area runs off the bottom of the screen, and the row you
+         * cannot reach is the oldest conversation, which is the one you opened
+         * the picker to find.
+         *
+         * 13-inch MacBooks report a 1470x956 work area at their default scaled
+         * resolution; 900 is below every Mac Sidq runs on.
+         */
+        let shortest_work_area = 900.0;
+        assert!(EXPANDED.1 < shortest_work_area);
+        assert!(COLLAPSED.1 < EXPANDED.1, "the lip is the smaller of the two");
     }
 }
