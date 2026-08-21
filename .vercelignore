@@ -13,7 +13,13 @@ node_modules/
 
 # Signed installers. These belong on GitHub Releases; a 64MB binary in a static
 # deploy is both slow and the wrong place for it.
-public/downloads/
+# public/downloads/ is NOT excluded, and this comment is here so nobody
+# adds it back. Excluding it is what made the download button 404: the
+# installers were built, signed, notarised, committed, and then never
+# uploaded, so the one button that matters pointed at nothing.
+#
+# They are ~19MB of binary. That is the cost of the site serving its own
+# downloads instead of depending on a second host.
 
 # Local build output. Vercel runs its own build.
 dist/

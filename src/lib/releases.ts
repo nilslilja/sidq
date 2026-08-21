@@ -25,12 +25,23 @@ export const RELEASE_VERSION = '0.1.0';
  * publishing anything. That local folder is gitignored: a 6MB binary does not
  * belong in the repository.
  */
-const RELEASE_BASE =
-  (import.meta.env.VITE_RELEASE_BASE as string | undefined) ??
-  // Same rule as the desktop sign-in origin: never guess a host. In production
-  // this must be set; without it the buttons fall back to the web app rather
-  // than linking at a domain or GitHub org nobody has confirmed we control.
-  (import.meta.env.DEV ? '/downloads' : '');
+/*
+ * Same origin by default.
+ *
+ * This used to fall back to an empty string in production unless
+ * VITE_RELEASE_BASE was set, on the reasoning that Sidq should never guess a
+ * host it might not own. That was the right instinct applied to the wrong
+ * thing: `/downloads` is not a host, it is a path on the site currently being
+ * served, and it cannot point somewhere we do not control.
+ *
+ * What it actually did was set the variable to "" in production and leave it
+ * there, so `artifactFor` returned null for every platform and every visitor
+ * saw "Mac only for now" — including everybody on a Mac. The site shipped for
+ * days with no working download and nothing anywhere reported it.
+ *
+ * The variable still overrides, for the day these move to a CDN.
+ */
+const RELEASE_BASE = (import.meta.env.VITE_RELEASE_BASE as string | undefined) || '/downloads';
 
 export interface ReleaseArtifact {
   /** Fully qualified URL to the installer. */
