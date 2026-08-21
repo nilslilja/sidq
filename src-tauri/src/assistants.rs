@@ -85,6 +85,42 @@ fn reader_script(source: &str) -> String {
   const QUIET_MS = 4000;
   const MIN_GAP_MS = 12000;
 
+  /*
+   * Sign-in is a popup, and a webview has nowhere to put one.
+   *
+   * Every "Continue with Google", "Continue with Apple" and "Continue with
+   * Microsoft" button calls window.open. A browser answers with a new window;
+   * WKWebView, with no UI delegate implementing createWebViewWith, answers with
+   * null and raises nothing at all. The button appears to do nothing, and there
+   * is no error anywhere to go looking for. This is the single most likely
+   * reason signing in inside Sidq does not work.
+   *
+   * Every one of these providers also supports the same flow as a full-page
+   * redirect, which is what a browser itself falls back to when popups are
+   * blocked. So window.open navigates this window instead, and the provider
+   * returns to the assistant when it is finished.
+   *
+   * It returns a stub rather than null because the calling code usually touches
+   * the handle afterwards, and a null dereference there kills the sign-in
+   * script before the redirect it just asked for can happen.
+   */
+  const nativeOpen = window.open.bind(window);
+  window.open = (url, target, features) => {{
+    const href = url ? String(url) : '';
+    // Anything that is not a web address may be a hand-off to a native app.
+    // That still belongs to the real implementation.
+    if (!/^https?:/i.test(href)) return nativeOpen(url, target, features);
+    location.assign(href);
+    return {{
+      closed: false,
+      close() {{}},
+      focus() {{}},
+      blur() {{}},
+      postMessage() {{}},
+      location: {{ href }},
+    }};
+  }};
+
   // Every one of these sites splits a single reply across several nodes when it
   // contains code or a list, so turns are read by author marker where one
   // exists and collapsed when the speaker has not changed.
@@ -136,6 +172,17 @@ fn reader_script(source: &str) -> String {
     const now = Date.now();
     if (now - sentAt < MIN_GAP_MS) return;
     sentLength = text.length; sentAt = now;
+
+    /*
+     * Only where Sidq is allowed to listen.
+     *
+     * Sign-in leaves the assistant's domain for accounts.google.com and
+     * appleid.apple.com, which are deliberately not in the capability, so the
+     * IPC bridge is absent there. Without this guard the reader throws on
+     * every mutation of the sign-in page, and a script that is throwing is a
+     * script that has stopped watching for the conversation.
+     */
+    if (!window.__TAURI__ || !window.__TAURI__.event) return;
 
     window.__TAURI__.event.emit('assistant:conversation', {{
       source: SOURCE,
@@ -189,6 +236,14 @@ pub fn open(app: &tauri::AppHandle, id: &str) -> Result<(), String> {
         .title(assistant.label)
         .inner_size(1100.0, 820.0)
         .user_agent(USER_AGENT)
+        /*
+         * One store, shared by every assistant and surviving a quit.
+         *
+         * Without an explicit identifier each window gets an ephemeral store,
+         * so a sign-in lasts exactly as long as the window and every launch
+         * starts logged out. A fixed id is what makes "sign in once" true.
+         */
+        .data_store_identifier(*b"sidq-assistants\0")
         .initialization_script(&reader_script(assistant.id))
         .build()
         .map_err(|e| format!("Could not open {}: {e}", assistant.label))?;
@@ -221,6 +276,33 @@ mod tests {
         for a in &ASSISTANTS {
             assert!(script.contains(&format!("'{}':", a.id)), "no selectors for {}", a.id);
         }
+    }
+
+    #[test]
+    fn sign_in_popups_are_turned_into_navigations() {
+        /*
+         * The likeliest reason signing in fails inside Sidq. Every social
+         * sign-in button calls window.open, and WKWebView with no UI delegate
+         * returns null without raising anything, so the button does nothing
+         * and there is no error to go looking for.
+         */
+        let script = reader_script("chatgpt");
+
+        assert!(script.contains("window.open ="), "window.open must be replaced");
+        assert!(script.contains("location.assign(href)"), "and become a navigation");
+        // A stub, not null: callers poke the handle afterwards and a null
+        // dereference there kills the redirect before it happens.
+        assert!(script.contains("closed: false"));
+        // Non-http schemes still go to the real implementation, so a provider
+        // handing off to a native app is not broken by this.
+        assert!(script.contains("/^https?:/i"));
+    }
+
+    #[test]
+    fn the_reader_stays_quiet_where_it_has_no_bridge() {
+        // Sign-in leaves the assistant's domain, where the IPC bridge does not
+        // exist. Throwing there stops the script watching for the conversation.
+        assert!(reader_script("claude.ai").contains("if (!window.__TAURI__"));
     }
 
     #[test]
