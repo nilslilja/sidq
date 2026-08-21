@@ -28,3 +28,7 @@ src-tauri/gen/schemas/
 # Node
 node_modules/
 dist/
+
+# Product footage: recorded off a live desktop, reviewed before it ships.
+public/video/*.mp4
+public/video/*.webm

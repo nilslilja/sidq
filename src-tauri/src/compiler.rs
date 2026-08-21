@@ -114,11 +114,57 @@ pub struct Brief<'a> {
     pub resume_point: &'a str,
 }
 
-fn instruction(brief: &Brief) -> String {
+/**
+ * Describe what is actually in this file.
+ *
+ * The instruction used to promise reasoning, tool calls and interruptions every
+ * time. Run against a real conversation with extended thinking switched off, it
+ * announced 561 blocks of private reasoning and delivered none — which teaches
+ * the receiving model that the framing is decoration and the next claim can be
+ * ignored too.
+ */
+fn contents_of(turns: &[Turn]) -> String {
+    let (mut thought, mut ran, mut stopped) = (false, false, false);
+    for turn in turns {
+        for block in &turn.blocks {
+            match block {
+                Block::Thought(_) => thought = true,
+                Block::Did { .. } | Block::Saw { .. } => ran = true,
+                Block::Interrupted => stopped = true,
+                Block::Said(_) => {}
+            }
+        }
+    }
+
+    let mut parts: Vec<&str> = Vec::new();
+    if thought {
+        parts.push("the assistant's private reasoning, which was never shown to anyone");
+    }
+    if ran {
+        parts.push("every tool it ran and what came back, including the failures");
+    }
+    if stopped {
+        parts.push("the points where the person stopped it mid-answer");
+    }
+
+    match parts.len() {
+        0 => String::new(),
+        1 => format!(" It includes {}.", parts[0]),
+        _ => {
+            /*
+             * Semicolons, because the clauses have commas inside them.
+             * "…what came back, including the failures and the points where…"
+             * reads as one item; the reader has to backtrack to find the seam.
+             */
+            format!(" It includes: {}.", parts.join("; "))
+        }
+    }
+}
+
+fn instruction(brief: &Brief, contents: &str) -> String {
     format!(
         "You are being handed a complete record of a conversation with {source}, {when}\
-{project}. It includes the assistant's private reasoning, the tools it ran and \
-what they returned, and the points where the person stopped it.\n\n\
+{project}.{contents}\n\n\
 Read all of it before replying.\n\
 Do not summarise it back. The person was there; summarising spends the turn.\n\
 Continue from where it stopped.\n\
@@ -132,6 +178,7 @@ It stopped here: {resume}",
         } else {
             format!(", working in {}", brief.project)
         },
+        contents = contents,
         resume = if brief.resume_point.is_empty() {
             "no explicit last request"
         } else {
@@ -229,7 +276,10 @@ fn markdown_body(turns: &[Turn]) -> String {
 /// The finished file.
 pub fn compile(turns: &[Turn], brief: &Brief, target: Target) -> String {
     let (kept, dropped) = fit(turns);
-    let instruction = instruction(brief);
+    // Described from what survived the budget, not from the original: a turn
+    // that was dropped is not in the file and must not be announced as if it
+    // were.
+    let instruction = instruction(brief, &contents_of(kept));
 
     let mut body = match target {
         Target::Claude => claude_body(kept),
@@ -403,6 +453,46 @@ mod tests {
     fn the_instruction_names_where_it_stopped() {
         // An unanswered last question is a better starting point than a topic.
         assert!(compile(&turns(), &brief(), Target::Claude).contains("carry on with the tiers"));
+    }
+
+    #[test]
+    fn it_only_promises_what_the_file_actually_contains() {
+        /*
+         * Measured against a real conversation with extended thinking off: the
+         * instruction announced private reasoning and delivered none. A model
+         * that catches the framing lying once has no reason to believe the rest
+         * of it.
+         */
+        let spoken = vec![Turn {
+            role: Role::You,
+            blocks: vec![Block::Said("just a question".into())],
+        }];
+        let out = compile(&spoken, &brief(), Target::Markdown);
+        assert!(!out.contains("private reasoning"), "there is none in this file");
+        assert!(!out.contains("It includes"));
+
+        // And the full case still says all three.
+        let rich = compile(&turns(), &brief(), Target::Markdown);
+        assert!(rich.contains("private reasoning"));
+        assert!(rich.contains("every tool it ran"));
+        assert!(rich.contains("stopped it mid-answer"));
+    }
+
+    #[test]
+    fn it_lists_only_the_kinds_that_are_present() {
+        // Tools but no thinking: the commonest real case.
+        let tools = vec![Turn {
+            role: Role::Assistant,
+            blocks: vec![
+                Block::Did { tool: "Read".into(), input: "{}".into() },
+                Block::Said("done".into()),
+            ],
+        }];
+        let out = compile(&tools, &brief(), Target::Markdown);
+
+        assert!(out.contains("every tool it ran"));
+        assert!(!out.contains("private reasoning"));
+        assert!(!out.contains(" and ."), "no dangling conjunction");
     }
 
     #[test]
