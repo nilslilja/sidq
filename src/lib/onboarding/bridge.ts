@@ -53,7 +53,13 @@ export interface ProfileFact {
   conversations: number;
 }
 
-/** The pill has two sizes: a bar that is always there, and the picker. */
+/**
+ * The pill has two sizes: a bar that is always there, and the picker.
+ *
+ * Nothing announces which one is in force. The pill measures its own window,
+ * because an announcement is a thing that can fail to arrive and a width is
+ * not — see the note in Pill.tsx for the two ways it did fail.
+ */
 export type PillState = 'collapsed' | 'expanded';
 
 export interface OnboardingBridge {
@@ -142,13 +148,6 @@ export interface OnboardingBridge {
   hidePill: () => Promise<void>;
   /** Grows the bar into the picker. What clicking it does. */
   expandPill: () => Promise<void>;
-  /**
-   * Fires when Rust resizes the window between its two states.
-   *
-   * The shortcut is global, so Rust hears it first and the frontend has to be
-   * told which of the two it is now drawing.
-   */
-  onPillState: (callback: (state: PillState) => void) => Promise<() => void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -230,10 +229,6 @@ export function desktopBridge(): OnboardingBridge | null {
     expandPill: async () => {
       await invoke('expand_pill');
     },
-    onPillState: (callback) =>
-      event.listen('pill:state', (e) => {
-        if (e.payload === 'collapsed' || e.payload === 'expanded') callback(e.payload);
-      }),
     finish: async () => {
       await invoke('finish_onboarding');
     },

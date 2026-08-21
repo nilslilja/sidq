@@ -31,7 +31,8 @@
 //! goes away, this trade stops being defensible and the bar has to become
 //! focusable again.
 
-use tauri::{Emitter, LogicalPosition, LogicalSize, WebviewWindow};
+use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
+
 
 /// A lip hanging off the menu bar. Wide enough for a count and a hint.
 const COLLAPSED: (f64, f64) = (228.0, 36.0);
@@ -42,8 +43,24 @@ const EXPANDED: (f64, f64) = (560.0, 380.0);
 /// Anything wider than this is the picker. Halfway between the two widths.
 const EXPANDED_THRESHOLD: f64 = 396.0;
 
-/// The event the frontend listens on to know which of the two it is drawing.
-pub const STATE_EVENT: &str = "pill:state";
+/*
+ * ── How the frontend knows which of the two it is drawing ────────────────────
+ * It measures itself. There is no event.
+ *
+ * There was one, and it cost an afternoon. `emit_to(label, …)` builds an
+ * `EventTarget::AnyLabel` that no JS `listen()` ever receives, so the window
+ * resized and the frontend never heard; switching to the global `emit` did not
+ * fix it either, because the emit sits at the end of a chain of `?` and one
+ * failing call before it skips the announcement entirely. Neither failure
+ * produced an error anywhere. Both produced the same thing on screen: a window
+ * at the picker's size still drawing the bar.
+ *
+ * The window's own width is the fact the component actually needs, it is
+ * already correct by the time anything could be announced, and the DOM reports
+ * it changing without being asked. So the frontend reads `window.innerWidth`
+ * and Rust says nothing. The threshold below is duplicated there, which is the
+ * one thing to keep in step.
+ */
 
 /**
  * Size the window and put it back on its mark.
@@ -100,7 +117,6 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
     place(w, EXPANDED)?;
     w.show()?;
     w.set_focus()?;
-    let _ = w.emit_to(w.label(), STATE_EVENT, "expanded");
     Ok(())
 }
 
@@ -117,7 +133,6 @@ pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     let _ = w.hide();
     place(w, COLLAPSED)?;
     w.show()?;
-    let _ = w.emit_to(w.label(), STATE_EVENT, "collapsed");
     Ok(())
 }
 
@@ -133,6 +148,21 @@ pub fn toggle(w: &WebviewWindow) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_frontend_threshold_matches_this_one() {
+        /*
+         * `EXPANDED_THRESHOLD` is duplicated in src/routes/Pill.tsx, because
+         * the frontend decides what to draw by measuring its own window and
+         * cannot import a Rust constant. If the two drift, the picker renders
+         * at the bar's size or the reverse.
+         */
+        let frontend = include_str!("../../src/routes/Pill.tsx");
+        assert!(
+            frontend.contains(&format!("{EXPANDED_THRESHOLD:.0}")),
+            "Pill.tsx must use the same {EXPANDED_THRESHOLD} threshold"
+        );
+    }
 
     #[test]
     fn the_threshold_separates_the_two_sizes() {

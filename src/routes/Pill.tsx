@@ -45,6 +45,28 @@ const CLOSE_AFTER_SAVE_MS = 2600;
 /** The index only moves on a sweep, and a sweep is every 90 seconds. */
 const INDEX_POLL_MS = 60_000;
 
+/**
+ * Wider than this and Rust has expanded us into the picker.
+ *
+ * The component works out which of the two it is by measuring its own window,
+ * not by being told. Rust used to announce the change and it never arrived:
+ * `emit_to` reaches no JS listener at all, and the global `emit` sat behind a
+ * chain of `?` where one earlier failure skipped it. Neither raised anything
+ * anywhere. Both looked identical on screen — a window at the picker's size
+ * still drawing the bar.
+ *
+ * The width is the fact this actually needs, the DOM reports it changing
+ * without being asked, and it is already true by the time any message could
+ * have been sent. Kept in step with `EXPANDED_THRESHOLD` in pill_window.rs by a
+ * test on the Rust side that reads this file.
+ */
+const EXPANDED_THRESHOLD = 396;
+
+/** Which of the two sizes the window is currently at. */
+function modeForWidth(width: number): PillState {
+  return width > EXPANDED_THRESHOLD ? 'expanded' : 'collapsed';
+}
+
 type Phase =
   | { kind: 'browsing' }
   | { kind: 'working' }
@@ -59,8 +81,8 @@ export function Pill() {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>({ kind: 'browsing' });
-  // Launch shows the bar, so that is what this draws until Rust says otherwise.
-  const [mode, setMode] = useState<PillState>('collapsed');
+  // Measured, never announced. Launch shows the bar.
+  const [mode, setMode] = useState<PillState>(() => modeForWidth(window.innerWidth));
   const [indexed, setIndexed] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -114,12 +136,20 @@ export function Pill() {
     return () => clearInterval(timer);
   }, [bridge, mode]);
 
-  // Rust owns the resize, because the shortcut that triggers it is global.
+  /*
+   * Follow the window.
+   *
+   * Rust owns the resize — the shortcut that triggers it is global, and the
+   * tray reaches it too — so this cannot be driven from a click handler. It is
+   * driven by the resize itself, which is the one signal that is guaranteed to
+   * have already happened by the time anyone could react to it.
+   */
   useEffect(() => {
-    if (!bridge) return;
-    const stop = bridge.onPillState(setMode);
-    return () => void stop.then((off) => off());
-  }, [bridge]);
+    const follow = () => setMode(modeForWidth(window.innerWidth));
+    follow();
+    window.addEventListener('resize', follow);
+    return () => window.removeEventListener('resize', follow);
+  }, []);
 
   /*
    * Opening is the moment worth marking, not mounting.
@@ -447,31 +477,35 @@ export function Pill() {
         )}
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-t border-white/[0.07] px-4 py-2">
-          <span className="text-[0.6875rem] text-white/30">
+        <div className="flex items-center gap-3 border-t border-white/[0.07] px-4 py-2">
+          {/*
+            * Status and the way out share the left, in one group.
+            *
+            * They were three children under `justify-between` with `mr-auto` on
+            * the middle one, which clumped the first two together with no gap:
+            * "⌘↵ copy insteadSearch all history ›" ran as one string.
+            */}
+          <span className="min-w-0 truncate text-[0.6875rem] text-white/30">
             {phase.kind === 'working' && 'Reading the conversation…'}
             {phase.kind === 'done' && 'Copied. Paste it anywhere.'}
             {phase.kind === 'saved' && 'Ready to attach'}
             {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && '↵ make a file to attach · ⌘↵ copy instead'}
+            {phase.kind === 'browsing' && '↵ file to attach · ⌘↵ copy'}
           </span>
-          {/*
-            * The way into the window.
-            *
-            * Without it the pill is the only surface and everything behind it —
-            * search, sources, what you have already extracted — is unreachable.
-            */}
           <button
             onClick={() => {
               void bridge?.openHome();
               void bridge?.hidePill();
             }}
-            className="mr-auto text-[0.6875rem] text-white/30 transition-colors duration-100 hover:text-white/70"
+            className={cn(
+              'shrink-0 text-[0.6875rem] whitespace-nowrap text-white/30',
+              'cursor-pointer transition-colors duration-100 hover:text-white/70',
+            )}
           >
             Search all history ›
           </button>
-          <span className="flex items-center gap-1.5 text-[0.625rem] text-white/25">
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>
             <Key>↵</Key>
             <Key>⌘↵</Key>
