@@ -389,3 +389,94 @@ async function considerChip() {
 // These are single-page apps: the composer is not there at document_idle, and
 // navigating between chats never reloads the page.
 setTimeout(considerChip, SETTLE_MS);
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Keeping up, without being asked.
+ *
+ * Connecting an assistant was a one-time act that captured nothing: you clicked
+ * the toolbar button once per conversation, forever. Which means the history
+ * Sidq had of a browser assistant was whatever you remembered to click, and the
+ * conversation you most want tomorrow is the one you were too absorbed in to
+ * think about clicking.
+ *
+ * So the page is watched instead. Connect an assistant once and everything you
+ * do in it from then on is read as it happens.
+ *
+ * ── What stops this being a firehose ─────────────────────────────────────────
+ * A reply streams token by token, and a MutationObserver on a chat page fires
+ * hundreds of times a second while that happens. Sending on every mutation
+ * would post a hundred half-written copies of one answer.
+ *
+ * So: wait for the page to go quiet, then compare against what was sent last
+ * and stay silent unless it actually changed. A conversation you are reading
+ * rather than adding to sends nothing at all.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Long enough that a streaming reply has finished before anything is sent. */
+const QUIET_MS = 4000;
+
+/** Never more often than this, however busy the page is. */
+const MIN_GAP_MS = 15_000;
+
+let quietTimer = null;
+let lastSentLength = 0;
+let lastSentAt = 0;
+
+/**
+ * Length, not a hash.
+ *
+ * A conversation only ever grows, so its length is a sufficient and far cheaper
+ * test than hashing tens of thousands of characters every four seconds on a
+ * page that is already busy rendering a reply.
+ */
+function captureIfChanged() {
+  const text = readConversation();
+  if (!text || text.length === lastSentLength) return;
+
+  const now = Date.now();
+  if (now - lastSentAt < MIN_GAP_MS) return;
+
+  lastSentLength = text.length;
+  lastSentAt = now;
+
+  chrome.runtime.sendMessage({
+    type: 'sidq:capture',
+    payload: {
+      source: site()?.name ?? null,
+      title: readTitle(),
+      url: location.href,
+      text,
+      capturedAt: now,
+    },
+  });
+}
+
+function watch() {
+  if (!site()) return;
+
+  const observer = new MutationObserver(() => {
+    clearTimeout(quietTimer);
+    quietTimer = setTimeout(captureIfChanged, QUIET_MS);
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+  /*
+   * Navigating between conversations does not reload the page.
+   *
+   * Every one of these sites is a single-page app, so the URL changes under a
+   * conversation that is already loaded. Without this, switching to another
+   * chat looks like the first one growing, and the second is never captured at
+   * its own length.
+   */
+  let href = location.href;
+  setInterval(() => {
+    if (location.href === href) return;
+    href = location.href;
+    lastSentLength = 0;
+    clearTimeout(quietTimer);
+    quietTimer = setTimeout(captureIfChanged, QUIET_MS);
+  }, 1500);
+}
+
+setTimeout(watch, SETTLE_MS);

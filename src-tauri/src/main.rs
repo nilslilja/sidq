@@ -18,7 +18,7 @@ mod indexer;
 mod pill_window;
 mod profile;
 mod capture;
-mod claude_export;
+mod imports;
 mod compiler;
 mod cursor_history;
 mod work_history;
@@ -557,27 +557,29 @@ async fn session_transcript(session_id: String) -> Option<String> {
         .flatten()
 }
 
-/// How large a Claude export may be. Beyond this it is not an export.
+/// How large an export may be. Beyond this it is not one.
 const MAX_EXPORT_BYTES: usize = 200 * 1024 * 1024;
 
 /**
- * Import everything you have ever said to Claude on the web.
+ * Import your history from an assistant that runs in a browser.
  *
- * claude.ai keeps nothing readable on this Mac — its IndexedDB is a binary
- * keyval store with no conversation text in it — so the only route to the
- * history you already have is the export Claude gives you in Settings.
+ * None of them keep anything readable on this Mac, so the export each of them
+ * gives you is the only route to the history you already have. Claude, ChatGPT
+ * and Google Takeout are all read, and the format is worked out from what is
+ * inside the file rather than from its name.
  *
- * Straight into the index, with the text, which puts claude.ai on the same
- * footing as Claude Code: searchable, quoted in the profile, handoverable.
+ * Straight into the index with the text, which puts a browser assistant on the
+ * same footing as one that writes to disk: searchable, quoted in the memory
+ * profile, handoverable.
  */
 #[tauri::command]
-async fn import_claude_export(json: String) -> Result<usize, String> {
+async fn import_export(json: String) -> Result<usize, String> {
     if json.len() > MAX_EXPORT_BYTES {
-        return Err("That file is too large to be a Claude export.".into());
+        return Err("That file is too large to be a conversation export.".into());
     }
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conversations = claude_export::parse(&json)?;
+        let conversations = imports::parse(&json)?;
         let conn = index_store::open().ok_or("Could not open the index.")?;
 
         let mut imported = 0usize;
@@ -585,9 +587,9 @@ async fn import_claude_export(json: String) -> Result<usize, String> {
             let _ = index_store::put_session(
                 &conn,
                 &c.session_id,
-                "claude.ai",
+                c.source,
                 &c.title,
-                "claude.ai",
+                c.source,
                 "",
                 c.ended_at,
                 c.turns.len() as u32,
@@ -833,7 +835,7 @@ fn main() {
             plan_status,
             memory_profile,
             recent_handovers,
-            import_claude_export,
+            import_export,
             handover_text,
             set_desktop_session,
             open_home,

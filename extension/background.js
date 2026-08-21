@@ -119,6 +119,17 @@ async function tell(url, payload) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === 'sidq:capture' && message.payload) {
+    /*
+     * A conversation that grew, sent without anybody asking.
+     *
+     * Silent on both success and failure. This fires while somebody is in the
+     * middle of working, so a badge on every exchange would be a flashing
+     * toolbar all day, and a failure means Sidq is closed — which is not
+     * something worth interrupting them about.
+     */
+    void tell(SIDQ_ENDPOINT, message.payload);
+  }
   if (message?.type === 'sidq:open') {
     void tell(SIDQ_OPEN, { source: message.source ?? null });
   }

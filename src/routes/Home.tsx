@@ -438,7 +438,7 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
 ];
 
 /**
- * Import everything you have ever said to Claude on the web.
+ * Bring in the history you already have, from whichever assistant it is in.
  *
  * claude.ai keeps nothing readable on this Mac. Its desktop app has an
  * IndexedDB at Application Support/Claude, and that store holds no conversation
@@ -452,19 +452,34 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
  * the path. That means no file-dialog plugin, and it means Sidq only ever sees
  * the one file somebody deliberately chose.
  */
-function ImportClaude({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [state, setState] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
   const [message, setMessage] = useState('');
 
   return (
     <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.05] p-4">
-      <p className="text-[0.875rem] font-medium text-white">Bring in your Claude.ai history</p>
-      <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-white/45">
-        Claude.ai keeps nothing on this Mac that can be read, so the extension only sees the
-        tab you have open. Your export has all of it, including everything from before you
-        installed Sidq. Settings → Privacy → Export data, then drop{' '}
-        <code className="text-white/65">conversations.json</code> here.
+      <p className="text-[0.875rem] font-medium text-white">
+        Bring in the history you already have
       </p>
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
+        Assistants that run in a browser keep nothing readable on this Mac, so the extension
+        can only see what happens after you install it. Each of them will hand you your whole
+        history as a file. Drop any of these in and Sidq works out which it is.
+      </p>
+      <ul className="mt-2.5 space-y-1 text-[0.8125rem] text-white/45">
+        <li>
+          <span className="text-white/70">ChatGPT</span> &mdash; Settings, Data controls, Export
+          data. Open the emailed zip and use <code className="text-white/65">conversations.json</code>
+        </li>
+        <li>
+          <span className="text-white/70">Claude</span> &mdash; Settings, Privacy, Export data.
+          Same filename
+        </li>
+        <li>
+          <span className="text-white/70">Gemini</span> &mdash; takeout.google.com, choose My
+          Activity, then the Gemini <code className="text-white/65">MyActivity.json</code>
+        </li>
+      </ul>
 
       <label
         className={cn(
@@ -474,7 +489,7 @@ function ImportClaude({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) 
           state === 'reading' && 'pointer-events-none opacity-50',
         )}
       >
-        {state === 'reading' ? 'Importing…' : 'Choose conversations.json'}
+        {state === 'reading' ? 'Importing…' : 'Choose an export file'}
         <input
           type="file"
           accept="application/json,.json"
@@ -486,7 +501,7 @@ function ImportClaude({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) 
             setState('reading');
             void file
               .text()
-              .then((json) => bridge.importClaudeExport(json))
+              .then((json) => bridge.importExport(json))
               .then((count) => {
                 setState('done');
                 setMessage(
@@ -533,8 +548,10 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
     <>
       <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">Sources</h1>
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
-        The ones on this Mac are read with nothing to set up. The rest keep nothing readable
-        on your machine, so they come through the browser extension.
+        Sidq is not tied to any one assistant. The ones that write conversations to this Mac
+        are read with nothing to set up. The ones that run in a browser keep nothing readable
+        here, so they are connected once through the extension and then read as you use them.
+        You never click anything again.
       </p>
 
       <ul className="mt-6 space-y-1.5">
@@ -564,7 +581,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           );
         })}
       </ul>
-      <ImportClaude bridge={bridge} />
+      <ImportHistory bridge={bridge} />
     </>
   );
 }
