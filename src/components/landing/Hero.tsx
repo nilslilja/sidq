@@ -62,12 +62,26 @@ export function Hero() {
           id="hero"
           className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
         >
-          Start where you actually stopped
+          Your AI is hiding half of what it thinks
         </h1>
 
-        <p className="mx-auto mt-8 max-w-[46ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          You switch between assistants all day and start from nothing every time.
-          Sidq carries the whole conversation across, word for word.
+        <p className="mx-auto mt-8 max-w-[52ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
+          Every time it answers you it writes two things: the reply, and the reasoning behind
+          it. You are shown one. The other is on your own disk, rendered nowhere, and deleted
+          from its memory after the turn.
+        </p>
+
+        {/*
+          * The number, from the machine this was built on.
+          *
+          * Stated as measured rather than as a claim about everybody, because
+          * it is one laptop and the honest version is the one somebody can go
+          * and reproduce. The app computes their own on first open.
+          */}
+        <p className="mx-auto mt-6 max-w-[46ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
+          On the laptop this was built on that is 1,157,450 characters, across 1,436 separate
+          thoughts about work I was doing. 44% of everything it wrote. Sidq shows you yours,
+          then carries any of it into a different assistant.
         </p>
 
         <div className="mt-10 flex justify-center">

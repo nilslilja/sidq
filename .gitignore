@@ -12,7 +12,7 @@ prompt/eval/out
 supabase/.temp
 
 # Built installers, served locally by the dev server. Binaries do not belong in git.
-public/downloads/
+# public/downloads/  (see below)
 
 # Edge function secrets. Anthropic and Stripe keys live here.
 supabase/.env.functions
@@ -32,3 +32,12 @@ dist/
 # Product footage: recorded off a live desktop, reviewed before it ships.
 public/video/*.mp4
 public/video/*.webm
+
+# The signed, notarised installers the download button points at.
+#
+# Vercel builds this site from GitHub, so anything gitignored is simply absent
+# from the deploy — which is how the download button ended up pointing at files
+# that were not there. 19MB of binary in a repository is not lovely, and it is
+# better than a 404 on the only button that matters.
+!public/downloads/
+!public/downloads/*.dmg
