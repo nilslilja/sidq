@@ -99,6 +99,20 @@ export interface OnboardingBridge {
    */
   recentWork: (limit: number) => Promise<unknown[]>;
   /**
+   * The compiled handover, for the clipboard.
+   *
+   * The same bytes the file contains. Copying used to send the raw transcript
+   * with no framing, so a paste arrived at a fresh assistant as a wall of
+   * dialogue out of nowhere.
+   */
+  handoverText: (args: {
+    sessionId: string;
+    source: string;
+    resumePoint: string;
+    when: string;
+    project: string;
+  }) => Promise<string | null>;
+  /**
    * The whole conversation for one session, to hand to another assistant.
    *
    * Verbatim, not summarised: a summary is what any assistant can already
@@ -212,6 +226,10 @@ export function desktopBridge(): OnboardingBridge | null {
     recentWork: async (limit) => {
       const rows = await invoke('recent_work', { limit });
       return Array.isArray(rows) ? rows : [];
+    },
+    handoverText: async (args) => {
+      const text = await invoke('handover_text', args);
+      return typeof text === 'string' ? text : null;
     },
     sessionTranscript: async (sessionId) => {
       const text = await invoke('session_transcript', { sessionId });

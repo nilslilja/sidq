@@ -106,12 +106,23 @@ impl Target {
     }
 }
 
-/// What the receiving model is being asked to do.
+/// What the receiving model is being asked to do, and who it is talking to.
+#[derive(Clone, Copy)]
 pub struct Brief<'a> {
     pub source: &'a str,
     pub when: &'a str,
     pub project: &'a str,
+    /// The last thing asked. Where the conversation stopped.
     pub resume_point: &'a str,
+    /**
+     * Standing instructions this person has given assistants, in their words.
+     *
+     * Carried with the conversation rather than offered as a separate thing to
+     * copy. A continuation without them arrives at an assistant that knows what
+     * was being built and nothing about who is building it, and re-litigates
+     * every convention on the first turn.
+     */
+    pub profile: &'a [String],
 }
 
 /**
@@ -161,30 +172,157 @@ fn contents_of(turns: &[Turn]) -> String {
     }
 }
 
-fn instruction(brief: &Brief, contents: &str) -> String {
-    format!(
-        "You are being handed a complete record of a conversation with {source}, {when}\
-{project}.{contents}\n\n\
-Read all of it before replying.\n\
-Do not summarise it back. The person was there; summarising spends the turn.\n\
-Continue from where it stopped.\n\
-Where the reasoning and the reply disagree, the reply is what was decided.\n\
-Where a decision was revisited, the later one stands.\n\n\
-It stopped here: {resume}",
-        source = brief.source,
-        when = brief.when,
-        project = if brief.project.is_empty() {
-            String::new()
-        } else {
-            format!(", working in {}", brief.project)
-        },
-        contents = contents,
-        resume = if brief.resume_point.is_empty() {
-            "no explicit last request"
-        } else {
-            brief.resume_point
-        },
-    )
+/**
+ * Orient a model that has no idea what any of this is.
+ *
+ * The old version opened with "You are being handed a complete record of a
+ * conversation with claude-code" and went straight into markup. That assumes
+ * the reader already knows what it is looking at, what it is for, and what it
+ * is allowed to do about it, and a cold model given a vague paste has none of
+ * those. It also assumed the answer was always "continue coding", when the
+ * conversation might be an argument about pricing, a piece of writing, or a
+ * decision somebody wants a second opinion on.
+ *
+ * So this says four things, in the order a stranger needs them: what this is,
+ * who they are talking to, where the work got to, and what they may do with it.
+ * The last one is deliberately wide open. The person may want to carry on, or
+ * to disagree with something in it, or to ask what you would have done — and
+ * guessing narrowly is how a handover turns into a summary nobody asked for.
+ *
+ * Nothing here names the tool that produced the file. A model asked to react to
+ * a product name it has never heard of will ask what the product is instead of
+ * reading what it was given.
+ */
+fn instruction(brief: &Brief, contents: &str, arc: &str, has_reasoning: bool) -> String {
+    let mut out = String::new();
+
+    out.push_str(
+        "WHAT THIS IS\n\n\
+A complete record of a conversation that happened somewhere else, given to you \
+so it can carry on here. ",
+    );
+    out.push_str(&format!(
+        "It was between the person you are talking to now and {}, {}",
+        brief.source, brief.when
+    ));
+    if !brief.project.is_empty() {
+        out.push_str(&format!(", working on {}", brief.project));
+    }
+    out.push_str(".");
+    out.push_str(contents);
+    out.push_str(
+        "\n\nThey were there for all of it. Do not summarise it back to them; \
+that spends the turn on something they already know.\n",
+    );
+
+    if !brief.profile.is_empty() {
+        out.push_str(
+            "\nWHO YOU ARE TALKING TO\n\n\
+Standing instructions this person has given assistants before, in their own \
+words. Apply them here unless they say otherwise.\n\n",
+        );
+        for rule in brief.profile {
+            out.push_str(&format!("- {rule}\n"));
+        }
+    }
+
+    out.push_str("\nWHERE IT GOT TO\n\n");
+    out.push_str(arc);
+    /*
+     * The resume point, unless the arc already ends on it.
+     *
+     * They come from the same place most of the time, and printing both gave
+     * "By the end they were on: X" followed immediately by "The last thing they
+     * asked was: X" — which reads as a file padding itself.
+     */
+    let resume = brief.resume_point.trim();
+    let already = !resume.is_empty()
+        && arc.contains(&resume.chars().take(60).collect::<String>());
+    if !resume.is_empty() && !already {
+        out.push_str(&format!("\n\nThe last thing they asked was: {resume}"));
+    }
+
+    out.push_str(
+        "\n\nWHAT YOU CAN DO WITH IT\n\n\
+Whatever they ask for next. Most often that is picking the work up from where \
+it stopped, so if they say nothing in particular, do that and say what you \
+would do next.\n\n\
+But do not assume this is a coding task, or a task at all. They may want to \
+argue with a decision in here, ask what you would have done differently, take \
+the thinking somewhere new, or simply talk about it. Answer what they actually \
+ask.\n\n\
+Where a decision was revisited later, the later one stands.\n",
+    );
+
+    /*
+     * Only said when there is reasoning to say it about.
+     *
+     * This sentence used to be unconditional, which meant a handover carrying
+     * no reasoning still told the model how to weigh reasoning against replies
+     * — instructions about material that is not in the file, which is the same
+     * class of mistake as announcing contents that are not there.
+     */
+    if has_reasoning {
+        out.push_str(
+            "\nSome of what follows is the assistant's private reasoning, marked as \
+not visible. The person never read it. Where it disagrees with what was \
+actually replied, the reply is what was decided, and do not quote the reasoning \
+back to them as though they had seen it.\n",
+        );
+    }
+
+    out
+}
+
+/**
+ * Where the conversation started, and where it ended.
+ *
+ * Both taken verbatim from the person's own turns. A conversation that opens
+ * with "help me name the tiers" and closes on "the refund wording is wrong" has
+ * travelled, and a model that only sees the end will carry on down a branch
+ * that was abandoned two hours earlier.
+ */
+fn arc_of(turns: &[Turn]) -> String {
+    /*
+     * Only what a person typed.
+     *
+     * Assistants inject a great deal into the user's side of a transcript, and
+     * the first record in a resumed conversation is very often one of them.
+     * Without this filter a real handover opened with "It opened with:
+     * <task-notification><task-id>bud0xytj7</task-id>…", which tells the next
+     * model nothing except that the file is full of machinery.
+     *
+     * Same test the memory profile uses, so the two cannot drift apart about
+     * what counts as somebody's own words.
+     */
+    let said = |turn: &Turn| -> Option<String> {
+        turn.blocks.iter().find_map(|b| match b {
+            Block::Said(t) if !t.trim().is_empty() && crate::profile::is_typed(t) => {
+                Some(t.trim().chars().take(200).collect::<String>())
+            }
+            _ => None,
+        })
+    };
+
+    let mine: Vec<String> = turns
+        .iter()
+        .filter(|t| t.role == Role::You)
+        .filter_map(said)
+        .collect();
+
+    let exchanges = format!(
+        "{} exchange{}.",
+        turns.len(),
+        if turns.len() == 1 { "" } else { "s" }
+    );
+
+    match (mine.first(), mine.last()) {
+        (Some(first), Some(last)) if mine.len() > 1 => format!(
+            "It opened with: {first}\n\nBy the end they were on: {last}\n\n{exchanges}"
+        ),
+        (Some(only), _) => format!("It began and stayed on: {only}\n\n{exchanges}"),
+        _ => exchanges,
+    }
 }
 
 fn role_name(role: &Role) -> &'static str {
@@ -279,7 +417,31 @@ pub fn compile(turns: &[Turn], brief: &Brief, target: Target) -> String {
     // Described from what survived the budget, not from the original: a turn
     // that was dropped is not in the file and must not be announced as if it
     // were.
-    let instruction = instruction(brief, &contents_of(kept));
+    let has_reasoning = kept
+        .iter()
+        .any(|t| t.blocks.iter().any(|b| matches!(b, Block::Thought(_))));
+
+    /*
+     * The brief now quotes the person's own words — how the conversation opened,
+     * how it ended, and their standing instructions. Those go inside
+     * `<instructions>`, so for the XML target they need escaping exactly like
+     * the conversation does. One `Vec<String>` in somebody's opening message
+     * closed the tag early and the rest of the brief became malformed markup.
+     */
+    let escaped: Vec<String>;
+    let quoted = match target {
+        Target::Claude => {
+            escaped = brief.profile.iter().map(|r| escape(r)).collect();
+            Brief { profile: &escaped, ..*brief }
+        }
+        Target::Markdown => Brief { profile: brief.profile, ..*brief },
+    };
+    let arc = match target {
+        Target::Claude => escape(&arc_of(kept)),
+        Target::Markdown => arc_of(kept),
+    };
+
+    let instruction = instruction(&quoted, &contents_of(kept), &arc, has_reasoning);
 
     let mut body = match target {
         Target::Claude => claude_body(kept),
@@ -315,12 +477,15 @@ it was too long to carry whole. What follows is everything after them.\n\n"
 mod tests {
     use super::*;
 
+    const RULES: [&str; 1] = ["never use em dashes in the copy"];
+
     fn brief() -> Brief<'static> {
         Brief {
             source: "Claude Code",
             when: "yesterday",
             project: "Sidq",
             resume_point: "carry on with the tiers",
+            profile: &[],
         }
     }
 
@@ -402,7 +567,9 @@ mod tests {
         let out = compile(&turns, &brief(), Target::Claude);
 
         assert!(out.contains("Vec&lt;String&gt; &amp; not"));
-        assert!(!out.contains("Vec<String>"));
+        // Twice over: the conversation body, and the brief, which quotes how
+        // the conversation opened.
+        assert!(!out.contains("Vec<String>"), "not in the body and not in the brief");
     }
 
     #[test]
@@ -456,6 +623,111 @@ mod tests {
     }
 
     #[test]
+    fn it_never_names_the_tool_that_produced_it() {
+        /*
+         * Tested against a real failure. A handover reached Gemini and it
+         * replied by asking what "sidq" was and offering that it might be a
+         * typo for "sql" — reacting to a product name instead of reading what
+         * it had been given.
+         */
+        let neutral = Brief { project: "the pricing page", ..brief() };
+        for target in [Target::Claude, Target::Markdown] {
+            let out = compile(&turns(), &neutral, target);
+            // The brief explains itself from first principles instead of naming
+            // a product and hoping the reader recognises it.
+            assert!(out.contains("WHAT THIS IS"));
+            assert!(out.contains("a conversation that happened somewhere else"));
+            assert!(!out.to_lowercase().contains("sidq"));
+        }
+    }
+
+    #[test]
+    fn it_says_who_the_person_is_and_not_only_what_they_were_doing() {
+        /*
+         * A continuation without the standing instructions arrives at an
+         * assistant that knows what was being built and nothing about who is
+         * building it, and re-litigates every convention on the first turn.
+         */
+        let rules: Vec<String> = RULES.iter().map(|s| s.to_string()).collect();
+        let brief = Brief {
+            source: "Claude Code", when: "yesterday", project: "Sidq",
+            resume_point: "carry on with the tiers", profile: &rules,
+        };
+
+        let out = compile(&turns(), &brief, Target::Markdown);
+        assert!(out.contains("WHO YOU ARE TALKING TO"));
+        assert!(out.contains("never use em dashes in the copy"));
+    }
+
+    #[test]
+    fn it_says_where_the_conversation_started_and_where_it_ended() {
+        /*
+         * A conversation that opens on naming and closes on refunds has
+         * travelled. A model shown only the end carries on down a branch that
+         * was abandoned two hours earlier.
+         */
+        let travelled = vec![
+            Turn { role: Role::You, blocks: vec![Block::Said("help me name the tiers".into())] },
+            Turn { role: Role::Assistant, blocks: vec![Block::Said("Free, Pro, Duo.".into())] },
+            Turn { role: Role::You, blocks: vec![Block::Said("the refund wording is wrong".into())] },
+        ];
+
+        let out = compile(&travelled, &brief(), Target::Markdown);
+        assert!(out.contains("It opened with: help me name the tiers"));
+        assert!(out.contains("By the end they were on: the refund wording is wrong"));
+        assert!(out.contains("3 exchanges."));
+    }
+
+    #[test]
+    fn the_arc_skips_machinery_injected_into_the_persons_turns() {
+        /*
+         * From a real handover. Assistants put task notifications, skill files
+         * and command output into the user's side of a transcript, and the
+         * first record of a resumed conversation is usually one of them, so the
+         * brief opened with "<task-notification><task-id>bud0xytj7</task-id>…".
+         */
+        let noisy = vec![
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("<system-reminder>\ncarry on".into())],
+            },
+            Turn { role: Role::You, blocks: vec![Block::Said("fix the ranking please".into())] },
+            Turn { role: Role::You, blocks: vec![Block::Said("now ship it".into())] },
+        ];
+
+        let out = compile(&noisy, &brief(), Target::Markdown);
+
+        // The body still carries the reminder, because the body carries
+        // everything. It is the brief that must not open on it.
+        assert!(out.contains("It opened with: fix the ranking please"));
+        assert!(!out.contains("It opened with: <system-reminder>"));
+    }
+
+    #[test]
+    fn it_does_not_repeat_the_last_thing_twice() {
+        // "By the end they were on: X" followed by "The last thing they asked
+        // was: X" reads as a file padding itself.
+        let brief = Brief { resume_point: "the refund wording is wrong", ..brief() };
+        let travelled = vec![
+            Turn { role: Role::You, blocks: vec![Block::Said("help me name the tiers".into())] },
+            Turn { role: Role::You, blocks: vec![Block::Said("the refund wording is wrong".into())] },
+        ];
+
+        let out = compile(&travelled, &brief, Target::Markdown);
+        assert!(out.contains("By the end they were on: the refund wording is wrong"));
+        assert!(!out.contains("The last thing they asked"), "it is already directly above");
+    }
+
+    #[test]
+    fn it_does_not_assume_the_conversation_was_about_code() {
+        // It might be an argument about pricing, a piece of writing, or a
+        // decision somebody wants a second opinion on.
+        let out = compile(&turns(), &brief(), Target::Markdown);
+        assert!(out.contains("do not assume this is a coding task"));
+        assert!(out.contains("argue with a decision"));
+    }
+
+    #[test]
     fn it_only_promises_what_the_file_actually_contains() {
         /*
          * Measured against a real conversation with extended thinking off: the
@@ -470,6 +742,7 @@ mod tests {
         let out = compile(&spoken, &brief(), Target::Markdown);
         assert!(!out.contains("private reasoning"), "there is none in this file");
         assert!(!out.contains("It includes"));
+        assert!(!out.contains("not visible"), "no guidance about absent material");
 
         // And the full case still says all three.
         let rich = compile(&turns(), &brief(), Target::Markdown);
@@ -497,10 +770,12 @@ mod tests {
 
     #[test]
     fn an_empty_project_does_not_leave_a_dangling_comma() {
-        let brief = Brief { source: "ChatGPT", when: "today", project: "", resume_point: "" };
+        let brief = Brief {
+            source: "ChatGPT", when: "today", project: "", resume_point: "", profile: &[],
+        };
         let out = compile(&turns(), &brief, Target::Markdown);
 
-        assert!(!out.contains(", working in ,"));
-        assert!(out.contains("no explicit last request"));
+        assert!(!out.contains(", working on ."));
+        assert!(!out.contains("The last thing they asked"));
     }
 }

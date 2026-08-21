@@ -101,11 +101,12 @@ const MIN_WORD_CHARS: usize = 4;
  * (HIG, MD)` and `use labels with icons (Material Design)` — lines out of a
  * design skill, presented back to the person as their own standing rules.
  */
-const INJECTED_MARKERS: [&str; 7] = [
+const INJECTED_MARKERS: [&str; 8] = [
     "<system-reminder>",
     "<command-name>",
     "<command-message>",
     "<local-command-stdout>",
+    "<task-notification>",
     "Base directory for this skill:",
     "Contents of /",
     "This session is being continued from a previous conversation",
@@ -151,16 +152,44 @@ pub struct Fact {
  *
  * Only what a person typed can be evidence of how that person works.
  */
-fn is_typed(body: &str) -> bool {
+pub(crate) fn is_typed(body: &str) -> bool {
     if body.chars().count() > MAX_TURN_CHARS {
         return false;
     }
     if INJECTED_MARKERS.iter().any(|m| body.contains(m)) {
         return false;
     }
+    /*
+     * A message that opens on a tag is machinery, whatever the tag is called.
+     *
+     * The named markers above will always be a step behind: `<task-notification>`
+     * was not among them, and a real handover opened with "It opened with:
+     * <task-notification><task-id>bud0xytj7</task-id>…". People do type angle
+     * brackets, but almost never as the very first thing in a message, and
+     * never as a bare tag on a line of its own.
+     */
+    let opening = body.trim_start();
+    if opening.starts_with('<') && opening.lines().next().is_some_and(is_bare_tag) {
+        return false;
+    }
+
     // Headings and bold in a chat message mean a document was pasted into it.
     body.lines()
         .all(|l| !l.starts_with('#') && !l.contains("**"))
+}
+
+/// `<thing>` or `<thing attr="x">` on its own, with nothing after it.
+fn is_bare_tag(line: &str) -> bool {
+    let line = line.trim();
+    let Some(rest) = line.strip_prefix('<') else { return false };
+    let Some(end) = rest.find('>') else { return false };
+
+    // Nothing after the closing bracket, and a plausible tag name inside it.
+    rest[end + 1..].trim().is_empty()
+        && rest[..end]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic())
 }
 
 /**
@@ -616,6 +645,22 @@ mod tests {
         // Opens with an imperative and is not one. It outranked most of the
         // real rules on the first run against a real index.
         assert!(build(&turns(&[("a", "never mind, stupid question")]), 10).is_empty());
+    }
+
+    #[test]
+    fn a_turn_that_opens_on_a_tag_is_machinery() {
+        /*
+         * From a real handover. The named-marker list will always be a step
+         * behind whatever the harness injects next: `<task-notification>` was
+         * not on it, and the brief opened with "It opened with:
+         * <task-notification><task-id>bud0xytj7</task-id>…".
+         */
+        assert!(!is_typed("<task-notification>\n<task-id>abc</task-id>"));
+        assert!(!is_typed("<function_results>\nok"));
+
+        // But a person talking about code still counts.
+        assert!(is_typed("use Vec<String> here, not a slice"));
+        assert!(is_typed("the <div> wrapper is unnecessary"));
     }
 
     #[test]

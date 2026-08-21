@@ -824,6 +824,7 @@ mod tests {
             when: "today",
             project: &session.project_name,
             resume_point: &session.last_prompt,
+            profile: &[],
         };
         let compiled = crate::compiler::compile(
             &turns,
@@ -836,7 +837,12 @@ mod tests {
         println!("  said {said} · thought {thought} · ran {did} · returned {saw} · stopped {stopped}");
         println!("  reasoning recovered: {thinking_chars} chars");
         println!("  spoken handover:   {} chars", spoken.chars().count());
-        println!("  compiled handover: {} chars", compiled.chars().count());
+        println!("  compiled handover: {} chars\n", compiled.chars().count());
+        // The brief is what a cold model reads first; print it so it can be
+        // judged the way the receiving model will experience it.
+        for line in compiled.lines().take(26) {
+            println!("  | {line}");
+        }
         println!();
     }
 

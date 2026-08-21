@@ -227,8 +227,24 @@ export function Pill() {
 
     setPhase({ kind: 'working' });
     try {
+      /*
+       * The compiled handover, not the raw transcript.
+       *
+       * Copying used to send the conversation with no framing at all: no
+       * explanation of what it was, who it came from, or what to do with it.
+       * A fresh assistant receiving that has a wall of dialogue and no brief,
+       * and answers accordingly.
+       */
       const id = target.session.sessionId;
-      const text = id ? await bridge?.sessionTranscript(id) : null;
+      const text = id
+        ? await bridge?.handoverText({
+            sessionId: id,
+            source: target.session.source ?? 'claude-code',
+            resumePoint: target.session.lastPrompt || target.session.title || '',
+            when: target.reason,
+            project: target.session.projectName ?? '',
+          })
+        : null;
       if (!text) {
         setPhase({ kind: 'failed' });
         return;

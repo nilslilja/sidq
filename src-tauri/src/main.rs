@@ -225,6 +225,92 @@ async fn save_transcript(
     .unwrap_or_default()
 }
 
+/**
+ * Build the handover text. The same bytes whichever way it is delivered.
+ *
+ * ⌘↵ used to copy the raw transcript with no framing at all — no explanation of
+ * what it was, who it was from, or what to do with it. Pasted into a fresh
+ * assistant that is exactly a wall of dialogue arriving out of nowhere, and it
+ * behaves accordingly. Only the file path was ever compiled.
+ */
+fn build_handover(
+    session_id: &str,
+    source: &str,
+    resume_point: &str,
+    when: &str,
+    project: &str,
+) -> Option<String> {
+    let rules: Vec<String> = index_store::open()
+        .map(|conn| {
+            let turns = index_store::own_turns(&conn, profile::TURN_BUDGET);
+            /*
+             * Only rules said in more than one conversation.
+             *
+             * The panel shows single mentions too, because seeing them is how
+             * you judge whether the list is right. A handover cannot afford
+             * them: they sit at the top of a prompt the receiving model reads
+             * before anything else, and a real one arrived carrying "make sure
+             * it fully works" and "make sure it works it doesnt load" — noise
+             * given the authority of a standing instruction.
+             */
+            profile::build(&turns, PROFILE_IN_HANDOVER * 3)
+                .into_iter()
+                .filter(|f| f.conversations >= 2)
+                .take(PROFILE_IN_HANDOVER)
+                .map(|f| f.text)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let brief = handover::Brief {
+        source,
+        when,
+        project,
+        resume_point,
+        profile: &rules,
+    };
+
+    match work_history::session_capture(session_id) {
+        Some(turns) => Some(compiler::compile(
+            &turns,
+            &brief,
+            compiler::Target::for_source(source),
+        )),
+        None => {
+            // Cursor and browser-captured conversations have no per-block file,
+            // so they are compiled from the flat transcript instead. Smaller
+            // handover, same framing.
+            let transcript = transcript_of(session_id)?;
+            let turns = vec![capture::Turn {
+                role: capture::Role::You,
+                blocks: vec![capture::Block::Said(transcript)],
+            }];
+            Some(compiler::compile(
+                &turns,
+                &brief,
+                compiler::Target::for_source(source),
+            ))
+        }
+    }
+}
+
+/// The compiled handover, for the clipboard.
+#[tauri::command]
+async fn handover_text(
+    session_id: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        build_handover(&session_id, &source, &resume_point, &when, &project)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// Build the file and put it in Downloads. The part that touches no limits.
 fn write_handover(
     session_id: String,
@@ -235,46 +321,7 @@ fn write_handover(
     project: String,
 ) -> Option<String> {
     (|| {
-        /*
-         * Compile the full capture where one exists.
-         *
-         * The old path formatted the spoken half — replies, and a `[used Read]`
-         * label — which is about 14% of the file and precisely the part anybody
-         * can get by asking the model to summarise itself. That is what made
-         * the handover a wrapper.
-         *
-         * The capture carries the reasoning nobody saw, the calls that failed,
-         * and the places a person stopped the model. None of that can be asked
-         * for, because the model does not have it either: reasoning is dropped
-         * from its own context between turns and survives only in this file.
-         *
-         * Cursor and captured browser conversations have no such file, so they
-         * fall back to the plain transcript. Better a smaller handover than
-         * none.
-         */
-        let brief = handover::Brief {
-            source: &source,
-            when: &when,
-            project: &project,
-            resume_point: &resume_point,
-        };
-
-        let text = match work_history::session_capture(&session_id) {
-            Some(turns) => compiler::compile(&turns, &brief, compiler::Target::for_source(&source)),
-            None => {
-                let transcript = transcript_of(&session_id)?;
-                handover::wrap(
-                    &handover::Handover {
-                        source: &source,
-                        title: &title,
-                        resume_point: &resume_point,
-                        when: &when,
-                        project: &project,
-                    },
-                    &transcript,
-                )
-            }
-        };
+        let text = build_handover(&session_id, &source, &resume_point, &when, &project)?;
 
         let home = std::env::var_os("HOME")?;
         let dir = std::path::PathBuf::from(home).join("Downloads");
@@ -335,6 +382,15 @@ async fn recent_handovers() -> Vec<index_store::Handover> {
     .await
     .unwrap_or_default()
 }
+
+/**
+ * How many standing instructions ride along with a handover.
+ *
+ * Fewer than the profile panel shows. This sits at the top of a prompt the
+ * receiving model has to get through before it reaches the conversation, and
+ * twenty-five rules there would outweigh the thing being handed over.
+ */
+const PROFILE_IN_HANDOVER: usize = 8;
 
 /// How many rules to offer. More than this and nobody reads to the bottom.
 const PROFILE_LIMIT: usize = 25;
@@ -778,6 +834,7 @@ fn main() {
             memory_profile,
             recent_handovers,
             import_claude_export,
+            handover_text,
             set_desktop_session,
             open_home,
             search_conversations,
