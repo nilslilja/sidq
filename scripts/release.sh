@@ -38,36 +38,69 @@ p.write_text(re.sub(r"RELEASE_VERSION = '[^']+'", f"RELEASE_VERSION = '{version}
 PY
 
 echo "── building both Macs"
-npm run tauri build -- --bundles dmg >/dev/null
-npm run tauri build -- --bundles dmg --target x86_64-apple-darwin >/dev/null
-
-ARM="src-tauri/target/release/bundle/dmg/Sidq_${VERSION}_aarch64.dmg"
-X64="src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/Sidq_${VERSION}_x64.dmg"
+npm run tauri build -- --bundles app >/dev/null
+npm run tauri build -- --bundles app --target x86_64-apple-darwin >/dev/null
 
 mkdir -p release
 rm -f release/*.dmg
 
-for DMG in "$ARM" "$X64"; do
-  NAME="$(basename "$DMG")"
-  echo "── notarising $NAME"
-  # Tauri signs but does not notarise, and an unnotarised build reaches the
-  # user as a warning telling them not to open it.
+# Apple Silicon first, then Intel. Each is notarised as an app, stapled, and
+# only then wrapped in a disk image.
+build_one() {
+  local APP="$1" ARCH="$2"
+  local DMG="release/Sidq_${VERSION}_${ARCH}.dmg"
+  local WORK; WORK="$(mktemp -d)"
+
+  #
+  # ── The app is notarised before the DMG exists ────────────────────────────
+  #
+  # This used to notarise the DMG only. The DMG then passed every check and the
+  # app inside it had no ticket of its own, so the moment somebody dragged Sidq
+  # to Applications and opened it, macOS said: "Apple could not verify Sidq is
+  # free of malware that may harm your Mac", with Move to Trash as the default
+  # button. Every single download hit that. The DMG being notarised is not the
+  # thing Gatekeeper checks when you launch the app.
+  #
+  echo "── notarising $ARCH app"
+  ditto -c -k --keepParent "$APP" "$WORK/app.zip"
+  xcrun notarytool submit "$WORK/app.zip" \
+    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
+    --wait 2>&1 | grep -E "  status:" | tail -1
+  xcrun stapler staple "$APP" >/dev/null
+
+  # The check that matters, on the thing the user actually double-clicks.
+  local ASSESS; ASSESS="$(spctl --assess --type execute -vv "$APP" 2>&1 | grep source= | tail -1)"
+  echo "   app: ${ASSESS:-rejected}"
+  case "$ASSESS" in
+    *"Notarized Developer ID"*) ;;
+    *) echo "   REFUSING: the $ARCH app is not notarised" >&2; exit 1 ;;
+  esac
+
+  echo "── packaging $ARCH"
+  mkdir -p "$WORK/vol"
+  cp -R "$APP" "$WORK/vol/"
+  ln -s /Applications "$WORK/vol/Applications"
+  hdiutil create -quiet -volname "Sidq" -srcfolder "$WORK/vol" -ov -format UDZO "$DMG"
+  codesign --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG"
+
+  echo "── notarising $ARCH disk image"
   xcrun notarytool submit "$DMG" \
     --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
     --wait 2>&1 | grep -E "  status:" | tail -1
   xcrun stapler staple "$DMG" >/dev/null
 
-  # The check that matters. Anything other than Notarized Developer ID means
-  # Gatekeeper will stop the person who downloads it.
   ASSESS="$(spctl --assess --type open --context context:primary-signature -v "$DMG" 2>&1 | tail -1)"
-  echo "   $ASSESS"
+  echo "   dmg: $ASSESS"
   case "$ASSESS" in
     *"Notarized Developer ID"*) ;;
-    *) echo "   REFUSING: $NAME is not notarised" >&2; exit 1 ;;
+    *) echo "   REFUSING: the $ARCH disk image is not notarised" >&2; exit 1 ;;
   esac
 
-  cp "$DMG" release/
-done
+  rm -rf "$WORK"
+}
+
+build_one "src-tauri/target/release/bundle/macos/Sidq.app" "aarch64"
+build_one "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Sidq.app" "x64"
 
 echo "── measuring"
 python3 - <<'PY'
