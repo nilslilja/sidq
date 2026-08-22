@@ -134,6 +134,43 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
         return;
     }
 
+    /*
+     * The recording backdrop, driven from a script.
+     *
+     * Shooting footage means putting the pill through its states while nothing
+     * else is on screen, and driving that by synthesising clicks at guessed
+     * coordinates is how the last attempt ended up filming a permission dialog.
+     */
+    if method == Method::Post && path.starts_with("/launch") {
+        let id = body
+            .split_once(r#""id":""#)
+            .and_then(|(_, rest)| rest.split_once('"'))
+            .map(|(id, _)| id.to_string())
+            .unwrap_or_default();
+
+        match crate::assistants::find(&id) {
+            Some(a) => {
+                use tauri_plugin_opener::OpenerExt;
+                let _ = app.opener().open_url(a.url, None::<&str>);
+                respond(&mut stream, 200, "ok");
+            }
+            None => respond(&mut stream, 400, "unknown assistant"),
+        }
+        return;
+    }
+
+    if method == Method::Post && path.starts_with("/backdrop") {
+        if let Some(w) = tauri::Manager::get_webview_window(app, "backdrop") {
+            if body.contains("\"shown\":true") {
+                let _ = w.show();
+            } else {
+                let _ = w.hide();
+            }
+        }
+        respond(&mut stream, 200, "ok");
+        return;
+    }
+
     if method == Method::Post && path.starts_with("/opened") {
         announce_assistant(app, &body);
         respond(&mut stream, 200, "ok");

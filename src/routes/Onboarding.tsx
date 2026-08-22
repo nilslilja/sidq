@@ -6,6 +6,14 @@ import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/Con
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
 import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
+
+/** The assistants that live in a browser, offered at the end of setup. */
+const BROWSER_ASSISTANTS: { id: string; label: string }[] = [
+  { id: 'chatgpt', label: 'ChatGPT' },
+  { id: 'claude.ai', label: 'Claude' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'perplexity', label: 'Perplexity' },
+];
 import { desktopBridge } from '@/lib/onboarding/bridge';
 import { getSupabase , shareSessionWithDesktop } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
@@ -297,6 +305,49 @@ export default function Onboarding() {
               <PrimaryAction label="Press ⌘⇧K to continue" waiting />
             </div>
             {shortcutStuck && <ShortcutEscape onSkip={advance} reason="collision" />}
+          </Instruction>
+        );
+
+      case 'browse':
+        // Same six the Sources panel offers, named here rather than fetched:
+        // this screen must render instantly on a machine where the app has
+        // only just started, and a spinner in the last step of setup is worse
+        // than a list that cannot go out of date without a rebuild anyway.
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
+              Everything on this Mac is already being read. For the assistants that live in a
+              browser, open one below and use it exactly as you do now. The Sidq extension
+              reads the page as you go, so you are never asked to sign in to anything here.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {BROWSER_ASSISTANTS.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => void bridge?.openAssistantInBrowser(a.id)}
+                  className={cn(
+                    'rounded-full px-4 py-2 text-[0.875rem] font-medium',
+                    'bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10',
+                    'cursor-pointer transition-colors duration-150',
+                    'hover:bg-white/[0.12] hover:text-white',
+                  )}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => void bridge?.openConnectPage()}
+              className="mt-5 text-[0.8125rem] text-white/40 underline-offset-4 transition-colors duration-150 hover:text-white/75 hover:underline"
+            >
+              Get the browser extension
+            </button>
+
+            <div className="mt-8">
+              <PrimaryAction label="Done" onClick={advance} />
+            </div>
           </Instruction>
         );
 

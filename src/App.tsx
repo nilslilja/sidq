@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { Backdrop } from '@/routes/Backdrop';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Landing } from '@/routes/Landing';
 import { Bloom } from '@/components/atmosphere/Bloom';
@@ -95,6 +96,8 @@ export function App() {
             </Suspense>
           }
         />
+        {/* Only ever opened by the recording script. */}
+        <Route path="/backdrop" element={<Backdrop />} />
         <Route path="*" element={<Shell />} />
       </Routes>
     </BrowserRouter>

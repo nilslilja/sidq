@@ -387,6 +387,24 @@ async fn withheld_report() -> withheld::Report {
         .unwrap_or_default()
 }
 
+/**
+ * Show or hide the recording backdrop.
+ *
+ * Used only when shooting product footage. The alternative was recording over
+ * whatever happened to be on the machine, which put a stranger's wallpaper and
+ * open windows into the first attempt and made it unusable.
+ */
+#[tauri::command]
+fn set_backdrop(app: tauri::AppHandle, shown: bool) {
+    if let Some(w) = app.get_webview_window("backdrop") {
+        if shown {
+            let _ = w.show();
+        } else {
+            let _ = w.hide();
+        }
+    }
+}
+
 /// The list of assistants Sidq can open, for the UI to draw.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -994,6 +1012,7 @@ fn main() {
             memory_profile,
             recent_handovers,
             withheld_report,
+            set_backdrop,
             assistant_list,
             open_assistant,
             open_assistant_in_browser,

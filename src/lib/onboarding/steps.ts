@@ -38,7 +38,7 @@
  * scariest thing macOS can grant, for a capability the app does not use, is the
  * most expensive sentence in an install.
  */
-export const PHASES = ['Get started', 'Connect', 'Set up', 'Learn'] as const;
+export const PHASES = ['Get started', 'Connect', 'Set up', 'Learn', 'Start'] as const;
 export type Phase = (typeof PHASES)[number];
 
 export type StepId =
@@ -47,7 +47,8 @@ export type StepId =
   | 'signin'
   | 'sources'
   | 'intake'
-  | 'pill';
+  | 'pill'
+  | 'browse';
 
 /** How a step is allowed to advance. */
 export type Gate =
@@ -123,6 +124,25 @@ export const STEPS: Step[] = [
     title: 'Press ⌘⇧K',
     subtitle: 'From inside anything. Everything you were working on, ranked.',
     gate: { kind: 'shortcut', hint: 'Press ⌘⇧K to continue', skippable: true },
+  },
+  /*
+   * Setup used to stop here, on a keyboard shortcut.
+   *
+   * Which meant the last thing that happened in somebody's first minute was
+   * being taught a key, and then a window closing. Nothing had been handed
+   * over, nothing had been searched, and the assistants they actually use all
+   * day were still not connected to anything.
+   *
+   * So the final screen does the thing. It opens an assistant in their own
+   * browser and points at the extension, and the first minute ends with the
+   * product working rather than with a settings panel.
+   */
+  {
+    id: 'browse',
+    phase: 'Start',
+    title: 'Open one and carry on',
+    subtitle: 'In your own browser, where you are already signed in.',
+    gate: { kind: 'button', label: 'Done' },
   },
 ];
 

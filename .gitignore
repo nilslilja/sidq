@@ -29,9 +29,11 @@ src-tauri/gen/schemas/
 node_modules/
 dist/
 
-# Product footage: recorded off a live desktop, reviewed before it ships.
-public/video/*.mp4
-public/video/*.webm
+# Product footage.
+#
+# Not ignored. It is shot against Sidq's own backdrop window rather than off
+# somebody's desktop, so there is nothing personal in the frame, and the site
+# cannot serve what a build off GitHub never receives.
 
 # The signed, notarised installers the download button points at.
 #

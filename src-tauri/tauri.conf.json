@@ -56,6 +56,21 @@
         "x": 0,
         "y": 120,
         "closable": false
+      },
+      {
+        "label": "backdrop",
+        "url": "/backdrop",
+        "title": "Backdrop",
+        "width": 1440,
+        "height": 560,
+        "x": 0,
+        "y": 0,
+        "decorations": false,
+        "resizable": false,
+        "visible": false,
+        "focus": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": false
       }
     ],
     "security": {
