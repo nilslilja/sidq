@@ -196,6 +196,12 @@ export interface OnboardingBridge {
    * that has never been used, and only one of those is fixable.
    */
   staleSources: () => Promise<string[]>;
+  /** May Sidq read assistant windows? Polled so the UI can turn green itself. */
+  accessibilityGranted: () => Promise<boolean>;
+  /** Show the macOS permission prompt. Returns immediately; the answer comes later. */
+  requestAccessibility: () => Promise<void>;
+  /** Open the pane, for anybody who dismissed the prompt. */
+  openAccessibilitySettings: () => Promise<void>;
   /**
    * Whether the extension has reached the app, and how recently.
    *
@@ -327,6 +333,15 @@ export function desktopBridge(): OnboardingBridge | null {
       return (
         out ?? { shown: 0, hidden: 0, thoughts: 0, conversations: 0, excerpts: [], share: 0 }
       );
+    },
+    accessibilityGranted: async () => {
+      return (await invoke('accessibility_granted')) === true;
+    },
+    requestAccessibility: async () => {
+      await invoke('request_accessibility');
+    },
+    openAccessibilitySettings: async () => {
+      await invoke('open_accessibility_settings');
     },
     extensionStatus: async () => {
       const out = (await invoke('extension_status')) as

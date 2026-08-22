@@ -492,6 +492,31 @@ async fn download_extension(app: tauri::AppHandle) -> Result<String, String> {
     Ok(out.to_string_lossy().to_string())
 }
 
+/// Whether Sidq may read assistant windows, and the two ways to change that.
+#[tauri::command]
+fn accessibility_granted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        screen_reader::is_trusted()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+#[tauri::command]
+fn request_accessibility() {
+    #[cfg(target_os = "macos")]
+    screen_reader::request_trust();
+}
+
+#[tauri::command]
+fn open_accessibility_settings() {
+    #[cfg(target_os = "macos")]
+    screen_reader::open_settings();
+}
+
 /// Whether the browser extension has ever reached the app, and when.
 #[derive(Debug, Clone, serde::Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -1138,6 +1163,9 @@ fn main() {
             recent_handovers,
             withheld_report,
             set_backdrop,
+            accessibility_granted,
+            request_accessibility,
+            open_accessibility_settings,
             extension_status,
             download_extension,
             stale_sources,

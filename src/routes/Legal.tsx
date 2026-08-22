@@ -54,21 +54,40 @@ export function Privacy() {
         ]}
       />
 
-      <H>Your screen</H>
+      <H>Reading your assistants</H>
       <P>
-        Sidq does not read it. There are no screenshots, no screen recording, no vision
-        model, no camera and no microphone, and Sidq does not look at which application is
-        in front of you or what its window is called. An earlier version of Sidq did read
-        window titles, for a planning feature that no longer exists; that reading was
-        removed along with it.
+        Assistants that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
+        write nothing readable to your disk. If you grant Sidq the macOS Accessibility
+        permission, it reads their conversations out of the window instead, using the same
+        system that screen readers and dictation apps use.
+      </P>
+      <P>
+        That permission is powerful, so what Sidq does with it is deliberately narrow, and
+        the narrowness is enforced in code rather than promised. Sidq looks at nine
+        applications: Chrome, Safari, Arc, Brave, Edge, Vivaldi and the ChatGPT, Claude and
+        Perplexity desktop apps. Within those it reads a page only once its address is one of
+        the assistants it supports. Every other window, in those applications and in every
+        other application on your Mac, is never read &mdash; not the contents, not the title,
+        not the fact that it is open.
+      </P>
+      <P>
+        There are still no screenshots, no screen recording, no vision model, no camera and
+        no microphone, and Sidq does not watch which application is in front of you. What it
+        reads goes into an index stored on this Mac and is never uploaded. Turning the
+        permission off in System Settings stops it completely, and deleting Sidq deletes the
+        index.
+      </P>
+      <P>
+        An earlier version of this page said Sidq does not read your screen at all. That was
+        true when it was written and stopped being true when this was added, so it says this
+        instead.
       </P>
 
       <H>The browser extension</H>
       <P>
-        Assistants that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
-        keep nothing readable on your Mac, so the Sidq extension reads the conversation from
-        the page instead. It only does so on the assistant sites it names in its permissions,
-        only while one of those tabs is open, and it sends what it reads to the Sidq app on
+        An alternative to the permission above, for anybody who would rather not grant it.
+        The extension reads the conversation from the page instead. It only does so on the
+        assistant sites it names in its permissions, only while one of those tabs is open, and it sends what it reads to the Sidq app on
         your own machine over the loopback address 127.0.0.1, which by definition cannot
         leave the computer. No server of ours is involved at any point, and the extension
         has no ability to send it anywhere else.

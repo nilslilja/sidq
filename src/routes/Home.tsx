@@ -10,6 +10,7 @@ import {
 import type { WorkSession } from '@/lib/companion/work-history';
 import { shareSessionWithDesktop } from '@/lib/supabase';
 import { ConnectExtension } from '@/components/companion/ConnectExtension';
+import { GrantAccess } from '@/components/companion/GrantAccess';
 import { cn } from '@/lib/cn';
 
 /*
@@ -753,10 +754,18 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
 
 function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: ReturnType<typeof desktopBridge> }) {
   const [stale, setStale] = useState<string[]>([]);
+  const [accessible, setAccessible] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!bridge) return;
     void bridge.staleSources().then(setStale);
+
+    // Polled, because it is granted in another application and can change while
+    // this window is open.
+    const check = () => void bridge.accessibilityGranted().then(setAccessible);
+    check();
+    const timer = setInterval(check, 2000);
+    return () => clearInterval(timer);
   }, [bridge]);
 
   const counts = useMemo(() => {
@@ -823,8 +832,21 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       )}
 
       <div className="mt-8">
-        <ConnectExtension />
+        <GrantAccess />
       </div>
+
+      {/*
+        * The extension only when the permission has been declined.
+        *
+        * It is a real fallback and a worse one: a store listing, a review queue
+        * and a developer-mode install per browser. Offering both at once asks
+        * somebody to choose between two setups when one switch would have done.
+        */}
+      {accessible === false && (
+        <div className="mt-4">
+          <ConnectExtension />
+        </div>
+      )}
 
       <OpenAssistants bridge={bridge} />
       <ImportHistory bridge={bridge} />

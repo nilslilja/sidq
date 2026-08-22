@@ -119,6 +119,20 @@ pub fn sweep(conn: &Connection) -> usize {
         }
     }
 
+    /*
+     * The assistants that write nothing to disk.
+     *
+     * Read out of their windows through Accessibility, in the same pass and
+     * into the same index, so a browser conversation is searchable and
+     * handoverable on exactly the same terms as one from Claude Code. Costs
+     * nothing when the permission has not been granted: the reader checks
+     * first and returns an empty list.
+     */
+    #[cfg(target_os = "macos")]
+    {
+        indexed += crate::screen_reader::sweep_into(conn);
+    }
+
     indexed
 }
 

@@ -17,6 +17,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    include: ['src/**/*.test.{ts,tsx}', 'prompt/**/*.test.ts'],
+    // No prompt/ any more. That directory graded the day planner's output and
+    // went with the planner.
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 });

@@ -30,13 +30,17 @@
  * something finishable.
  */
 /*
- * No Permissions phase.
+ * Accessibility is asked for again, and this time it is load-bearing.
  *
- * Setup used to ask for macOS Accessibility. Nothing needs it any more: that
- * permission existed for the window watcher, which is gone, and copying a
- * conversation to the clipboard needs no permission at all. Asking for the
- * scariest thing macOS can grant, for a capability the app does not use, is the
- * most expensive sentence in an install.
+ * It was removed when the window watcher went, on the reasoning that asking for
+ * the scariest thing macOS can grant for a capability the app does not use is
+ * the most expensive sentence in an install. That was right then and it is
+ * wrong now: assistants that run in a browser write nothing readable to disk,
+ * and this is what reads them.
+ *
+ * The alternatives were both worse. A store extension means a review queue and
+ * a developer-mode install per browser; opening the assistants inside Sidq's
+ * own window breaks passkeys and every password manager. One switch beats both.
  */
 export const PHASES = ['Get started', 'Connect', 'Set up', 'Learn', 'Start'] as const;
 export type Phase = (typeof PHASES)[number];

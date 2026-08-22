@@ -92,6 +92,39 @@ pub fn source_for(url_or_app: &str) -> Option<&'static str> {
     }
 }
 
+/**
+ * Ask for the permission, showing the system prompt.
+ *
+ * `AXIsProcessTrustedWithOptions` with the prompt option is the only call that
+ * makes macOS offer the dialog; checking alone never does. It returns
+ * immediately and the answer arrives later, whenever the person gets to System
+ * Settings, so nothing here waits on it — the setup screen polls `is_trusted`
+ * and turns green by itself.
+ */
+pub fn request_trust() {
+    use core_foundation::dictionary::CFDictionary;
+
+    let key = unsafe { CFString::wrap_under_get_rule(accessibility_sys::kAXTrustedCheckOptionPrompt) };
+    let options = CFDictionary::from_CFType_pairs(&[(key, CFBoolean::true_value())]);
+
+    // SAFETY: the dictionary outlives the call and the function takes a
+    // CFDictionaryRef of exactly this shape.
+    unsafe {
+        accessibility_sys::AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef());
+    }
+}
+
+/// Open the pane where the permission is granted.
+///
+/// The prompt has a button for this, and people dismiss prompts. Without a way
+/// back, somebody who clicked the wrong thing once has no route to the switch
+/// short of being told where it lives.
+pub fn open_settings() {
+    let _ = std::process::Command::new("/usr/bin/open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        .status();
+}
+
 /// Has the person granted Accessibility to Sidq?
 pub fn is_trusted() -> bool {
     // SAFETY: takes no arguments and returns a Boolean. Nothing is borrowed.
@@ -315,7 +348,7 @@ pub fn is_substantial(turns: &[(String, String)]) -> bool {
  * permission, an app that is not on the list, a tab that is not an assistant,
  * or a page too thin to be a conversation. Nothing is read before those checks.
  */
-pub fn read_open_assistants() -> Vec<(String, Vec<(String, String)>)> {
+pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String, String)>)> {
     if !is_trusted() {
         return Vec::new();
     }
@@ -339,7 +372,8 @@ pub fn read_open_assistants() -> Vec<(String, Vec<(String, String)>)> {
 
             let turns = into_turns(&collect(area.as_raw()), person_by_class);
             if is_substantial(&turns) {
-                found.push((source.to_string(), turns));
+                let title = string_attribute(area.as_raw(), "AXTitle").unwrap_or_default();
+                found.push((source, url, title, turns));
             }
         }
 
@@ -348,7 +382,10 @@ pub fn read_open_assistants() -> Vec<(String, Vec<(String, String)>)> {
         if let Some(source) = source_for(&app_name) {
             let turns = into_turns(&collect(app.as_raw()), person_by_class);
             if is_substantial(&turns) {
-                found.push((source.to_string(), turns));
+                // No address in a desktop app, so the window title is the only
+                // stable identifier it offers.
+                let title = string_attribute(app.as_raw(), "AXTitle").unwrap_or(app_name.clone());
+                found.push((source, String::new(), title, turns));
             }
         }
     }
@@ -414,6 +451,64 @@ fn find_web_areas(element: AXUIElementRef, depth: usize, out: &mut Vec<Element>,
     }
 }
 
+/**
+ * Read every open assistant and put it in the index.
+ *
+ * The counterpart to the disk sweep in `indexer`, for the assistants that write
+ * nothing to disk. Returns how many conversations were written.
+ *
+ * ── Identity, and why it is the address ──────────────────────────────────────
+ * A conversation being added to must replace its earlier state rather than
+ * accumulate a copy per exchange, so the key is the thing that is stable while
+ * you are in a conversation and different for every other one: its URL. Same
+ * rule the browser-bridge path already uses.
+ *
+ * A desktop assistant has no URL, so its window title stands in. That is
+ * weaker — renaming a chat makes it look new — and it is the only stable
+ * identifier those apps expose.
+ */
+pub fn sweep_into(conn: &rusqlite::Connection) -> usize {
+    let mut written = 0usize;
+
+    for (source, url, title, turns) in read_open_assistants() {
+        let identity = if url.is_empty() { format!("{source}:{title}") } else { url };
+        let session_id: String = identity
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        if session_id.is_empty() {
+            continue;
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        let clean = title.split(" - ").next().unwrap_or(&title).trim().to_string();
+        let _ = crate::index_store::put_session(
+            conn, &session_id, source, &clean, source, "", now, turns.len() as u32, 0,
+        );
+
+        /*
+         * Fingerprinted by total length, so a conversation that has not grown
+         * since the last pass is skipped entirely. Without it every sweep
+         * rewrites every open conversation, which on a busy day is a full
+         * reindex every thirty seconds.
+         */
+        let length: usize = turns.iter().map(|(_, b)| b.len()).sum();
+        let fingerprint = format!("screen:{length}");
+        if crate::index_store::is_current(conn, &session_id, &fingerprint) {
+            continue;
+        }
+        if crate::index_store::put_messages(conn, &session_id, &turns, &fingerprint).is_some() {
+            written += 1;
+        }
+    }
+
+    written
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -437,9 +532,10 @@ mod tests {
         if found.is_empty() {
             println!("  no assistant conversation open");
         }
-        for (source, turns) in &found {
+        for (source, url, title, turns) in &found {
             let chars: usize = turns.iter().map(|(_, b)| b.chars().count()).sum();
-            println!("  {source}: {} turns, {chars} characters", turns.len());
+            let where_from = if url.is_empty() { title.clone() } else { url.clone() };
+            println!("  {source} ({where_from}): {} turns, {chars} characters", turns.len());
             for (role, body) in turns.iter().take(2) {
                 println!("      {role}: {} chars", body.chars().count());
             }

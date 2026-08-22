@@ -10,8 +10,6 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval": "tsx prompt/eval/run.ts",
-    "eval:offline": "tsx prompt/eval/run.ts --offline",
     "setup": "bash scripts/setup.sh",
     "desktop": "tauri dev",
     "tauri": "tauri",
