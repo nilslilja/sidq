@@ -31,6 +31,8 @@
 //! goes away, this trade stops being defensible and the bar has to become
 //! focusable again.
 
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+
 use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 
 /**
@@ -48,13 +50,68 @@ use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 const COLLAPSED: (f64, f64) = (152.0, 24.0);
 
 /**
- * A menu bar this tall means a notch, and the middle is the camera.
+ * Whether the screen the bar is on has a camera housing over the menu bar.
  *
- * Notched MacBooks report roughly 37 points against 24 on everything else.
- * Sitting in the middle there would put the bar behind the housing, so those
- * displays get the old position below the bar instead.
+ * This used to be inferred from the height of the menu bar: 34 points or more
+ * meant a notch. That guess had four points of room. This Mac, which has no
+ * notch, reports a 30 point band — the menu bar is 24 and macOS adds padding —
+ * and the number moves between releases and displays. Four points is not a
+ * margin, it is a coin toss on hardware that cannot be tested here.
+ *
+ * `safeAreaInsets` is the actual answer. AppKit reports a non-zero top inset on
+ * exactly the displays with a housing, and it is what the housing measures.
+ * Verified against this machine: inset 0, `auxiliaryTopLeftArea` nil, band 30.
+ *
+ * Read on the main thread and cached, because `place` runs on whichever thread
+ * called `expand`, and reaching into AppKit off the main thread is what took
+ * this app down once already.
  */
-const NOTCH_MENU_BAR: f64 = 34.0;
+static NOTCH_HEIGHT: AtomicU64 = AtomicU64::new(0);
+
+/**
+ * Measure the screen the bar is on. Main thread only.
+ *
+ * Called from setup and again on every raise, so moving the window to a display
+ * with different hardware corrects itself on the next open.
+ */
+fn measure_notch(ns_window: *mut objc::runtime::Object) {
+    // SAFETY: main thread, and `ns_window` is a live NSWindow. `screen` returns
+    // nil when the window is off-screen, which `mainScreen` covers.
+    unsafe {
+        use objc::{class, msg_send, sel, sel_impl};
+
+        let mut screen: *mut objc::runtime::Object = msg_send![ns_window, screen];
+        if screen.is_null() {
+            screen = msg_send![class!(NSScreen), mainScreen];
+        }
+        if screen.is_null() {
+            return;
+        }
+
+        // safeAreaInsets arrived in macOS 12, and so did the first Mac with a
+        // housing, so an older system answering nothing here is also answering
+        // that there is no notch.
+        let responds: bool = msg_send![screen, respondsToSelector: sel!(safeAreaInsets)];
+        if !responds {
+            return;
+        }
+
+        // NSEdgeInsets is four CGFloats: top, left, bottom, right.
+        #[repr(C)]
+        struct EdgeInsets {
+            top: f64,
+            left: f64,
+            bottom: f64,
+            right: f64,
+        }
+        let insets: EdgeInsets = msg_send![screen, safeAreaInsets];
+        NOTCH_HEIGHT.store(insets.top.to_bits(), Ordering::Relaxed);
+    }
+}
+
+fn notch_height() -> f64 {
+    f64::from_bits(NOTCH_HEIGHT.load(Ordering::Relaxed))
+}
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
 const EXPANDED: (f64, f64) = (560.0, 380.0);
@@ -112,24 +169,8 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
         let usable = area.size.to_logical::<f64>(scale);
         let screen = monitor.position().to_logical::<f64>(scale);
 
-        // The gap between the top of the screen and the top of the work area is
-        // the menu bar.
-        let menu_bar = origin.y - screen.y;
         let collapsed = size.1 <= COLLAPSED.1;
-        let notched = menu_bar >= NOTCH_MENU_BAR;
-
-        /*
-         * Collapsed, sit inside the menu bar. Expanded, hang below it.
-         *
-         * The bar is small and the menu bar's middle is empty, so it covers
-         * nothing. The picker is 380 tall and belongs under the bar, where it
-         * is over the page rather than over the browser's own controls.
-         */
-        let y = if collapsed && !notched {
-            screen.y
-        } else {
-            origin.y
-        };
+        let y = top_edge(screen.y, origin.y, collapsed, notch_height());
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
@@ -138,6 +179,143 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
     }
 
     Ok(())
+}
+
+
+/**
+ * Which edge the window hangs from, given the screen and the housing.
+ *
+ * Collapsed, sit inside the menu bar: it is 24 points tall, the middle of it is
+ * empty on every Mac without a housing, and nothing else claims that strip.
+ *
+ * With a housing, that same strip is the camera. The bar is centred, the
+ * housing is centred, and a window at menu bar level would be behind it — the
+ * bar would not exist for anybody on a 14 or 16 inch MacBook, which is most
+ * people buying a Mac now. Those displays get the top of the work area instead,
+ * which is below the menu bar and therefore below the housing, always.
+ *
+ * That position is worse: it is the row browser tabs live in, which is why the
+ * bar moved up into the menu bar in the first place. It is worse than being
+ * covered by exactly nothing, which is the alternative.
+ *
+ * Expanded, always below the menu bar. The picker is 380 points tall and
+ * belongs over the page, not over the application's own controls.
+ */
+fn top_edge(screen_top: f64, work_top: f64, collapsed: bool, notch: f64) -> f64 {
+    if collapsed && notch <= 0.0 {
+        screen_top
+    } else {
+        work_top
+    }
+}
+
+
+/*
+ * ── Closing the picker by clicking somewhere else ────────────────────────────
+ *
+ * `WindowEvent::Focused(false)` was the whole dismissal story and it stopped
+ * being enough the moment the window became a non-activating panel.
+ *
+ * That panel takes the keyboard without activating Sidq, which is the point of
+ * it: you press the shortcut inside a fullscreen editor, type, and the editor
+ * never goes away. The cost is that the application underneath was never
+ * deactivated, so clicking back into it is not an app switch, no window changes
+ * key, and nothing fires. Measured: picker open over a fullscreen app, click in
+ * that app, frontmost application unchanged, picker still there. The only ways
+ * out left were Esc and the shortcut, which is a keyboard-shaped exit on a
+ * thing people close with the mouse.
+ *
+ * A global mouse monitor sees those clicks. It reports events going to *other*
+ * applications only, so clicks inside the picker never reach it and it needs no
+ * handler of its own to tell them apart. Mouse monitors, unlike key monitors,
+ * work without the accessibility permission, so this holds for people who never
+ * granted it.
+ *
+ * Installed while the picker is open and removed when it shuts, rather than
+ * left running for the life of the app: it is a callback on every click on the
+ * machine and it should not exist while there is nothing to close.
+ */
+
+/// The live monitor, as a raw retained pointer. Zero when nothing is watching.
+static CLICK_MONITOR: AtomicUsize = AtomicUsize::new(0);
+
+/// Turn the watch on or off. Hops to the main thread, like everything AppKit.
+///
+/// Deferring matters more than it looks: turning it *off* happens inside the
+/// monitor's own handler, by way of `collapse`, and releasing a monitor while
+/// its block is mid-call would free the block underneath itself. Posting the
+/// removal means it lands after the handler has returned.
+fn watch_for_outside_clicks(w: &WebviewWindow, on: bool) {
+    let window = w.clone();
+    let _ = w.run_on_main_thread(move || {
+        if on {
+            start_watching(&window);
+        } else {
+            stop_watching();
+        }
+    });
+}
+
+fn start_watching(w: &WebviewWindow) {
+    use block2::RcBlock;
+    use objc2::rc::Retained;
+    use objc2_app_kit::{NSEvent, NSEventMask};
+
+    if CLICK_MONITOR.load(Ordering::Relaxed) != 0 {
+        return;
+    }
+
+    let window = w.clone();
+    let handler = RcBlock::new(move |_event: core::ptr::NonNull<NSEvent>| {
+        /*
+         * Hand this to the next turn of the loop rather than doing it here.
+         *
+         * This block runs inside AppKit's own event dispatch. Collapsing from
+         * in there hid the window, resized it and showed it again while the
+         * click was still being delivered, and what came back was neither the
+         * bar nor the picker: the window reported itself visible at the
+         * picker's size with nothing drawn at all. Posting it means the resize
+         * happens on a clean turn, which is also when `stop_watching` releases
+         * the monitor whose block is running right now.
+         */
+        let pill = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            if is_expanded(&pill) {
+                let _ = collapse(&pill);
+            }
+        });
+    });
+
+    let mask = NSEventMask::LeftMouseDown
+        | NSEventMask::RightMouseDown
+        | NSEventMask::OtherMouseDown;
+
+    // SAFETY: main thread. The handler outlives the monitor: the block is
+    // retained by AppKit for as long as the monitor is registered, and the
+    // monitor is released only in `stop_watching`.
+    let token = unsafe { NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &handler) };
+
+    if let Some(token) = token {
+        CLICK_MONITOR.store(Retained::into_raw(token) as usize, Ordering::Relaxed);
+    }
+}
+
+fn stop_watching() {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::NSEvent;
+
+    let token = CLICK_MONITOR.swap(0, Ordering::Relaxed);
+    if token == 0 {
+        return;
+    }
+
+    // SAFETY: the pointer came from `Retained::into_raw` in `start_watching`
+    // and has been swapped out, so this is the only owner of it.
+    unsafe {
+        let token = Retained::from_raw(token as *mut AnyObject).expect("non-null, just checked");
+        NSEvent::removeMonitor(&token);
+    }
 }
 
 /*
@@ -273,8 +451,11 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
     // alive for as long as the window is. Every selector below takes one
     // primitive argument or none, and this runs on the main thread.
     unsafe {
-        use objc::{class, msg_send, sel, sel_impl};
+        use objc::{msg_send, sel, sel_impl};
         let ns_window = handle as *mut objc::runtime::Object;
+
+        // Main thread, and the only place in this file that reliably is.
+        measure_notch(ns_window);
 
         /*
          * ── Become a panel ────────────────────────────────────────────────
@@ -426,6 +607,8 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
     // a picker on screen that has not taken the keyboard is worth far more than
     // no picker at all.
     let _ = w.set_focus();
+
+    watch_for_outside_clicks(w, true);
     Ok(())
 }
 
@@ -444,6 +627,7 @@ pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     let _ = place(w, COLLAPSED);
     let _ = w.show();
     raise_above_everything(w, BAR_LEVEL, false);
+    watch_for_outside_clicks(w, false);
     Ok(())
 }
 
@@ -459,6 +643,74 @@ pub fn toggle(w: &WebviewWindow) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /*
+     * The numbers below are measured, not invented.
+     *
+     * No-notch is this machine: a 1440x900 built-in Retina display reporting
+     * frame 0..900, visibleFrame 76..870, so a 30 point band above the work
+     * area and a safeAreaInsets.top of 0. The notched figures are a 14 inch
+     * MacBook Pro, where the housing is what safeAreaInsets.top reports.
+     *
+     * Coordinates here are Tauri's: y grows downward, so the top of the screen
+     * is the smaller number.
+     */
+    const SCREEN_TOP: f64 = 0.0;
+    const WORK_TOP_PLAIN: f64 = 30.0;
+    const WORK_TOP_NOTCHED: f64 = 38.0;
+    const NOTCH: f64 = 32.0;
+
+    #[test]
+    fn the_bar_sits_in_the_menu_bar_when_there_is_no_housing() {
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0), SCREEN_TOP);
+    }
+
+    #[test]
+    fn the_bar_drops_below_the_menu_bar_when_there_is_one() {
+        // The whole point: at SCREEN_TOP it would be behind the camera.
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH),
+            WORK_TOP_NOTCHED
+        );
+    }
+
+    #[test]
+    fn the_bar_clears_the_housing_by_its_full_height() {
+        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH);
+        assert!(
+            y >= SCREEN_TOP + NOTCH,
+            "the bar starts at {y}, inside a {NOTCH} point housing"
+        );
+    }
+
+    #[test]
+    fn the_picker_hangs_below_the_menu_bar_either_way() {
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_PLAIN, false, 0.0),
+            WORK_TOP_PLAIN
+        );
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, false, NOTCH),
+            WORK_TOP_NOTCHED
+        );
+    }
+
+    #[test]
+    fn a_second_display_is_placed_against_its_own_top_edge() {
+        // A monitor above the built-in one has a negative origin, and the bar
+        // belongs at that screen's top rather than at zero.
+        assert_eq!(top_edge(-1080.0, -1050.0, true, 0.0), -1080.0);
+        assert_eq!(top_edge(-1080.0, -1050.0, false, 0.0), -1050.0);
+    }
+
+    #[test]
+    fn nothing_is_treated_as_a_housing_by_accident() {
+        // The old rule was "menu bar 34 points or taller means a notch", and a
+        // 30 point band on hardware with no camera housing is four points from
+        // tripping it. The inset is what decides now, and it is zero here.
+        assert_eq!(top_edge(SCREEN_TOP, 33.0, true, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, 36.0, true, 0.0), SCREEN_TOP);
+    }
 
     #[test]
     fn the_frontend_threshold_matches_this_one() {
@@ -542,17 +794,6 @@ mod tests {
             COLLAPSED.1 <= ordinary_menu_bar,
             "must not overhang the menu bar"
         );
-        assert!(COLLAPSED.1 < NOTCH_MENU_BAR);
-    }
-
-    #[test]
-    fn a_notched_display_is_told_apart_by_its_menu_bar() {
-        // The middle of a notched menu bar is the camera housing, so the bar
-        // goes below it there instead of behind it.
-        let notched = 37.0;
-        let ordinary = 24.0;
-        assert!(notched >= NOTCH_MENU_BAR);
-        assert!(ordinary < NOTCH_MENU_BAR);
     }
 
     #[test]

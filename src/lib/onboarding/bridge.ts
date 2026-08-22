@@ -33,6 +33,26 @@ export interface HandoverResult {
 }
 
 /** What the plan allows. For describing only; every limit is applied in Rust. */
+/**
+ * Your invite code and what it has earned.
+ *
+ * `problem` is a finished sentence to print as-is when the server could not be
+ * reached or the account is not signed in. Everything else is zero in that
+ * case, so a panel that renders the numbers without checking shows nothing
+ * rather than something wrong.
+ */
+export interface InviteSummary {
+  code: string;
+  invited: number;
+  bonus: number;
+  redeemed: boolean;
+  problem: string;
+  /** What one invite is worth per week, sent by Rust so the offer cannot drift. */
+  each: number;
+  /** The ceiling on the bonus, for the same reason. */
+  most: number;
+}
+
 export interface PlanStatus {
   plan: string;
   handoversUsed: number;
@@ -48,27 +68,6 @@ export interface PlanStatus {
  * stated in six conversations is a standing instruction, and one you stated
  * once is a decision you made that day.
  */
-/** One thing an assistant thought about your work and did not say. */
-export interface Withheld {
-  sessionId: string;
-  title: string;
-  source: string;
-  /** The reasoning, verbatim. Never paraphrased, never generated. */
-  text: string;
-  chars: number;
-}
-
-/** The gap between what was written about your work and what you were shown. */
-export interface WithheldReport {
-  shown: number;
-  hidden: number;
-  thoughts: number;
-  conversations: number;
-  excerpts: Withheld[];
-  /** Share never shown, 0 to 1. */
-  share: number;
-}
-
 /** One conversation you handed to another assistant. */
 export interface HandoverRecord {
   sessionId: string;
@@ -181,7 +180,6 @@ export interface OnboardingBridge {
    * Read out of transcripts already on this disk, so every character can be
    * checked against a file the person owns.
    */
-  withheldReport: () => Promise<WithheldReport>;
   /**
    * Sites whose selectors have stopped matching, reported by the extension.
    *
@@ -220,6 +218,13 @@ export interface OnboardingBridge {
   openAssistant: (id: string) => Promise<void>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
+  /** Your invite code, how many used it, and the handovers that earned. */
+  inviteSummary: () => Promise<InviteSummary>;
+  /**
+   * Use somebody else's code. Rejects with the server's own sentence, which is
+   * written to be shown to the person who typed the code.
+   */
+  redeemInvite: (code: string) => Promise<number>;
   /**
    * Hand the signed-in session to Rust so it can confirm the plan itself.
    *
@@ -318,11 +323,23 @@ export function desktopBridge(): OnboardingBridge | null {
       const count = await invoke('import_export', { json });
       return typeof count === 'number' ? count : 0;
     },
-    withheldReport: async () => {
-      const out = (await invoke('withheld_report')) as WithheldReport | null;
+    inviteSummary: async () => {
+      const out = (await invoke('invite_summary')) as InviteSummary | null;
       return (
-        out ?? { shown: 0, hidden: 0, thoughts: 0, conversations: 0, excerpts: [], share: 0 }
+        out ?? {
+          code: '',
+          invited: 0,
+          bonus: 0,
+          redeemed: false,
+          problem: 'Sidq could not read your invites.',
+          each: 0,
+          most: 0,
+        }
       );
+    },
+    redeemInvite: async (code) => {
+      const bonus = await invoke('redeem_invite', { code });
+      return typeof bonus === 'number' ? bonus : 0;
     },
     accessibilityGranted: async () => {
       return (await invoke('accessibility_granted')) === true;

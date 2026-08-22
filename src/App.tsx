@@ -58,7 +58,7 @@ export function App() {
         <Route
           path="/home"
           element={
-            <Suspense fallback={<div className="min-h-[100dvh] bg-[#0B0B10]" />}>
+            <Suspense fallback={<div className="min-h-[100dvh] bg-[#F1EFF7]" />}>
               <Home />
             </Suspense>
           }
@@ -74,7 +74,7 @@ export function App() {
         <Route
           path="/welcome"
           element={
-            <Suspense fallback={<div className="min-h-[100dvh] bg-[#0B0B10]" />}>
+            <Suspense fallback={<div className="min-h-[100dvh] bg-[#F1EFF7]" />}>
               <Onboarding />
             </Suspense>
           }
@@ -82,7 +82,7 @@ export function App() {
         <Route
           path="/desktop-signin"
           element={
-            <Suspense fallback={<div className="min-h-[100dvh] bg-[#0B0B10]" />}>
+            <Suspense fallback={<div className="min-h-[100dvh] bg-[#F1EFF7]" />}>
               <DesktopSignIn />
             </Suspense>
           }
@@ -90,7 +90,7 @@ export function App() {
         <Route
           path="/downloading"
           element={
-            <Suspense fallback={<div className="min-h-[100dvh] bg-[#0B0B10]" />}>
+            <Suspense fallback={<div className="min-h-[100dvh] bg-[#F1EFF7]" />}>
               <Downloading />
             </Suspense>
           }

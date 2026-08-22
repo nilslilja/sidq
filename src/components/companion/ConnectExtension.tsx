@@ -51,15 +51,15 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
     return (
       <div
         className={cn(
-          'rounded-[12px] border border-[#B8A6FF]/25 bg-[#B8A6FF]/[0.06] p-4',
+          'rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4',
           compact && 'p-3',
         )}
       >
-        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
+        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#6A4BEA]" />
           Extension connected
         </p>
-        <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-white/45">
+        <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
           Anything you do in ChatGPT, Claude, Gemini and the rest is read as it happens. There
           is nothing else to set up.
         </p>
@@ -68,32 +68,32 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={cn('rounded-[12px] border border-white/[0.09] bg-white/[0.02] p-4', compact && 'p-3')}>
-      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+    <div className={cn('rounded-[12px] border border-black/[0.11] bg-[#FAF9FD] p-4', compact && 'p-3')}>
+      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
         {/* Amber, not red. Nothing is broken; something is simply not added yet. */}
         <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-400/70" />
         Add the browser extension
       </p>
-      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
         Optional. Everything on this Mac is already being read. This adds the AIs that
         run in a browser, so what you do in ChatGPT and the rest is read too.
       </p>
 
-      <ol className="mt-3 space-y-1.5 text-[0.8125rem] text-white/55">
+      <ol className="mt-3 space-y-1.5 text-[0.8125rem] text-[#57516A]">
         <li>
-          <span className="text-white/30">1.</span> Download it, then unzip it
+          <span className="text-[#8E8899]">1.</span> Download it, then unzip it
         </li>
         <li>
-          <span className="text-white/30">2.</span> Open Chrome and go to{' '}
-          <code className="text-white/70">chrome://extensions</code>
+          <span className="text-[#8E8899]">2.</span> Open Chrome and go to{' '}
+          <code className="text-[#16141C]/70">chrome://extensions</code>
         </li>
         <li>
-          <span className="text-white/30">3.</span> Turn on{' '}
-          <span className="text-white/70">Developer mode</span>, top right
+          <span className="text-[#8E8899]">3.</span> Turn on{' '}
+          <span className="text-[#16141C]/70">Developer mode</span>, top right
         </li>
         <li>
-          <span className="text-white/30">4.</span> Click{' '}
-          <span className="text-white/70">Load unpacked</span> and pick the folder
+          <span className="text-[#8E8899]">4.</span> Click{' '}
+          <span className="text-[#16141C]/70">Load unpacked</span> and pick the folder
         </li>
       </ol>
 
@@ -102,18 +102,18 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
           onClick={() => void bridge?.downloadExtension()}
           className={cn(
             'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
+            'bg-[#16141C] text-white transition-opacity duration-150',
             'cursor-pointer hover:opacity-90',
           )}
         >
           Download the extension
         </button>
-        <span className="text-[0.75rem] text-white/30">
+        <span className="text-[0.75rem] text-[#8E8899]">
           {status === null ? 'Checking' : 'Watching for it. This turns green on its own.'}
         </span>
       </div>
 
-      <p className="mt-3 text-[0.75rem] leading-relaxed text-white/25">
+      <p className="mt-3 text-[0.75rem] leading-relaxed text-[#A29CB0]">
         Developer mode is only needed while the Chrome Web Store review is running. Once it is
         approved this becomes a single click, and your install carries over.
       </p>

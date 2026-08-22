@@ -43,12 +43,12 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
 
   if (granted) {
     return (
-      <div className={cn('rounded-[12px] border border-[#B8A6FF]/25 bg-[#B8A6FF]/[0.06] p-4', compact && 'p-3')}>
-        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
+      <div className={cn('rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4', compact && 'p-3')}>
+        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#6A4BEA]" />
           Reading your AIs
         </p>
-        <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-white/45">
+        <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
           ChatGPT, Claude, Gemini and the rest, in whichever browser you already use. Nothing
           to install and nothing to sign in to.
         </p>
@@ -57,12 +57,12 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={cn('rounded-[12px] border border-white/[0.09] bg-white/[0.02] p-4', compact && 'p-3')}>
-      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+    <div className={cn('rounded-[12px] border border-black/[0.11] bg-[#FAF9FD] p-4', compact && 'p-3')}>
+      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
         <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-400/70" />
         Let Sidq read your AIs
       </p>
-      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
         AIs that run in a browser keep nothing readable on this Mac, so Sidq reads them
         from the window instead. One switch, and every one of them works at once.
       </p>
@@ -73,17 +73,17 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
         * macOS is about to warn that this permission is powerful, and it is
         * right. Answering that with specifics is the only thing that earns it.
         */}
-      <ul className="mt-3 space-y-1.5 text-[0.8125rem] text-white/45">
+      <ul className="mt-3 space-y-1.5 text-[0.8125rem] text-[#57516A]">
         <li>
-          <span className="text-white/70">Only AIs.</span> Nine applications, and only
+          <span className="text-[#16141C]/70">Only AIs.</span> Nine applications, and only
           tabs that are ChatGPT, Claude, Gemini, Perplexity, Grok, DeepSeek or Mistral
         </li>
         <li>
-          <span className="text-white/70">Nothing else, ever.</span> Any other window is never
+          <span className="text-[#16141C]/70">Nothing else, ever.</span> Any other window is never
           looked at, which is enforced in code rather than promised
         </li>
         <li>
-          <span className="text-white/70">Nothing leaves.</span> It is read into an index on
+          <span className="text-[#16141C]/70">Nothing leaves.</span> It is read into an index on
           this Mac and never uploaded
         </li>
       </ul>
@@ -96,7 +96,7 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
           }}
           className={cn(
             'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
+            'bg-[#16141C] text-white transition-opacity duration-150',
             'cursor-pointer hover:opacity-90',
           )}
         >
@@ -107,12 +107,12 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
         {asked && (
           <button
             onClick={() => void bridge?.openAccessibilitySettings()}
-            className="text-[0.8125rem] text-white/40 underline-offset-4 transition-colors duration-150 hover:text-white/75 hover:underline"
+            className="text-[0.8125rem] text-[#7A7489] underline-offset-4 transition-colors duration-150 hover:text-[#16141C]/75 hover:underline"
           >
             Open System Settings
           </button>
         )}
-        <span className="text-[0.75rem] text-white/30">
+        <span className="text-[0.75rem] text-[#8E8899]">
           {granted === null ? 'Checking' : 'This turns green on its own.'}
         </span>
       </div>

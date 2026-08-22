@@ -37,6 +37,14 @@ core-foundation = "0.10"
 # always-on-top is NSFloatingWindowLevel, which is below the menu bar and is
 # excluded from fullscreen Spaces, and neither is reachable through its API.
 objc = "0.2"
+# Watching for a click in another application, which is the only signal that the
+# picker should close: a non-activating panel takes the keyboard without
+# deactivating the app underneath, so clicking back into that app produces no
+# focus change for anything to listen to. Blocks are needed for the monitor's
+# handler, and objc 0.2's Encode trait cannot describe one.
+block2 = "0.6"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSEvent"] }
 
 [profile.release]
 # A menu-bar companion has no business being 30MB. These four settings take the

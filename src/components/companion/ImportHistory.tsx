@@ -82,7 +82,7 @@ export function ImportHistory({
           'flex cursor-pointer flex-col items-center gap-2 rounded-[12px] border border-dashed px-4 py-5',
           'text-center transition-colors duration-150',
           dragging
-            ? 'border-[#B8A6FF] bg-[#B8A6FF]/[0.08]'
+            ? 'border-[#6A4BEA] bg-[#F5F1FF]'
             : 'border-white/15 hover:border-white/30',
         )}
       >

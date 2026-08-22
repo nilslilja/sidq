@@ -171,6 +171,16 @@ pub fn current(conn: &Connection) -> Plan {
                 let plan = Plan::from_tier(&tier);
                 let _ = index_store::put_setting(conn, "tier", plan.as_str());
                 let _ = index_store::put_setting(conn, "tier_checked_at", &now().to_string());
+
+                /*
+                 * Refresh the invite bonus on the same schedule.
+                 *
+                 * Otherwise it is only ever updated by somebody opening the
+                 * invite panel, and the allowance an account is actually given
+                 * would lag behind the invites it has earned until they
+                 * happened to look at the screen that shows them.
+                 */
+                let _ = crate::invites::summary(conn);
                 return plan;
             }
         }
@@ -195,10 +205,23 @@ pub fn history_floor(plan: Plan) -> i64 {
     }
 }
 
-/// Handovers made in the last rolling week, and the cap, if there is one.
+/**
+ * Handovers made in the last rolling week, and the cap, if there is one.
+ *
+ * Invites raise the free cap and nothing else. They are not a discount on a
+ * paid plan and they are not a second tier: a plan with no cap has nothing to
+ * add to, and adding a number to `None` would quietly invent one.
+ *
+ * The bonus is the last figure Supabase confirmed. It ages out with the tier
+ * cache and falls back to zero, so being offline costs somebody their invite
+ * bonus rather than handing one to anybody who unplugs the network.
+ */
 pub fn handover_allowance(conn: &Connection, plan: Plan) -> (u32, Option<u32>) {
     let used = index_store::handovers_since(conn, now() - WEEK_SECS);
-    (used, plan.handovers_per_week())
+    let cap = plan
+        .handovers_per_week()
+        .map(|base| base + crate::invites::cached_bonus(conn));
+    (used, cap)
 }
 
 /// Whether one more handover is allowed right now.

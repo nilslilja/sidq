@@ -16,6 +16,7 @@ mod handover;
 mod index_store;
 mod entitlement;
 mod indexer;
+mod invites;
 mod pill_window;
 mod profile;
 mod capture;
@@ -23,7 +24,6 @@ mod imports;
 mod compiler;
 mod cursor_history;
 mod screen_reader;
-mod withheld;
 mod work_history;
 
 
@@ -371,22 +371,6 @@ async fn search_conversations(
     .unwrap_or((Vec::new(), 0))
 }
 
-/// How many conversations to weigh. Enough to be a real number, fast enough to wait for.
-const WITHHELD_DEPTH: usize = 30;
-
-/**
- * What your assistants thought about your work and did not say.
- *
- * Reads the reasoning blocks straight out of the transcripts already on this
- * disk. Nothing is generated and nothing is paraphrased, so every character of
- * it can be checked against a file the person owns.
- */
-#[tauri::command]
-async fn withheld_report() -> withheld::Report {
-    tauri::async_runtime::spawn_blocking(|| withheld::build(WITHHELD_DEPTH))
-        .await
-        .unwrap_or_default()
-}
 
 /**
  * Show or hide the recording backdrop.
@@ -739,6 +723,35 @@ struct PlanStatus {
  * command that would breach it, so a page that lies about the plan changes what
  * a person is told and not what they get.
  */
+/// Your invite code, how many people used it, and what it earned.
+#[tauri::command]
+async fn invite_summary() -> invites::Summary {
+    tauri::async_runtime::spawn_blocking(|| match index_store::open() {
+        Some(conn) => invites::summary(&conn),
+        None => invites::Summary::default(),
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/**
+ * Use somebody else's code.
+ *
+ * The error is the database's own sentence, handed straight to the panel. Every
+ * refusal here — the code does not exist, it is your own, you already used one —
+ * is something the person can act on, and replacing it with "could not redeem"
+ * would turn a fixable typo into a dead end.
+ */
+#[tauri::command]
+async fn redeem_invite(code: String) -> Result<u32, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = index_store::open().ok_or("Sidq cannot open its index.")?;
+        invites::redeem(&conn, &code)
+    })
+    .await
+    .map_err(|_| "The invite could not be redeemed.".to_string())?
+}
+
 #[tauri::command]
 async fn plan_status() -> PlanStatus {
     tauri::async_runtime::spawn_blocking(|| {
@@ -1144,7 +1157,8 @@ fn main() {
             plan_status,
             memory_profile,
             recent_handovers,
-            withheld_report,
+            invite_summary,
+            redeem_invite,
             set_backdrop,
             accessibility_granted,
             request_accessibility,

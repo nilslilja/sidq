@@ -3,7 +3,7 @@ import {
   desktopBridge,
   type HandoverRecord,
   type PlanStatus,
-  type WithheldReport,
+  type InviteSummary,
   type ProfileFact,
   type SearchHit,
 } from '@/lib/onboarding/bridge';
@@ -20,25 +20,40 @@ import { cn } from '@/lib/cn';
  * small overlay you never lose, and behind it sits a real application you open
  * when you want to look at something rather than do something.
  *
- * ── The rule this screen is built under ──────────────────────────────────────
- * Every number here is computed from data that exists. There is no invite
- * panel, no placeholder card, no "coming soon" tile, no stat with a plausible
- * shape and nothing behind it. If a section has nothing to show it says so in
- * one line and takes up no more room than that.
+ * ── What belongs here, and what does not ─────────────────────────────────────
+ * This is an account screen: your numbers, your data, your plan, your invites.
+ * It is not a place to be told what Sidq is for.
  *
- * Search is the main screen rather than a feature, because it is the thing you
- * cannot do anywhere else: no vendor can search a competitor's history, and
- * this is the only place all of yours sits together.
+ * It used to open on an essay — a percentage the size of a fist, and four
+ * paragraphs arguing that your assistant hides its reasoning from you. That
+ * argument belongs on the site, where somebody is deciding whether to install
+ * this. Somebody who already has it is here to look at their own things, and
+ * making them scroll past the pitch every time is the app talking about itself.
+ *
+ * Every number is computed from data that exists. No placeholder cards, no
+ * "coming soon" tiles, no stat with a plausible shape and nothing behind it. A
+ * section with nothing to show says so in one line and takes up no more room
+ * than that. Every row in the sidebar leads somewhere that works.
  */
 
-type Tab = 'withheld' | 'search' | 'profile' | 'handovers' | 'sources';
+type Tab = 'overview' | 'search' | 'sources' | 'profile' | 'plan' | 'invite';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'withheld', label: 'What it didn\u2019t tell you' },
-  { id: 'search', label: 'Search' },
-  { id: 'profile', label: 'How you work' },
-  { id: 'handovers', label: 'Handovers' },
-  { id: 'sources', label: 'Sources' },
+type IconName = Tab;
+
+/**
+ * The sidebar, in two groups.
+ *
+ * Above the allowance card: the things Sidq does. Below it: the things your
+ * account is. They are the same list of buttons and the rule for both is the
+ * same — every one of them opens a panel that renders something real.
+ */
+const TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] = [
+  { id: 'overview', label: 'Overview', icon: 'overview' },
+  { id: 'search', label: 'Search', icon: 'search' },
+  { id: 'sources', label: 'Sources', icon: 'sources' },
+  { id: 'profile', label: 'How you work', icon: 'profile' },
+  { id: 'plan', label: 'Plan', icon: 'plan', secondary: true },
+  { id: 'invite', label: 'Invite a friend', icon: 'invite', secondary: true },
 ];
 
 const DAY_MS = 86_400_000;
@@ -48,7 +63,7 @@ const COPIED_FOR_MS = 1600;
 
 export function Home() {
   const bridge = useMemo(() => desktopBridge(), []);
-  const [tab, setTab] = useState<Tab>('withheld');
+  const [tab, setTab] = useState<Tab>('overview');
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
 
@@ -90,17 +105,25 @@ export function Home() {
     /*
      * ── The surface ──────────────────────────────────────────────────────
      *
-     * Flat, and deliberately so. This had a radial bloom and gradient panels
-     * for a while, which is decoration standing in for hierarchy: it made the
-     * window busier without making anything easier to find.
+     * A tinted ground with the work floating on it as one white card, which is
+     * the shape every good Mac companion app has settled on. The sidebar is not
+     * a panel with a border down its side; it sits directly on the ground, and
+     * the card's edge is what separates them.
      *
-     * The site does the opposite and is the reference — one flat ground,
-     * hairline rules, one accent used only to say which thing is live, and
-     * everything else carried by type size and space. Same discipline here.
+     * ── Why it is light ──────────────────────────────────────────────────
+     * It was near-black, and near-black is what an app reaches for when it
+     * wants to look serious without deciding anything. Everything on it had to
+     * be a percentage of white, so eleven shades of grey ended up standing in
+     * for four levels of hierarchy, and the result read as one dim sheet.
+     *
+     * The lavender is the product's colour and it cannot carry a dark screen —
+     * at #B8A6FF it is either invisible or shouting. On a light ground it has
+     * somewhere to go: a tint for surfaces, a darker sibling for text, and ink
+     * for the one button that matters.
      */
-    <div className="grid h-[100dvh] grid-cols-[15rem_1fr] overflow-hidden bg-[#0A0A0E] text-white">
+    <div className="grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden bg-[#F1EFF7] text-[#16141C]">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col border-r border-white/[0.06] px-3 pb-4 pt-3">
+      <aside className="flex min-h-0 flex-col px-3 pb-4 pt-3">
         {/*
           * Room for the traffic lights, which float on the surface now.
           *
@@ -108,105 +131,610 @@ export function Home() {
           * to move the window by, and a window you cannot move is worse than
           * a titlebar that clashes.
           */}
-        <div data-tauri-drag-region className="h-7 shrink-0" />
+        <div data-tauri-drag-region className="h-8 shrink-0" />
 
-        <div className="px-3">
-          <span className="font-display text-[1.0625rem] leading-none tracking-[-0.045em]">
+        <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+          <Mark />
+          <span className="font-display text-[1.125rem] leading-none tracking-[-0.045em]">
             Sidq
           </span>
         </div>
 
-        <nav className="mt-8 flex flex-col gap-0.5">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                'group relative flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left',
-                'text-[0.875rem] transition-all duration-150',
-                tab === t.id
-                  ? 'bg-white/[0.07] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                  : 'text-white/40 hover:bg-white/[0.03] hover:text-white/85',
-              )}
-            >
-              {/* The active row gets a bar on its edge rather than a dot in
-                  its text: it reads at a glance without competing with the
-                  label for the same horizontal space. */}
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full transition-all duration-150',
-                  tab === t.id ? 'bg-[#B8A6FF] opacity-100' : 'opacity-0',
-                )}
-              />
-              <span className="min-w-0 truncate">{t.label}</span>
-            </button>
+        <nav className="mt-6 flex flex-col gap-0.5">
+          {TABS.filter((t) => !t.secondary).map((t) => (
+            <NavRow key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
           ))}
         </nav>
 
-        {/* The plan, as a card. It was two loose lines against the window edge. */}
-        <div className="mt-auto">
-          <div
-            className="rounded-[10px] border border-white/[0.07] px-3.5 py-3"
-          >
-            <p className="text-[0.8125rem] font-medium capitalize text-white/85">
-              {plan?.plan ?? 'free'}
-            </p>
-            {plan?.handoversCap ? (
-              <>
-                <p className="mt-1 text-[0.6875rem] text-white/35">
-                  {plan.handoversUsed} of {plan.handoversCap} handovers this week
-                </p>
-                {/* A bar, because "3 of 10" is a fact and this is a feeling. */}
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.07]">
-                  <div
-                    className="h-full rounded-full bg-[#B8A6FF] transition-[width] duration-500"
-                    style={{
-                      width: `${Math.min(100, (plan.handoversUsed / plan.handoversCap) * 100)}%`,
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <p className="mt-1 text-[0.6875rem] text-white/35">Unlimited handovers</p>
-            )}
+        {/*
+          * The allowance, in the one place it belongs.
+          *
+          * It was three separate readings of the same number: a card down here,
+          * a figure in the header strip and a bar on the overview. A limit is
+          * something you glance at, and glancing at it in three places is how
+          * you stop reading any of them.
+          */}
+        <div className="mt-auto pt-6">
+          {plan && (
+            <div className="rounded-[14px] border border-[#B8A6FF]/45 bg-[#F5F1FF] px-4 py-3.5">
+              {plan.handoversCap == null ? (
+                <>
+                  <p className="text-[0.875rem] font-medium capitalize text-[#16141C]">
+                    {plan.plan}
+                  </p>
+                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[#57516A]">
+                    Unlimited handovers, and search across everything.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[0.875rem] font-medium text-[#16141C]">
+                    <span className="text-[#6A4BEA]">
+                      {Math.max(0, plan.handoversCap - plan.handoversUsed)}
+                    </span>{' '}
+                    handovers left
+                  </p>
+                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[#57516A]">
+                    You get {plan.handoversCap} a week on {plan.plan}. Invite a friend, or
+                    upgrade for unlimited.
+                  </p>
+                  <button
+                    onClick={() => void bridge?.openUpgrade()}
+                    className={cn(
+                      'mt-3 w-full rounded-[10px] bg-[#16141C] px-3 py-2',
+                      'text-[0.8125rem] font-medium text-white',
+                      'cursor-pointer transition-opacity duration-150 hover:opacity-85',
+                    )}
+                  >
+                    Upgrade to Pro
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-col gap-0.5 border-t border-black/[0.07] pt-3">
+            {TABS.filter((t) => t.secondary).map((t) => (
+              <NavRow key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
+            ))}
           </div>
         </div>
       </aside>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
-      <main className="min-w-0 overflow-y-auto">
-        {/*
-          * The numbers, across the top, on every screen.
-          *
-          * They were three small lines at the bottom of the sidebar, which is
-          * where an app puts something it does not want looked at. They are the
-          * proof Sidq has read this machine, so they open the window.
-          *
-          * Every one is measured. Nothing here is an estimate and nothing is
-          * rounded up to look better.
-          */}
-        <header
+      <main className="min-w-0 py-3 pl-0 pr-3">
+        <div
           className={cn(
-            'sticky top-0 z-10 flex items-stretch gap-8 px-8 pb-5 pt-7',
-            'border-b border-white/[0.06] bg-[#08080C]/80 backdrop-blur-2xl',
+            'h-full min-h-0 overflow-y-auto rounded-[16px] bg-white',
+            'ring-1 ring-black/[0.07] shadow-[0_1px_2px_rgba(20,18,28,0.04)]',
           )}
         >
-          <Stat value={stats[0].toLocaleString()} label="conversations" />
-          <Stat value={stats[1].toLocaleString()} label="messages read" />
-          <Stat value={`${hoursRead}h`} label="of work indexed" />
-          <Stat value={plan?.handoversUsed?.toLocaleString() ?? '0'} label="handovers, 7 days" />
-        </header>
-
-        <div className="px-8 pb-10 pt-7">
-        {tab === 'withheld' && <WhatItDidntTell bridge={bridge} />}
-        {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
-        {tab === 'profile' && <Profile bridge={bridge} />}
-        {tab === 'handovers' && <Handovers bridge={bridge} />}
-        {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
+          <div data-tauri-drag-region className="h-3" />
+          <div className="px-9 pb-12 pt-5">
+            {tab === 'overview' && (
+              <Overview bridge={bridge} plan={plan} stats={stats} hoursRead={hoursRead} />
+            )}
+            {tab === 'search' && (
+              <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />
+            )}
+            {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
+            {tab === 'profile' && <Profile bridge={bridge} />}
+            {tab === 'plan' && <Plan bridge={bridge} plan={plan} />}
+            {tab === 'invite' && <Invite bridge={bridge} />}
+          </div>
         </div>
       </main>
     </div>
+  );
+}
+
+/* ── The sidebar's parts ──────────────────────────────────────────────────── */
+
+/**
+ * One row of the sidebar.
+ *
+ * The active one is a white pill on the tinted ground rather than a bar on its
+ * edge. On a dark screen the bar was the only mark that survived; here the row
+ * can simply be the same colour as the card it opens, which says "this is the
+ * thing on screen" without a second symbol to decode.
+ */
+function NavRow({
+  tab,
+  active,
+  onClick,
+}: {
+  tab: (typeof TABS)[number];
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left',
+        'text-[0.875rem] transition-colors duration-150',
+        active
+          ? 'bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.06)]'
+          : 'text-[#57516A] hover:bg-black/[0.035] hover:text-[#16141C]',
+      )}
+    >
+      <Icon name={tab.icon} className={active ? 'text-[#6A4BEA]' : 'text-[#8E8899]'} />
+      <span className="min-w-0 truncate">{tab.label}</span>
+    </button>
+  );
+}
+
+/** The wordmark's bars. The same four-bar figure the site uses. */
+function Mark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="shrink-0">
+      {[
+        [2, 6, 4],
+        [6.5, 3, 10],
+        [11, 5, 6],
+        [15.5, 1.5, 13],
+      ].map(([x, y, h]) => (
+        <rect key={x} x={x} y={y} width="2" height={h} rx="1" fill="#6A4BEA" />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The nav icons.
+ *
+ * Drawn here rather than pulled from a set. Six 16px glyphs is not worth a
+ * dependency, and every icon library ships hundreds of paths to get them.
+ */
+function Icon({ name, className }: { name: IconName; className?: string }) {
+  const paths: Record<IconName, React.ReactNode> = {
+    overview: (
+      <>
+        <rect x="2.5" y="2.5" width="5" height="5" rx="1.2" />
+        <rect x="10.5" y="2.5" width="5" height="5" rx="1.2" />
+        <rect x="2.5" y="10.5" width="5" height="5" rx="1.2" />
+        <rect x="10.5" y="10.5" width="5" height="5" rx="1.2" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="8" cy="8" r="5" />
+        <path d="M11.8 11.8 15.5 15.5" />
+      </>
+    ),
+    sources: (
+      <>
+        <ellipse cx="9" cy="4.5" rx="6" ry="2.4" />
+        <path d="M3 4.5v9c0 1.3 2.7 2.4 6 2.4s6-1.1 6-2.4v-9" />
+        <path d="M3 9c0 1.3 2.7 2.4 6 2.4s6-1.1 6-2.4" />
+      </>
+    ),
+    profile: (
+      <>
+        <path d="M4 3h7l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+        <path d="M6 8.5h6M6 11.5h4" />
+      </>
+    ),
+    plan: (
+      <>
+        <rect x="2.5" y="4.5" width="13" height="9" rx="1.6" />
+        <path d="M2.5 7.8h13" />
+      </>
+    ),
+    invite: (
+      <>
+        <path d="M2.5 7h13v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V7Z" />
+        <path d="M2.5 7 4 3.5h10L15.5 7M9 7v8.5" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={cn('shrink-0 transition-colors duration-150', className)}
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+
+/* ── Overview ─────────────────────────────────────────────────────────────── */
+
+/**
+ * What Sidq has of yours, and what you have done with it.
+ *
+ * Two columns, the way a dashboard wants to be: the record down the left, the
+ * standing figures down the right where they can be glanced at without being
+ * scrolled past. The figures used to be a strip across the top of every panel,
+ * which meant reading them on the search screen and the sources screen too.
+ *
+ * Every one is measured. Nothing here is an estimate and nothing is rounded up
+ * to look better.
+ */
+function Overview({
+  bridge,
+  plan,
+  stats,
+  hoursRead,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+  plan: PlanStatus | null;
+  stats: [number, number];
+  hoursRead: number;
+}) {
+  const [rows, setRows] = useState<HandoverRecord[] | null>(null);
+  const [reach, setReach] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.recentHandovers().then(setRows);
+    void bridge.recentWork(500).then((found) => {
+      const sessions = found as WorkSession[];
+      const ends = sessions.map((s) => s.endedAt).filter((n): n is number => typeof n === 'number');
+      setReach(ends.length > 0 ? [Math.min(...ends), Math.max(...ends)] : null);
+    });
+  }, [bridge]);
+
+  return (
+    <>
+      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Welcome back</h1>
+
+      <div className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
+        <div className="min-w-0">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">HANDOVERS</h2>
+
+          {rows !== null && rows.length === 0 && (
+            <div className="mt-3 rounded-[14px] border border-dashed border-black/[0.12] px-5 py-6">
+              <p className="text-[0.875rem] font-medium text-[#16141C]">Nothing handed over yet</p>
+              <p className="mt-1.5 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+                Press <Keys>&#8984;&#8679;K</Keys>, pick a conversation, press Enter. Each one is
+                also written to your Downloads folder as a Markdown file, so nothing is lost to a
+                misclick the way a clipboard is.
+              </p>
+            </div>
+          )}
+
+          {rows !== null && rows.length > 0 && (
+            <ul className="mt-3 divide-y divide-black/[0.06] border-y border-black/[0.06]">
+              {rows.map((row) => (
+                <li
+                  key={`${row.sessionId}-${row.madeAt}`}
+                  className="flex items-baseline gap-4 px-1 py-3 transition-colors duration-100 hover:bg-[#F8F6FD]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[0.875rem] text-[#16141C]">
+                      {row.title || 'Untitled conversation'}
+                    </span>
+                    <span className="block truncate text-[0.75rem] text-[#8E8899]">
+                      {sourceLabel(row.source)}
+                      {row.project && ` · ${row.project}`}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+                    {whenHandedOver(row.madeAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* The standing figures. Wispr's shape, and it is the right one: a
+            small stack of numbers that never moves, next to a list that does. */}
+        <aside className="rounded-[14px] bg-[#F5F3FB] px-5 py-4 ring-1 ring-black/[0.05]">
+          <Stat value={stats[0].toLocaleString()} label="conversations" />
+          <Stat value={stats[1].toLocaleString()} label="messages read" />
+          <Stat value={`${hoursRead}h`} label="of work indexed" />
+          <Stat
+            value={(plan?.handoversUsed ?? 0).toLocaleString()}
+            label="handovers, 7 days"
+          />
+          {reach && (
+            <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
+              Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{' '}
+              {whenLabel(reach[1])}.
+            </p>
+          )}
+        </aside>
+      </div>
+    </>
+  );
+}
+
+
+/** A keystroke, set in the mono face so it reads as something you press. */
+function Keys({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded-[5px] border border-black/[0.12] bg-[#F5F3FB] px-1.5 py-0.5 font-mono text-[0.75rem] text-[#3A3547]">
+      {children}
+    </kbd>
+  );
+}
+
+/* ── Plan ─────────────────────────────────────────────────────────────────── */
+
+/**
+ * What this account is on, and what that allows.
+ *
+ * Every figure comes from `plan_status`, which is Rust reporting the same
+ * numbers it enforces. Nothing on this panel is written down twice: if the
+ * limit changes in `entitlement.rs`, this changes with it.
+ *
+ * There is no "manage subscription" button because there is nothing behind one.
+ * Sidq has no billing portal, and a button that opens a page that cannot cancel
+ * anything is worse than saying where the receipt is.
+ */
+function Plan({
+  bridge,
+  plan,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+  plan: PlanStatus | null;
+}) {
+  if (!plan) {
+    return (
+      <>
+        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Plan</h1>
+        <p className="mt-4 text-[0.875rem] text-[#7A7489]">
+          {bridge ? 'Checking your plan…' : 'Your plan lives in the Sidq app. Open it there.'}
+        </p>
+      </>
+    );
+  }
+
+  const free = plan.plan === 'free';
+
+  return (
+    <>
+      <h1 className="font-display text-[1.75rem] capitalize tracking-[-0.04em]">{plan.plan}</h1>
+
+      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
+        <Row
+          term="Handovers a week"
+          detail={
+            plan.handoversCap == null
+              ? 'Unlimited'
+              : `${plan.handoversUsed} of ${plan.handoversCap} used`
+          }
+        />
+        <Row
+          term="Search reaches back"
+          detail={plan.historyDays == null ? 'Everything' : `${plan.historyDays} days`}
+        />
+        <Row term="Conversations kept" detail="On this Mac, always. Nothing is uploaded." />
+      </dl>
+
+      {free ? (
+        <div className="mt-8">
+          <button
+            onClick={() => void bridge?.openUpgrade()}
+            className={cn(
+              'rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
+              'bg-[#16141C] text-white transition-opacity duration-150',
+              'cursor-pointer hover:opacity-90',
+            )}
+          >
+            See the plans
+          </button>
+          <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
+            Or raise the free limit without paying: every friend who joins with your code adds
+            handovers to both of your weeks. That is the Invite tab.
+          </p>
+        </div>
+      ) : (
+        <p className="mt-8 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
+          Billing is handled by Stripe. The receipt in your email has the link to change or
+          cancel it.
+        </p>
+      )}
+    </>
+  );
+}
+
+/** One line of a plan. A definition list, because that is what this is. */
+function Row({ term, detail }: { term: string; detail: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 py-3">
+      <dt className="text-[0.875rem] text-[#57516A]">{term}</dt>
+      <dd className="text-right text-[0.875rem] text-[#16141C]">{detail}</dd>
+    </div>
+  );
+}
+
+/* ── Invite ───────────────────────────────────────────────────────────────── */
+
+/**
+ * Your code, and what it has actually earned.
+ *
+ * The offer is stated with numbers the server sent rather than numbers typed
+ * into this file, because the database is what pays them out: `invite_bonus` in
+ * 0007_invites.sql decides the amount, `entitlement.rs` adds it to the weekly
+ * allowance, and this only reads. A referral page whose promise and payout are
+ * maintained separately is a referral page that eventually lies.
+ *
+ * Both sides of the failure are visible. There is no code without an account,
+ * and no way to fetch one offline, so those say so instead of showing a blank
+ * box that looks like a bug.
+ */
+function Invite({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [summary, setSummary] = useState<InviteSummary | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [entry, setEntry] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [failure, setFailure] = useState('');
+
+  /*
+   * A missing bridge is an answer, not a pause.
+   *
+   * `/home` is a public route on the site as well as the desktop window, and
+   * outside the app there is no Rust to ask. Returning early left the panel on
+   * "Reading your invites…" forever, which is the one thing this panel was
+   * written not to do.
+   */
+  const load = useCallback(() => {
+    if (!bridge) {
+      setSummary({
+        code: '',
+        invited: 0,
+        bonus: 0,
+        redeemed: false,
+        each: 0,
+        most: 0,
+        problem: 'Invites live in the Sidq app. Open it there.',
+      });
+      return;
+    }
+    void bridge.inviteSummary().then(setSummary);
+  }, [bridge]);
+
+  useEffect(load, [load]);
+
+  if (summary === null) {
+    return <p className="text-[0.875rem] text-[#7A7489]">Reading your invites&hellip;</p>;
+  }
+
+  if (summary.problem) {
+    return (
+      <>
+        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Invite</h1>
+        <p className="mt-4 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+          {summary.problem}
+        </p>
+        <button
+          onClick={load}
+          className={cn(
+            'mt-4 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
+            'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
+            'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]',
+          )}
+        >
+          Try again
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Invite</h1>
+      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+        Anyone who signs up with your code adds {summary.each} handovers a week to your account
+        and {summary.each} to theirs, permanently, up to {summary.most}.
+      </p>
+
+      {/* The code, at the size of the thing you are meant to read off a screen
+          and say out loud. It has no O, I or L in it for the same reason. */}
+      <div className="mt-8 flex max-w-[34rem] items-center gap-3">
+        <span
+          className={cn(
+            'flex-1 rounded-[10px] border border-black/[0.11] px-4 py-3',
+            'font-display text-[1.5rem] tracking-[0.18em] text-[#16141C]',
+          )}
+        >
+          {summary.code}
+        </span>
+        <button
+          onClick={() => {
+            void navigator.clipboard.writeText(summary.code).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), COPIED_FOR_MS);
+            });
+          }}
+          className={cn(
+            'shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
+            'bg-[#16141C] text-white transition-opacity duration-150',
+            'cursor-pointer hover:opacity-90',
+          )}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+
+      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
+        <Row
+          term="People who used it"
+          detail={summary.invited === 0 ? 'Nobody yet' : String(summary.invited)}
+        />
+        <Row
+          term="Extra handovers a week"
+          detail={
+            summary.bonus === 0
+              ? 'None yet'
+              : `+${summary.bonus}${summary.bonus >= summary.most ? ' (the most there is)' : ''}`
+          }
+        />
+      </dl>
+
+      {/* Redeeming is offered once and then gone, because it can only happen
+          once: the invitee is the primary key of the referrals table. */}
+      {!summary.redeemed && (
+        <div className="mt-10 max-w-[34rem]">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">
+            SOMEBODY GAVE YOU A CODE?
+          </h2>
+          <form
+            className="mt-3 flex items-center gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!bridge || entry.trim().length === 0) return;
+              setRedeeming(true);
+              setFailure('');
+              void bridge
+                .redeemInvite(entry.trim().toUpperCase())
+                .then(() => {
+                  setEntry('');
+                  load();
+                })
+                // Rust hands back the sentence the database wrote, which names
+                // what is actually wrong with the code that was typed.
+                .catch((err: unknown) =>
+                  setFailure(err instanceof Error ? err.message : String(err)),
+                )
+                .finally(() => setRedeeming(false));
+            }}
+          >
+            <input
+              value={entry}
+              onChange={(e) => setEntry(e.target.value.toUpperCase())}
+              spellCheck={false}
+              autoCapitalize="characters"
+              placeholder="Their code"
+              className={cn(
+                'min-w-0 flex-1 rounded-[10px] border border-black/[0.11] bg-transparent',
+                'px-4 py-2.5 text-[0.9375rem] tracking-[0.14em] text-[#16141C]',
+                'placeholder:tracking-normal placeholder:text-[#A29CB0]',
+                'outline-none transition-colors duration-150 focus:border-[#6A4BEA]/60',
+              )}
+            />
+            <button
+              type="submit"
+              disabled={redeeming || entry.trim().length === 0}
+              className={cn(
+                'shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
+                'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
+                'transition-colors duration-150',
+                redeeming || entry.trim().length === 0
+                  ? 'cursor-default opacity-40'
+                  : 'cursor-pointer hover:bg-[#E6E1F5] hover:text-[#16141C]',
+              )}
+            >
+              {redeeming ? 'Checking\u2026' : 'Use it'}
+            </button>
+          </form>
+          {failure && <p className="mt-2.5 text-[0.8125rem] text-[#B23B32]">{failure}</p>}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -233,8 +761,17 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     });
   }, [bridge]);
 
+  const heading = (
+    <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">How you work</h1>
+  );
+
   if (facts === null) {
-    return <p className="text-[0.875rem] text-white/35">Reading your conversations&hellip;</p>;
+    return (
+      <>
+        {heading}
+        <p className="mt-4 text-[0.875rem] text-[#7A7489]">Reading your conversations&hellip;</p>
+      </>
+    );
   }
 
   /*
@@ -245,19 +782,23 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
    */
   if (facts.length === 0) {
     return (
-      <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/35">
+      <>
+        {heading}
+      <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
         Nothing yet. This fills up from the instructions you give your AIs
         &mdash; the rules you repeat, the stack you keep explaining &mdash; and it
         only counts sentences you actually typed, so it needs a few real
         conversations behind it first.
       </p>
+      </>
     );
   }
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/45">
+      {heading}
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
+        <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
           Taken word for word from your own messages, across every AI. Paste
           it at the top of a new conversation and skip explaining yourself again.
         </p>
@@ -270,7 +811,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           }}
           className={cn(
             'shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
+            'bg-[#16141C] text-white transition-opacity duration-150',
             'cursor-pointer hover:opacity-90',
           )}
         >
@@ -284,10 +825,10 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             key={fact.text}
             className={cn(
               'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
-              'transition-colors duration-100 hover:bg-white/[0.04]',
+              'transition-colors duration-100 hover:bg-[#F4F2FB]',
             )}
           >
-            <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-white/85">
+            <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-[#16141C]">
               {fact.text}
             </span>
             {/*
@@ -296,7 +837,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
               * Said in six conversations is a fact about the transcripts and
               * can be checked. Any label we invented on top of it could not.
               */}
-            <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+            <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
               {fact.conversations === 1
                 ? 'once'
                 : `${fact.conversations} conversations`}
@@ -305,136 +846,6 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         ))}
       </ul>
     </div>
-  );
-}
-
-/* ── What it didn't tell you ─────────────────────────────────────────────── */
-
-/**
- * The reasoning your assistant wrote about your work and never showed you.
- *
- * Every model that thinks before it answers produces two things: the reply, and
- * the reasoning behind it. You get the first. The second is written to a file
- * on your own disk, rendered nowhere, and dropped from the model's own context
- * after the turn, so it cannot be recovered by asking either.
- *
- * Sidq already lived off this material, because it is most of what makes a
- * handover worth more than a paste. But it was only ever visible as a
- * consequence. Nothing ever put a person in front of the sentence their
- * assistant wrote about their work and decided not to show them.
- *
- * That sentence is the product. Everything else follows from believing it: if
- * this is hidden from you, it is certainly hidden from the next assistant.
- */
-function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
-  const [report, setReport] = useState<WithheldReport | null>(null);
-
-  useEffect(() => {
-    if (!bridge) return;
-    void bridge.withheldReport().then(setReport);
-  }, [bridge]);
-
-  if (!report) {
-    return <p className="text-[0.875rem] text-white/35">Reading your conversations</p>;
-  }
-
-  if (report.hidden === 0) {
-    return (
-      <>
-        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">
-          What it didn&rsquo;t tell you
-        </h1>
-        <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
-          Nothing hidden yet. This fills up from AIs that reason before they answer and
-          write that reasoning to disk. Have a few conversations in Claude Code, Cowork or
-          Cursor and come back.
-        </p>
-      </>
-    );
-  }
-
-  return (
-    <>
-      {/*
-        * The number first, at a size that makes the point on its own.
-        *
-        * Measured, not asserted: shown and hidden are character counts from
-        * files on this disk, and the excerpts under them are verbatim, so
-        * anybody who doubts it can go and open the file.
-        */}
-      {/*
-        * The number is the product, so nothing competes with it.
-        *
-        * It spent a version inside a gradient card with a bloom behind it and
-        * the figure itself filled with a gradient. That is decoration doing the
-        * job hierarchy should: the number was no easier to read, and everything
-        * around it got harder.
-        *
-        * One enormous figure, one sentence, one rule underneath showing the
-        * split. Same discipline as the site, where a single line of display
-        * type carries a whole screen.
-        */}
-      <p className="text-[0.6875rem] tracking-[0.14em] text-white/30">
-        ACROSS {report.conversations} CONVERSATIONS ON THIS MAC
-      </p>
-
-      <h1 className="mt-6 font-display text-[5rem] leading-[0.8] tracking-[-0.055em] text-white">
-        {Math.round(report.share * 100)}%
-      </h1>
-
-      <p className="mt-6 max-w-[34ch] text-[1.25rem] leading-[1.3] tracking-[-0.015em] text-white/85">
-        of everything your AIs wrote about your work, you were never shown.
-      </p>
-
-      {/* The same fact, drawn. Accent marks the half you did not get. */}
-      <div className="mt-10 flex h-[3px] max-w-[42rem] overflow-hidden rounded-full bg-white/[0.07]">
-        <div
-          className="h-full bg-white/20"
-          style={{ width: `${Math.round((1 - report.share) * 100)}%` }}
-        />
-        <div className="h-full flex-1 bg-[#B8A6FF]" />
-      </div>
-      <div className="mt-3 flex max-w-[42rem] justify-between text-[0.75rem] tabular-nums text-white/30">
-        <span>{report.shown.toLocaleString()} you saw</span>
-        <span className="text-white/55">{report.hidden.toLocaleString()} you did not</span>
-      </div>
-
-      <p className="mt-8 max-w-[56ch] text-[0.875rem] leading-relaxed text-white/45">
-        {report.thoughts.toLocaleString()} separate thoughts, written to your disk, rendered
-        nowhere, and dropped from the model&rsquo;s own memory after the turn &mdash; so you
-        cannot get them by asking either.
-      </p>
-
-      <p className="mt-12 text-[0.6875rem] tracking-[0.14em] text-white/35">
-        THE LONGEST THINGS IT KEPT TO ITSELF
-      </p>
-      <ul className="mt-4 space-y-2.5">
-        {report.excerpts.slice(0, 12).map((row, i) => (
-          <li
-            key={`${row.sessionId}-${i}`}
-            className={cn(
-              'group relative overflow-hidden rounded-[12px] border border-white/[0.07] p-5',
-              'transition-colors duration-150 hover:border-white/[0.16]',
-            )}
-          >
-            {/* A quiet accent edge, lit on hover. It marks these as quotations
-                without a quote mark competing with the text. */}
-            <div className="flex items-baseline justify-between gap-4">
-              <span className="min-w-0 truncate text-[0.75rem] tracking-[0.02em] text-white/45">
-                {row.title || 'Untitled conversation'}
-                <span className="text-white/25"> · {row.source}</span>
-              </span>
-              <span className="shrink-0 font-display text-[0.75rem] tabular-nums text-white/30">
-                {row.chars.toLocaleString()}
-              </span>
-            </div>
-            <p className="mt-2.5 whitespace-pre-wrap text-[0.875rem] leading-[1.65] text-white/75">
-              {row.text}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </>
   );
 }
 
@@ -488,21 +899,29 @@ function Search({
 
   return (
     <>
-      <input
-        autoFocus
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search everything you have ever asked"
-        spellCheck={false}
-        className={cn(
-          'w-full rounded-[12px] bg-white/[0.05] px-4 py-3.5',
-          'text-[1rem] text-white placeholder:text-white/30',
-          'ring-1 ring-inset ring-white/[0.08] focus:outline-none focus:ring-white/20',
-        )}
-      />
+      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Search</h1>
+
+      <div className="relative mt-5">
+        <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8899]">
+          <Icon name="search" />
+        </span>
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search everything you have ever asked"
+          spellCheck={false}
+          className={cn(
+            'w-full rounded-[12px] bg-[#F5F3FB] py-3.5 pl-11 pr-4',
+            'text-[1rem] text-[#16141C] placeholder:text-[#8E8899]',
+            'ring-1 ring-inset ring-black/[0.07] transition-shadow duration-150',
+            'focus:outline-none focus:ring-[#6A4BEA]/40',
+          )}
+        />
+      </div>
 
       {searched && (
-        <p className="mt-4 text-[0.8125rem] text-white/35">
+        <p className="mt-4 text-[0.8125rem] text-[#7A7489]">
           {hits.length === 0
             ? 'Nothing matched.'
             : `${hits.length} ${hits.length === 1 ? 'result' : 'results'}`}
@@ -524,13 +943,13 @@ function Search({
        * idea there is anything there.
        */}
       {withheld > 0 && historyDays !== null && (
-        <div className="mt-5 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.06] p-4">
-          <p className="text-[0.875rem] text-white/85">
-            <span className="font-medium text-white">{withheld} more</span>{' '}
+        <div className="mt-5 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
+          <p className="text-[0.875rem] text-[#16141C]">
+            <span className="font-medium text-[#16141C]">{withheld} more</span>{' '}
             {withheld === 1 ? 'conversation matches' : 'conversations match'}, older than{' '}
             {historyDays} days
           </p>
-          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/40">
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-[#7A7489]">
             Free search reaches back {historyDays} days. Pro reaches everything you have ever
             asked, in any AI.
           </p>
@@ -538,7 +957,7 @@ function Search({
       )}
 
       {!searched && (
-        <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-white/35">
+        <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
           Every conversation on this Mac, plus every AI you have opened in Sidq,
           searched together. No AI can read another one&rsquo;s history, so this is
           the only place yours sits in one pile.
@@ -550,23 +969,23 @@ function Search({
 
 function Hit({ hit }: { hit: SearchHit }) {
   return (
-    <article className="rounded-[12px] bg-white/[0.03] p-4 ring-1 ring-inset ring-white/[0.05]">
+    <article className="rounded-[12px] bg-[#F8F6FD] p-4 ring-1 ring-inset ring-black/[0.06]">
       <div className="flex items-baseline gap-2">
-        <span className="truncate text-[0.875rem] font-medium text-white/90">
+        <span className="truncate text-[0.875rem] font-medium text-[#16141C]/90">
           {hit.title || 'Untitled'}
         </span>
-        <span className="shrink-0 text-[0.6875rem] text-white/30">
+        <span className="shrink-0 text-[0.6875rem] text-[#8E8899]">
           {sourceLabel(hit.source)}
           {hit.project && ` · ${hit.project}`}
           {hit.endedAt > 0 && ` · ${whenLabel(hit.endedAt)}`}
         </span>
       </div>
-      <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/55">
+      <p className="mt-2 text-[0.8125rem] leading-relaxed text-[#57516A]">
         {/* FTS5 wraps matches in « ». Rendered as marks so the eye lands on why
             this result is here rather than on the surrounding sentence. */}
         {hit.snippet.split(/[«»]/).map((part, i) =>
           i % 2 === 1 ? (
-            <mark key={i} className="rounded bg-[#B8A6FF]/25 px-0.5 text-white">
+            <mark key={i} className="rounded bg-[#E9E2FF] px-0.5 text-[#16141C]">
               {part}
             </mark>
           ) : (
@@ -575,67 +994,6 @@ function Hit({ hit }: { hit: SearchHit }) {
         )}
       </p>
     </article>
-  );
-}
-
-/* ── Handovers ────────────────────────────────────────────────────────────── */
-
-function Handovers({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
-  const [rows, setRows] = useState<HandoverRecord[] | null>(null);
-
-  useEffect(() => {
-    if (!bridge) return;
-    void bridge.recentHandovers().then(setRows);
-  }, [bridge]);
-
-  return (
-    <>
-      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Handovers</h1>
-      <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
-        Every one is written to your Downloads folder as a Markdown file, so nothing is lost
-        to a misclick the way a clipboard is.
-      </p>
-
-      {rows !== null && rows.length === 0 && (
-        /*
-         * Empty says empty. This panel used to claim Sidq kept no record at
-         * all, which stopped being true the day the handovers table landed;
-         * inventing rows to fill it would be the same mistake pointed the
-         * other way.
-         */
-        <p className="mt-8 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
-          You have not handed one over yet. Press ⌘⇧K, pick a conversation, press Enter, and
-          it shows up here.
-        </p>
-      )}
-
-      {rows !== null && rows.length > 0 && (
-        <ul className="mt-8 space-y-px">
-          {rows.map((row) => (
-            <li
-              key={`${row.sessionId}-${row.madeAt}`}
-              className={cn(
-                'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
-                'transition-colors duration-100 hover:bg-white/[0.04]',
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[0.875rem] text-white/85">
-                  {row.title || 'Untitled conversation'}
-                </span>
-                <span className="block truncate text-[0.75rem] text-white/35">
-                  {row.source}
-                  {row.project && ` · ${row.project}`}
-                </span>
-              </span>
-              <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
-                {whenHandedOver(row.madeAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
   );
 }
 
@@ -711,8 +1069,8 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
 
   return (
     <div className="mt-8">
-      <p className="text-[0.875rem] font-medium text-white">Open one</p>
-      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-white/45">
+      <p className="text-[0.875rem] font-medium text-[#16141C]">Open one</p>
+      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
         In your own browser, where you are already signed in and your passkeys and password
         manager work. Sidq never asks you to log in to anything.
       </p>
@@ -727,8 +1085,8 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
             }
             className={cn(
               'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-              'bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10',
-              'cursor-pointer transition-colors duration-150 hover:bg-white/[0.12] hover:text-white',
+              'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
+              'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]',
             )}
           >
             {row.label}
@@ -737,7 +1095,7 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
       </div>
       <button
         onClick={() => setInSidq((v) => !v)}
-        className="mt-3 text-[0.75rem] text-white/30 transition-colors duration-150 hover:text-white/60"
+        className="mt-3 text-[0.75rem] text-[#8E8899] transition-colors duration-150 hover:text-[#3A3547]"
       >
         {inSidq
           ? 'Opening inside Sidq. Passkeys and autofill will not work here. Use my browser instead'
@@ -752,8 +1110,8 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
   const [message, setMessage] = useState('');
 
   return (
-    <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/20 bg-[#B8A6FF]/[0.05] p-4">
-      <p className="text-[0.875rem] font-medium text-white">
+    <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
+      <p className="text-[0.875rem] font-medium text-[#16141C]">
         Already have an export file?
       </p>
       {/*
@@ -767,18 +1125,18 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
         * in one click, so that is the offer; this is for the people who
         * happen to have a file already.
         */}
-      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
         Only worth it if you already downloaded one, since they take a day or two to
         arrive. It brings in everything you did before installing Sidq. Claude and ChatGPT
-        both call it <code className="text-white/65">conversations.json</code>; Google
-        Takeout calls it <code className="text-white/65">MyActivity.json</code>. Sidq works
+        both call it <code className="text-[#3A3547]">conversations.json</code>; Google
+        Takeout calls it <code className="text-[#3A3547]">MyActivity.json</code>. Sidq works
         out which is which.
       </p>
 
       <label
         className={cn(
           'mt-3 inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5',
-          'bg-[#B8A6FF] text-[0.8125rem] font-medium text-[#141319]',
+          'bg-[#16141C] text-[0.8125rem] font-medium text-white',
           'transition-opacity duration-150 hover:opacity-90',
           state === 'reading' && 'pointer-events-none opacity-50',
         )}
@@ -818,7 +1176,7 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
         <p
           className={cn(
             'mt-2.5 text-[0.8125rem]',
-            state === 'done' ? 'text-white/55' : 'text-red-300',
+            state === 'done' ? 'text-[#57516A]' : 'text-[#B23B32]',
           )}
         >
           {message}
@@ -856,7 +1214,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
   return (
     <>
       <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Sources</h1>
-      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
+      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
         Sidq is not tied to any one AI. The ones that write conversations to this Mac
         are read with nothing to set up. The ones that run in a browser keep nothing readable
         here. You open them in your own browser, where you are already signed in, and the Sidq
@@ -869,17 +1227,17 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           return (
             <li
               key={source.id}
-              className="flex items-center gap-3 rounded-[10px] bg-white/[0.03] px-4 py-2.5"
+              className="flex items-center gap-3 rounded-[10px] bg-[#F8F6FD] px-4 py-2.5"
             >
               <span
                 aria-hidden="true"
                 className={cn(
                   'size-1.5 shrink-0 rounded-full',
-                  found > 0 ? 'bg-[#B8A6FF]' : 'bg-white/15',
+                  found > 0 ? 'bg-[#6A4BEA]' : 'bg-[#D6D1E4]',
                 )}
               />
-              <span className="flex-1 text-[0.875rem] text-white/80">{source.label}</span>
-              <span className="text-[0.75rem] text-white/35">
+              <span className="flex-1 text-[0.875rem] text-[#16141C]">{source.label}</span>
+              <span className="text-[0.75rem] text-[#7A7489]">
                 {found > 0
                   ? `${found} ${found === 1 ? 'conversation' : 'conversations'}`
                   : source.local
@@ -896,11 +1254,11 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           * that looks identical to one nobody has used. These sites redesign
           * without notice and the extension reads nothing when they do.
           */
-        <div className="mt-6 rounded-[12px] border border-amber-400/25 bg-amber-400/[0.06] p-4">
-          <p className="text-[0.875rem] font-medium text-white">
+        <div className="mt-6 rounded-[12px] border border-amber-500/30 bg-amber-50 p-4">
+          <p className="text-[0.875rem] font-medium text-[#16141C]">
             {stale.join(' and ')} changed, and Sidq stopped reading {stale.length === 1 ? 'it' : 'them'}
           </p>
-          <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/50">
+          <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
             The page moved out from under the extension. This is fixed from our side without
             you updating anything, usually the same day. Everything already captured is safe.
           </p>
@@ -933,22 +1291,19 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 /* ── Stats ────────────────────────────────────────────────────────────────── */
 
 /**
- * One measured number, at the top of the window.
+ * One measured number in the rail.
  *
- * Four equal boxes with hairlines between them looked like a spreadsheet
- * header. They are a row of figures instead, sized so the number carries and
- * the label recedes, which is the whole hierarchy a stat needs.
+ * Baseline-aligned with its label rather than stacked over it: at this size a
+ * label underneath reads as a caption, and these are a list of facts.
  */
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="min-w-0">
-      <p className="font-display text-[1.625rem] leading-none tabular-nums tracking-[-0.045em] text-white">
+    <p className="flex items-baseline gap-2 py-1">
+      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[#16141C]">
         {value}
-      </p>
-      <p className="mt-1.5 truncate text-[0.6875rem] tracking-[0.08em] text-white/30">
-        {label.toUpperCase()}
-      </p>
-    </div>
+      </span>
+      <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">{label}</span>
+    </p>
   );
 }
 
