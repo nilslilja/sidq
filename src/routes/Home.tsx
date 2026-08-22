@@ -602,20 +602,27 @@ const SOURCES: { id: string; label: string; local: boolean }[] = [
  * the one file somebody deliberately chose.
  */
 /**
- * The assistants, opened inside Sidq.
+ * The assistants, opened where you are already signed in.
  *
- * This replaces the browser extension as the way a browser assistant is read.
- * The extension worked and was the wrong shape: a store listing, a review
- * queue, a different install per browser, and a person deciding to trust a
- * second thing before Sidq could read anything at all. For a product whose
- * whole pitch is that it already knows, that is the wrong first minute.
+ * Sidq has its own browser engine and for a while these opened inside it, which
+ * removed the extension install and looked like the better answer. It is not.
+ * The pages render perfectly and the one thing every account now depends on
+ * cannot work: passkeys need WebAuthn, WebAuthn in a webview needs an
+ * associated-domains entitlement, and that entitlement has to be granted by the
+ * site owner publishing Sidq's team identifier in their own
+ * apple-app-site-association file. OpenAI is not going to do that. AutoFill,
+ * Keychain and every password manager are the same story.
  *
- * Sidq is a Tauri app, so it already has a browser engine in it. Verified in
- * this webview: ChatGPT, Claude and Gemini all render completely, with sign-in
- * offered and no "unsupported browser" anywhere.
+ * So the login stays in the browser where all of that already works, and Sidq
+ * never holds a session at all. The extension reads the page from there.
+ *
+ * Opening inside Sidq is still offered underneath, because an account that
+ * signs in with an email and a password hits none of the above and it saves
+ * them an install.
  */
 function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [rows, setRows] = useState<{ id: string; label: string }[]>([]);
+  const [inSidq, setInSidq] = useState(false);
 
   useEffect(() => {
     if (!bridge) return;
@@ -626,16 +633,20 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
 
   return (
     <div className="mt-8">
-      <p className="text-[0.875rem] font-medium text-white">Open one here</p>
-      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
-        Sign in once, in Sidq, and everything you do in it from then on is read as it happens.
-        Nothing to install and no extension.
+      <p className="text-[0.875rem] font-medium text-white">Open one</p>
+      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-white/45">
+        In your own browser, where you are already signed in and your passkeys and password
+        manager work. Sidq never asks you to log in to anything.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {rows.map((row) => (
           <button
             key={row.id}
-            onClick={() => void bridge?.openAssistant(row.id)}
+            onClick={() =>
+              void (inSidq
+                ? bridge?.openAssistant(row.id)
+                : bridge?.openAssistantInBrowser(row.id))
+            }
             className={cn(
               'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
               'bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10',
@@ -646,6 +657,14 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
           </button>
         ))}
       </div>
+      <button
+        onClick={() => setInSidq((v) => !v)}
+        className="mt-3 text-[0.75rem] text-white/30 transition-colors duration-150 hover:text-white/60"
+      >
+        {inSidq
+          ? 'Opening inside Sidq. Passkeys and autofill will not work here. Use my browser instead'
+          : 'Or open them inside Sidq, if you sign in with an email and password'}
+      </button>
     </div>
   );
 }
@@ -747,8 +766,8 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
         Sidq is not tied to any one assistant. The ones that write conversations to this Mac
         are read with nothing to set up. The ones that run in a browser keep nothing readable
-        here, so you open them inside Sidq instead. Sign in once and everything after that is
-        read as it happens. Nothing to install.
+        here. You open them in your own browser, where you are already signed in, and the Sidq
+        extension reads them as you use them. Sidq never asks you to log in to anything.
       </p>
 
       <ul className="mt-6 space-y-1.5">

@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     q: 'Which assistants does it work with?',
-    a: 'Two ways, and neither needs you to remember anything. Assistants that write conversations to your Mac (Claude Code, Cowork, Cursor, Windsurf, VS Code) are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq. Assistants that run in a browser (ChatGPT, Claude, Gemini, Perplexity, Grok and the rest) keep nothing readable on your computer, so you connect them once with the Sidq extension and everything after that is read as you use it. For what you did in them before today, each one gives you an export file and Sidq reads all of them. Nothing is uploaded either way: the extension hands text to the app over your own machine\u2019s loopback address, which cannot leave it.',
+    a: 'Two ways, and neither needs you to remember anything. Assistants that write conversations to your Mac (Claude Code, Cowork, Cursor, Windsurf, VS Code) are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq. Assistants that run in a browser (ChatGPT, Claude, Gemini, Perplexity, Grok and the rest) keep nothing readable on your computer, so you use them in your own browser exactly as you do now, where you are already signed in and your passkeys and password manager work, and the Sidq extension reads them as you go. Sidq never asks you to log in to an assistant. For what you did in them before today, each one gives you an export file and Sidq reads all of them. Nothing is uploaded either way: the extension hands text to the app over your own machine\u2019s loopback address, which cannot leave it.',
   },
   {
     q: 'I only installed it today. Is it empty until I build up history?',

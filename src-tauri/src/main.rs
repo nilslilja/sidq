@@ -403,7 +403,37 @@ fn assistant_list() -> Vec<AssistantRow> {
         .collect()
 }
 
-/// Open an assistant inside Sidq. Nothing to install.
+/**
+ * Open an assistant in the browser this Mac already uses.
+ *
+ * The default route, because it is the only one where signing in actually
+ * works. Sidq's own webview renders these sites perfectly and cannot do the one
+ * thing every account now depends on: passkeys need WebAuthn, WebAuthn in a
+ * webview needs an associated-domains entitlement, and that entitlement
+ * requires OpenAI to publish Sidq's team identifier in their own
+ * apple-app-site-association file. They will not, and no amount of work here
+ * changes that. AutoFill and password managers are the same story.
+ *
+ * So the login stays where your passkeys, your Keychain and your password
+ * manager already live, and Sidq never needs a session of its own at all. The
+ * extension reads the page from there and hands it to the app over loopback.
+ */
+#[tauri::command]
+fn open_assistant_in_browser(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let assistant = assistants::find(&id).ok_or("Sidq does not know that assistant.")?;
+    app.opener()
+        .open_url(assistant.url, None::<&str>)
+        .map_err(|e| format!("Could not open {}: {e}", assistant.label))
+}
+
+/**
+ * Open an assistant inside Sidq instead.
+ *
+ * Kept for accounts that sign in with an email and a password, where the
+ * webview is fine and there is nothing to install. Offered as the alternative
+ * rather than the default, because anybody on a passkey hits a wall with no
+ * way over it.
+ */
 #[tauri::command]
 fn open_assistant(app: tauri::AppHandle, id: String) -> Result<(), String> {
     assistants::open(&app, &id)
@@ -945,6 +975,7 @@ fn main() {
             withheld_report,
             assistant_list,
             open_assistant,
+            open_assistant_in_browser,
             import_export,
             handover_text,
             set_desktop_session,

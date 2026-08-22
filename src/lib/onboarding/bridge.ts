@@ -191,7 +191,16 @@ export interface OnboardingBridge {
   withheldReport: () => Promise<WithheldReport>;
   /** Assistants Sidq can open in its own window. Nothing to install. */
   assistantList: () => Promise<{ id: string; label: string }[]>;
-  /** Open one. Sign in once, inside Sidq, and it reads as you use it. */
+  /**
+   * Open one in the browser this Mac already uses.
+   *
+   * The default, because it is the only route where signing in works. Passkeys
+   * need WebAuthn, WebAuthn in a webview needs an entitlement only the site
+   * owner can grant, and AutoFill and password managers never reach a webview
+   * at all.
+   */
+  openAssistantInBrowser: (id: string) => Promise<void>;
+  /** Open one inside Sidq instead. Fine for email and password accounts. */
   openAssistant: (id: string) => Promise<void>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
   planStatus: () => Promise<PlanStatus>;
@@ -297,6 +306,9 @@ export function desktopBridge(): OnboardingBridge | null {
     assistantList: async () => {
       const rows = await invoke('assistant_list');
       return Array.isArray(rows) ? (rows as { id: string; label: string }[]) : [];
+    },
+    openAssistantInBrowser: async (id) => {
+      await invoke('open_assistant_in_browser', { id });
     },
     openAssistant: async (id) => {
       await invoke('open_assistant', { id });
