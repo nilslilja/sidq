@@ -22,6 +22,7 @@ mod capture;
 mod imports;
 mod compiler;
 mod cursor_history;
+mod screen_reader;
 mod withheld;
 mod work_history;
 

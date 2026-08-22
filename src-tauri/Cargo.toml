@@ -26,6 +26,14 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-opener = "2"
 
+# Reading assistant windows through macOS Accessibility, which is what makes
+# Sidq work with no extension, no store and no sign-in. Thin bindings over
+# ApplicationServices rather than hand-rolled FFI: CoreFoundation ownership
+# rules are exactly the kind of thing to get wrong once and never notice.
+[target.'cfg(target_os = "macos")'.dependencies]
+accessibility-sys = "0.1"
+core-foundation = "0.10"
+
 [profile.release]
 # A menu-bar companion has no business being 30MB. These four settings take the
 # binary to roughly 5MB, which matters because people judge an overlay by whether
