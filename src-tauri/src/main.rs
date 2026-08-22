@@ -405,6 +405,45 @@ fn set_backdrop(app: tauri::AppHandle, shown: bool) {
     }
 }
 
+/**
+ * Sites whose selectors have stopped matching, reported by the extension.
+ *
+ * Shown in the Sources panel, because a source stuck at zero because a site
+ * redesigned looks exactly like one the person has never used, and only one of
+ * those is something we can fix.
+ */
+#[tauri::command]
+async fn stale_sources() -> Vec<String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(conn) = index_store::open() else {
+            return Vec::new();
+        };
+        // Anything reported in the last three days. Older than that and either
+        // it was fixed or the person stopped using the site.
+        let cutoff = (std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+            / 86_400)
+            .saturating_sub(3);
+
+        assistants::ASSISTANTS
+            .iter()
+            .filter(|a| {
+                // Keyed on the label, because that is what the extension
+                // reports. Keying on the id silently never matched Claude,
+                // whose id is "claude.ai" and whose label is "Claude".
+                index_store::setting(&conn, &format!("stale:{}", a.label.to_lowercase()))
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .is_some_and(|day| day >= cutoff)
+            })
+            .map(|a| a.label.to_string())
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// The list of assistants Sidq can open, for the UI to draw.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1013,6 +1052,7 @@ fn main() {
             recent_handovers,
             withheld_report,
             set_backdrop,
+            stale_sources,
             assistant_list,
             open_assistant,
             open_assistant_in_browser,

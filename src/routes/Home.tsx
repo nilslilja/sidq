@@ -751,6 +751,13 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
 }
 
 function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: ReturnType<typeof desktopBridge> }) {
+  const [stale, setStale] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.staleSources().then(setStale);
+  }, [bridge]);
+
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of sessions) {
@@ -797,6 +804,23 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           );
         })}
       </ul>
+      {stale.length > 0 && (
+        /*
+          * Said out loud, because the alternative is a source sitting at zero
+          * that looks identical to one nobody has used. These sites redesign
+          * without notice and the extension reads nothing when they do.
+          */
+        <div className="mt-6 rounded-[12px] border border-amber-400/25 bg-amber-400/[0.06] p-4">
+          <p className="text-[0.875rem] font-medium text-white">
+            {stale.join(' and ')} changed, and Sidq stopped reading {stale.length === 1 ? 'it' : 'them'}
+          </p>
+          <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/50">
+            The page moved out from under the extension. This is fixed from our side without
+            you updating anything, usually the same day. Everything already captured is safe.
+          </p>
+        </div>
+      )}
+
       <OpenAssistants bridge={bridge} />
       <ImportHistory bridge={bridge} />
     </>

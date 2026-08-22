@@ -189,6 +189,13 @@ export interface OnboardingBridge {
    * checked against a file the person owns.
    */
   withheldReport: () => Promise<WithheldReport>;
+  /**
+   * Sites whose selectors have stopped matching, reported by the extension.
+   *
+   * A source stuck at zero because the site redesigned looks exactly like one
+   * that has never been used, and only one of those is fixable.
+   */
+  staleSources: () => Promise<string[]>;
   /** Assistants Sidq can open in its own window. Nothing to install. */
   assistantList: () => Promise<{ id: string; label: string }[]>;
   /**
@@ -310,6 +317,10 @@ export function desktopBridge(): OnboardingBridge | null {
       return (
         out ?? { shown: 0, hidden: 0, thoughts: 0, conversations: 0, excerpts: [], share: 0 }
       );
+    },
+    staleSources: async () => {
+      const rows = await invoke('stale_sources');
+      return Array.isArray(rows) ? (rows as string[]) : [];
     },
     assistantList: async () => {
       const rows = await invoke('assistant_list');

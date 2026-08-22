@@ -141,6 +141,37 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
      * else is on screen, and driving that by synthesising clicks at guessed
      * coordinates is how the last attempt ended up filming a permission dialog.
      */
+    /*
+     * A site has redesigned and our selectors no longer match it.
+     *
+     * Recorded so the Sources panel can say so. The alternative is what this
+     * replaces: the extension reads nothing, that source quietly stays at zero,
+     * and it looks identical to an assistant the person has not used yet.
+     */
+    if method == Method::Post && path.starts_with("/stale") {
+        let source = body
+            .split_once(r#""source":""#)
+            .and_then(|(_, rest)| rest.split_once('"'))
+            .map(|(s, _)| s.to_string())
+            .filter(|s| !s.is_empty() && s.len() < 40);
+
+        if let (Some(source), Some(conn)) = (source, crate::index_store::open()) {
+            let today = (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+                / 86_400)
+                .to_string();
+            let _ = crate::index_store::put_setting(
+                &conn,
+                &format!("stale:{}", source.to_lowercase()),
+                &today,
+            );
+        }
+        respond(&mut stream, 200, "ok");
+        return;
+    }
+
     if method == Method::Post && path.starts_with("/launch") {
         let id = body
             .split_once(r#""id":""#)

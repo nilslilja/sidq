@@ -43,3 +43,6 @@ dist/
 # better than a 404 on the only button that matters.
 !public/downloads/
 !public/downloads/*.dmg
+
+# The packaged extension upload. Rebuilt by scripts/package-extension.sh.
+dist-extension/

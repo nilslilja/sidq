@@ -474,9 +474,37 @@ let lastSentAt = 0;
  * test than hashing tens of thousands of characters every four seconds on a
  * page that is already busy rendering a reply.
  */
+/*
+ * Tell the app when this site has moved.
+ *
+ * The dangerous failure here is silence. A stale selector matches nothing,
+ * `readConversation` returns null, the loop keeps running, and the product
+ * looks like it is working while reading nothing at all. These sites redesign
+ * without notice, so the question is not whether that happens but whether
+ * anybody finds out.
+ *
+ * The test is a page that plainly has a conversation on it — a lot of text and
+ * a composer — where none of our selectors match. That is a redesign, not an
+ * empty chat.
+ */
+function reportIfStale() {
+  const def = site();
+  if (!def || readConversation()) return;
+
+  const looksLikeAConversation =
+    (document.body.innerText || '').length > 2000 &&
+    Boolean(document.querySelector('textarea, [contenteditable="true"]'));
+  if (!looksLikeAConversation) return;
+
+  chrome.runtime.sendMessage({ type: 'sidq:stale', source: def.name });
+}
+
 function captureIfChanged() {
   const text = readConversation();
-  if (!text || text.length === lastSentLength) return;
+  if (!text || text.length === lastSentLength) {
+    if (!text) reportIfStale();
+    return;
+  }
 
   const now = Date.now();
   if (now - lastSentAt < MIN_GAP_MS) return;

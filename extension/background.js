@@ -100,6 +100,9 @@ const SIDQ_OPEN = 'http://127.0.0.1:17872/open';
 /** And where it is told an assistant was opened. */
 const SIDQ_OPENED = 'http://127.0.0.1:17872/opened';
 
+/** Where a site that has redesigned out from under us is reported. */
+const SIDQ_STALE = 'http://127.0.0.1:17872/stale';
+
 async function tell(url, payload) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -129,6 +132,17 @@ chrome.runtime.onMessage.addListener((message, sender) => {
      * something worth interrupting them about.
      */
     void tell(SIDQ_ENDPOINT, message.payload);
+  }
+  if (message?.type === 'sidq:stale' && message.source) {
+    // Reported at most once a day per site: the watcher fires on a timer and
+    // a site that has moved has moved for everybody, all day.
+    const key = `stale:${message.source}`;
+    void chrome.storage.local.get(key).then((seen) => {
+      const today = new Date().toISOString().slice(0, 10);
+      if (seen[key] === today) return;
+      void chrome.storage.local.set({ [key]: today });
+      void tell(SIDQ_STALE, { source: message.source });
+    });
   }
   if (message?.type === 'sidq:open') {
     void tell(SIDQ_OPEN, { source: message.source ?? null });
