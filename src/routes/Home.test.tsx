@@ -133,6 +133,30 @@ describe('the sidebar', () => {
   });
 });
 
+describe('the mark', () => {
+  test('is the app icon, not a redrawing of it', async () => {
+    /*
+     * The sidebar inlines the icon's paths so it can crop to the artwork: the
+     * whole 512 square shrunk to 22 points is a smudge, because the drawing
+     * lives in a wide, short band across the middle of it.
+     *
+     * Inlining means two copies, and the failure mode of two copies is that the
+     * window quietly stops matching the Dock icon — which nobody spots by
+     * looking, because you never see them side by side.
+     */
+    const { readFileSync } = await import('node:fs');
+    const icon = readFileSync('public/icons/icon.svg', 'utf8');
+    const source = readFileSync('src/routes/Home.tsx', 'utf8');
+
+    const strokes = [...icon.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1]);
+    expect(strokes).toHaveLength(2);
+
+    for (const d of strokes) {
+      expect(source).toContain(d);
+    }
+  });
+});
+
 describe('the plan panel', () => {
   test('states the limits it is actually enforcing', async () => {
     // Both figures come from plan_status, which is Rust reporting the same

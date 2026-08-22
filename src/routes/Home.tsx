@@ -264,18 +264,38 @@ function NavRow({
   );
 }
 
-/** The wordmark's bars. The same four-bar figure the site uses. */
+/**
+ * The Sidq mark: the scatter resolving into one clear line.
+ *
+ * The paths are `public/icons/icon.svg`, which is the Dock icon, cropped to the
+ * artwork. The whole 512 square shrunk to 22 points was a smudge — the drawing
+ * lives in a wide, short band across the middle of it and the plate is a shade
+ * off the sidebar's own ground, so there was nothing to see at that size.
+ *
+ * The first version of this was four bars, which is Wispr's dictation waveform
+ * and says nothing about what Sidq does.
+ *
+ * These two `d` strings are the icon's own, and `Home.test.tsx` reads the file
+ * and fails if they stop matching, because a wordmark that has quietly drifted
+ * from the app icon is not something anybody notices by looking.
+ */
 function Mark() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" className="shrink-0">
-      {[
-        [2, 6, 4],
-        [6.5, 3, 10],
-        [11, 5, 6],
-        [15.5, 1.5, 13],
-      ].map(([x, y, h]) => (
-        <rect key={x} x={x} y={y} width="2" height={h} rx="1" fill="#6A4BEA" />
-      ))}
+    <svg
+      viewBox="72 116 386 208"
+      width="30"
+      height="16"
+      fill="none"
+      stroke="#4F46E5"
+      strokeWidth="24"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
+      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
+      <circle cx="416" cy="256" r="30" fill="#4F46E5" stroke="none" />
     </svg>
   );
 }
