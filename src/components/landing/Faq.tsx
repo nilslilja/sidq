@@ -27,11 +27,11 @@ const FREE = entitlementsFor('free');
 const FAQS = [
   {
     q: 'What does it actually do?',
-    a: 'You are in the middle of something with one assistant and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.',
+    a: 'You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.',
   },
   {
-    q: 'Which assistants does it work with?',
-    a: 'Two ways, and neither needs you to remember anything. Assistants that write conversations to your Mac (Claude Code, Cowork, Cursor, Windsurf, VS Code) are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq. Assistants that run in a browser (ChatGPT, Claude, Gemini, Perplexity, Grok and the rest) keep nothing readable on your computer, so you use them in your own browser exactly as you do now, where you are already signed in and your passkeys and password manager work, and the Sidq extension reads them as you go. Sidq never asks you to log in to an assistant. For what you did in them before today, each one gives you an export file and Sidq reads all of them. Nothing is uploaded either way: the extension hands text to the app over your own machine\u2019s loopback address, which cannot leave it.',
+    q: 'Which AIs does it work with?',
+    a: 'Two ways, and neither needs you to remember anything. AIs that write conversations to your Mac (Claude Code, Cowork, Cursor, Windsurf, VS Code) are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq. AIs that run in a browser (ChatGPT, Claude, Gemini, Perplexity, Grok and the rest) keep nothing readable on your computer, so you use them in your own browser exactly as you do now, where you are already signed in and your passkeys and password manager work, and the Sidq extension reads them as you go. Sidq never asks you to log in to an AI. For what you did in them before today, each one gives you an export file and Sidq reads all of them. Nothing is uploaded either way: the extension hands text to the app over your own machine\u2019s loopback address, which cannot leave it.',
   },
   {
     q: 'I only installed it today. Is it empty until I build up history?',
@@ -39,7 +39,7 @@ const FAQS = [
   },
   {
     q: 'Why not just ask the AI to summarise the chat and paste that?',
-    a: 'Because a summary is the thing you lose. It keeps the conclusions and throws away the corrections, the ideas you rejected, the way you actually talk. The next assistant reads about your work instead of having been there, and you spend the next twenty minutes fixing its assumptions. Sidq hands over the conversation itself, not a description of it.',
+    a: 'Because a summary is the thing you lose. It keeps the conclusions and throws away the corrections, the ideas you rejected, the way you actually talk. The next AI reads about your work instead of having been there, and you spend the next twenty minutes fixing its assumptions. Sidq hands over the conversation itself, not a description of it.',
   },
   {
     q: 'Does any of this leave my Mac?',
@@ -47,7 +47,7 @@ const FAQS = [
   },
   {
     q: 'What can it see on my screen?',
-    a: 'Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your assistants already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.',
+    a: 'Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your AIs already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.',
   },
   {
     q: 'Is this just a wrapper around a chatbot?',
@@ -55,7 +55,7 @@ const FAQS = [
   },
   {
     q: 'What do I get for free?',
-    a: `${FREE.handoffsPerWeek} handovers a week and ${FREE.sources} assistant connected, with your full history and complete transcripts. Nothing is behind a padlock, you simply run out. People upgrade when they start doing this every day, which is the point at which one connected assistant stops being enough.`,
+    a: `${FREE.handoffsPerWeek} handovers a week and ${FREE.sources} AI connected, with your full history and complete transcripts. Nothing is behind a padlock, you simply run out. People upgrade when they start doing this every day, which is the point at which one connected AI stops being enough.`,
   },
   {
     q: 'Is there a web version?',

@@ -79,7 +79,7 @@ export const STEPS: Step[] = [
     id: 'welcome',
     phase: 'Get started',
     title: 'Welcome to Sidq',
-    subtitle: 'Every conversation you have had with every assistant, in one place.',
+    subtitle: 'Every conversation you have had with every AI, in one place.',
     gate: { kind: 'button', label: 'Continue' },
   },
   {
@@ -99,7 +99,7 @@ export const STEPS: Step[] = [
   {
     id: 'sources',
     phase: 'Connect',
-    title: 'Connect your assistants',
+    title: 'Connect your AIs',
     subtitle: 'The ones on this Mac are already done. The rest take one click.',
     gate: { kind: 'button', label: 'Continue' },
   },

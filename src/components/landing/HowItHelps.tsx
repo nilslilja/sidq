@@ -55,7 +55,7 @@ export function HowItHelps() {
             Then it hands over <Pill>all of it</Pill>
           </h3>
           <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed ink-muted">
-            The whole conversation, word for word, into whichever assistant you are in
+            The whole conversation, word for word, into whichever AI you are in
             now. Not a summary. It arrives knowing what you already decided and what you
             already threw out.
           </p>

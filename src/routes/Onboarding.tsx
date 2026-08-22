@@ -317,7 +317,7 @@ export default function Onboarding() {
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              Everything on this Mac is already being read. For the assistants that live in a
+              Everything on this Mac is already being read. For the AIs that live in a
               browser, open one below and use it exactly as you do now. The Sidq extension
               reads the page as you go, so you are never asked to sign in to anything here.
             </p>

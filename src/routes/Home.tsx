@@ -201,7 +201,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   if (facts.length === 0) {
     return (
       <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/35">
-        Nothing yet. This fills up from the instructions you give assistants
+        Nothing yet. This fills up from the instructions you give your AIs
         &mdash; the rules you repeat, the stack you keep explaining &mdash; and it
         only counts sentences you actually typed, so it needs a few real
         conversations behind it first.
@@ -213,7 +213,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-white/45">
-          Taken word for word from your own messages, across every assistant. Paste
+          Taken word for word from your own messages, across every AI. Paste
           it at the top of a new conversation and skip explaining yourself again.
         </p>
         <button
@@ -300,7 +300,7 @@ function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> 
           What it didn&rsquo;t tell you
         </h1>
         <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
-          Nothing hidden yet. This fills up from assistants that reason before they answer and
+          Nothing hidden yet. This fills up from AIs that reason before they answer and
           write that reasoning to disk. Have a few conversations in Claude Code, Cowork or
           Cursor and come back.
         </p>
@@ -324,7 +324,7 @@ function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> 
         {Math.round(report.share * 100)}%
       </h1>
       <p className="mt-3 max-w-[50ch] text-[1.0625rem] leading-relaxed text-white/80">
-        of everything your assistants wrote about your work, you were never shown.
+        of everything your AIs wrote about your work, you were never shown.
       </p>
       <p className="mt-2 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
         {report.hidden.toLocaleString()} characters across {report.thoughts.toLocaleString()}{' '}
@@ -456,15 +456,15 @@ function Search({
           </p>
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/40">
             Free search reaches back {historyDays} days. Pro reaches everything you have ever
-            asked, in any assistant.
+            asked, in any AI.
           </p>
         </div>
       )}
 
       {!searched && (
         <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-white/35">
-          Every conversation on this Mac, plus every assistant you have opened in Sidq,
-          searched together. No assistant can read another one&rsquo;s history, so this is
+          Every conversation on this Mac, plus every AI you have opened in Sidq,
+          searched together. No AI can read another one&rsquo;s history, so this is
           the only place yours sits in one pile.
         </p>
       )}
@@ -781,7 +781,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
     <>
       <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">Sources</h1>
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
-        Sidq is not tied to any one assistant. The ones that write conversations to this Mac
+        Sidq is not tied to any one AI. The ones that write conversations to this Mac
         are read with nothing to set up. The ones that run in a browser keep nothing readable
         here. You open them in your own browser, where you are already signed in, and the Sidq
         extension reads them as you use them. Sidq never asks you to log in to anything.

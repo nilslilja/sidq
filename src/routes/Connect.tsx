@@ -17,7 +17,7 @@ import { Link } from 'react-router-dom';
  * files. It says where things actually stand instead.
  */
 
-const WEB_ASSISTANTS = [
+const WEB_AIS = [
   'ChatGPT',
   'Claude.ai',
   'Gemini',
@@ -54,21 +54,54 @@ export function Connect() {
         </p>
 
         <p className="mt-5 max-w-[58ch] text-[0.9375rem] leading-relaxed ink-muted">
-          {WEB_ASSISTANTS.join(', ')} are different. Their desktop apps encrypt what they
+          {WEB_AIS.join(', ')} are different. Their desktop apps encrypt what they
           store and the web versions keep nothing on disk, so there is no file for Sidq to
           read. The only place those conversations exist in the clear is the browser you
           are reading this in, which is where the extension will read them from.
         </p>
 
         {/*
-         * Load-unpacked instructions rather than a store link.
+         * The permission first, the extension second.
          *
-         * The Chrome Web Store takes days to review and this works today. It is
-         * four steps, it is what every developer tool ships during its first
-         * weeks, and it is honest about being that. The store listing follows.
+         * This page led with load-unpacked instructions, written when the
+         * extension was the only route. It is not any more: Sidq reads these
+         * conversations out of the window through one macOS permission, with
+         * nothing to install in any browser. Leading with the harder path was
+         * telling people to do the slow thing.
          */}
         <div className="mt-10 rounded-[16px] border border-ink/10 bg-white/60 p-6">
-          <p className="text-[0.9375rem] font-medium">Install it in about a minute</p>
+          <p className="text-[0.9375rem] font-medium">Nothing to install</p>
+          <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed ink-muted">
+            Open Sidq and it asks once for macOS Accessibility, the same permission every
+            dictation app uses. Grant it and every AI above works immediately, in whichever
+            browser you already use, still signed in, with your passkeys and password
+            manager exactly as they are.
+          </p>
+          <ol className="mt-4 space-y-3">
+            {[
+              <>Open Sidq, then <strong className="font-medium">Sources</strong></>,
+              <>Click <strong className="font-medium">Turn it on</strong> and allow it when macOS asks</>,
+              <>That is it. The panel goes green by itself once it is working</>,
+            ].map((step, i) => (
+              <li key={i} className="flex gap-3 text-[0.875rem] leading-relaxed ink-muted">
+                <span className="mt-1.5 size-1 shrink-0 rounded-full bg-accent/50" />
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-5 max-w-[54ch] text-[0.8125rem] leading-relaxed ink-muted">
+            Sidq reads nine applications and, inside them, only tabs that are one of the AIs
+            above. Every other window is never looked at, which is enforced in the code
+            rather than promised. Nothing is uploaded.
+          </p>
+        </div>
+
+        {/* The extension is the alternative for anybody who would rather not
+            grant the permission. Real, and slower. */}
+        <details className="mt-6 max-w-[58ch]">
+          <summary className="cursor-pointer text-[0.875rem] underline underline-offset-4 transition-colors duration-150 hover:text-accent">
+            Would rather not grant it? Use the extension instead
+          </summary>
           <ol className="mt-4 space-y-3">
             {[
               <>Download <a
@@ -88,20 +121,12 @@ export function Connect() {
               </li>
             ))}
           </ol>
-          <p className="mt-5 max-w-[54ch] text-[0.8125rem] leading-relaxed ink-muted">
-            Then open a conversation in ChatGPT, Gemini, Claude or Perplexity and click the
-            Sidq icon in your toolbar. It appears in the picker straight away. Sidq has to
-            be running, because the conversation goes to the app on your Mac and nowhere
-            else.
+          <p className="mt-4 text-[0.8125rem] leading-relaxed ink-muted">
+            Developer mode is how every extension is installed before a store review, which
+            takes days. The Chrome Web Store listing is in progress. Safari needs its own
+            build and is not ready yet.
           </p>
-        </div>
-
-        <p className="mt-6 max-w-[58ch] text-[0.8125rem] leading-relaxed ink-muted">
-          Developer mode sounds alarming and is not: it is how every extension is
-          installed before a store review, which takes days. The Chrome Web Store listing
-          is in progress and this page will point at it instead when it is live. Safari
-          needs its own build and is not ready yet.
-        </p>
+        </details>
 
         <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
           <Link

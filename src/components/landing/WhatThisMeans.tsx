@@ -15,7 +15,7 @@ import { cn } from '@/lib/cn';
 const BEATS: { count: string; label: string; body: string }[] = [
   {
     count: '4',
-    label: 'assistants, no introductions',
+    label: 'AIs, no introductions',
     body: 'Most people now pay for three or four. Not one of them can read another. You explain your project to the first, then explain it again to the second, and again on Monday to both.',
   },
   {
@@ -26,7 +26,7 @@ const BEATS: { count: string; label: string; body: string }[] = [
   {
     count: '44%',
     label: 'you were never shown',
-    body: 'And the summary was never going to work anyway. Your assistant writes its reasoning to your own disk, renders none of it, and forgets it after the turn. You cannot summarise what you never saw.',
+    body: 'And the summary was never going to work anyway. Your AI writes its reasoning to your own disk, renders none of it, and forgets it after the turn. You cannot summarise what you never saw.',
   },
 ];
 
@@ -61,7 +61,7 @@ export function WhatThisMeans({ className }: { className?: string }) {
 
       <p className="mx-auto mt-14 max-w-[54ch] text-center text-[1.0625rem] leading-relaxed">
         Sidq reads the conversations already on your Mac and carries any one of them into any
-        other assistant, whole. Word for word, including the half you were never shown.{' '}
+        other AI, whole. Word for word, including the half you were never shown.{' '}
         <span className="ink-muted">Nothing is uploaded. It fetches nothing.</span>
       </p>
     </section>

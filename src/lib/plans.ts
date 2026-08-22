@@ -73,7 +73,7 @@ export const PLANS: Plan[] = [
     cadence: '/ month',
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
-    promise: 'Every assistant you use, holding one memory.',
+    promise: 'Every AI you use, holding one memory.',
     inherits: 'Starter',
     cta: 'Subscribe',
     featured: true,

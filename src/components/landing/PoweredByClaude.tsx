@@ -116,7 +116,7 @@ export function PoweredByClaude({
    */
   return (
     <div
-      aria-label="Sidq reads your conversations with ChatGPT, Claude, Gemini, Cursor and every other assistant, stored only on this Mac"
+      aria-label="Sidq reads your conversations with ChatGPT, Claude, Gemini, Cursor and every other AI, stored only on this Mac"
       className={cn('inline-flex flex-col items-center gap-1', className)}
     >
       <span

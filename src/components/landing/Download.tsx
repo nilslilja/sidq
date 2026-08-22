@@ -60,7 +60,7 @@ export function Download() {
 
             <p className="mt-7 max-w-[40ch] text-[1.0625rem] leading-relaxed ink-muted">
               A small card, always on top, out of the way. One keystroke brings up
-              what you were last in the middle of, in any assistant, and hands the
+              what you were last in the middle of, in any AI, and hands the
               whole conversation to whichever one you are in now.
             </p>
 

@@ -434,7 +434,7 @@ export function Pill() {
                   {phase.path.split('/').pop()}
                 </p>
                 <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/40">
-                  Attach it to any assistant. It already tells them to read it and carry
+                  Attach it to any AI. It already tells them to read it and carry
                   on rather than summarise it back to you.
                 </p>
               </div>

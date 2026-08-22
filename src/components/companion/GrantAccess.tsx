@@ -46,7 +46,7 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
       <div className={cn('rounded-[12px] border border-[#B8A6FF]/25 bg-[#B8A6FF]/[0.06] p-4', compact && 'p-3')}>
         <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
           <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
-          Reading your assistants
+          Reading your AIs
         </p>
         <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-white/45">
           ChatGPT, Claude, Gemini and the rest, in whichever browser you already use. Nothing
@@ -60,10 +60,10 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
     <div className={cn('rounded-[12px] border border-white/[0.09] bg-white/[0.02] p-4', compact && 'p-3')}>
       <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
         <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-400/70" />
-        Let Sidq read your assistants
+        Let Sidq read your AIs
       </p>
       <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
-        Assistants that run in a browser keep nothing readable on this Mac, so Sidq reads them
+        AIs that run in a browser keep nothing readable on this Mac, so Sidq reads them
         from the window instead. One switch, and every one of them works at once.
       </p>
 
@@ -75,7 +75,7 @@ export function GrantAccess({ compact = false }: { compact?: boolean }) {
         */}
       <ul className="mt-3 space-y-1.5 text-[0.8125rem] text-white/45">
         <li>
-          <span className="text-white/70">Only assistants.</span> Nine applications, and only
+          <span className="text-white/70">Only AIs.</span> Nine applications, and only
           tabs that are ChatGPT, Claude, Gemini, Perplexity, Grok, DeepSeek or Mistral
         </li>
         <li>

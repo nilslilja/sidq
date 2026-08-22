@@ -70,7 +70,7 @@ export function SiteFooter() {
           <div>
             <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">Sidq</div>
             <p className="mt-3 max-w-[26ch] text-[0.875rem] leading-relaxed ink-muted">
-              Your AI conversations, carried from one assistant to the next.
+              Your AI conversations, carried from one AI to the next.
             </p>
           </div>
 
@@ -95,7 +95,7 @@ export function SiteFooter() {
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-ink/10 py-8 text-[0.75rem] ink-muted">
           <span>© {new Date().getFullYear()} Sidq. All rights reserved.</span>
-          <span>Built for people who live between four assistants.</span>
+          <span>Built for people who live between four AIs.</span>
         </div>
       </div>
     </footer>

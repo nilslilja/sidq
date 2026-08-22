@@ -75,7 +75,7 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
         Add the browser extension
       </p>
       <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-white/45">
-        Optional. Everything on this Mac is already being read. This adds the assistants that
+        Optional. Everything on this Mac is already being read. This adds the AIs that
         run in a browser, so what you do in ChatGPT and the rest is read too.
       </p>
 

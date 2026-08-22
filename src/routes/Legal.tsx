@@ -35,7 +35,7 @@ export function Privacy() {
       <H>What never leaves your machine</H>
       <P>
         Your conversations. All of them. Sidq reads the transcript files that Claude Code
-        and other assistants already write to your disk, and the text goes to your
+        and other AIs already write to your disk, and the text goes to your
         clipboard so you can paste it. It is never sent to us, never sent to a third
         party, and never stored anywhere but where it already was. This is not a policy
         choice that could quietly change; it is how the feature is built, and it is why it
@@ -54,9 +54,9 @@ export function Privacy() {
         ]}
       />
 
-      <H>Reading your assistants</H>
+      <H>Reading your AIs</H>
       <P>
-        Assistants that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
+        AIs that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
         write nothing readable to your disk. If you grant Sidq the macOS Accessibility
         permission, it reads their conversations out of the window instead, using the same
         system that screen readers and dictation apps use.
@@ -66,7 +66,7 @@ export function Privacy() {
         the narrowness is enforced in code rather than promised. Sidq looks at nine
         applications: Chrome, Safari, Arc, Brave, Edge, Vivaldi and the ChatGPT, Claude and
         Perplexity desktop apps. Within those it reads a page only once its address is one of
-        the assistants it supports. Every other window, in those applications and in every
+        the AIs it supports. Every other window, in those applications and in every
         other application on your Mac, is never read &mdash; not the contents, not the title,
         not the fact that it is open.
       </P>
@@ -87,7 +87,7 @@ export function Privacy() {
       <P>
         An alternative to the permission above, for anybody who would rather not grant it.
         The extension reads the conversation from the page instead. It only does so on the
-        assistant sites it names in its permissions, only while one of those tabs is open, and it sends what it reads to the Sidq app on
+        AI sites it names in its permissions, only while one of those tabs is open, and it sends what it reads to the Sidq app on
         your own machine over the loopback address 127.0.0.1, which by definition cannot
         leave the computer. No server of ours is involved at any point, and the extension
         has no ability to send it anywhere else.
@@ -163,8 +163,8 @@ export function Terms() {
       <P>
         Sidq reads files that other applications write, and those applications can change
         their formats without warning. When that happens Sidq may stop reading a source
-        until it is updated. It is a tool for moving your own work between assistants; it
-        does not guarantee any particular result from whichever assistant you paste into,
+        until it is updated. It is a tool for moving your own work between AIs; it
+        does not guarantee any particular result from whichever AI you paste into,
         and it is provided as it is, without warranty.
       </P>
 

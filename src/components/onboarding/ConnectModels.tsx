@@ -110,7 +110,7 @@ export function ConnectModels({ found, onConnect, onSkip, visited }: ConnectMode
         onClick={onConnect}
         className="btn-soft mt-6 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[14px] px-6 text-[0.9375rem] font-medium"
       >
-        {visited ? 'Open the browser again' : 'Connect my other assistants'}
+        {visited ? 'Open the browser again' : 'Connect my other AIs'}
         <span aria-hidden="true">›</span>
       </button>
 

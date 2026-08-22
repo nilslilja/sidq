@@ -117,7 +117,7 @@ export function Hero() {
          */}
         <ScrollTilt className="mt-16 lg:mt-20">
           <ProductVideo
-            caption="Sidq hangs off the menu bar. One keystroke opens every conversation you have had with any assistant, and the one you pick is carried into the next one word for word."
+            caption="Sidq hangs off the menu bar. One keystroke opens every conversation you have had with any AI, and the one you pick is carried into the next one word for word."
           />
         </ScrollTilt>
       </div>
