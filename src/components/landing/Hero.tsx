@@ -80,17 +80,18 @@ export function Hero() {
           * them. Symptoms belong in the posts, where a new angle every week is
           * the point.
           */}
-        <p className="mx-auto mt-8 max-w-[52ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          You pay for four of them. Not one can read another, every one forgets you overnight,
-          and all of them start from zero. Sidq is the layer that joins them: every
-          conversation you have ever had, together on your Mac, and any of them carried whole
-          into any other.
-        </p>
-
-        <p className="mx-auto mt-6 max-w-[54ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
-          Whole, not summarised. Including the reasoning your assistant wrote down and never
-          showed you, which is 44% of everything it worked out about your work, and the reason
-          a second opinion from another model has never been worth much.
+        {/*
+          * One line under the headline, and nothing else.
+          *
+          * There were two paragraphs here, one of them fifty words. A hero is
+          * read in about a second and a half by somebody deciding whether to
+          * keep scrolling, and every sentence after the first is competing with
+          * the download button rather than helping it. The argument did not get
+          * cut, it moved to WhatThisMeans, where somebody who has decided to
+          * care will actually read it.
+          */}
+        <p className="mx-auto mt-7 text-center text-[clamp(1.0625rem,1.7vw,1.4375rem)] leading-snug text-white/60">
+          Sidq is the layer that does.
         </p>
 
         <div className="mt-10 flex justify-center">

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { WhatThisMeans } from '@/components/landing/WhatThisMeans';
 import { Hero } from '@/components/landing/Hero';
 import { Reveal } from '@/components/landing/Reveal';
 import { HowItHelps } from '@/components/landing/HowItHelps';
@@ -66,6 +67,10 @@ export function Landing() {
       <Hero />
 
       <div id="how">
+        <Reveal>
+          <WhatThisMeans className="pb-24 lg:pb-32" />
+        </Reveal>
+
         <Reveal>
           <HowItHelps />
         </Reveal>
