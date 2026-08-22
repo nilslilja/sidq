@@ -152,6 +152,26 @@ export function Pill() {
   }, []);
 
   /*
+   * Clicking anywhere else closes the picker.
+   *
+   * It opened on a click and closed only on Esc or ⌘⇧K, which is a
+   * keyboard-shaped exit on something people reach for with a mouse. Nobody
+   * presses the key, so it sat open over whatever they went back to.
+   *
+   * The webview's own blur rather than a Tauri window event: the same class of
+   * plumbing already failed silently once on this window, and a DOM event that
+   * the browser engine raises directly has nothing in between to go wrong.
+   * Collapsed the window is non-focusable, so this never fires then.
+   */
+  useEffect(() => {
+    if (mode !== 'expanded') return;
+
+    const away = () => void bridge?.hidePill();
+    window.addEventListener('blur', away);
+    return () => window.removeEventListener('blur', away);
+  }, [bridge, mode]);
+
+  /*
    * Opening is the moment worth marking, not mounting.
    *
    * Reset as well as focus: an expanded picker still showing last night's
@@ -532,7 +552,21 @@ export function Pill() {
             <Key>↑↓</Key>
             <Key>↵</Key>
             <Key>⌘↵</Key>
-            <Key>esc</Key>
+            {/*
+              * Clickable, because the rest of this window is.
+              *
+              * The picker opened on a click and closed only on a keystroke,
+              * which is a keyboard-shaped exit on a thing people reach for with
+              * a mouse. Clicking away closes it too, and this is the one that
+              * is visible while you are looking for it.
+              */}
+            <button
+              onClick={dismiss}
+              aria-label="Close"
+              className="cursor-pointer rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 text-white/40 transition-colors duration-100 hover:bg-white/[0.14] hover:text-white/80"
+            >
+              esc
+            </button>
           </span>
         </div>
       </div>

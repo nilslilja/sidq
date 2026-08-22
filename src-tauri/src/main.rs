@@ -1227,6 +1227,31 @@ fn main() {
                     let _ = window.hide();
                 }
             }
+
+            /*
+             * Clicking anywhere else closes the picker.
+             *
+             * It opened on a click and closed only on Esc or ⌘⇧K, which is a
+             * keyboard-shaped exit on a thing people reach for with a mouse.
+             * Nobody presses the key, so the picker stayed open over whatever
+             * they went back to.
+             *
+             * Losing focus is the right signal rather than a click handler:
+             * it fires whichever way attention actually left, including
+             * switching apps with ⌘-tab or clicking another window's title bar,
+             * and it is what Spotlight and every launcher on this platform do.
+             *
+             * Collapsed, the window is non-focusable and never receives this.
+             */
+            if window.label() == "pill" {
+                if let tauri::WindowEvent::Focused(false) = event {
+                    if let Some(pill) = window.get_webview_window("pill") {
+                        if pill_window::is_expanded(&pill) {
+                            let _ = pill_window::collapse(&pill);
+                        }
+                    }
+                }
+            }
         })
         .build(tauri::generate_context!())
         .expect("error while running Sidq")
