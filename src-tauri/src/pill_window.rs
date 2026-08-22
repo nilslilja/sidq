@@ -34,8 +34,28 @@
 use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 
 
-/// A lip hanging off the menu bar. Wide enough for a count and a hint.
-const COLLAPSED: (f64, f64) = (228.0, 36.0);
+/**
+ * Small enough to live in the menu bar.
+ *
+ * It was 228x36 hanging below the menu bar, which is exactly where a browser
+ * puts its tabs: it covered three of them, dead centre, on every window. Any
+ * always-on-top strip below the menu bar collides with something, because that
+ * row belongs to whatever application is in front.
+ *
+ * The menu bar itself does not. Menus sit on the left, status items on the
+ * right, and the middle is empty on every Mac without a notch. Nothing else
+ * claims it, so nothing is covered.
+ */
+const COLLAPSED: (f64, f64) = (152.0, 24.0);
+
+/**
+ * A menu bar this tall means a notch, and the middle is the camera.
+ *
+ * Notched MacBooks report roughly 37 points against 24 on everything else.
+ * Sitting in the middle there would put the bar behind the housing, so those
+ * displays get the old position below the bar instead.
+ */
+const NOTCH_MENU_BAR: f64 = 34.0;
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
 const EXPANDED: (f64, f64) = (560.0, 380.0);
@@ -91,10 +111,26 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
         let area = monitor.work_area();
         let origin = area.position.to_logical::<f64>(scale);
         let usable = area.size.to_logical::<f64>(scale);
+        let screen = monitor.position().to_logical::<f64>(scale);
+
+        // The gap between the top of the screen and the top of the work area is
+        // the menu bar.
+        let menu_bar = origin.y - screen.y;
+        let collapsed = size.1 <= COLLAPSED.1;
+        let notched = menu_bar >= NOTCH_MENU_BAR;
+
+        /*
+         * Collapsed, sit inside the menu bar. Expanded, hang below it.
+         *
+         * The bar is small and the menu bar's middle is empty, so it covers
+         * nothing. The picker is 380 tall and belongs under the bar, where it
+         * is over the page rather than over the browser's own controls.
+         */
+        let y = if collapsed && !notched { screen.y } else { origin.y };
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
-            origin.y,
+            y,
         ))?;
     }
 
@@ -170,6 +206,29 @@ mod tests {
         // for both and the toggle would stick in one state.
         assert!(COLLAPSED.0 < EXPANDED_THRESHOLD);
         assert!(EXPANDED.0 > EXPANDED_THRESHOLD);
+    }
+
+    #[test]
+    fn the_bar_fits_inside_a_menu_bar() {
+        /*
+         * It was 36 points tall and hung below the menu bar, which is where a
+         * browser draws its tabs. It covered three of them, dead centre, in
+         * every window. Anything living in that row covers whatever is in
+         * front; the menu bar's middle belongs to nobody.
+         */
+        let ordinary_menu_bar = 24.0;
+        assert!(COLLAPSED.1 <= ordinary_menu_bar, "must not overhang the menu bar");
+        assert!(COLLAPSED.1 < NOTCH_MENU_BAR);
+    }
+
+    #[test]
+    fn a_notched_display_is_told_apart_by_its_menu_bar() {
+        // The middle of a notched menu bar is the camera housing, so the bar
+        // goes below it there instead of behind it.
+        let notched = 37.0;
+        let ordinary = 24.0;
+        assert!(notched >= NOTCH_MENU_BAR);
+        assert!(ordinary < NOTCH_MENU_BAR);
     }
 
     #[test]

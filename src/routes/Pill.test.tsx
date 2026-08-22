@@ -85,7 +85,9 @@ describe('the pill, across the two states', () => {
     await settle();
 
     expect(screen.getByRole('button', { name: /pick up a conversation/i })).toBeInTheDocument();
-    expect(screen.getByText('16 conversations')).toBeInTheDocument();
+    // The count alone. The bar lives inside the menu bar now and "16
+    // conversations" does not fit in 152 points without covering something.
+    expect(screen.getByText('16')).toBeInTheDocument();
   });
 
   test('renders the picker once the window is the picker\'s size', async () => {

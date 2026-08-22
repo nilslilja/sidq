@@ -320,30 +320,27 @@ export function Pill() {
     return (
       <div
         data-transparent-window
-        className="flex h-[100dvh] w-full items-start justify-center bg-transparent"
+        className="flex h-[100dvh] w-full items-center justify-center bg-transparent"
       >
         <button
           onClick={() => void bridge?.expandPill()}
           aria-label="Open Sidq and pick up a conversation"
           className={cn(
-            'group flex h-full w-full items-center gap-2.5 px-3.5',
+            'group flex h-full w-full items-center justify-center gap-2 px-3',
             /*
-             * Squared at the top, deeply rounded at the bottom.
+             * Rounded at the bottom only, and no top border.
              *
-             * That silhouette is a notch. Hung flush under the menu bar it
-             * reads as the hardware continuing downward rather than as a window
-             * somebody left open, and on a MacBook it lines up with the real
-             * one. It is the whole reason this does not look like every other
-             * floating dark capsule.
+             * It sits inside the menu bar now rather than hanging below it,
+             * because below the menu bar is where a browser draws its tabs and
+             * the old bar covered three of them in every window. The menu bar's
+             * middle belongs to nobody, so this covers nothing.
+             *
+             * Which means it has to read as part of that strip rather than as a
+             * card resting on it: no shadow, no ring, and a background close
+             * enough to the menu bar's own that the seam disappears.
              */
-            'rounded-b-[14px] border-x border-b border-white/[0.08]',
-            // Near-black rather than a tinted surface: it has to belong to the
-            // bezel it is hanging off, not to the window behind it.
-            'bg-[#08080B]/95 backdrop-blur-xl',
-            'shadow-[0_10px_24px_-12px_rgba(0,0,0,0.75)]',
-            // No scale on hover. Anything that moves it breaks the seam with
-            // the menu bar, which is the one thing holding the illusion up.
-            'transition-colors duration-150 hover:bg-[#131319]/95',
+            'rounded-b-[9px] bg-black/25 backdrop-blur-md',
+            'transition-colors duration-150 hover:bg-black/45',
             'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
           )}
         >
@@ -351,18 +348,18 @@ export function Pill() {
             aria-hidden="true"
             className={cn(
               'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
-              'opacity-60 group-hover:opacity-100',
+              'opacity-80 group-hover:opacity-100',
             )}
           />
-          <span className="min-w-0 flex-1 truncate text-left text-[0.6875rem] tracking-wide text-white/50">
-            {indexed > 0 ? `${indexed} conversation${indexed === 1 ? '' : 's'}` : 'Sidq'}
+          <span className="truncate text-[0.6875rem] leading-none text-white/70">
+            {indexed > 0 ? indexed.toLocaleString() : 'Sidq'}
           </span>
-          <span
-            className={cn(
-              'shrink-0 rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[0.625rem]',
-              'text-white/30 transition-colors duration-150 group-hover:text-white/60',
-            )}
-          >
+          {/*
+            * The shortcut only on hover. At this size it is the difference
+            * between a label and a cluttered one, and anybody who has not
+            * hovered has not needed it yet.
+            */}
+          <span className="text-[0.625rem] leading-none text-white/0 transition-colors duration-150 group-hover:text-white/40">
             ⌘⇧K
           </span>
         </button>
