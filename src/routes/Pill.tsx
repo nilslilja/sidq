@@ -434,9 +434,16 @@ export function Pill() {
               The count rolls, so the oldest one frees up seven days after you made
               it. Pro removes the limit and the seven-day reach on search.
             </p>
+            {/*
+              * The plans, in a browser, not the app window.
+              *
+              * This called openHome, which shows search and a source list and
+              * no pricing anywhere. The one moment somebody has a reason to pay
+              * sent them to a search box.
+              */}
             <button
               onClick={() => {
-                void bridge?.openHome();
+                void bridge?.openUpgrade();
                 void bridge?.hidePill();
               }}
               className={cn(

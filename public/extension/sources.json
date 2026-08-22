@@ -1,0 +1,4 @@
+{
+  "_comment": "Selector overrides for the Sidq extension. Edit this file when a site redesigns; the extension picks it up within twelve hours, with no store resubmission. Only turnSelectors is read, and only as strings, so nothing here can become code.",
+  "_updated": "2026-08-22"
+}

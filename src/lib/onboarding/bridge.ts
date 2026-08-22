@@ -216,6 +216,14 @@ export interface OnboardingBridge {
   /** Opens the window behind the pill. */
   openHome: () => Promise<void>;
   /**
+   * Opens the plans, in a browser.
+   *
+   * Where somebody goes when the weekly limit refuses them. It used to open the
+   * app window, which has no pricing in it, so the one moment there is a reason
+   * to pay led to a search box.
+   */
+  openUpgrade: () => Promise<void>;
+  /**
    * Shrinks the picker back to the bar.
    *
    * Named for what it used to do. Nothing is hidden any more: the bar stays on
@@ -326,6 +334,9 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     openHome: async () => {
       await invoke('open_home');
+    },
+    openUpgrade: async () => {
+      await invoke('open_upgrade');
     },
     hidePill: async () => {
       await invoke('hide_pill');

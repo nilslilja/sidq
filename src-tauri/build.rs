@@ -3,12 +3,20 @@
 
 use std::path::Path;
 
-/// The two values Rust needs at compile time to ask about a plan.
+/// The values Rust needs at compile time. All are public by design.
 ///
-/// Both are public: the URL is in every request the app makes and the anon key
-/// is designed to ship in clients, which is why it is safe to bake in. Nothing
-/// with `sb_secret_` or `sk_live_` belongs anywhere near this list.
-const FROM_DOTENV: [&str; 2] = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"];
+/// All of them are public: the URLs appear in every request the app makes and
+/// the anon key is designed to ship inside clients, so baking them in is safe.
+/// Nothing with `sb_secret_` or `sk_live_` belongs anywhere near this list.
+const FROM_DOTENV: [&str; 3] = [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY",
+    // Without this, web_origin() returns None in every release build and
+    // sign-in, the connect page and the plans all refuse with "no web address
+    // is configured". It was absent, and sidq.tech appeared zero times in the
+    // shipped binary.
+    "SIDQ_WEB_ORIGIN",
+];
 
 /**
  * Lift a few values out of `.env` so `option_env!` can see them.

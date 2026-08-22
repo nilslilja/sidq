@@ -107,6 +107,49 @@ const SITES = [
   },
 ];
 
+/*
+ * ── Selectors that can be fixed without a store review ───────────────────────
+ * Every one of these sites redesigns without warning, and some of the hooks
+ * below are hashed build classes that change on the next deploy. Shipping the
+ * table only inside the extension means every breakage costs a resubmission and
+ * a week of review while the product is silently reading nothing.
+ *
+ * So an override is fetched from Sidq's own site and cached. A breakage becomes
+ * a file we edit; the extension picks it up within the day. If the fetch fails,
+ * or the site is unreachable, or the payload is nonsense, the table compiled in
+ * above stands.
+ */
+const OVERRIDE_URL = 'https://www.sidq.tech/extension/sources.json';
+const OVERRIDE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+async function applyOverrides() {
+  try {
+    const cached = await chrome.storage.local.get(['sources', 'sourcesAt']);
+    const fresh = cached.sourcesAt && Date.now() - cached.sourcesAt < OVERRIDE_MAX_AGE_MS;
+
+    let table = fresh ? cached.sources : null;
+    if (!table) {
+      const res = await fetch(OVERRIDE_URL, { cache: 'no-cache' });
+      if (!res.ok) return;
+      table = await res.json();
+      await chrome.storage.local.set({ sources: table, sourcesAt: Date.now() });
+    }
+
+    for (const def of SITES) {
+      const patch = table?.[def.name];
+      // Only the selectors. Nothing fetched is allowed to become code: `role`
+      // stays a function compiled into the extension, because a remote file
+      // that can define behaviour is a remote file that can do anything.
+      if (Array.isArray(patch?.turnSelectors) && patch.turnSelectors.every((x) => typeof x === 'string')) {
+        def.turnSelectors = patch.turnSelectors;
+      }
+    }
+  } catch {
+    // Offline, blocked, or malformed. The compiled table is already correct
+    // for every site that has not moved, so there is nothing to report.
+  }
+}
+
 function site() {
   return (
     SITES.find(
@@ -388,7 +431,9 @@ async function considerChip() {
 
 // These are single-page apps: the composer is not there at document_idle, and
 // navigating between chats never reloads the page.
-setTimeout(considerChip, SETTLE_MS);
+// Overrides first, so a site that moved is read correctly on the first pass
+// rather than on the second.
+setTimeout(() => void applyOverrides().then(considerChip), SETTLE_MS);
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Keeping up, without being asked.
@@ -479,4 +524,4 @@ function watch() {
   }, 1500);
 }
 
-setTimeout(watch, SETTLE_MS);
+setTimeout(() => void applyOverrides().then(watch), SETTLE_MS);

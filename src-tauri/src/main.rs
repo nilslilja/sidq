@@ -807,6 +807,27 @@ fn open_connect_page(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/**
+ * Show somebody the plans, at the moment they have run out.
+ *
+ * The limit card offered "See the plans" and called `open_home`, which opens a
+ * window containing search, a memory profile and a source list, and no pricing
+ * anywhere at all. Somebody who had just been refused a handover was shown
+ * their own search results and nothing to buy.
+ *
+ * `/upgrade` has existed and been routed in AppShell the whole time. This is
+ * the same call `open_sign_in` makes, pointed one path over.
+ */
+#[tauri::command]
+fn open_upgrade(app: AppHandle) -> Result<(), String> {
+    let origin = web_origin().ok_or_else(|| {
+        "No web address is configured for this build, so the plans cannot open.".to_string()
+    })?;
+    app.opener()
+        .open_url(format!("{}/upgrade", origin), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn open_sign_in(app: AppHandle) -> Result<(), String> {
     // Refuse rather than guess. The onboarding step shows this message and lets
@@ -988,6 +1009,7 @@ fn main() {
             autostart_enabled,
             set_autostart,
             open_sign_in,
+            open_upgrade,
             open_connect_page,
             finish_onboarding
         ])
