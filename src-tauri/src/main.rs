@@ -1245,6 +1245,17 @@ fn main() {
                 });
             }
 
+            /*
+             * A menu bar utility, not an ordinary app.
+             *
+             * Without this the bar cannot appear over another application's
+             * fullscreen window however high its level is, which is most of the
+             * day for anybody who works fullscreen. There is a tray menu for
+             * opening the window and quitting, so nothing is lost with the Dock
+             * icon.
+             */
+            pill_window::become_accessory();
+
             browser_bridge::spawn(app.handle().clone());
 
             // Keeps the index current in the background. Search reads from it;

@@ -137,6 +137,73 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
     Ok(())
 }
 
+/*
+ * ── Staying above everything ─────────────────────────────────────────────────
+ * `alwaysOnTop` and `visibleOnAllWorkspaces` were both set and were not enough.
+ * Tauri's always-on-top is NSFloatingWindowLevel, which is 3: above ordinary
+ * windows and below the menu bar at 24, so a bar living inside the menu bar was
+ * drawn over by it. And a window only joins a fullscreen Space if its
+ * collection behaviour says so, which `visibleOnAllWorkspaces` alone does not.
+ *
+ * Neither is reachable through Tauri, so both are set on the NSWindow directly.
+ */
+
+/// Above the menu bar (24), below an open menu (101).
+///
+/// Deliberately not higher. A bar that outranks an open menu would draw on top
+/// of one, which is a worse problem than the one being fixed.
+const STATUS_WINDOW_LEVEL: i64 = 25;
+
+/// canJoinAllSpaces | stationary | fullScreenAuxiliary.
+///
+/// The last one is what puts it over a fullscreen app. Without it the bar
+/// simply is not there for anybody watching a video or writing in a fullscreen
+/// editor, which is most of the day.
+const COLLECTION_BEHAVIOUR: u64 = (1 << 0) | (1 << 4) | (1 << 8);
+
+/// Raise the window above the menu bar and into every Space.
+pub fn raise_above_everything(w: &WebviewWindow) {
+    let Ok(handle) = w.ns_window() else { return };
+    if handle.is_null() {
+        return;
+    }
+
+    // SAFETY: `handle` is the NSWindow Tauri created for this window and is
+    // alive for as long as the window is. Both selectors take one primitive
+    // argument and return nothing.
+    unsafe {
+        use objc::{msg_send, sel, sel_impl};
+        let ns_window = handle as *mut objc::runtime::Object;
+        let _: () = msg_send![ns_window, setLevel: STATUS_WINDOW_LEVEL];
+        let _: () = msg_send![ns_window, setCollectionBehavior: COLLECTION_BEHAVIOUR];
+    }
+}
+
+/**
+ * Become a menu bar utility rather than an ordinary application.
+ *
+ * The last thing standing between the bar and a fullscreen window. Level 25 and
+ * fullScreenAuxiliary were both being applied — verified by reading them back
+ * off the NSWindow — and the bar still did not appear over a fullscreen Chrome.
+ * A window only floats over *another* application's fullscreen Space if its own
+ * application is an accessory, which is why every menu bar utility on the
+ * machine is one.
+ *
+ * The cost is the Dock icon, and Sidq is the better shape without it: the bar
+ * is the product, it lives in the menu bar, and there is already a tray menu
+ * for opening the window and quitting.
+ */
+pub fn become_accessory() {
+    // SAFETY: NSApp is the shared application, alive for the process, and
+    // setActivationPolicy: takes one integer.
+    unsafe {
+        use objc::{class, msg_send, sel, sel_impl};
+        let app: *mut objc::runtime::Object = msg_send![class!(NSApplication), sharedApplication];
+        // NSApplicationActivationPolicyAccessory
+        let _: bool = msg_send![app, setActivationPolicy: 1i64];
+    }
+}
+
 /// Which of the two the window is currently in, read off its own width.
 ///
 /// Derived rather than stored: one source of truth that cannot drift out of
@@ -153,6 +220,11 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
     place(w, EXPANDED)?;
     w.show()?;
     w.set_focus()?;
+    // After showing, never before. Showing a window resets its level and its
+    // collection behaviour, so raising it first is raising it and then undoing
+    // that one line later — which is exactly what made the bar vanish under a
+    // fullscreen window while every always-on-top flag was set.
+    raise_above_everything(w);
     Ok(())
 }
 
@@ -169,6 +241,7 @@ pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     let _ = w.hide();
     place(w, COLLAPSED)?;
     w.show()?;
+    raise_above_everything(w);
     Ok(())
 }
 
@@ -206,6 +279,40 @@ mod tests {
         // for both and the toggle would stick in one state.
         assert!(COLLAPSED.0 < EXPANDED_THRESHOLD);
         assert!(EXPANDED.0 > EXPANDED_THRESHOLD);
+    }
+
+    #[test]
+    fn the_bar_outranks_the_menu_bar_but_not_an_open_menu() {
+        /*
+         * Tauri's always-on-top is NSFloatingWindowLevel, 3, which is below the
+         * menu bar at 24 — so a bar living inside the menu bar was drawn over
+         * by it however many always-on-top flags were set.
+         *
+         * The ceiling matters as much as the floor. NSPopUpMenuWindowLevel is
+         * 101, and a bar that outranked an open menu would draw on top of one.
+         */
+        const NS_FLOATING: i64 = 3;
+        const NS_MAIN_MENU: i64 = 24;
+        const NS_POPUP_MENU: i64 = 101;
+
+        assert!(STATUS_WINDOW_LEVEL > NS_FLOATING);
+        assert!(STATUS_WINDOW_LEVEL > NS_MAIN_MENU, "must clear the menu bar");
+        assert!(STATUS_WINDOW_LEVEL < NS_POPUP_MENU, "must not cover an open menu");
+    }
+
+    #[test]
+    fn it_joins_fullscreen_spaces() {
+        /*
+         * canJoinAllSpaces alone is not enough. A fullscreen Space excludes
+         * every window that has not asked for fullScreenAuxiliary, so without
+         * that bit the bar is simply absent for anybody watching a video or
+         * working in a fullscreen editor, which is most of the day.
+         */
+        const CAN_JOIN_ALL_SPACES: u64 = 1 << 0;
+        const FULL_SCREEN_AUXILIARY: u64 = 1 << 8;
+
+        assert_ne!(COLLECTION_BEHAVIOUR & CAN_JOIN_ALL_SPACES, 0);
+        assert_ne!(COLLECTION_BEHAVIOUR & FULL_SCREEN_AUXILIARY, 0);
     }
 
     #[test]
