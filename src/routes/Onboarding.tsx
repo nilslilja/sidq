@@ -46,7 +46,6 @@ export default function Onboarding() {
   // What Sidq can already see, shown on the sources step so the claim is
   // evidenced rather than asserted.
   const [claudeSessions, setClaudeSessions] = useState(0);
-  const [browserOpened, setBrowserOpened] = useState(false);
 
   useEffect(() => {
     if (!bridge) return;
@@ -274,15 +273,7 @@ export default function Onboarding() {
       case 'sources':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <ConnectModels
-              found={claudeSessions}
-              visited={browserOpened}
-              onConnect={() => {
-                setBrowserOpened(true);
-                void bridge?.openConnectPage();
-              }}
-              onSkip={advance}
-            />
+            <ConnectModels found={claudeSessions} onContinue={advance} />
           </Instruction>
         );
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { GrantAccess } from '@/components/companion/GrantAccess';
+import { PrimaryAction } from '@/components/onboarding/Shell';
 import { cn } from '@/lib/cn';
 
 /*
@@ -38,15 +40,11 @@ const ASSISTANTS: Assistant[] = [
 export interface ConnectModelsProps {
   /** Conversations actually found on this machine. Never a guess. */
   found: number;
-  /** Opens the browser at the extension page. */
-  onConnect: () => void;
-  /** Advances setup. Always available: nothing here is required. */
-  onSkip: () => void;
-  /** True once the browser has been opened, so the screen stops nagging. */
-  visited?: boolean;
+  /** Move on. There is nothing here that can fail, so there is nothing to skip. */
+  onContinue: () => void;
 }
 
-export function ConnectModels({ found, onConnect, onSkip, visited }: ConnectModelsProps) {
+export function ConnectModels({ found, onContinue }: ConnectModelsProps) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -105,26 +103,28 @@ export function ConnectModels({ found, onConnect, onSkip, visited }: ConnectMode
         </p>
       )}
 
-      {/* ── The browser trip ─────────────────────────────────────────────── */}
-      <button
-        onClick={onConnect}
-        className="btn-soft mt-6 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[14px] px-6 text-[0.9375rem] font-medium"
-      >
-        {visited ? 'Open the browser again' : 'Connect my other AIs'}
-        <span aria-hidden="true">›</span>
-      </button>
+      {/*
+       * ── No browser trip ───────────────────────────────────────────────────
+       *
+       * This used to open a tab, and the page it opened explained how to
+       * install a browser extension. Neither is needed: the AIs that run in a
+       * browser are read through one macOS permission, granted right here.
+       * Sending somebody out of the app to read instructions for a thing they
+       * no longer have to do was three clicks of pure friction.
+       */}
+      <div className="mt-6">
+        <GrantAccess compact />
+      </div>
 
       <p className="mt-3 text-[0.8125rem] leading-relaxed text-white/40">
-        {web.map((a) => a.name).join(', ')} keep nothing readable on your Mac, so they
-        connect through your browser instead. Opens in a new tab and comes straight back.
+        {web.map((a) => a.name).join(', ')} keep nothing readable on your Mac, so Sidq reads
+        them from the window instead, in whichever browser you already use.
       </p>
 
-      <button
-        onClick={onSkip}
-        className="mt-5 min-h-11 text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/70"
-      >
-        {found > 0 ? 'Skip, the ones I use are already connected' : 'Skip for now'}
-      </button>
+      <div className="mt-6">
+        <PrimaryAction label="Continue" onClick={onContinue} />
+      </div>
+
     </div>
   );
 }

@@ -44,7 +44,6 @@ const DesktopSignIn = lazy(() =>
  */
 // Opened straight out of setup, so it is public and outside AppShell for the
 // same reason the legal pages are: it must not demand a session first.
-const Connect = lazy(() => import('@/routes/Connect').then((m) => ({ default: m.Connect })));
 const Privacy = lazy(() => import('@/routes/Legal').then((m) => ({ default: m.Privacy })));
 const Terms = lazy(() => import('@/routes/Legal').then((m) => ({ default: m.Terms })));
 
@@ -111,14 +110,6 @@ function Shell() {
       <div className="grain relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route
-            path="/connect"
-            element={
-              <Suspense fallback={<Blank />}>
-                <Connect />
-              </Suspense>
-            }
-          />
           <Route
             path="/privacy"
             element={

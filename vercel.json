@@ -44,5 +44,12 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/connect",
+      "destination": "/",
+      "permanent": true
+    }
   ]
 }
