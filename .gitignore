@@ -46,3 +46,14 @@ dist/
 
 # The packaged extension upload. Rebuilt by scripts/package-extension.sh.
 dist-extension/
+
+# release/ is NOT ignored, and this comment is here so nobody adds it.
+#
+# Vercel can build this site from GitHub, so anything ignored is absent from
+# the deploy: that is how the download button ended up pointing at nothing.
+#
+# They sit here rather than under public/ because Vite copies public/ into
+# dist/ and Tauri packages dist/ into the app, so every build of Sidq shipped a
+# copy of its own installers inside itself. The DMG went from 6MB to 25MB and
+# nothing said why. scripts/copy-web-assets.mjs puts them in dist for the web
+# build only.

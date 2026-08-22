@@ -1,7 +1,7 @@
 {
   "name": "sidq",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
     "setup": "bash scripts/setup.sh",
     "desktop": "tauri dev",
     "tauri": "tauri",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build",
+    "build:web": "npm run build && node scripts/copy-web-assets.mjs"
   },
   "dependencies": {
     "@radix-ui/react-scroll-area": "^1.2.9",

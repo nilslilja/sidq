@@ -15,7 +15,7 @@ import type { Platform } from './platform';
  * come out of the same bandwidth as the marketing page.
  */
 
-export const RELEASE_VERSION = '0.1.0';
+export const RELEASE_VERSION = '0.1.1';
 
 /*
  * Where the files are served from.
@@ -61,12 +61,12 @@ const ARTIFACTS: Partial<Record<Platform, ReleaseArtifact>> = {
   'macos-arm': {
     url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_aarch64.dmg`,
     filename: `Sidq ${RELEASE_VERSION}.dmg`,
-    size: '6.3 MB',
+    size: '2.9 MB',
   },
   'macos-intel': {
     url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_x64.dmg`,
     filename: `Sidq ${RELEASE_VERSION}.dmg`,
-    size: '12.9 MB',
+    size: '3.2 MB',
   },
   /*
    * There is no Windows or Linux entry, and that is not an oversight.

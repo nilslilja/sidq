@@ -15,5 +15,10 @@ cd extension
 zip -q -r "../$OUT" . -x 'audit.js' -x '.*' -x '__MACOSX*'
 cd ..
 
+# The site serves this too, so people can install unpacked while the store
+# review runs. A stale copy was being served: 5KB from some earlier build,
+# which would have handed early users a broken extension.
+cp "$OUT" public/sidq-extension.zip
+
 echo "$OUT"
 unzip -l "$OUT" | awk 'NR>3 && $4 != "" && $4 !~ /^-+$/ { printf "  %-8s %s\n", $1, $4 }'
