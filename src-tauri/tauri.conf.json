@@ -16,13 +16,15 @@
         "label": "home",
         "url": "/home",
         "title": "Sidq",
-        "width": 1000,
-        "height": 680,
-        "minWidth": 820,
-        "minHeight": 560,
+        "width": 1180,
+        "height": 800,
+        "minWidth": 940,
+        "minHeight": 620,
         "resizable": true,
         "center": true,
-        "visible": false
+        "visible": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       },
       {
         "label": "welcome",

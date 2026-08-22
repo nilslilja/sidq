@@ -33,7 +33,6 @@
 
 use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 
-
 /**
  * Small enough to live in the menu bar.
  *
@@ -126,7 +125,11 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
          * nothing. The picker is 380 tall and belongs under the bar, where it
          * is over the page rather than over the browser's own controls.
          */
-        let y = if collapsed && !notched { screen.y } else { origin.y };
+        let y = if collapsed && !notched {
+            screen.y
+        } else {
+            origin.y
+        };
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
@@ -195,23 +198,127 @@ const COLLECTION_BEHAVIOUR: u64 = (1 << 0) | (1 << 4) | (1 << 8);
  * Tauri's own window methods marshal internally, which is why `show` and
  * `set_size` were fine and only the hand-written part crashed.
  */
-pub fn raise_above_everything(w: &WebviewWindow, level: i64) {
+/**
+ * Put the window above everything, including another app's fullscreen Space.
+ *
+ * `take_key` decides whether it also takes the keyboard. The picker has to —
+ * it is a search field, and typing into it has to work from inside a fullscreen
+ * app without switching out of one. The bar must not: it sits in the menu bar
+ * strip all day and would be stealing every keystroke on the machine.
+ */
+pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool) {
     let window = w.clone();
-    let _ = w.run_on_main_thread(move || raise_now(&window, level));
+    let _ = w.run_on_main_thread(move || raise_now(&window, level, take_key));
 }
 
-fn raise_now(w: &WebviewWindow, level: i64) {
+/**
+ * The panel class the pill window is retyped into.
+ *
+ * Plain NSPanel is not enough. `canBecomeKeyWindow` on both NSWindow and
+ * NSPanel returns NO for a borderless window, so the picker drew over a
+ * fullscreen app and then watched nine typed characters go to the app
+ * underneath it. Tao normally works around this by subclassing NSWindow and
+ * reading a `focusable` ivar, and that subclass is exactly what gets replaced
+ * here, so the override has to be replaced with it.
+ *
+ * `canBecomeMainWindow` stays NO on purpose. Main window is what makes an
+ * application the one in front, and this one has to take the keyboard without
+ * taking the foreground.
+ *
+ * Registered once. Registering a class name twice aborts the process.
+ */
+fn sidq_panel_class() -> *const objc::runtime::Class {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Object, Sel, BOOL, NO, YES};
+    use std::sync::OnceLock;
+
+    static REGISTERED: OnceLock<usize> = OnceLock::new();
+
+    extern "C" fn yes(_: &Object, _: Sel) -> BOOL {
+        YES
+    }
+    extern "C" fn no(_: &Object, _: Sel) -> BOOL {
+        NO
+    }
+
+    let address = *REGISTERED.get_or_init(|| {
+        use objc::{class, sel, sel_impl};
+        let mut decl = ClassDecl::new("SidqPanel", class!(NSPanel))
+            .expect("SidqPanel is registered exactly once");
+        // SAFETY: both methods match the selectors' signatures — no arguments
+        // beyond the implicit two, returning BOOL.
+        unsafe {
+            decl.add_method(
+                sel!(canBecomeKeyWindow),
+                yes as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+            decl.add_method(
+                sel!(canBecomeMainWindow),
+                no as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+        }
+        decl.register() as *const objc::runtime::Class as usize
+    });
+
+    address as *const objc::runtime::Class
+}
+
+fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
     let Ok(handle) = w.ns_window() else { return };
     if handle.is_null() {
         return;
     }
 
     // SAFETY: `handle` is the NSWindow Tauri created for this window and is
-    // alive for as long as the window is. Both selectors take one primitive
-    // argument and return nothing.
+    // alive for as long as the window is. Every selector below takes one
+    // primitive argument or none, and this runs on the main thread.
     unsafe {
-        use objc::{msg_send, sel, sel_impl};
+        use objc::{class, msg_send, sel, sel_impl};
         let ns_window = handle as *mut objc::runtime::Object;
+
+        /*
+         * ── Become a panel ────────────────────────────────────────────────
+         *
+         * An ordinary NSWindow does not enter another application's fullscreen
+         * Space, whatever its level and collection behaviour say. Measured
+         * repeatedly: accessory activation policy, level 25 and 101,
+         * canJoinAllSpaces with fullScreenAuxiliary, orderFrontRegardless — all
+         * applied, all read back off the window as correct, and the picker
+         * still did not appear over a fullscreen app. ⌘⇧K did nothing, silently,
+         * for anybody working fullscreen.
+         *
+         * NSPanel does. It is the class Spotlight and every launcher on this
+         * platform uses for exactly this, and swapping an existing window's
+         * class is the documented way to get one out of a framework that only
+         * makes NSWindows.
+         *
+         * The non-activating style mask is the other half: a panel that
+         * activates would pull the person out of their fullscreen app just by
+         * appearing, which is worse than not appearing at all.
+         */
+        // objc 0.2 does not bind object_setClass, so it is declared here. It
+        // is a plain runtime function and the signature is stable.
+        extern "C" {
+            fn object_setClass(
+                obj: *mut objc::runtime::Object,
+                cls: *const objc::runtime::Class,
+            ) -> *const objc::runtime::Class;
+        }
+
+        let panel = sidq_panel_class();
+        let current: *const objc::runtime::Class = msg_send![ns_window, class];
+        if current != panel {
+            object_setClass(ns_window, panel);
+        }
+
+        const NON_ACTIVATING_PANEL: u64 = 1 << 7;
+        let mask: u64 = msg_send![ns_window, styleMask];
+        let _: () = msg_send![ns_window, setStyleMask: mask | NON_ACTIVATING_PANEL];
+
+        // Panels hide when their app deactivates unless told otherwise, and
+        // this one has to outlive every switch away from Sidq.
+        let _: () = msg_send![ns_window, setHidesOnDeactivate: false];
+        let _: () = msg_send![ns_window, setFloatingPanel: true];
         let _: () = msg_send![ns_window, setLevel: level];
         let _: () = msg_send![ns_window, setCollectionBehavior: COLLECTION_BEHAVIOUR];
 
@@ -227,6 +334,19 @@ fn raise_now(w: &WebviewWindow, level: i64) {
          */
         let _: () = msg_send![ns_window, orderFrontRegardless];
 
+        /*
+         * `orderFrontRegardless` puts it on screen. It does not give it the
+         * keyboard, and a borderless window will not take it by being clicked
+         * either — measured: the picker drew over a fullscreen app and three
+         * typed characters went to the app underneath.
+         *
+         * `makeKeyWindow` on a non-activating panel is the one call that hands
+         * over the keyboard without activating Sidq, which is the whole trade:
+         * type into the picker, stay in the app you were in.
+         */
+        if take_key {
+            let _: () = msg_send![ns_window, makeKeyWindow];
+        }
     }
 }
 
@@ -262,7 +382,9 @@ pub fn become_accessory() {
 /// Derived rather than stored: one source of truth that cannot drift out of
 /// step with the window it is describing.
 pub fn is_expanded(w: &WebviewWindow) -> bool {
-    let Ok(size) = w.inner_size() else { return false };
+    let Ok(size) = w.inner_size() else {
+        return false;
+    };
     let scale = w.scale_factor().unwrap_or(1.0);
     size.to_logical::<f64>(scale).width > EXPANDED_THRESHOLD
 }
@@ -282,13 +404,23 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
      *
      * Each step is independent and none of them can stop the next.
      */
-    let _ = w.set_focusable(true);
+    /*
+     * No `set_focusable` here or in `collapse`.
+     *
+     * Tauri's version writes a `focusable` ivar on tao's NSWindow subclass, and
+     * this window is an NSPanel now — calling it panics with `ivar "focusable"
+     * not found on class NSPanel` and takes the app down.
+     *
+     * It is also redundant. A non-activating panel already does the thing
+     * set_focusable was standing in for: it can take the keyboard when clicked
+     * and never pulls the person out of the app they are in.
+     */
     let _ = place(w, EXPANDED);
     let _ = w.show();
 
     // After showing, never before: showing resets the level and the collection
     // behaviour, so raising first is raising and then undoing it a line later.
-    raise_above_everything(w, PICKER_LEVEL);
+    raise_above_everything(w, PICKER_LEVEL, true);
 
     // Last, and allowed to fail. In another app's fullscreen Space it does, and
     // a picker on screen that has not taken the keyboard is worth far more than
@@ -308,11 +440,10 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
 pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     // Same reasoning as `expand`: no `?`, because the raise is last and must
     // not be skipped by anything before it.
-    let _ = w.set_focusable(false);
     let _ = w.hide();
     let _ = place(w, COLLAPSED);
     let _ = w.show();
-    raise_above_everything(w, BAR_LEVEL);
+    raise_above_everything(w, BAR_LEVEL, false);
     Ok(())
 }
 
@@ -366,7 +497,10 @@ mod tests {
         const NS_MAIN_MENU: i64 = 24;
 
         assert!(BAR_LEVEL > NS_FLOATING);
-        assert!(BAR_LEVEL > NS_MAIN_MENU, "the bar lives inside the menu bar");
+        assert!(
+            BAR_LEVEL > NS_MAIN_MENU,
+            "the bar lives inside the menu bar"
+        );
 
         /*
          * The picker has to outrank the band, or it goes wherever the band
@@ -374,7 +508,10 @@ mod tests {
          * the bar nor the picker appeared and ⌘⇧K did nothing, which is the
          * whole product missing for anybody who works fullscreen.
          */
-        assert!(PICKER_LEVEL > BAR_LEVEL, "the picker must survive fullscreen");
+        assert!(
+            PICKER_LEVEL > BAR_LEVEL,
+            "the picker must survive fullscreen"
+        );
     }
 
     #[test]
@@ -401,7 +538,10 @@ mod tests {
          * front; the menu bar's middle belongs to nobody.
          */
         let ordinary_menu_bar = 24.0;
-        assert!(COLLAPSED.1 <= ordinary_menu_bar, "must not overhang the menu bar");
+        assert!(
+            COLLAPSED.1 <= ordinary_menu_bar,
+            "must not overhang the menu bar"
+        );
         assert!(COLLAPSED.1 < NOTCH_MENU_BAR);
     }
 
@@ -428,6 +568,9 @@ mod tests {
          */
         let shortest_work_area = 900.0;
         assert!(EXPANDED.1 < shortest_work_area);
-        assert!(COLLAPSED.1 < EXPANDED.1, "the lip is the smaller of the two");
+        assert!(
+            COLLAPSED.1 < EXPANDED.1,
+            "the lip is the smaller of the two"
+        );
     }
 }

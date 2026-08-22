@@ -87,29 +87,56 @@ export function Home() {
   );
 
   return (
-    <div className="grid h-[100dvh] grid-cols-[13.5rem_1fr] bg-[#0B0B10] text-white">
+    /*
+     * ── The surface ──────────────────────────────────────────────────────
+     *
+     * Flat, and deliberately so. This had a radial bloom and gradient panels
+     * for a while, which is decoration standing in for hierarchy: it made the
+     * window busier without making anything easier to find.
+     *
+     * The site does the opposite and is the reference — one flat ground,
+     * hairline rules, one accent used only to say which thing is live, and
+     * everything else carried by type size and space. Same discipline here.
+     */
+    <div className="grid h-[100dvh] grid-cols-[15rem_1fr] overflow-hidden bg-[#0A0A0E] text-white">
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col border-r border-white/[0.07] px-3 py-4">
-        <div className="px-3 font-display text-[1.25rem] leading-none tracking-[-0.05em]">Sidq</div>
+      <aside className="flex flex-col border-r border-white/[0.06] px-3 pb-4 pt-3">
+        {/*
+          * Room for the traffic lights, which float on the surface now.
+          *
+          * Also the drag handle: with the titlebar gone there is nothing else
+          * to move the window by, and a window you cannot move is worse than
+          * a titlebar that clashes.
+          */}
+        <div data-tauri-drag-region className="h-7 shrink-0" />
 
-        <nav className="mt-7 flex flex-col gap-0.5">
+        <div className="px-3">
+          <span className="font-display text-[1.0625rem] leading-none tracking-[-0.045em]">
+            Sidq
+          </span>
+        </div>
+
+        <nav className="mt-8 flex flex-col gap-0.5">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                'group flex items-center gap-2.5 rounded-[9px] px-3 py-2 text-left',
-                'text-[0.875rem] transition-colors duration-100',
-                tab === t.id ? 'bg-white/[0.08] text-white' : 'text-white/45 hover:text-white/80',
+                'group relative flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left',
+                'text-[0.875rem] transition-all duration-150',
+                tab === t.id
+                  ? 'bg-white/[0.07] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-white/40 hover:bg-white/[0.03] hover:text-white/85',
               )}
             >
-              {/* A mark rather than an icon set. It says which row is live
-                  without pulling in a library for six glyphs. */}
+              {/* The active row gets a bar on its edge rather than a dot in
+                  its text: it reads at a glance without competing with the
+                  label for the same horizontal space. */}
               <span
                 aria-hidden="true"
                 className={cn(
-                  'size-1.5 shrink-0 rounded-full transition-colors duration-100',
-                  tab === t.id ? 'bg-[#B8A6FF]' : 'bg-white/15 group-hover:bg-white/30',
+                  'absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full transition-all duration-150',
+                  tab === t.id ? 'bg-[#B8A6FF] opacity-100' : 'opacity-0',
                 )}
               />
               <span className="min-w-0 truncate">{t.label}</span>
@@ -117,15 +144,32 @@ export function Home() {
           ))}
         </nav>
 
-        {/* The plan sits where an account does in every app of this shape. */}
-        <div className="mt-auto px-3">
-          <div className="border-t border-white/[0.07] pt-4">
-            <p className="text-[0.75rem] capitalize text-white/60">{plan?.plan ?? 'free'}</p>
-            <p className="mt-1 text-[0.6875rem] leading-relaxed text-white/30">
-              {plan?.handoversCap
-                ? `${plan.handoversUsed} of ${plan.handoversCap} handovers this week`
-                : 'Unlimited handovers'}
+        {/* The plan, as a card. It was two loose lines against the window edge. */}
+        <div className="mt-auto">
+          <div
+            className="rounded-[10px] border border-white/[0.07] px-3.5 py-3"
+          >
+            <p className="text-[0.8125rem] font-medium capitalize text-white/85">
+              {plan?.plan ?? 'free'}
             </p>
+            {plan?.handoversCap ? (
+              <>
+                <p className="mt-1 text-[0.6875rem] text-white/35">
+                  {plan.handoversUsed} of {plan.handoversCap} handovers this week
+                </p>
+                {/* A bar, because "3 of 10" is a fact and this is a feeling. */}
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.07]">
+                  <div
+                    className="h-full rounded-full bg-[#B8A6FF] transition-[width] duration-500"
+                    style={{
+                      width: `${Math.min(100, (plan.handoversUsed / plan.handoversCap) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="mt-1 text-[0.6875rem] text-white/35">Unlimited handovers</p>
+            )}
           </div>
         </div>
       </aside>
@@ -135,25 +179,26 @@ export function Home() {
         {/*
           * The numbers, across the top, on every screen.
           *
-          * They used to be three small lines in the bottom corner of the
-          * sidebar, which is where an app puts something it does not want
-          * looked at. They are the proof that Sidq has actually read this
-          * machine, so they open the window instead.
+          * They were three small lines at the bottom of the sidebar, which is
+          * where an app puts something it does not want looked at. They are the
+          * proof Sidq has read this machine, so they open the window.
           *
           * Every one is measured. Nothing here is an estimate and nothing is
           * rounded up to look better.
           */}
-        <header className="sticky top-0 z-10 grid grid-cols-4 gap-px border-b border-white/[0.07] bg-[#0B0B10]/95 backdrop-blur-xl">
+        <header
+          className={cn(
+            'sticky top-0 z-10 flex items-stretch gap-8 px-8 pb-5 pt-7',
+            'border-b border-white/[0.06] bg-[#08080C]/80 backdrop-blur-2xl',
+          )}
+        >
           <Stat value={stats[0].toLocaleString()} label="conversations" />
           <Stat value={stats[1].toLocaleString()} label="messages read" />
           <Stat value={`${hoursRead}h`} label="of work indexed" />
-          <Stat
-            value={plan?.handoversUsed?.toLocaleString() ?? '0'}
-            label="handovers, 7 days"
-          />
+          <Stat value={plan?.handoversUsed?.toLocaleString() ?? '0'} label="handovers, 7 days" />
         </header>
 
-        <div className="px-8 py-7">
+        <div className="px-8 pb-10 pt-7">
         {tab === 'withheld' && <WhatItDidntTell bridge={bridge} />}
         {tab === 'search' && <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />}
         {tab === 'profile' && <Profile bridge={bridge} />}
@@ -296,7 +341,7 @@ function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> 
   if (report.hidden === 0) {
     return (
       <>
-        <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">
+        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">
           What it didn&rsquo;t tell you
         </h1>
         <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/35">
@@ -317,42 +362,73 @@ function WhatItDidntTell({ bridge }: { bridge: ReturnType<typeof desktopBridge> 
         * files on this disk, and the excerpts under them are verbatim, so
         * anybody who doubts it can go and open the file.
         */}
-      <p className="text-[0.8125rem] uppercase tracking-[0.16em] text-white/35">
-        Across {report.conversations} conversations on this Mac
-      </p>
-      <h1 className="mt-3 font-display text-[3.5rem] leading-[0.95] tracking-[-0.04em] text-white">
-        {Math.round(report.share * 100)}%
-      </h1>
-      <p className="mt-3 max-w-[50ch] text-[1.0625rem] leading-relaxed text-white/80">
-        of everything your AIs wrote about your work, you were never shown.
-      </p>
-      <p className="mt-2 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
-        {report.hidden.toLocaleString()} characters across {report.thoughts.toLocaleString()}{' '}
-        separate thoughts. Written to your disk, rendered nowhere, and dropped from the
-        model&rsquo;s own memory after the turn, so you cannot get it by asking either.
+      {/*
+        * The number is the product, so nothing competes with it.
+        *
+        * It spent a version inside a gradient card with a bloom behind it and
+        * the figure itself filled with a gradient. That is decoration doing the
+        * job hierarchy should: the number was no easier to read, and everything
+        * around it got harder.
+        *
+        * One enormous figure, one sentence, one rule underneath showing the
+        * split. Same discipline as the site, where a single line of display
+        * type carries a whole screen.
+        */}
+      <p className="text-[0.6875rem] tracking-[0.14em] text-white/30">
+        ACROSS {report.conversations} CONVERSATIONS ON THIS MAC
       </p>
 
-      <p className="mt-10 text-[0.8125rem] uppercase tracking-[0.16em] text-white/35">
-        The longest things it kept to itself
+      <h1 className="mt-6 font-display text-[5rem] leading-[0.8] tracking-[-0.055em] text-white">
+        {Math.round(report.share * 100)}%
+      </h1>
+
+      <p className="mt-6 max-w-[34ch] text-[1.25rem] leading-[1.3] tracking-[-0.015em] text-white/85">
+        of everything your AIs wrote about your work, you were never shown.
       </p>
-      <ul className="mt-4 space-y-2">
+
+      {/* The same fact, drawn. Accent marks the half you did not get. */}
+      <div className="mt-10 flex h-[3px] max-w-[42rem] overflow-hidden rounded-full bg-white/[0.07]">
+        <div
+          className="h-full bg-white/20"
+          style={{ width: `${Math.round((1 - report.share) * 100)}%` }}
+        />
+        <div className="h-full flex-1 bg-[#B8A6FF]" />
+      </div>
+      <div className="mt-3 flex max-w-[42rem] justify-between text-[0.75rem] tabular-nums text-white/30">
+        <span>{report.shown.toLocaleString()} you saw</span>
+        <span className="text-white/55">{report.hidden.toLocaleString()} you did not</span>
+      </div>
+
+      <p className="mt-8 max-w-[56ch] text-[0.875rem] leading-relaxed text-white/45">
+        {report.thoughts.toLocaleString()} separate thoughts, written to your disk, rendered
+        nowhere, and dropped from the model&rsquo;s own memory after the turn &mdash; so you
+        cannot get them by asking either.
+      </p>
+
+      <p className="mt-12 text-[0.6875rem] tracking-[0.14em] text-white/35">
+        THE LONGEST THINGS IT KEPT TO ITSELF
+      </p>
+      <ul className="mt-4 space-y-2.5">
         {report.excerpts.slice(0, 12).map((row, i) => (
           <li
             key={`${row.sessionId}-${i}`}
             className={cn(
-              'rounded-[12px] border border-white/[0.07] bg-white/[0.02] p-4',
-              'transition-colors duration-150 hover:border-white/15',
+              'group relative overflow-hidden rounded-[12px] border border-white/[0.07] p-5',
+              'transition-colors duration-150 hover:border-white/[0.16]',
             )}
           >
+            {/* A quiet accent edge, lit on hover. It marks these as quotations
+                without a quote mark competing with the text. */}
             <div className="flex items-baseline justify-between gap-4">
-              <span className="min-w-0 truncate text-[0.8125rem] text-white/50">
-                {row.title || 'Untitled conversation'} &middot; {row.source}
+              <span className="min-w-0 truncate text-[0.75rem] tracking-[0.02em] text-white/45">
+                {row.title || 'Untitled conversation'}
+                <span className="text-white/25"> · {row.source}</span>
               </span>
-              <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
-                {row.chars.toLocaleString()} chars
+              <span className="shrink-0 font-display text-[0.75rem] tabular-nums text-white/30">
+                {row.chars.toLocaleString()}
               </span>
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-[0.875rem] leading-relaxed text-white/80">
+            <p className="mt-2.5 whitespace-pre-wrap text-[0.875rem] leading-[1.65] text-white/75">
               {row.text}
             </p>
           </li>
@@ -514,7 +590,7 @@ function Handovers({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
 
   return (
     <>
-      <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">Handovers</h1>
+      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Handovers</h1>
       <p className="mt-4 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
         Every one is written to your Downloads folder as a Markdown file, so nothing is lost
         to a misclick the way a clipboard is.
@@ -779,7 +855,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 
   return (
     <>
-      <h1 className="font-display text-[1.5rem] tracking-[-0.03em]">Sources</h1>
+      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Sources</h1>
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-white/45">
         Sidq is not tied to any one AI. The ones that write conversations to this Mac
         are read with nothing to set up. The ones that run in a browser keep nothing readable
@@ -856,14 +932,22 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 
 /* ── Stats ────────────────────────────────────────────────────────────────── */
 
-/** One measured number, at the top of the window. */
+/**
+ * One measured number, at the top of the window.
+ *
+ * Four equal boxes with hairlines between them looked like a spreadsheet
+ * header. They are a row of figures instead, sized so the number carries and
+ * the label recedes, which is the whole hierarchy a stat needs.
+ */
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="bg-white/[0.02] px-6 py-5">
-      <p className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.03em] text-white">
+    <div className="min-w-0">
+      <p className="font-display text-[1.625rem] leading-none tabular-nums tracking-[-0.045em] text-white">
         {value}
       </p>
-      <p className="mt-1.5 text-[0.6875rem] uppercase tracking-[0.12em] text-white/30">{label}</p>
+      <p className="mt-1.5 truncate text-[0.6875rem] tracking-[0.08em] text-white/30">
+        {label.toUpperCase()}
+      </p>
     </div>
   );
 }
