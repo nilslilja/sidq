@@ -1407,7 +1407,12 @@ fn main() {
              * switching apps with ⌘-tab or clicking another window's title bar,
              * and it is what Spotlight and every launcher on this platform do.
              *
-             * Collapsed, the window is non-focusable and never receives this.
+             * This depends on the picker being able to take the keyboard
+             * at all. It stopped for one build, when the window became a
+             * panel and nothing could become key any more: no focus in,
+             * no focus out, and the picker could not be closed by
+             * clicking. `is_expanded` is what keeps the collapsed bar
+             * from acting on it.
              */
             if window.label() == "pill" {
                 if let tauri::WindowEvent::Focused(false) = event {
