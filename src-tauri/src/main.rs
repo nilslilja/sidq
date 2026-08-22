@@ -444,6 +444,91 @@ async fn stale_sources() -> Vec<String> {
     .unwrap_or_default()
 }
 
+/**
+ * Download the extension, and reveal it in Finder.
+ *
+ * One button rather than a link into a browser, a Downloads folder and a hunt.
+ * The unzipped folder is what Chrome's "Load unpacked" wants, so Sidq unzips it
+ * too: asking somebody to find a zip, double-click it, and then locate what
+ * came out is three chances to lose them for no benefit.
+ */
+#[tauri::command]
+async fn download_extension(app: tauri::AppHandle) -> Result<String, String> {
+    let origin = web_origin().ok_or("No web address is configured for this build.")?;
+    let home = std::env::var_os("HOME").ok_or("No home directory.")?;
+    let dir = std::path::PathBuf::from(home).join("Downloads");
+    let zip = dir.join("sidq-extension.zip");
+    let out = dir.join("sidq-extension");
+
+    let status = std::process::Command::new("/usr/bin/curl")
+        .args(["--silent", "--fail", "--location", "--max-time", "30", "--output"])
+        .arg(&zip)
+        .arg(format!("{origin}/sidq-extension.zip"))
+        .status()
+        .map_err(|e| format!("Could not download it: {e}"))?;
+    if !status.success() {
+        return Err("Could not download the extension. Check your connection.".into());
+    }
+
+    // Replace rather than merge: an older copy left behind would be loaded
+    // alongside and the person would never know which one Chrome was running.
+    let _ = std::fs::remove_dir_all(&out);
+    let unzipped = std::process::Command::new("/usr/bin/unzip")
+        .args(["-o", "-q"])
+        .arg(&zip)
+        .arg("-d")
+        .arg(&out)
+        .status()
+        .map_err(|e| format!("Could not unzip it: {e}"))?;
+    if !unzipped.success() {
+        return Err("Downloaded it, but could not unzip it.".into());
+    }
+
+    let _ = std::fs::remove_file(&zip);
+    // Straight to the folder they need to pick, open in Finder.
+    let _ = app.opener().reveal_item_in_dir(&out);
+
+    Ok(out.to_string_lossy().to_string())
+}
+
+/// Whether the browser extension has ever reached the app, and when.
+#[derive(Debug, Clone, serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ExtensionStatus {
+    connected: bool,
+    /// Seconds since it last spoke, or absent if it never has.
+    seconds_ago: Option<i64>,
+}
+
+/**
+ * Is the extension working?
+ *
+ * Asked by the setup screen every few seconds so it can go green by itself.
+ * Somebody who has just followed four steps in another application has no way
+ * of knowing whether they worked, and that uncertainty is what makes people
+ * give up on a install that actually succeeded.
+ */
+#[tauri::command]
+async fn extension_status() -> ExtensionStatus {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(conn) = index_store::open() else {
+            return ExtensionStatus::default();
+        };
+        let seen = index_store::setting(&conn, "extension_seen").and_then(|v| v.parse::<i64>().ok());
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        match seen {
+            Some(at) => ExtensionStatus { connected: true, seconds_ago: Some(now - at) },
+            None => ExtensionStatus::default(),
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// The list of assistants Sidq can open, for the UI to draw.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1052,6 +1137,8 @@ fn main() {
             recent_handovers,
             withheld_report,
             set_backdrop,
+            extension_status,
+            download_extension,
             stale_sources,
             assistant_list,
             open_assistant,

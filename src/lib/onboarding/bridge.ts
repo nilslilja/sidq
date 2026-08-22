@@ -196,6 +196,16 @@ export interface OnboardingBridge {
    * that has never been used, and only one of those is fixable.
    */
   staleSources: () => Promise<string[]>;
+  /**
+   * Whether the extension has reached the app, and how recently.
+   *
+   * Polled by the setup screen so it can turn green by itself. What makes
+   * people abandon an install is finishing it and not knowing whether it
+   * worked.
+   */
+  extensionStatus: () => Promise<{ connected: boolean; secondsAgo: number | null }>;
+  /** Download it, unzip it, and reveal the folder Chrome asks for. */
+  downloadExtension: () => Promise<string | null>;
   /** Assistants Sidq can open in its own window. Nothing to install. */
   assistantList: () => Promise<{ id: string; label: string }[]>;
   /**
@@ -317,6 +327,16 @@ export function desktopBridge(): OnboardingBridge | null {
       return (
         out ?? { shown: 0, hidden: 0, thoughts: 0, conversations: 0, excerpts: [], share: 0 }
       );
+    },
+    extensionStatus: async () => {
+      const out = (await invoke('extension_status')) as
+        | { connected: boolean; secondsAgo: number | null }
+        | null;
+      return out ?? { connected: false, secondsAgo: null };
+    },
+    downloadExtension: async () => {
+      const path = await invoke('download_extension');
+      return typeof path === 'string' ? path : null;
     },
     staleSources: async () => {
       const rows = await invoke('stale_sources');

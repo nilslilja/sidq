@@ -5,6 +5,7 @@ import { PillPreview } from '@/components/landing/PillPreview';
 import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
+import { ConnectExtension } from '@/components/companion/ConnectExtension';
 import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
 
 /** The assistants that live in a browser, offered at the end of setup. */
@@ -338,12 +339,11 @@ export default function Onboarding() {
               ))}
             </div>
 
-            <button
-              onClick={() => void bridge?.openConnectPage()}
-              className="mt-5 text-[0.8125rem] text-white/40 underline-offset-4 transition-colors duration-150 hover:text-white/75 hover:underline"
-            >
-              Get the browser extension
-            </button>
+            {/* The steps live here rather than in a page somebody has to be
+                sent to, and the status goes green on its own. */}
+            <div className="mt-6 w-full max-w-[36rem] text-left">
+              <ConnectExtension compact />
+            </div>
 
             <div className="mt-8">
               <PrimaryAction label="Done" onClick={advance} />

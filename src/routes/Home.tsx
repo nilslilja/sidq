@@ -9,6 +9,7 @@ import {
 } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
 import { shareSessionWithDesktop } from '@/lib/supabase';
+import { ConnectExtension } from '@/components/companion/ConnectExtension';
 import { cn } from '@/lib/cn';
 
 /*
@@ -820,6 +821,10 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
           </p>
         </div>
       )}
+
+      <div className="mt-8">
+        <ConnectExtension />
+      </div>
 
       <OpenAssistants bridge={bridge} />
       <ImportHistory bridge={bridge} />

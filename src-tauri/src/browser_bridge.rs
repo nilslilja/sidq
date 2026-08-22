@@ -98,6 +98,26 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
     }
 
     /*
+     * The extension just spoke, so it exists.
+     *
+     * Recorded on every request rather than through a handshake, because the
+     * useful question is not "was it installed" but "is it working right now".
+     * An extension that is installed and blocked, or installed in a browser
+     * nobody uses, is the same as no extension, and only this can tell them
+     * apart.
+     *
+     * It turns setup from a set of steps somebody follows and then wonders
+     * about into a status that goes green on its own.
+     */
+    if let Some(conn) = crate::index_store::open() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let _ = crate::index_store::put_setting(&conn, "extension_seen", &now.to_string());
+    }
+
+    /*
      * The extension asking what the app knows.
      *
      * It needs real numbers to put on the page — how many conversations, how
