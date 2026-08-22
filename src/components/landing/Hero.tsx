@@ -62,32 +62,34 @@ export function Hero() {
           id="hero"
           className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
         >
-          Where your AI work adds up
+          The models got extraordinary. Nobody joined them up
         </h1>
 
         {/*
-          * This headline is the product, not a campaign.
+          * The headline says what Sidq is, not what is wrong this week.
           *
-          * It was rewritten three times in three days: "Start where you
-          * actually stopped", then "Your AI is hiding half of what it thinks",
-          * then "Every AI you open starts from zero". Each was a true sentence
-          * about a symptom, and each meant the site said something different
-          * from the site a week earlier, which is how a product ends up with no
-          * identity at all.
+          * It was rewritten three times in three days — "Start where you
+          * actually stopped", "Your AI is hiding half of what it thinks",
+          * "Every AI you open starts from zero" — each a true sentence about a
+          * symptom, and each meaning the site said something different from the
+          * site a week earlier. That is how a product ends up with no identity.
           *
-          * What has not changed since the beginning is what Sidq is: every
-          * conversation you have had with every assistant, in one place on your
-          * own machine, and any one of them carried whole into another. Symptoms
-          * belong in the posts. The page says what the thing is.
+          * This one is the position rather than a symptom, and it is the whole
+          * argument in seven words: the models are the achievement of the
+          * decade and they cannot see each other. Sidq is the layer that joins
+          * them. Symptoms belong in the posts, where a new angle every week is
+          * the point.
           */}
-        <p className="mx-auto mt-8 max-w-[50ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
-          Every conversation you have had with every assistant, together on your Mac. Pick any
-          one and carry it into a different AI, whole.
+        <p className="mx-auto mt-8 max-w-[52ch] text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-relaxed text-white/75">
+          You pay for four of them. Not one can read another, every one forgets you overnight,
+          and all of them start from zero. Sidq is the layer that joins them: every
+          conversation you have ever had, together on your Mac, and any of them carried whole
+          into any other.
         </p>
 
-        <p className="mx-auto mt-6 max-w-[52ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
-          Word for word, not a summary. Including the reasoning your assistant wrote down and
-          never showed you, which is 44% of what it worked out about your work and the reason
+        <p className="mx-auto mt-6 max-w-[54ch] text-center text-[0.9375rem] leading-relaxed text-white/45">
+          Whole, not summarised. Including the reasoning your assistant wrote down and never
+          showed you, which is 44% of everything it worked out about your work, and the reason
           a second opinion from another model has never been worth much.
         </p>
 

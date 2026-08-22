@@ -11,59 +11,58 @@ Voice rules in [voice.md](voice.md).
 
 ## The line
 
-> You cannot get a real second opinion from another AI.
+> The models got extraordinary. Nobody joined them up.
 
-Not because the models are bad. Because you can only ever hand the second one a
-summary, so what you get back is an opinion on the summary rather than on your
-actual problem.
-
-That is the pitch. The 44% is what explains why the summary cannot be fixed,
-and it goes second, never first.
+Everything else is evidence for that. It is the position rather than a feature,
+it is obviously true the moment somebody hears it, and no competitor is saying
+it because they are all building inside one assistant.
 
 ## The argument, in one paragraph
 
-You explain your project to one assistant. Then you explain it again to the
-next, because none of them can read each other. And when you actually want a
-second opinion, the thing a second model is for, all you can give it is a
-paste or a summary, so it is answering a compressed version of your question.
-Here is the part that makes it unfixable: 44% of what your assistant worked out
-about your project was never shown to you either. It writes the reasoning to
-your own disk, renders none of it, and drops it from its own memory after the
-turn. So you could not include it even if you tried. That is 1,157,450
-characters on my laptop across fifteen conversations.
-
----
+These are the best tools anybody has built in a decade. Most people now pay for
+three or four, and not one of them can read another: you explain your project
+to one, then explain it again to the next, and when you want a second opinion —
+the whole reason to have a second model — all you can hand it is a summary. So
+you get an opinion on the summary. And the part that makes it unfixable: 44% of
+what your assistant worked out about your work was never shown to you either,
+because it writes the reasoning to your own disk, renders none of it, and drops
+it after the turn. On my laptop that is 1,157,450 characters. Sidq is the layer
+that joins them, and it reads what is already on the machine.
 
 ## LinkedIn, launch day
 
-> I am 18 and I got sick of explaining my own project to four different AIs
-> every single day.
+> I am 18 and I think the most obvious problem in tech right now is going
+> unsolved.
 >
-> You know the loop. You are deep in something with one of them. You want a
-> second opinion so you open another, and now you are typing out the stack, the
-> constraints, what you already tried, and why you threw away the obvious answer.
+> The models are extraordinary. Genuinely the best tools anyone has built in a
+> decade. Most of us now pay for three or four of them.
 >
-> So you paste a summary instead. And the second opinion you get back is an
-> opinion on your summary. Not on your problem. Which makes it worth nothing.
+> And not one of them can read another.
 >
-> Then I opened the actual files these assistants write to my laptop, and found
-> the part that made me build this: 44% of what they had worked out about my
-> work, I had never seen. The reasoning. The approaches they tried and rejected.
-> It is written to my own disk, rendered nowhere, and deleted from their memory
-> after every turn.
+> So you explain your project to the first. Then you explain it again to the
+> second. And when you want a second opinion, which is the entire reason to
+> have a second model, all you can give it is a summary. What comes back is an
+> opinion on your summary. Not on your problem.
 >
-> So a second opinion was never a second opinion. It was a first opinion on half
-> a story, and no amount of summarising was going to fix that, because the other
-> half never reached me either.
+> Then I opened the files these assistants write to my laptop and found the part
+> that made me build something. 44% of what they had worked out about my work, I
+> had never seen. The reasoning. The approaches they tried and threw away. It is
+> written to my own disk, rendered nowhere, and deleted from their memory after
+> every turn.
 >
-> I built Sidq. It reads the conversations your AIs already write to your Mac
-> and moves an entire one into a different assistant. Whole. Including the part
-> you were never shown.
+> So the summary was never going to work. You cannot summarise what you were
+> never shown.
 >
-> Mac only. Nothing leaves your machine. I built it alone and I would rather you
-> tell me it is wrong than say nothing.
+> I built Sidq. It is the layer that joins them. Every conversation you have
+> ever had with any assistant, together on your Mac, and any one of them carried
+> whole into any other. Including the half you never saw.
 >
-> sidq.tech
+> Nothing is uploaded. It reads what is already on your machine.
+>
+> Four subscriptions to four systems that cannot see each other's work, and
+> everybody quietly accepted it. I did not.
+>
+> Mac. sidq.tech
 
 ## X, same day
 

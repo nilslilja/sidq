@@ -45,22 +45,39 @@ attack anybody had.
 
 ## The one argument
 
-Everything is a restatement of this. Do not dilute it, do not add a second.
+Everything is a restatement of this. Do not dilute it and do not add a second.
 
-> Every assistant you use starts from nothing. Your last two hundred
-> conversations are sitting on your own disk right now, and not one of them
-> can read a single word of it.
+> The models got extraordinary. Nobody joined them up.
+
+That is the position, and it is bigger than the feature. These are the best
+tools anybody has built in a decade, most people pay for three or four of them,
+and not one can read another. Sidq is the layer that joins them. Say that with
+the confidence of somebody stating the obvious, because it is obvious the
+moment it is pointed at.
 
 Three follow-ons, in order of force:
 
-- **The 86%.** They cannot read each other, and none of them can read the part
-  the model never showed you either.
-- **The tax.** Explaining your stack again is a cost you pay every single day
-  and have stopped noticing.
-- **The disk.** It is already yours. Sidq does not fetch anything. It reads
-  what is already there.
+- **The absurdity.** You pay four subscriptions to four systems that cannot see
+  each other's work, and everybody has quietly accepted it.
+- **The 44%.** They cannot read each other, and none of them shows you the half
+  it wrote about your work either.
+- **The disk.** It is already yours. Sidq fetches nothing. It reads what is on
+  the machine.
 
----
+## What tone this is
+
+Confident, not breathless. The difference is that a breathless founder says
+"revolutionary" and a confident one says "1,157,450 characters". Never sell the
+adjective when you have the number.
+
+Say it like the thing is obviously correct and slightly overdue. Not "we hope
+to" or "we are building towards". It exists, it runs on your Mac, and it took
+one person to notice.
+
+The claim to make, in whatever words fit: this is the most useful thing anybody
+has shipped since the models themselves got good, because it is the only one
+that treats them as one system rather than four subscriptions. That is a large
+claim and it is defensible, which is exactly the kind worth making.
 
 ## In the product
 
