@@ -1297,6 +1297,23 @@ fn main() {
                  * for a reason they have not told us yet.
                  */
                 let _ = pill_window::collapse(w);
+
+                /*
+                 * The window comes up with it.
+                 *
+                 * Launch used to show the bar alone, on the reasoning that a
+                 * 24-point strip in the menu bar is the product and a window is
+                 * something you ask for. In practice somebody double-clicks the
+                 * app, sees nothing they recognise as having opened, and
+                 * concludes it did not start — the bar is deliberately quiet
+                 * enough to miss.
+                 *
+                 * The two are one thing: the window is where the conversations
+                 * are and the bar is how you reach them in a hurry. Wispr opens
+                 * both and it is right. Closing the window still only hides it,
+                 * so the bar outlives it and ⌘⇧K keeps working.
+                 */
+                open_home(app.handle().clone());
             }
 
             /*

@@ -58,9 +58,9 @@ const MODELS: Model[] = [
   { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
   { name: 'Cursor', logo: '', colour: '#E5E5E5' },
-  { name: 'Perplexity', logo: '', colour: '#20B8CD' },
-  { name: 'Grok', logo: '', colour: '#E5E5E5' },
-  { name: 'Copilot', logo: '', colour: '#8B7BF7' },
+  { name: 'Perplexity', logo: '/perplexity-logo.svg', colour: '#22B8CD' },
+  { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5' },
+  { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7' },
 ];
 
 /** Sits under the rotating line and is what makes it not sound like surveillance. */

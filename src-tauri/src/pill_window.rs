@@ -148,11 +148,28 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
  * Neither is reachable through Tauri, so both are set on the NSWindow directly.
  */
 
-/// Above the menu bar (24), below an open menu (101).
+/// Where the collapsed bar sits: in the menu bar band, above the bar itself.
 ///
-/// Deliberately not higher. A bar that outranks an open menu would draw on top
-/// of one, which is a worse problem than the one being fixed.
-const STATUS_WINDOW_LEVEL: i64 = 25;
+/// It lives inside the menu bar, so it has to outrank it or be drawn over.
+const BAR_LEVEL: i64 = 25;
+
+/**
+ * Where the picker sits, which has to be higher.
+ *
+ * macOS hides the entire menu bar band in a fullscreen Space, and a window at
+ * band level goes with it. Measured with a fullscreen app in front: neither the
+ * bar nor the picker appeared, and ⌘⇧K did nothing at all. For anybody who
+ * works fullscreen that is the whole product missing, silently.
+ *
+ * Popup menus are the exception — they draw over fullscreen apps, and they live
+ * at NSPopUpMenuWindowLevel. The picker is exactly that sort of thing: summoned,
+ * temporary, on top of whatever you were doing.
+ *
+ * The bar stays in the band and still hides in fullscreen, which is right
+ * rather than a compromise: it is menu bar furniture and it should disappear
+ * when the menu bar does. ⌘⇧K brings the picker back regardless.
+ */
+const PICKER_LEVEL: i64 = 101;
 
 /// canJoinAllSpaces | stationary | fullScreenAuxiliary.
 ///
@@ -161,8 +178,29 @@ const STATUS_WINDOW_LEVEL: i64 = 25;
 /// editor, which is most of the day.
 const COLLECTION_BEHAVIOUR: u64 = (1 << 0) | (1 << 4) | (1 << 8);
 
-/// Raise the window above the menu bar and into every Space.
-pub fn raise_above_everything(w: &WebviewWindow) {
+/**
+ * Raise the window above the menu bar and into every Space.
+ *
+ * ── Why this hops to the main thread ─────────────────────────────────────────
+ * AppKit is not thread-safe and does not fail politely about it. These are raw
+ * objc messages to an NSWindow, and `expand` is called from a Tauri command and
+ * from the loopback listener, both of which run on worker threads. Doing it
+ * there took the whole app down with EXC_BREAKPOINT inside
+ * `NSApplication NS_touchBarProviders`, which names nothing to do with windows
+ * or levels and is therefore extremely hard to trace back.
+ *
+ * The user-visible version of that bug: clicking the Sidq chip on a web page
+ * quit Sidq.
+ *
+ * Tauri's own window methods marshal internally, which is why `show` and
+ * `set_size` were fine and only the hand-written part crashed.
+ */
+pub fn raise_above_everything(w: &WebviewWindow, level: i64) {
+    let window = w.clone();
+    let _ = w.run_on_main_thread(move || raise_now(&window, level));
+}
+
+fn raise_now(w: &WebviewWindow, level: i64) {
     let Ok(handle) = w.ns_window() else { return };
     if handle.is_null() {
         return;
@@ -174,8 +212,21 @@ pub fn raise_above_everything(w: &WebviewWindow) {
     unsafe {
         use objc::{msg_send, sel, sel_impl};
         let ns_window = handle as *mut objc::runtime::Object;
-        let _: () = msg_send![ns_window, setLevel: STATUS_WINDOW_LEVEL];
+        let _: () = msg_send![ns_window, setLevel: level];
         let _: () = msg_send![ns_window, setCollectionBehavior: COLLECTION_BEHAVIOUR];
+
+        /*
+         * Force it into the Space that is actually on screen.
+         *
+         * Setting canJoinAllSpaces tells macOS the window is allowed everywhere;
+         * it does not move a window that is already assigned to the Space it was
+         * created in. When another application owns a fullscreen Space, that is
+         * the difference between the picker appearing and ⌘⇧K doing nothing at
+         * all. `orderFrontRegardless` brings it forward without activating Sidq,
+         * which is the point: the keyboard should stay where it was.
+         */
+        let _: () = msg_send![ns_window, orderFrontRegardless];
+
     }
 }
 
@@ -194,6 +245,8 @@ pub fn raise_above_everything(w: &WebviewWindow) {
  * for opening the window and quitting.
  */
 pub fn become_accessory() {
+    // Called from setup, which is already the main thread. AppKit from anywhere
+    // else is what crashed this app once already.
     // SAFETY: NSApp is the shared application, alive for the process, and
     // setActivationPolicy: takes one integer.
     unsafe {
@@ -216,15 +269,31 @@ pub fn is_expanded(w: &WebviewWindow) -> bool {
 
 /// Grow into the picker and take focus, because now it is a keyboard list.
 pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
-    w.set_focusable(true)?;
-    place(w, EXPANDED)?;
-    w.show()?;
-    w.set_focus()?;
-    // After showing, never before. Showing a window resets its level and its
-    // collection behaviour, so raising it first is raising it and then undoing
-    // that one line later — which is exactly what made the bar vanish under a
-    // fullscreen window while every always-on-top flag was set.
-    raise_above_everything(w);
+    /*
+     * Nothing here uses `?`, and that is the point.
+     *
+     * This has now been broken twice by the same shape: a chain of fallible
+     * calls with the step that actually matters at the end of it. The first
+     * time an early failure skipped the state event; this time `set_focus`
+     * fails when another application owns a fullscreen Space, so `expand`
+     * returned early and the window level was never raised — which is exactly
+     * the case the level exists for. The picker simply did not appear, and
+     * nothing reported anything.
+     *
+     * Each step is independent and none of them can stop the next.
+     */
+    let _ = w.set_focusable(true);
+    let _ = place(w, EXPANDED);
+    let _ = w.show();
+
+    // After showing, never before: showing resets the level and the collection
+    // behaviour, so raising first is raising and then undoing it a line later.
+    raise_above_everything(w, PICKER_LEVEL);
+
+    // Last, and allowed to fail. In another app's fullscreen Space it does, and
+    // a picker on screen that has not taken the keyboard is worth far more than
+    // no picker at all.
+    let _ = w.set_focus();
     Ok(())
 }
 
@@ -237,11 +306,13 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
  * the difference is a person pressing Esc and then typing into nothing.
  */
 pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
-    w.set_focusable(false)?;
+    // Same reasoning as `expand`: no `?`, because the raise is last and must
+    // not be skipped by anything before it.
+    let _ = w.set_focusable(false);
     let _ = w.hide();
-    place(w, COLLAPSED)?;
-    w.show()?;
-    raise_above_everything(w);
+    let _ = place(w, COLLAPSED);
+    let _ = w.show();
+    raise_above_everything(w, BAR_LEVEL);
     Ok(())
 }
 
@@ -293,11 +364,17 @@ mod tests {
          */
         const NS_FLOATING: i64 = 3;
         const NS_MAIN_MENU: i64 = 24;
-        const NS_POPUP_MENU: i64 = 101;
 
-        assert!(STATUS_WINDOW_LEVEL > NS_FLOATING);
-        assert!(STATUS_WINDOW_LEVEL > NS_MAIN_MENU, "must clear the menu bar");
-        assert!(STATUS_WINDOW_LEVEL < NS_POPUP_MENU, "must not cover an open menu");
+        assert!(BAR_LEVEL > NS_FLOATING);
+        assert!(BAR_LEVEL > NS_MAIN_MENU, "the bar lives inside the menu bar");
+
+        /*
+         * The picker has to outrank the band, or it goes wherever the band
+         * goes. Measured with a fullscreen app in front: at band level neither
+         * the bar nor the picker appeared and ⌘⇧K did nothing, which is the
+         * whole product missing for anybody who works fullscreen.
+         */
+        assert!(PICKER_LEVEL > BAR_LEVEL, "the picker must survive fullscreen");
     }
 
     #[test]

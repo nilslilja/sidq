@@ -34,7 +34,9 @@ const ASSISTANTS: Assistant[] = [
   { name: 'Cursor', colour: '#E5E5E5', local: true },
   { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F', local: false },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF', local: false },
-  { name: 'Perplexity', colour: '#20B8CD', local: false },
+  { name: 'Perplexity', logo: '/perplexity-logo.svg', colour: '#22B8CD', local: false },
+  { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5', local: false },
+  { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7', local: false },
 ];
 
 export interface ConnectModelsProps {

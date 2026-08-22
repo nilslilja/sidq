@@ -41,18 +41,29 @@ export function Shell({
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,42%)_1fr]">
       {/* ── Instruction ─────────────────────────────────────────────────── */}
-      <div className="relative flex flex-col justify-center px-10 py-14 lg:px-14">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="absolute left-10 top-10 text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/80 lg:left-14"
-          >
-            ‹ Back
-          </button>
-        )}
+      {/*
+       * Back sits in the layout, not on top of it.
+       *
+       * It was absolutely positioned at top-10 while the content was vertically
+       * centred, so how close they landed depended entirely on how tall the
+       * step happened to be. On the taller ones it ended up directly against
+       * the heading. A row of its own cannot collide with anything.
+       */}
+      <div className="grid grid-rows-[auto_1fr] px-10 py-10 lg:px-14">
+        <div className="mx-auto flex h-9 w-full max-w-[24rem] items-center">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="-ml-2 rounded-md px-2 py-1 text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/80"
+            >
+              ‹ Back
+            </button>
+          )}
+        </div>
 
-        <div className="mx-auto w-full max-w-[24rem]">{left}</div>
-
+        <div className="mx-auto flex w-full max-w-[24rem] flex-col justify-center py-6">
+          {left}
+        </div>
       </div>
 
       {/* ── Live preview ────────────────────────────────────────────────── */}
