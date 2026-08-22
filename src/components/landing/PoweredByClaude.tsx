@@ -58,6 +58,9 @@ const MODELS: Model[] = [
   { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
   { name: 'Cursor', logo: '', colour: '#E5E5E5' },
+  { name: 'Perplexity', logo: '', colour: '#20B8CD' },
+  { name: 'Grok', logo: '', colour: '#E5E5E5' },
+  { name: 'Copilot', logo: '', colour: '#8B7BF7' },
 ];
 
 /** Sits under the rotating line and is what makes it not sound like surveillance. */
@@ -113,7 +116,7 @@ export function PoweredByClaude({
    */
   return (
     <div
-      aria-label="Sidq remembers your conversations with Claude, Cursor, ChatGPT and Gemini, stored only on this Mac"
+      aria-label="Sidq reads your conversations with ChatGPT, Claude, Gemini, Cursor and every other assistant, stored only on this Mac"
       className={cn('inline-flex flex-col items-center gap-1', className)}
     >
       <span
@@ -139,6 +142,7 @@ export function PoweredByClaude({
         )}
         <span>
           Reads your <span style={{ color: model.colour }}>{model.name}</span> conversations
+          <span className="text-ink/35"> and every other one</span>
         </span>
       </span>
 

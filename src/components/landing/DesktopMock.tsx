@@ -35,7 +35,7 @@ export function DesktopMock({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* ── The menu bar the pill hangs from ──────────────────────────────── */}
+      {/* ── The menu bar the pill lives inside ────────────────────────────── */}
       <div className="absolute inset-x-0 top-0 z-20 flex h-[5.5%] items-center gap-[1.6%] bg-black/25 px-[2%] backdrop-blur-md">
         <span
           aria-hidden="true"
@@ -90,32 +90,38 @@ export function DesktopMock({ className }: { className?: string }) {
         * to the same top edge is what makes the two read as one object opening
         * rather than two things taking turns.
         */}
-      <div className="pointer-events-none absolute left-1/2 top-[5.5%] z-30 w-[min(30rem,74%)] -translate-x-1/2">
-        {/* Collapsed: the bar, doing nothing. */}
-        <div className="shot-bar absolute inset-x-0 top-0 origin-top">
+      {/*
+        * The bar sits inside the menu bar; the picker hangs below it.
+        *
+        * Not the same edge any more. Below the menu bar is where a browser
+        * draws its tabs, and a bar living there covered three of them in every
+        * window, so it moved up into the strip nobody else uses. The picker is
+        * far too tall for that and stays underneath.
+        */}
+      <div className="pointer-events-none absolute left-1/2 top-0 z-30 w-[min(30rem,74%)] -translate-x-1/2">
+        {/* Collapsed: inside the menu bar, the width of a word. */}
+        <div className="shot-bar absolute inset-x-0 top-0 flex h-[5.5%] origin-top items-center justify-center">
           <div
             className={cn(
-              'flex items-center gap-2.5 px-3.5 py-2',
+              'flex h-full items-center gap-2 px-3',
               // Squared where it meets the menu bar, rounded where it ends.
               // That silhouette is a notch, and it is why this reads as part of
               // the machine rather than a window somebody left open.
-              'mx-auto w-[min(14rem,52%)] rounded-b-[12px]',
-              'border-x border-b border-white/[0.08] bg-[#08080B]/95 backdrop-blur-xl',
-              'shadow-[0_10px_24px_-12px_rgba(0,0,0,0.75)]',
+              'mx-auto w-[min(9rem,34%)] rounded-b-[7px]',
+              // Part of the strip, not a card resting on it: no shadow, no
+              // ring, and a translucent black close to the bar's own.
+              'bg-black/35 backdrop-blur-md',
             )}
           >
             <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[#B8A6FF]/70" />
-            <span className="flex-1 truncate text-[clamp(0.4rem,0.68vw,0.6875rem)] tracking-wide text-white/50">
-              17 conversations
-            </span>
-            <span className="shrink-0 rounded-[4px] bg-white/[0.06] px-1.5 py-0.5 text-[clamp(0.35rem,0.6vw,0.625rem)] text-white/35">
-              ⌘⇧K
+            <span className="truncate text-[clamp(0.35rem,0.6vw,0.625rem)] leading-none text-white/70">
+              214
             </span>
           </div>
         </div>
 
-        {/* Expanded: the picker, unfurled from the same edge. */}
-        <div className="shot-picker absolute inset-x-0 top-0 origin-top">
+        {/* Expanded: the picker, unfurled from under the menu bar. */}
+        <div className="shot-picker absolute inset-x-0 top-[5.5%] origin-top">
           <PillPreview
             className="w-full"
             rows={[

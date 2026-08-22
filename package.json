@@ -16,7 +16,8 @@
     "desktop": "tauri dev",
     "tauri": "tauri",
     "desktop:build": "tauri build",
-    "build:web": "npm run build && node scripts/copy-web-assets.mjs"
+    "build:web": "npm run build && node scripts/copy-web-assets.mjs",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@radix-ui/react-scroll-area": "^1.2.9",
