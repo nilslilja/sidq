@@ -287,6 +287,12 @@ fn walk(
     let own = class_list(element);
     let classes = if own.is_empty() { inherited.to_string() } else { own };
 
+    // Whole subtree, not just this node: the marker sits on the container and
+    // the text is a couple of levels below it.
+    if hidden_from_sight(&classes) {
+        return;
+    }
+
     if string_attribute(element, kAXRoleAttribute).as_deref() == Some("AXStaticText") {
         if let Some(text) = string_attribute(element, kAXValueAttribute) {
             if !text.trim().is_empty() {
@@ -367,10 +373,56 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
 /// override the extension uses when a site renames its classes.
 pub fn person_by_class(classes: &str) -> bool {
     let c = classes.to_lowercase();
+    /*
+     * Each of these is a class one of the sites actually puts on the person's
+     * own turn, read off a live page rather than guessed.
+     *
+     * `query-text` is Gemini, and its absence is what made a real read come
+     * back as a single 24,100 character turn with the whole conversation
+     * attributed to the assistant and not one word attributed to the person —
+     * which is a useless handover, because the next model never sees what was
+     * asked.
+     */
     c.contains("user-message")
         || c.contains("user-query")
+        || c.contains("query-text")
         || c.contains("whitespace-pre-wrap")
         || c.contains("human")
+}
+
+/**
+ * Scaffolding that exists only for screen readers, and does not belong in a
+ * transcript.
+ *
+ * Gemini narrates its own page: "Konversation med Gemini", "Gemini sa", "Du
+ * sa", every one of them a real text node inside the conversation. Read
+ * straight through, they end up interleaved with the actual words as though
+ * somebody had typed them.
+ *
+ * These three class names are the common conventions for it rather than any
+ * one site's, so this keeps working when a site renames its own classes.
+ */
+/*
+ * ── The caption that is not worth what removing it costs ─────────────────────
+ *
+ * Gemini writes a "You said" caption above each of your turns — localised, so
+ * "Du sa" here — and it is not marked hidden, so it lands in the transcript at
+ * the head of every user turn.
+ *
+ * Filtering it by class was tried and reverted. The caption is `query-text`
+ * without `query-text-line`, so that is the rule, and applying it took six of
+ * ten user turns with it: some of the real questions render under the caption's
+ * class too. Measured before and after — 435 characters of user text became
+ * 155, and "is acquire.com a good site for doing an exit" was simply gone.
+ *
+ * Five characters of noise at the top of a turn costs a handover nothing. A
+ * missing question costs it the thing the next model most needs. So the caption
+ * stays until there is a rule that removes it and nothing else.
+ */
+
+pub fn hidden_from_sight(classes: &str) -> bool {
+    let c = classes.to_lowercase();
+    c.contains("visually-hidden") || c.contains("sr-only") || c.contains("screen-reader")
 }
 
 /// Is there enough here to be a conversation rather than an empty composer?
@@ -608,6 +660,71 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /*
+     * ── Read off a live page, not invented ───────────────────────────────────
+     *
+     * Every class below was taken from a real conversation through the
+     * accessibility tree. The reason they are pinned here is that the failure
+     * they cause is silent: an unrecognised person-class does not error, it
+     * quietly files the whole conversation as the assistant talking to itself.
+     */
+
+    #[test]
+    fn gemini_turns_are_told_apart() {
+        // Measured: without `query-text`, a real 24,000 character conversation
+        // came back as one turn, entirely Assistant, with not one word of what
+        // was actually asked.
+        assert!(person_by_class("query-text-line ng-star-inserted"));
+        assert!(person_by_class("query-text gds-body-l"));
+        assert!(!person_by_class(
+            "markdown markdown-main-panel md-content enable-luminous-fast-follows"
+        ));
+        assert!(!person_by_class("table-content md-content"));
+    }
+
+    #[test]
+    fn the_other_sites_still_match() {
+        assert!(person_by_class("font-user-message whitespace-pre-wrap"));
+        assert!(person_by_class("group/user-query"));
+        assert!(!person_by_class("font-claude-message"));
+        assert!(!person_by_class(""));
+    }
+
+    #[test]
+    fn a_page_narrating_itself_is_not_part_of_the_conversation() {
+        /*
+         * Gemini emits "Konversation med Gemini" and "Gemini sa" as real text
+         * nodes for screen readers. Read straight through they interleave with
+         * the words as though somebody had typed them.
+         */
+        assert!(hidden_from_sight("cdk-visually-hidden"));
+        assert!(hidden_from_sight(
+            "cdk-visually-hidden screen-reader-model-response-label ng-star-inserted"
+        ));
+        assert!(hidden_from_sight("sr-only"));
+        assert!(!hidden_from_sight("markdown markdown-main-panel"));
+        assert!(!hidden_from_sight("query-text-line"));
+    }
+
+    #[test]
+    fn one_turn_per_speaker_rather_than_one_per_paragraph() {
+        // Every one of these sites splits a reply over many nodes when it has a
+        // list or a code block in it.
+        let nodes = vec![
+            Node { text: "what should I do".into(), classes: "query-text-line".into() },
+            Node { text: "First,".into(), classes: "markdown-main-panel".into() },
+            Node { text: "second.".into(), classes: "markdown-main-panel".into() },
+            Node { text: "and then".into(), classes: "query-text-line".into() },
+        ];
+
+        let turns = into_turns(&nodes, person_by_class);
+        assert_eq!(
+            turns.iter().map(|(who, _)| who.as_str()).collect::<Vec<_>>(),
+            ["You", "Assistant", "You"]
+        );
+        assert_eq!(turns[1].1, "First,\nsecond.");
+    }
 
     /**
      * Read whatever assistant is actually in front, on this machine.
