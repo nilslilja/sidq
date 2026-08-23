@@ -47,6 +47,22 @@ export interface ConnectModelsProps {
 }
 
 export function ConnectModels({ found, onContinue }: ConnectModelsProps) {
+  /*
+   * ── Why this screen refuses to look finished ─────────────────────────────
+   *
+   * Continue was the one primary button here, sitting under a permission panel
+   * that could be ignored. So the most-used AIs on the machine — ChatGPT,
+   * Gemini, Claude.ai, all of the ones that live in a browser — were one
+   * unremarkable click away from never being read, and nothing on the screen
+   * said so. Somebody finishes setup, opens the picker, and finds only their
+   * editor sessions in it.
+   *
+   * Until the switch is on, Continue is the quiet way past rather than the
+   * obvious next thing, and it says what it costs. It is not blocked: a managed
+   * Mac can refuse the permission outright, and trapping somebody on a screen
+   * they cannot complete is worse than letting them through informed.
+   */
+  const [granted, setGranted] = useState(false);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -115,16 +131,23 @@ export function ConnectModels({ found, onContinue }: ConnectModelsProps) {
        * no longer have to do was three clicks of pure friction.
        */}
       <div className="mt-6">
-        <GrantAccess compact />
+        <GrantAccess surface="dark" onGranted={setGranted} />
       </div>
 
-      <p className="mt-3 text-[0.8125rem] leading-relaxed text-white/40">
-        {web.map((a) => a.name).join(', ')} keep nothing readable on your Mac, so Sidq reads
-        them from the window instead, in whichever browser you already use.
-      </p>
-
       <div className="mt-6">
-        <PrimaryAction label="Continue" onClick={onContinue} />
+        {granted ? (
+          <PrimaryAction label="Continue" onClick={onContinue} />
+        ) : (
+          <button
+            onClick={onContinue}
+            className={cn(
+              'text-[0.8125rem] text-white/40 underline-offset-4',
+              'cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline',
+            )}
+          >
+            Skip for now &mdash; {web.map((a) => a.name).join(', ')} will not be read
+          </button>
+        )}
       </div>
 
     </div>

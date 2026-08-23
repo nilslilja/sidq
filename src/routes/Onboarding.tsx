@@ -335,7 +335,7 @@ export default function Onboarding() {
             {/* The steps live here rather than in a page somebody has to be
                 sent to, and the status goes green on its own. */}
             <div className="mt-6 w-full max-w-[36rem] text-left">
-              <GrantAccess compact />
+              <GrantAccess compact surface="dark" />
             </div>
 
             <div className="mt-8">
