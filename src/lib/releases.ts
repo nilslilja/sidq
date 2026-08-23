@@ -15,7 +15,7 @@ import type { Platform } from './platform';
  * come out of the same bandwidth as the marketing page.
  */
 
-export const RELEASE_VERSION = '0.1.19';
+export const RELEASE_VERSION = '0.1.20';
 
 /*
  * Where the files are served from.
