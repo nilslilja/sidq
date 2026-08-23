@@ -68,11 +68,11 @@ impl Plan {
 
     /// Handovers per rolling week. `None` means no limit.
     ///
-    /// Ten is the number on the pricing page. If one of these two ever changes
+    /// Five is the number on the pricing page. If one of these two ever changes
     /// without the other, the site is lying, so they are worth checking together.
     pub fn handovers_per_week(self) -> Option<u32> {
         match self {
-            Plan::Free => Some(10),
+            Plan::Free => Some(5),
             _ => None,
         }
     }
@@ -254,8 +254,8 @@ mod tests {
 
     #[test]
     fn the_free_limits_match_what_the_pricing_page_promises() {
-        // src/lib/entitlements.ts: handoffsPerWeek 10, historyDays 7.
-        assert_eq!(Plan::Free.handovers_per_week(), Some(10));
+        // src/lib/entitlements.ts: handoffsPerWeek 5, historyDays 7.
+        assert_eq!(Plan::Free.handovers_per_week(), Some(5));
         assert_eq!(Plan::Free.history_days(), Some(7));
         assert_eq!(Plan::Pro.handovers_per_week(), None);
         assert_eq!(Plan::Duo.history_days(), None);
@@ -276,13 +276,13 @@ mod tests {
         let conn = index_store::tests::memory();
 
         let plain = handover_allowance(&conn, Plan::Free);
-        assert_eq!(plain.1, Some(10), "the free plan without invites");
+        assert_eq!(plain.1, Some(5), "the free plan without invites");
 
         let _ = index_store::put_setting(&conn, "invite_bonus", "10");
         assert_eq!(
             handover_allowance(&conn, Plan::Free).1,
-            Some(20),
-            "two friends joining is ten more a week"
+            Some(15),
+            "two friends joining is ten more a week, on top of the five"
         );
     }
 
@@ -327,37 +327,64 @@ mod tests {
     }
 
     #[test]
-    fn the_eleventh_handover_in_a_week_is_refused() {
+    fn the_sixth_handover_in_a_week_is_refused() {
         /*
          * The whole point of moving this out of the page.
          *
-         * Ten is what the pricing page promises; the eleventh has to be stopped
+         * Five is what the pricing page promises; the sixth has to be stopped
          * by the app, and it has to be stopped before anything is read from
          * disk, not after a file has already been written.
          */
         let conn = index_store::tests::memory();
         let now = now();
 
-        for i in 0..10 {
+        for i in 0..5 {
             index_store::record_handover(&conn, &format!("session-{i}"), now - 60).unwrap();
         }
 
-        assert!(!may_hand_over(&conn, Plan::Free), "ten is the cap");
+        assert!(!may_hand_over(&conn, Plan::Free), "five is the cap");
         assert!(may_hand_over(&conn, Plan::Pro), "and paid plans have none");
 
         let (used, cap) = handover_allowance(&conn, Plan::Free);
-        assert_eq!((used, cap), (10, Some(10)));
+        assert_eq!((used, cap), (5, Some(5)));
     }
 
     #[test]
-    fn nine_this_week_still_leaves_one() {
+    fn four_this_week_still_leaves_one() {
         let conn = index_store::tests::memory();
         let now = now();
-        for i in 0..9 {
+        for i in 0..4 {
             index_store::record_handover(&conn, &format!("s{i}"), now - 60).unwrap();
         }
 
         assert!(may_hand_over(&conn, Plan::Free));
+    }
+
+    #[test]
+    fn an_invite_reopens_a_week_that_had_run_out() {
+        /*
+         * The two changes together, which is the thing neither test covered.
+         *
+         * At five a week, somebody who has used all five is stopped. One friend
+         * joining is worth five more for seven days, so the same account can
+         * carry on — and when that lapses it is stopped again. That is the
+         * whole mechanism: the way out of the limit is bringing somebody, or
+         * paying.
+         */
+        let conn = index_store::tests::memory();
+        let now = now();
+        for i in 0..5 {
+            index_store::record_handover(&conn, &format!("s{i}"), now - 60).unwrap();
+        }
+        assert!(!may_hand_over(&conn, Plan::Free), "five used, five allowed");
+
+        let _ = index_store::put_setting(&conn, "invite_bonus", "5");
+        assert!(may_hand_over(&conn, Plan::Free), "a friend joined");
+
+        // Seven days later the database stops paying for it and the cache
+        // follows on the next check.
+        let _ = index_store::put_setting(&conn, "invite_bonus", "0");
+        assert!(!may_hand_over(&conn, Plan::Free), "and it lapsed");
     }
 
     #[test]

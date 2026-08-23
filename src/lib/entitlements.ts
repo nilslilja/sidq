@@ -28,8 +28,13 @@ export interface Entitlements {
    *
    * The metered action, because it is the one people came for. Costs nothing to
    * run (it is a local file read), so the limit exists to mark the value rather
-   * than to cover a bill, and it is set high enough that a casual user never
-   * meets it and a daily user meets it in the first week.
+   * than to cover a bill.
+   *
+   * Five, not ten. Ten was set so a casual user never met it, and that is the
+   * wrong target: somebody who never meets the limit never has a reason to
+   * think about paying, and never has a reason to invite anybody either. Five
+   * is a real week of using it properly, and the two ways past it — a friend
+   * joining, or upgrading — are both things worth doing.
    */
   handoffsPerWeek: number;
   /**
@@ -64,7 +69,7 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
    * paid one, which is how you end up with a product nobody pays for.
    */
   free: {
-    handoffsPerWeek: 10,
+    handoffsPerWeek: 5,
     sources: 1,
     rebuildsPerWeek: 3,
     companionMinutesPerDay: 90,

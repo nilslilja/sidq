@@ -24,7 +24,7 @@ import type { OnboardingBridge, InviteSummary, PlanStatus } from '@/lib/onboardi
 const PLAN: PlanStatus = {
   plan: 'free',
   handoversUsed: 3,
-  handoversCap: 10,
+  handoversCap: 5,
   historyDays: 7,
 };
 
@@ -168,7 +168,7 @@ describe('the plan panel', () => {
     // numbers it applies. Neither is written down anywhere in the frontend.
     await open('Plan');
 
-    expect(screen.getByText('3 of 10 used')).toBeInTheDocument();
+    expect(screen.getByText('3 of 5 used')).toBeInTheDocument();
     expect(screen.getByText('7 days')).toBeInTheDocument();
   });
 

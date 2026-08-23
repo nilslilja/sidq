@@ -124,7 +124,19 @@ describe('pricing cards match the contract', () => {
     const text = PLANS[0].features.join(' ');
 
     expect(text).toContain(String(free.handoffsPerWeek));
-    expect(text).toContain(String(free.sources));
+
+    /*
+     * `free.sources` is deliberately not asserted.
+     *
+     * The card used to promise "1 assistant connected" and that line was
+     * removed, because nothing has ever enforced a source limit — entitlement.rs
+     * caps handovers and the history window, and that is all.
+     *
+     * The assertion stayed and passed anyway, for six weeks, because
+     * handoffsPerWeek was 10 and "10" contains "1". Dropping the free plan to
+     * five is what exposed it. Putting it back would be a test insisting the
+     * pricing page make a claim the code does not implement.
+     */
   });
 
   test('no card sells a capability that is switched off for that plan', () => {
