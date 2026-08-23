@@ -68,6 +68,41 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
          */
         let mut all = work_history::recent_sessions(capped);
         all.extend(cursor_history::recent_sessions(capped));
+
+        /*
+         * ── And the ones that exist only in the index ────────────────────────
+         *
+         * Everything read out of a browser window. This was missing, and it is
+         * the reason the whole feature looked broken from the outside: the
+         * reader worked, the sweep wrote ChatGPT and Gemini into the index,
+         * search found them — and the picker, which is where people actually
+         * go, listed only the sources that write files to disk. So you opened
+         * an AI, Sidq read it perfectly, and there was nothing to see.
+         *
+         * Handing one over already worked: `handover_text` falls through to the
+         * index when there is no per-block file. Only the listing was absent.
+         */
+        all.extend(index_store::open().into_iter().flat_map(|conn| {
+            index_store::recent_screen_sessions(&conn, capped)
+                .into_iter()
+                .map(|(session_id, title, source, ended_at, turns)| work_history::WorkSession {
+                    session_id,
+                    project: String::new(),
+                    // The AI's name stands in for the project. A browser
+                    // conversation has no folder, and a blank here renders as a
+                    // row with a dangling separator after the title.
+                    project_name: assistants::label_for(&source).to_string(),
+                    title,
+                    last_prompt: String::new(),
+                    branch: String::new(),
+                    ended_at,
+                    turns,
+                    active_minutes: 0,
+                    source: assistants::static_source(&source),
+                })
+                .collect::<Vec<_>>()
+        }));
+
         all.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
         all.truncate(capped);
         all

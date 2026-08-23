@@ -150,3 +150,67 @@ describe('rankSessions', () => {
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });
 });
+
+/*
+ * ── The AIs that live in a browser ───────────────────────────────────────────
+ *
+ * They arrive with turns and nothing else: no project folder, no git branch, no
+ * measured duration, because a ChatGPT tab has none of those to give. Scoring
+ * the absences as zero buried them under week-old editor sessions, so they were
+ * in the picker and nowhere near the top of it — which, from the outside, looks
+ * exactly like the feature not working.
+ */
+describe('a conversation read out of a browser', () => {
+  const browser = (over: Partial<WorkSession> = {}): WorkSession =>
+    ({
+      sessionId: 'https-chatgpt-com-c-1',
+      project: '',
+      projectName: 'ChatGPT',
+      title: 'Pricing questions',
+      lastPrompt: '',
+      branch: '',
+      endedAt: Date.now() - 10 * 60_000,
+      turns: 21,
+      activeMinutes: 0,
+      source: 'chatgpt',
+      ...over,
+    }) as WorkSession;
+
+  const editor = (over: Partial<WorkSession> = {}): WorkSession =>
+    ({
+      sessionId: 'abc',
+      project: '/Users/x/Sidq',
+      projectName: 'Sidq',
+      title: 'Refactor',
+      lastPrompt: '',
+      branch: 'main',
+      endedAt: Date.now() - 7 * 24 * 3_600_000,
+      turns: 30,
+      activeMinutes: 240,
+      source: 'claude-code',
+      ...over,
+    }) as WorkSession;
+
+  test('is not scored zero for the folder and branch it cannot have', () => {
+    const [ranked] = rankSessions([browser()]);
+    expect(ranked.substance).toBeGreaterThan(0.4);
+  });
+
+  test('a real one from ten minutes ago beats a week-old editor session', () => {
+    const order = rankSessions([editor(), browser()]).map((r) => r.session.source);
+    expect(order[0]).toBe('chatgpt');
+  });
+
+  test('one exchange is still nothing to resume, wherever it came from', () => {
+    // The mango rule holds, and it drops the row rather than scoring it zero:
+    // no amount of recency should surface a single question and answer above
+    // real work, and a listed row that nobody should pick is worse than none.
+    expect(rankSessions([browser({ turns: 1 })])).toHaveLength(0);
+  });
+
+  test('an editor session is not made worse by the change', () => {
+    // Renormalising must not quietly demote the sources that report everything.
+    const [ranked] = rankSessions([editor({ endedAt: Date.now() })]);
+    expect(ranked.substance).toBeGreaterThan(0.7);
+  });
+});

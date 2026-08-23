@@ -91,14 +91,37 @@ function substanceOf(session: WorkSession): number {
    * resume. Scored at zero outright rather than smoothly, because there is no
    * amount of recency that should surface it above real work.
    */
-  const turnScore =
-    typeof turns !== 'number' || turns <= 1
-      ? 0
-      : clamp01(Math.log(turns) / Math.log(TURNS_FULL));
+  if (typeof turns !== 'number' || turns <= 1) return 0;
+  const turnScore = clamp01(Math.log(turns) / Math.log(TURNS_FULL));
 
-  const spanScore = clamp01((activeMinutes ?? 0) / SPAN_FULL_MINUTES);
+  /*
+   * ── Only score a session on what its source can actually report ───────────
+   *
+   * A conversation read out of a browser has no project folder, no git branch
+   * and no measured duration — not because it is shallow, but because a
+   * ChatGPT tab has none of those things to give. Scoring the missing ones as
+   * zero meant a twenty-one turn Gemini conversation from ten minutes ago
+   * ranked below week-old editor sessions, so the browser AIs were in the
+   * picker and nowhere near the top of it, which reads exactly like they are
+   * not there at all.
+   *
+   * The weights are renormalised over the signals that exist instead. A session
+   * is then compared on the evidence it has rather than penalised for the
+   * evidence its source cannot produce. The comment above already conceded the
+   * same point about work done outside a git repo; this is that, applied.
+   */
+  const present: [number, number][] = [[turnScore, WEIGHT_TURNS]];
+  if (typeof activeMinutes === 'number' && activeMinutes > 0) {
+    present.push([clamp01(activeMinutes / SPAN_FULL_MINUTES), WEIGHT_SPAN]);
+  }
+  if (project || branch) {
+    present.push([anchor, WEIGHT_ANCHOR]);
+  }
 
-  return clamp01(turnScore * WEIGHT_TURNS + spanScore * WEIGHT_SPAN + anchor * WEIGHT_ANCHOR);
+  const total = present.reduce((sum, [, weight]) => sum + weight, 0);
+  const scored = present.reduce((sum, [score, weight]) => sum + score * weight, 0);
+
+  return clamp01(scored / total);
 }
 
 /**
@@ -122,8 +145,14 @@ function reasonFor(session: WorkSession, now: number): string {
     return `${turns} exchanges${projectName ? ` in ${projectName}` : ''}`;
   }
   if (branch) return `on ${branch}`;
-  if (projectName) return `in ${projectName}`;
 
+  /*
+   * Not the project name on its own.
+   *
+   * The row already prints it after this line as "· Sidq", so returning it here
+   * rendered a browser conversation as "in Claude · Claude". For a conversation
+   * with no branch and few turns, when it happened is the useful half anyway.
+   */
   const hoursAgo = Math.round((now - endedAt) / 3_600_000);
   return hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`;
 }

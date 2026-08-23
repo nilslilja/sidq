@@ -275,6 +275,48 @@ pub fn recent_handovers(conn: &Connection, limit: usize) -> Vec<Handover> {
  * searchable and neither could be handed over, because the handover path went
  * looking for a transcript file and found nothing.
  */
+/**
+ * The conversations that exist only in the index.
+ *
+ * Everything read out of a browser window lives here and nowhere else: there is
+ * no file on disk to enumerate, which is the entire reason the screen reader
+ * exists. The disk readers are asked separately and cover claude-code, cowork
+ * and cursor, so those three are excluded here rather than returned twice.
+ *
+ * Returned as raw tuples because the caller owns the shape the picker wants and
+ * this module has no business knowing about it.
+ */
+pub fn recent_screen_sessions(
+    conn: &Connection,
+    limit: usize,
+) -> Vec<(String, String, String, i64, u32)> {
+    let mut stmt = match conn.prepare(
+        "SELECT session_id, title, source, ended_at, turns
+           FROM sessions
+          WHERE source NOT IN ('claude-code', 'cowork', 'cursor')
+          ORDER BY ended_at DESC
+          LIMIT ?1",
+    ) {
+        Ok(stmt) => stmt,
+        Err(_) => return Vec::new(),
+    };
+
+    let rows = stmt.query_map([limit as i64], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)? as u32,
+        ))
+    });
+
+    match rows {
+        Ok(rows) => rows.filter_map(Result::ok).collect(),
+        Err(_) => Vec::new(),
+    }
+}
+
 pub fn session_transcript(conn: &Connection, session_id: &str) -> Option<String> {
     let mut stmt = conn
         .prepare("SELECT role, body FROM messages WHERE session_id = ?1")

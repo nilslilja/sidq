@@ -65,6 +65,24 @@ pub fn find(id: &str) -> Option<&'static Assistant> {
     ASSISTANTS.iter().find(|a| a.id == id)
 }
 
+/// The name to show for a source id, falling back to the id itself.
+pub fn label_for(id: &str) -> &str {
+    find(id).map(|a| a.label).unwrap_or(id)
+}
+
+/**
+ * The `&'static str` a `WorkSession` wants for a source read out of the index.
+ *
+ * The index stores the id as text; the picker's type has borrowed it from a
+ * table since the first reader shipped. Matching against the table gives back
+ * the static one rather than leaking a `String` into a shape that does not want
+ * it. An id with no entry is one a reader knows about and this table does not,
+ * so it is reported honestly as unknown rather than mislabelled.
+ */
+pub fn static_source(id: &str) -> &'static str {
+    find(id).map(|a| a.id).unwrap_or("unknown")
+}
+
 /**
  * The script that reads the page.
  *

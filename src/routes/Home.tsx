@@ -161,7 +161,25 @@ export function Home() {
      * somewhere to go: a tint for surfaces, a darker sibling for text, and ink
      * for the one button that matters.
      */
-    <div className="grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden bg-[#F1EFF7] text-[#16141C]">
+    <div
+      className={cn(
+        'grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[#16141C]',
+        /*
+         * ── Warmth, and where it comes from ──────────────────────────────────
+         *
+         * This was one flat fill and it read as sterile: a white card on a grey
+         * sheet, no light in it anywhere. Two soft washes of the product's own
+         * lavender, one warm counterpoint, painted into the ground rather than
+         * onto anything — so the card floats on colour instead of on nothing,
+         * and the sidebar picks it up without being tinted itself.
+         *
+         * Fixed, not animated, and behind everything. Decoration that moves
+         * costs a frame budget on a window somebody keeps open all day.
+         */
+        'bg-[#F1EFF7]',
+        'bg-[radial-gradient(120%_90%_at_0%_0%,rgba(139,110,255,0.16),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(255,175,130,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(106,75,234,0.07),transparent_60%)]',
+      )}
+    >
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="flex min-h-0 flex-col px-3 pb-4 pt-3">
         {/*
@@ -196,7 +214,13 @@ export function Home() {
           */}
         <div className="mt-auto pt-6">
           {plan && (
-            <div className="rounded-[14px] border border-[#B8A6FF]/45 bg-[#F5F1FF] px-4 py-3.5">
+            <div
+              className={cn(
+                'rounded-[14px] border border-[#B8A6FF]/45 px-4 py-3.5',
+                'bg-gradient-to-b from-white to-[#F3EEFF]',
+                'shadow-[0_1px_2px_rgba(20,18,28,0.04)]',
+              )}
+            >
               {plan.handoversCap == null ? (
                 <>
                   <p className="text-[0.875rem] font-medium capitalize text-[#16141C]">
@@ -221,9 +245,12 @@ export function Home() {
                   <button
                     onClick={() => void bridge?.openUpgrade()}
                     className={cn(
-                      'mt-3 w-full rounded-[10px] bg-[#16141C] px-3 py-2',
+                      'mt-3 w-full rounded-[10px] px-3 py-2',
+                      'bg-gradient-to-b from-[#6A4BEA] to-[#5436C9]',
                       'text-[0.8125rem] font-medium text-white',
-                      'cursor-pointer transition-opacity duration-150 hover:opacity-85',
+                      'shadow-[0_1px_2px_rgba(20,18,28,0.18),0_6px_16px_-8px_rgba(106,75,234,0.6)]',
+                      'cursor-pointer transition-[transform,box-shadow] duration-150',
+                      'hover:-translate-y-px hover:shadow-[0_2px_4px_rgba(20,18,28,0.2),0_10px_22px_-10px_rgba(106,75,234,0.7)]',
                     )}
                   >
                     Upgrade to Pro
@@ -259,8 +286,12 @@ export function Home() {
       <main className="min-h-0 min-w-0 py-3 pl-0 pr-3">
         <div
           className={cn(
-            'h-full min-h-0 overflow-y-auto rounded-[16px] bg-white',
-            'ring-1 ring-black/[0.07] shadow-[0_1px_2px_rgba(20,18,28,0.04)]',
+            'h-full min-h-0 overflow-y-auto rounded-[18px]',
+            // Not flat white. A hair of the ground shows through the top of the
+            // card, which is what stops it reading as a sheet of paper.
+            'bg-gradient-to-b from-[#FBFAFE] to-white',
+            'ring-1 ring-black/[0.06]',
+            'shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]',
           )}
         >
           <div data-tauri-drag-region className="h-3" />
@@ -308,8 +339,8 @@ function NavRow({
         'flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left',
         'text-[0.875rem] transition-colors duration-150',
         active
-          ? 'bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.06)]'
-          : 'text-[#57516A] hover:bg-black/[0.035] hover:text-[#16141C]',
+          ? 'bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]'
+          : 'text-[#57516A] hover:bg-white/60 hover:text-[#16141C]',
       )}
     >
       <Icon name={tab.icon} className={active ? 'text-[#6A4BEA]' : 'text-[#8E8899]'} />
@@ -422,6 +453,34 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
 }
 
 
+/**
+ * Today, written the way a person would say it.
+ *
+ * The one fact on this screen nobody has to take on trust — it is either right
+ * or the machine's clock is wrong.
+ */
+function today(): string {
+  return new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+/**
+ * Morning, afternoon or evening.
+ *
+ * Cheap, and it is the difference between a window that greets you and a window
+ * with a heading on it. The boundaries are the ordinary ones rather than
+ * anything clever: nobody has ever been annoyed by "good afternoon" at 12:01.
+ */
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 /* ── Overview ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -449,6 +508,15 @@ function Overview({
   const [rows, setRows] = useState<HandoverRecord[] | null>(null);
   const [reach, setReach] = useState<[number, number] | null>(null);
 
+  /*
+   * How many distinct AIs are actually in the index.
+   *
+   * Counted from the sessions rather than from the list of AIs Sidq supports,
+   * because the useful number is how many of yours it has read — not how many
+   * it could.
+   */
+  const [reading, setReading] = useState(0);
+
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentHandovers().then(setRows);
@@ -456,14 +524,39 @@ function Overview({
       const sessions = found as WorkSession[];
       const ends = sessions.map((s) => s.endedAt).filter((n): n is number => typeof n === 'number');
       setReach(ends.length > 0 ? [Math.min(...ends), Math.max(...ends)] : null);
+      setReading(new Set(sessions.map((s) => s.source ?? 'claude-code')).size);
     });
   }, [bridge]);
 
   return (
     <>
-      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Welcome back</h1>
+      {/*
+        * ── A greeting with something in it ──────────────────────────────────
+        *
+        * "Welcome back" alone is a label. The date and the time of day are the
+        * two things a person can check against reality the moment the window
+        * opens, which is what makes a greeting read as the app being awake
+        * rather than as decoration.
+        */}
+      <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">{today().toUpperCase()}</p>
+      <h1 className="mt-1.5 font-display text-[2rem] leading-[1.1] tracking-[-0.04em]">
+        {greeting()}
+      </h1>
+      <p className="mt-2 max-w-[52ch] text-[0.9375rem] leading-relaxed text-[#57516A]">
+        {reading > 0 ? (
+          <>
+            Sidq is reading <span className="text-[#16141C]">{reading}</span>{' '}
+            {reading === 1 ? 'AI' : 'AIs'} on this Mac. Press <Keys>&#8984;&#8679;K</Keys> to
+            carry any conversation into another one.
+          </>
+        ) : (
+          <>
+            Press <Keys>&#8984;&#8679;K</Keys> to carry a conversation into another AI.
+          </>
+        )}
+      </p>
 
-      <div className="mt-7 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
+      <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
           <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">HANDOVERS</h2>
 
@@ -505,7 +598,12 @@ function Overview({
 
         {/* The standing figures. Wispr's shape, and it is the right one: a
             small stack of numbers that never moves, next to a list that does. */}
-        <aside className="rounded-[14px] bg-[#F5F3FB] px-5 py-4 ring-1 ring-black/[0.05]">
+        <aside
+          className={cn(
+            'rounded-[14px] px-5 py-4 ring-1 ring-[#B8A6FF]/30',
+            'bg-gradient-to-b from-[#F6F2FF] to-[#FBFAFE]',
+          )}
+        >
           <Stat value={stats[0].toLocaleString()} label="conversations" />
           <Stat value={stats[1].toLocaleString()} label="messages read" />
           <Stat value={`${hoursRead}h`} label="of work indexed" />
@@ -1465,7 +1563,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <p className="flex items-baseline gap-2 py-1">
-      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[#16141C]">
+      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[#2A1B57]">
         {value}
       </span>
       <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">{label}</span>
