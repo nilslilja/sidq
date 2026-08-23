@@ -77,21 +77,30 @@ export const PLANS: Plan[] = [
     inherits: 'Starter',
     cta: 'Subscribe',
     featured: true,
+    /*
+     * Two lines, because two things are actually different.
+     *
+     * Pro removes the weekly handover cap and the seven-day reach on search.
+     * That is the entire difference `entitlement.rs` enforces, and padding the
+     * card past it is how a pricing page starts lying.
+     *
+     * Removed from here:
+     *
+     *   "Learns what you actually finish, and plans to it" — the planner. It
+     *   was taken out of the product and its five edge functions deleted, and
+     *   the line stayed up on the paid card for weeks afterwards. A feature
+     *   that does not exist is the worst thing a pricing page can sell.
+     *
+     *   "Your whole history, however far back it goes" appeared twice, once at
+     *   each end of the list, so the card rendered it as two separate bullets.
+     *
+     * Rooms is still not listed. The engine and the UI both exist, but nothing
+     * renders the panel, so there is no way for a paying customer to reach it.
+     * Put it back the moment it has a way in.
+     */
     features: [
       'Unlimited handovers, every day',
-      'Search everything you have ever asked',
-      'Your whole history, however far back it goes',
-      'Learns what you actually finish, and plans to it',
-      /*
-       * Rooms is NOT listed. The engine and the UI both exist, but the panel was
-       * taken off the card and nothing renders it, so there is no way for a
-       * paying customer to reach it. Selling a feature that cannot be opened is
-       * the exact thing entitlements.ts was written to prevent, and leaving the
-       * line up because the code is "basically there" is how that happens.
-       *
-       * Put it back the moment it has a way in.
-       */
-      'Your whole history, however far back it goes',
+      'Search everything you have ever asked, however far back it goes',
     ],
   },
   {

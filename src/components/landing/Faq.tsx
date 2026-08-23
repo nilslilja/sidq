@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { entitlementsFor } from '@/lib/entitlements';
+import { INVITE, entitlementsFor } from '@/lib/entitlements';
 
 /*
  * The numbers come from the code, never from memory.
@@ -24,7 +24,7 @@ const FREE = entitlementsFor('free');
  * that could be "yes, but" is written as the plain answer first.
  */
 
-const FAQS = [
+export const FAQS = [
   {
     q: 'What does it actually do?',
     a: 'You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.',
@@ -55,7 +55,15 @@ const FAQS = [
   },
   {
     q: 'What do I get for free?',
-    a: `${FREE.handoffsPerWeek} handovers a week and ${FREE.sources} AI connected, with your full history and complete transcripts. Nothing is behind a padlock, you simply run out. People upgrade when they start doing this every day, which is the point at which one connected AI stops being enough.`,
+    /*
+     * This said "and 1 AI connected", which was wrong twice.
+     *
+     * Nothing has ever enforced a source limit — entitlement.rs caps handovers
+     * and the history window, and that is all — so it was a paid boundary that
+     * did not exist. And it contradicted the product: Sidq reads every AI on
+     * the Mac with no connecting step at all, which is the whole pitch.
+     */
+    a: `${FREE.handoffsPerWeek} handovers a week, and every AI on your Mac read with nothing to connect. Search reaches back ${FREE.historyDays} days on free and all the way on Pro. Nothing is behind a padlock, you simply run out. Inviting a friend adds ${INVITE.bonusPerWeek} more a week to both of you for ${INVITE.lastsDays} days, up to ${INVITE.perWeek} friends a week. That is the other way past it.`,
   },
   {
     q: 'Is there a web version?',

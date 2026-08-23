@@ -1,5 +1,12 @@
 import { describe, test, expect } from 'vitest';
-import { entitlementsFor, planFromTier, isUnlimited, type Entitlements } from './entitlements';
+import {
+  INVITE,
+  entitlementsFor,
+  planFromTier,
+  isUnlimited,
+  type Entitlements,
+} from './entitlements';
+import { FAQS } from '@/components/landing/Faq';
 import { PLANS, type PlanId } from './plans';
 
 /*
@@ -25,12 +32,16 @@ describe('entitlements', () => {
     expect(planFromTier('paid')).toBe('pro');
   });
 
-  test('free is metered on the two things that cost money or carry the value', () => {
+  test('free is metered on the two things the app actually enforces', () => {
+    /*
+     * This asserted rebuilds, companion minutes and calibration — a planner and
+     * a companion that were both removed from the product. It kept passing
+     * because the fields stayed in the contract long after the features left.
+     */
     const free = entitlementsFor('free');
 
-    expect(isUnlimited(free.rebuildsPerWeek)).toBe(false);
-    expect(isUnlimited(free.companionMinutesPerDay)).toBe(false);
-    expect(free.calibration).toBe(false);
+    expect(isUnlimited(free.handoffsPerWeek)).toBe(false);
+    expect(isUnlimited(free.historyDays)).toBe(false);
   });
 
   test('free is metered rather than crippled', () => {
@@ -38,26 +49,21 @@ describe('entitlements', () => {
 
     // Every capability is present in some amount. A free plan that cannot do
     // anything teaches nobody anything and converts nobody.
-    expect(free.rebuildsPerWeek).toBeGreaterThan(0);
-    expect(free.companionMinutesPerDay).toBeGreaterThan(0);
+    expect(free.handoffsPerWeek).toBeGreaterThan(0);
     expect(free.historyDays).toBeGreaterThan(0);
-    expect(free.replay).toBe(true);
   });
 
-  test('free history is short enough that calibration can never quietly work', () => {
+  test('free history is a week, matching what Rust reaches back', () => {
+    // entitlement.rs: Plan::Free.history_days() is Some(7). Two numbers, two
+    // files, and the site quotes this one.
     const free = entitlementsFor('free');
-
-    // calibration.ts needs 3 closed days and 12 tasks. Seven days of history is
-    // deliberately close to that line: the wall has to be reachable to be felt.
-    expect(free.historyDays).toBeGreaterThanOrEqual(7);
-    expect(free.historyDays).toBeLessThan(14);
+    expect(free.historyDays).toBe(7);
   });
 
   test('paying removes every meter', () => {
     for (const plan of ['pro', 'duo'] as const) {
       const e = entitlementsFor(plan);
-      expect(isUnlimited(e.rebuildsPerWeek)).toBe(true);
-      expect(isUnlimited(e.companionMinutesPerDay)).toBe(true);
+      expect(isUnlimited(e.handoffsPerWeek)).toBe(true);
       expect(isUnlimited(e.historyDays)).toBe(true);
     }
   });
@@ -67,7 +73,7 @@ describe('entitlements', () => {
     const duo = entitlementsFor('duo');
 
     for (const key of Object.keys(pro) as (keyof Entitlements)[]) {
-      if (typeof pro[key] === 'boolean') expect(duo[key]).toBe(pro[key]);
+      if (key !== 'seats') expect(duo[key]).toBe(pro[key]);
     }
     expect(duo.seats).toBeGreaterThan(pro.seats);
   });
@@ -76,9 +82,51 @@ describe('entitlements', () => {
     const free = entitlementsFor('free');
     for (const plan of ['pro', 'duo'] as const) {
       const e = entitlementsFor(plan);
-      expect(e.calibration && !free.calibration).toBe(true);
-      expect(e.rescue && !free.rescue).toBe(true);
+      expect(isUnlimited(e.handoffsPerWeek) && !isUnlimited(free.handoffsPerWeek)).toBe(true);
+      expect(isUnlimited(e.historyDays) && !isUnlimited(free.historyDays)).toBe(true);
     }
+  });
+});
+
+describe('what the site says an invite is worth', () => {
+  test('matches the constants Rust and the migration use', async () => {
+    /*
+     * Three copies of one number, by necessity: the migration decides the
+     * payout, `invites.rs` mirrors it so the desktop app can state the offer,
+     * and this file holds it again because the website has no server to ask.
+     *
+     * The desktop app is told the figures by the server and cannot drift. The
+     * website can, silently, and a pricing claim that quietly stops matching
+     * what is paid out is the failure this whole file exists to prevent.
+     */
+    const { readFileSync } = await import('node:fs');
+    const rust = readFileSync('src-tauri/src/invites.rs', 'utf8');
+
+    const each = rust.match(/pub const EACH_INVITE: u32 = (\d+);/);
+    expect(each?.[1]).toBe(String(INVITE.bonusPerWeek));
+  });
+
+  test('the FAQ quotes the contract rather than a number typed into it', () => {
+    const free = entitlementsFor('free');
+    const answers = FAQS.map((f) => f.a).join(' ');
+
+    expect(answers).toContain(`${free.handoffsPerWeek} handovers a week`);
+    expect(answers).toContain(`${INVITE.bonusPerWeek} more a week`);
+    expect(answers).toContain(`${INVITE.perWeek} friends a week`);
+  });
+
+  test('nothing on the site still claims a limit on how many AIs are read', () => {
+    /*
+     * The FAQ answered "what do I get for free?" with "and 1 AI connected".
+     * Nothing has ever enforced a source limit, and it contradicted the pitch:
+     * Sidq reads every AI on the Mac with nothing to connect.
+     */
+    const text = [...FAQS.map((f) => `${f.q} ${f.a}`), ...PLANS.flatMap((p) => p.features)]
+      .join(' ')
+      .toLowerCase();
+
+    expect(text).not.toMatch(/\d+ (ai|assistant)s? connected/);
+    expect(text).not.toMatch(/one connected ai/);
   });
 });
 
@@ -102,12 +150,30 @@ describe('pricing cards match the contract', () => {
     expect(text).not.toMatch(/real person|a human|coach reviews|we will review|our team/);
   });
 
-  test('the free card never claims something free does not have', () => {
-    const free = entitlementsFor('free');
-    const text = PLANS[0].features.join(' ').toLowerCase();
+  test('no card sells a feature that was taken out of the product', () => {
+    /*
+     * The one that got through. Pro advertised "Learns what you actually
+     * finish, and plans to it" for weeks after the planner was removed and its
+     * edge functions deleted — a paid card selling something that does not
+     * exist anywhere in the codebase.
+     *
+     * The old version of this test only looked at the free card, and only for
+     * capabilities that were false in the contract. A deleted feature is not
+     * false for a plan, it is false for everybody, so nothing caught it.
+     */
+    const gone: [string, RegExp][] = [
+      ['the planner', /learns what you actually finish|plans to it|real daily capacity/i],
+      ['rescues', /\brescues?\b/i],
+      ['the companion', /watches your (day|screen)|companion minutes/i],
+      ['rooms', /\brooms?\b.*(alongside|together)/i],
+    ];
 
-    if (!free.calibration) expect(text).not.toMatch(/learns what you|your real capacity/);
-    if (!free.rescue) expect(text).not.toMatch(/rescue/);
+    for (const plan of PLANS) {
+      const text = [plan.promise, ...plan.features].join(' ');
+      for (const [what, pattern] of gone) {
+        expect(pattern.test(text), `${plan.name} still advertises ${what}`).toBe(false);
+      }
+    }
   });
 
   test('the free card states its actual numbers', () => {
@@ -147,23 +213,22 @@ describe('pricing cards match the contract', () => {
      *
      * Prose has nothing checking it, which is exactly why it drifts.
      */
-    const gated: [keyof Entitlements, RegExp][] = [
-      ['rescue', /\brescues?\b/i],
-      ['calibration', /learns what you actually finish|real daily capacity/i],
-    ];
-
     for (const plan of PLANS) {
-      const limits = entitlementsFor(plan.id);
       const text = [plan.promise, ...plan.features].join(' ');
 
-      for (const [key, pattern] of gated) {
-        if (limits[key] === false) {
-          expect(
-            pattern.test(text),
-            `${plan.name} advertises ${String(key)} but it is off for that plan`,
-          ).toBe(false);
-        }
+      // Unlimited is the only thing a paid card may claim past free, because it
+      // is the only thing entitlement.rs grants past free.
+      if (plan.id === 'free') {
+        expect(text.toLowerCase()).not.toMatch(/unlimited|however far back/);
       }
+    }
+  });
+
+  test('no card lists the same thing twice', () => {
+    // Pro carried "Your whole history, however far back it goes" at both ends
+    // of its list, so the card rendered it as two separate bullets.
+    for (const plan of PLANS) {
+      expect(new Set(plan.features).size).toBe(plan.features.length);
     }
   });
 

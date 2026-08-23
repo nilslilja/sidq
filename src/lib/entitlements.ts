@@ -9,17 +9,24 @@ import type { PlanId } from './plans';
  * does. A pricing page that says something the code does not enforce is not
  * marketing, it is a lie with a payment form attached.
  *
- * ── Where the line is drawn, and why ──────────────────────────────────────────
- * The free plan is metered, not crippled. Every capability is present. Two of
- * them run out, and they are the two that cost real money to run (model calls)
- * or represent the whole value (the calibration engine).
+ * ── Six fields were removed, and what that says ──────────────────────────────
+ * It held `sources`, `rebuildsPerWeek`, `companionMinutesPerDay`,
+ * `calibration`, `rescue` and `replay`. Every one described a boundary of the
+ * planner or the companion, both of which were taken out of the product, and
+ * every one had exactly zero readers outside its own test.
  *
- * Calibration is the deliberate wall. It needs at least three closed days and
- * twelve tasks before it says anything, and the free plan keeps only seven days
- * of history. So a free user can just about reach the point where Sidq starts
- * telling them something about themselves, and then it stops. That is the
- * upgrade moment, and it is honest: the thing being sold is the thing that took
- * a fortnight of their own data to produce, and nobody else has it.
+ * They were not harmless. `sources: 1` was still being quoted in the FAQ as "1
+ * AI connected", which is a paid boundary that has never existed in the code
+ * and which contradicts the entire pitch: Sidq reads every AI on the machine
+ * with nothing to connect.
+ *
+ * A file written to stop the pricing page drifting from the product had drifted
+ * from the product itself.
+ *
+ * ── Where the line is drawn now ──────────────────────────────────────────────
+ * Two things, and `entitlement.rs` enforces both: how many conversations you
+ * can hand over in a rolling week, and how far back search reaches. That is the
+ * whole difference between free and paid, and stating only that is the point.
  */
 
 export interface Entitlements {
@@ -37,57 +44,44 @@ export interface Entitlements {
    * joining, or upgrading — are both things worth doing.
    */
   handoffsPerWeek: number;
-  /**
-   * How many assistants can be connected at once.
-   *
-   * One is enough to prove it works and useless for the thing it is actually
-   * for, which is moving between them.
-   */
-  sources: number;
-  /** Model calls per rolling week. The one thing that costs us money. */
-  rebuildsPerWeek: number;
-  /** Minutes the companion watches per day before going quiet. */
-  companionMinutesPerDay: number;
   /** How far back history and the week view go. */
   historyDays: number;
-  /** The engine that learns what you finish. The reason to pay. */
-  calibration: boolean;
-  /** Rebuild the remainder of a day that has gone wrong. */
-  rescue: boolean;
-  /** End-of-day breakdown of where the hours went. */
-  replay: boolean;
   /** Seats on the subscription, for the shared plan. */
   seats: number;
 }
 
+/*
+ * What an invite is worth, for the site to quote.
+ *
+ * The database is the authority: `invite_bonus` in 0008_invites_expire.sql
+ * decides the payout and `entitlement.rs` grants it, and the desktop app is
+ * told the figures by the server so it cannot drift. The website has no server
+ * call to make, so it has to hold a copy — and a copy of a number is exactly
+ * how a pricing page starts lying.
+ *
+ * `entitlements.test.ts` reads `src-tauri/src/invites.rs` and fails if these
+ * two stop matching the constants there, which mirror the migration.
+ */
+export const INVITE = {
+  /** Extra handovers a week, to each side, for seven days. */
+  bonusPerWeek: 5,
+  /** How many invites an account may have counted in a week. */
+  perWeek: 3,
+  /** How long one is worth anything. */
+  lastsDays: 7,
+} as const;
+
 const UNLIMITED = Number.POSITIVE_INFINITY;
 
 const ENTITLEMENTS: Record<PlanId, Entitlements> = {
-  /*
-   * Three rebuilds a week is roughly "one plan, and two days you rebuild it".
-   * Ten never bound anyone, which made the free plan indistinguishable from the
-   * paid one, which is how you end up with a product nobody pays for.
-   */
   free: {
     handoffsPerWeek: 5,
-    sources: 1,
-    rebuildsPerWeek: 3,
-    companionMinutesPerDay: 90,
     historyDays: 7,
-    calibration: false,
-    rescue: false,
-    replay: true,
     seats: 1,
   },
   pro: {
     handoffsPerWeek: UNLIMITED,
-    sources: UNLIMITED,
-    rebuildsPerWeek: UNLIMITED,
-    companionMinutesPerDay: UNLIMITED,
     historyDays: UNLIMITED,
-    calibration: true,
-    rescue: true,
-    replay: true,
     seats: 1,
   },
   /*
@@ -97,13 +91,7 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
    */
   duo: {
     handoffsPerWeek: UNLIMITED,
-    sources: UNLIMITED,
-    rebuildsPerWeek: UNLIMITED,
-    companionMinutesPerDay: UNLIMITED,
     historyDays: UNLIMITED,
-    calibration: true,
-    rescue: true,
-    replay: true,
     seats: 2,
   },
 };
