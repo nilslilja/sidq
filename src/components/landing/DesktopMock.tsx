@@ -54,13 +54,25 @@ export function DesktopMock({ className }: { className?: string }) {
           </span>
         ))}
         <span className="ml-auto flex items-center gap-[1.2%] text-[clamp(0.4rem,0.72vw,0.6875rem)] text-white/55">
+          {/*
+            * Sidq's own mark, in the menu bar, because that is the only place
+            * on a Mac it ever appears.
+            *
+            * It was asked for in the Dock instead. It cannot go there: Sidq
+            * sets its activation policy to accessory, which removes the Dock
+            * tile, and that is not incidental — an ordinary application cannot
+            * put a window over another app's fullscreen Space, which is most of
+            * the day for anybody who works fullscreen. The Dock icon is the
+            * price of the pill working at all.
+            */}
+          <TrayMark />
           <span aria-hidden="true">100%</span>
           <span aria-hidden="true">Fri 09:41</span>
         </span>
       </div>
 
       {/* ── A window being worked in, dimmed because it is only context ──── */}
-      <div className="absolute inset-x-[9%] bottom-[9%] top-[19%] overflow-hidden rounded-[12px] bg-[#15151C]/95 shadow-[0_20px_70px_-15px_rgba(0,0,0,0.6)]">
+      <div className="absolute inset-x-[9%] bottom-[17%] top-[19%] overflow-hidden rounded-[12px] bg-[#15151C]/95 shadow-[0_20px_70px_-15px_rgba(0,0,0,0.6)]">
         <div className="flex items-center gap-1.5 border-b border-white/[0.06] px-4 py-2.5">
           <span className="size-2 rounded-full bg-[#FF5F57]" />
           <span className="size-2 rounded-full bg-[#FEBC2E]" />
@@ -132,6 +144,87 @@ export function DesktopMock({ className }: { className?: string }) {
           />
         </div>
       </div>
+      {/* ── The Dock ──────────────────────────────────────────────────────
+        *
+        * Drawn, like everything else here, and for the same reason: a real one
+        * would put somebody's actual applications on the front page, and Apple
+        * owns every icon in it. These are shapes.
+        *
+        * It earns its place by saying something true. Sidq is not among them —
+        * it is up in the menu bar instead — and a reader who notices that has
+        * understood the product without being told.
+        */}
+      <div className="absolute inset-x-0 bottom-[2.5%] z-10 flex justify-center">
+        <div
+          className={cn(
+            'flex items-end gap-[0.9%] rounded-[14%/38%] px-[1.2%] py-[0.7%]',
+            'bg-white/25 ring-1 ring-inset ring-white/25 backdrop-blur-xl',
+            'shadow-[0_8px_28px_-10px_rgba(0,0,0,0.45)]',
+          )}
+          style={{ width: 'min(46%, 26rem)' }}
+        >
+          {DOCK.map((tile, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              className="aspect-square flex-1 rounded-[22%] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
+              style={{ background: tile }}
+            />
+          ))}
+
+          {/* The divider and the bin, which every Dock has and nothing else does. */}
+          <span aria-hidden="true" className="mx-[0.6%] h-[70%] w-px self-center bg-white/35" />
+          <span
+            aria-hidden="true"
+            className="aspect-square flex-1 rounded-[22%] bg-[linear-gradient(160deg,#F2F2F4,#C9C9CF)] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
+          />
+        </div>
+      </div>
     </div>
   );
 }
+
+/**
+ * Sidq in the menu bar: the mark from the Dock icon, at menu bar size.
+ *
+ * The same two strokes as `public/icons/icon.svg`, cropped to the artwork — the
+ * whole square shrunk to this size is a smudge, which is the lesson the app
+ * window learned first.
+ */
+function TrayMark() {
+  return (
+    <svg
+      viewBox="72 116 386 208"
+      // Brighter than the clock beside it, and larger. At the parent's 55% it
+      // was a smudge, and the one mark on this desktop that belongs to Sidq is
+      // the one thing on it worth being able to pick out.
+      className="h-[46%] w-auto text-white/85"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="24"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
+      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
+      <circle cx="416" cy="256" r="30" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * Dock tiles as gradients rather than icons.
+ *
+ * Six shapes that read as applications at a glance and are nobody's property.
+ * Apple owns the real ones and a screenshot of a real Dock is somebody's actual
+ * machine, which is how the previous product shot had to be thrown away.
+ */
+const DOCK: string[] = [
+  'linear-gradient(160deg,#5AC8FA,#0A84FF)',
+  'linear-gradient(160deg,#FF9F0A,#FF375F)',
+  'linear-gradient(160deg,#30D158,#00C7BE)',
+  'linear-gradient(160deg,#BF5AF2,#5E5CE6)',
+  'linear-gradient(160deg,#8E8E93,#48484A)',
+  'linear-gradient(160deg,#FFD60A,#FF9F0A)',
+];
