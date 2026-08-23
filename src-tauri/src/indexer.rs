@@ -21,6 +21,28 @@ use std::time::Duration;
 /// How often to look. Conversations do not change on a scale that needs faster.
 const SWEEP_INTERVAL: Duration = Duration::from_secs(90);
 
+/**
+ * How often to read the AIs that live in a browser. Far more often, and for a
+ * reason that is about the browser rather than about the conversation.
+ *
+ * Chrome only exposes an accessibility tree for the window that is in front,
+ * and tears it down when it is not. So the ninety second sweep almost never
+ * coincided with the one moment the page was readable: somebody opens ChatGPT,
+ * talks to it, switches to Sidq to see it — and by then Chrome has stopped
+ * offering anything, and the sweep that finally runs finds an empty screen.
+ *
+ * Reported as "I open ChatGPT and nothing shows up in Sidq", and confirmed on
+ * this machine: a Grok tab open in Chrome, Claude in front, and the index
+ * holding nothing from any browser at all while the desktop apps read fine.
+ *
+ * Fifteen seconds is short enough that a conversation is captured while you are
+ * still looking at it. It costs almost nothing when there is no browser open —
+ * the reader checks the permission and the process list first and returns — and
+ * a conversation that has not grown since the last pass is skipped by its
+ * fingerprint.
+ */
+const SCREEN_INTERVAL: Duration = Duration::from_secs(15);
+
 /// First sweep runs sooner, so search works shortly after launch.
 const FIRST_SWEEP_DELAY: Duration = Duration::from_secs(3);
 
@@ -120,18 +142,13 @@ pub fn sweep(conn: &Connection) -> usize {
     }
 
     /*
-     * The assistants that write nothing to disk.
+     * The AIs that write nothing to disk are not read here.
      *
-     * Read out of their windows through Accessibility, in the same pass and
-     * into the same index, so a browser conversation is searchable and
-     * handoverable on exactly the same terms as one from Claude Code. Costs
-     * nothing when the permission has not been granted: the reader checks
-     * first and returns an empty list.
+     * They used to be, in this same pass, and that was the bug: this runs every
+     * ninety seconds and a browser only offers its page while it is the window
+     * in front. The two almost never lined up. They have their own loop on a
+     * fifteen second clock now — see `SCREEN_INTERVAL`.
      */
-    #[cfg(target_os = "macos")]
-    {
-        indexed += crate::screen_reader::sweep_into(conn);
-    }
 
     indexed
 }
@@ -156,6 +173,27 @@ pub fn spawn() {
         loop {
             sweep(&conn);
             std::thread::sleep(SWEEP_INTERVAL);
+        }
+    });
+
+    /*
+     * The browser reader runs on its own thread and its own clock.
+     *
+     * Its own connection, for the same reason the disk sweep has one: SQLite
+     * handles are not shareable across threads, and neither loop should wait on
+     * the other. WAL is what lets all three coexist.
+     */
+    #[cfg(target_os = "macos")]
+    std::thread::spawn(|| {
+        std::thread::sleep(FIRST_SWEEP_DELAY);
+
+        let Some(conn) = index_store::open() else {
+            return;
+        };
+
+        loop {
+            crate::screen_reader::sweep_into(&conn);
+            std::thread::sleep(SCREEN_INTERVAL);
         }
     });
 }

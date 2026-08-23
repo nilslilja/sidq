@@ -425,9 +425,32 @@ pub fn hidden_from_sight(classes: &str) -> bool {
     c.contains("visually-hidden") || c.contains("sr-only") || c.contains("screen-reader")
 }
 
-/// Is there enough here to be a conversation rather than an empty composer?
+/**
+ * Is there enough here to be a conversation rather than a page?
+ *
+ * ── Why both sides are required ──────────────────────────────────────────────
+ * A character count alone is not a test. Grok's empty landing page cleared two
+ * hundred characters on its own furniture — sidebar labels, the signed-in
+ * account's name and email address, and a paragraph advertising Build Mode —
+ * and went into the index as a conversation you could hand to another AI.
+ *
+ * A real conversation has somebody asking and somebody answering. Page
+ * furniture has no user turn, because none of it is inside anything the
+ * classifier recognises as something a person typed.
+ *
+ * ── What this also catches ───────────────────────────────────────────────────
+ * A site whose markup the classifier does not know yet. Everything lands as
+ * assistant prose, there is no user turn, and nothing is written — which is the
+ * right way to fail. Indexing one giant misattributed block would produce a
+ * handover missing every question, and it would look like it had worked.
+ */
 pub fn is_substantial(turns: &[(String, String)]) -> bool {
-    turns.iter().map(|(_, b)| b.chars().count()).sum::<usize>() >= MIN_CONVERSATION_CHARS
+    let long_enough =
+        turns.iter().map(|(_, b)| b.chars().count()).sum::<usize>() >= MIN_CONVERSATION_CHARS;
+    let asked = turns.iter().any(|(who, _)| who == "You");
+    let answered = turns.iter().any(|(who, _)| who == "Assistant");
+
+    long_enough && asked && answered
 }
 
 /**
@@ -835,13 +858,64 @@ mod tests {
 
     #[test]
     fn an_empty_composer_is_not_a_conversation() {
-        // A freshly opened assistant has a placeholder and some buttons. Sending
-        // that as a captured conversation fills the index with nothing.
+        // A freshly opened AI has a placeholder and some buttons. Sending that
+        // as a captured conversation fills the index with nothing.
         let thin = into_turns(&[node("Ask anything", "placeholder")], person_by_class);
         assert!(!is_substantial(&thin));
 
-        let real = into_turns(&[node(&"a".repeat(300), "user-message")], person_by_class);
+        let real = into_turns(
+            &[
+                node(&"a".repeat(200), "user-message"),
+                node(&"b".repeat(200), "markdown-main-panel"),
+            ],
+            person_by_class,
+        );
         assert!(is_substantial(&real));
+    }
+
+    #[test]
+    fn a_landing_page_is_not_a_conversation_however_long_it_is() {
+        /*
+         * Measured, not imagined. Grok's empty landing page cleared the
+         * character floor on its own furniture — sidebar labels, the signed-in
+         * account's name and email, and a paragraph advertising Build Mode —
+         * and went into the index as something you could hand to another AI.
+         *
+         * None of it is inside anything the classifier reads as typed by a
+         * person, which is the thing that tells it apart from a conversation.
+         */
+        let page = into_turns(
+            &[
+                node("Skip to main content", "nav"),
+                node("New Chat", "nav"),
+                node("nilsliljan@gmail.com", "account"),
+                node(&"Use Build Mode to create websites, games and apps. ".repeat(8), "promo"),
+            ],
+            person_by_class,
+        );
+
+        assert!(page.iter().map(|(_, b)| b.len()).sum::<usize>() > MIN_CONVERSATION_CHARS);
+        assert!(!is_substantial(&page), "no user turn, so it is a page");
+    }
+
+    #[test]
+    fn a_site_whose_markup_is_unknown_is_skipped_rather_than_mangled() {
+        /*
+         * If the classifier does not know a site, every block becomes assistant
+         * prose. Writing that would produce a handover with none of the
+         * questions in it, and it would look like it had worked. Nothing is
+         * written instead, which is visible as a gap rather than as bad data.
+         */
+        let unknown = into_turns(
+            &[
+                node(&"what should I do about this".repeat(10), "some-unfamiliar-class"),
+                node(&"here is what I think".repeat(10), "another-unfamiliar-class"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(unknown.len(), 1, "all one speaker");
+        assert!(!is_substantial(&unknown));
     }
 
     #[test]
