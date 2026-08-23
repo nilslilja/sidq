@@ -6,6 +6,8 @@ import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/Con
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
 import { GrantAccess } from '@/components/companion/GrantAccess';
+import { sourceLabel } from '@/lib/companion/sources';
+import type { WorkSession } from '@/lib/companion/work-history';
 import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
 
 /** The assistants that live in a browser, offered at the end of setup. */
@@ -309,10 +311,17 @@ export default function Onboarding() {
         // than a list that cannot go out of date without a rebuild anyway.
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
+            {/*
+              * This credited the extension, which stopped being how it works.
+              * The permission granted two steps ago is what reads these, and
+              * saying otherwise sends somebody looking for an install that is
+              * no longer part of the product.
+              */}
             <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
               Everything on this Mac is already being read. For the AIs that live in a
-              browser, open one below and use it exactly as you do now. The Sidq extension
-              reads the page as you go, so you are never asked to sign in to anything here.
+              browser, open one below and use it exactly as you do now — Sidq reads the
+              window with the permission you just gave it, so you are never asked to sign
+              in to anything here.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -337,6 +346,8 @@ export default function Onboarding() {
             <div className="mt-6 w-full max-w-[36rem] text-left">
               <GrantAccess compact surface="dark" />
             </div>
+
+            <BrowserReads bridge={bridge} />
 
             <div className="mt-8">
               <PrimaryAction label="Done" onClick={advance} />
@@ -420,6 +431,73 @@ export default function Onboarding() {
  * Says which of the two reasons applies, because "skip" alone leaves someone
  * thinking the feature is broken when in fact another app owns the keys.
  */
+
+/**
+ * What has actually been read out of a browser, live.
+ *
+ * ── The complaint this exists for ────────────────────────────────────────────
+ * "When I press the sources I just get there, nothing happens." Which was
+ * true, and the step gave no way to tell the difference between the three
+ * reasons for it: the permission is off, the sweep has not come round yet, or
+ * the tab is a brand new empty chat with nothing in it to read.
+ *
+ * Pressing a chip opened a browser and the setup screen sat unchanged behind
+ * it, so a working product and a broken one looked identical.
+ *
+ * ── Why it says ninety seconds out loud ──────────────────────────────────────
+ * Because that is the sweep, and a person who has just been told something is
+ * being read will look for it within about five. Naming the wait is the
+ * difference between waiting and giving up.
+ */
+function BrowserReads({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [read, setRead] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!bridge) return;
+
+    const look = () =>
+      void bridge.recentWork(200).then((rows) => {
+        const sources = (rows as WorkSession[])
+          .map((r) => r.source ?? '')
+          .filter((id) => BROWSER_ASSISTANTS.some((a) => a.id === id));
+        setRead([...new Set(sources)].map((id) => sourceLabel(id)));
+      });
+
+    look();
+    const timer = setInterval(look, 4000);
+    return () => clearInterval(timer);
+  }, [bridge]);
+
+  return (
+    <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
+      {read.length > 0 ? (
+        <>
+          <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
+            Read from your browser: {read.join(', ')}
+          </p>
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+            Searchable now, and ready to hand to another AI. It keeps up as you talk.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-[0.875rem] font-medium text-white">Nothing read from a browser yet</p>
+          {/*
+            * Both of the honest reasons, because the fix is different for each
+            * and neither is visible from here.
+            */}
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+            Open a conversation you have already had rather than a new chat — an empty one
+            has nothing in it to read. Sidq checks every 90 seconds, so give it a moment
+            after you do.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Flat chip row, for the two single-question steps. */
 function Chips({
   options,
