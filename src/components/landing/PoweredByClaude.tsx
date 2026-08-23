@@ -129,21 +129,44 @@ export function PoweredByClaude({
   return (
     <div
       aria-label="Sidq reads your conversations with ChatGPT, Claude, Gemini, Cursor and every other AI, stored only on this Mac"
-      className={cn('inline-flex flex-col items-center gap-1', className)}
+      /*
+        * `@container` here, and `w-full` so it measures the column rather than
+        * its own contents. A container that is sized by what is inside it
+        * cannot constrain what is inside it.
+        */
+      className={cn('@container flex w-full flex-col items-center gap-1', className)}
     >
       <span
         className={cn(
           /*
-           * One line, always.
+           * One line, always, and sized by the column it is in.
            *
-           * It wrapped, and the wrap put "and every other one" on a line of its
-           * own under a 30 point logo — which read as two separate claims
-           * colliding rather than one sentence. The type steps down instead of
-           * breaking, because the longest name in the rotation is Perplexity
-           * and the line has to hold it in whatever column it is dropped into.
+           * It wrapped once, and the wrap put "and every other one" on a line
+           * of its own under the logo, which read as two claims colliding
+           * rather than one sentence. `whitespace-nowrap` fixed that and
+           * introduced the opposite fault: it cannot wrap, so anywhere too
+           * narrow it runs off the edge instead. Setup is where that showed —
+           * "and every" cut off mid-word against the panel edge.
+           *
+           * The size steps were part of it, because `sm:` and `lg:` measure the
+           * *window*, not the column: on a wide screen with a narrow column —
+           * exactly setup's two-pane layout — the widest step won and there was
+           * nowhere for it to go. They are container queries now.
+           *
+           * But no size fixes it. Measured across the window widths setup
+           * actually opens at, the column is 266 to 384 points and the sentence
+           * is 355 even at the smallest step, so `nowrap` clips at anything
+           * under about 1200. Refusing to wrap was the wrong rule; it just
+           * moved the damage from a bad wrap to a cut-off word.
+           *
+           * So it wraps when it has to and holds one line when it fits. What
+           * made the original wrap look broken was never the wrap — it was the
+           * second half being rendered in a colour that could not be read on
+           * that background, so it looked like two claims on top of each other
+           * rather than one sentence continuing.
            */
-          'inline-flex items-center gap-2.5 whitespace-nowrap font-semibold tracking-[-0.01em]',
-          'text-[0.8125rem] sm:text-[0.9375rem] lg:text-[1.0625rem]',
+          'inline-flex items-center gap-2.5 font-semibold @[26rem]:whitespace-nowrap',
+          'tracking-[-0.01em] text-[0.8125rem] @[30rem]:text-[0.9375rem] @[38rem]:text-[1.0625rem]',
           'transition-opacity',
           light ? 'text-white/70' : 'text-ink/60',
         )}

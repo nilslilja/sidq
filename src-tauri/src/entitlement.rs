@@ -262,6 +262,43 @@ mod tests {
     }
 
     #[test]
+    fn an_invite_raises_the_cap_that_is_actually_enforced() {
+        /*
+         * The reward has to arrive in `handover_allowance`, not only in the
+         * panel that advertises it. A referral page whose number is decoration
+         * is worse than no referral page: somebody invites a friend, watches
+         * the figure go up, and still gets refused at ten.
+         *
+         * The database decides the amount and this adds it to the free
+         * allowance. Both directions matter — no bonus must leave the plan
+         * exactly where it was.
+         */
+        let conn = index_store::tests::memory();
+
+        let plain = handover_allowance(&conn, Plan::Free);
+        assert_eq!(plain.1, Some(10), "the free plan without invites");
+
+        let _ = index_store::put_setting(&conn, "invite_bonus", "10");
+        assert_eq!(
+            handover_allowance(&conn, Plan::Free).1,
+            Some(20),
+            "two friends joining is ten more a week"
+        );
+    }
+
+    #[test]
+    fn invites_do_not_invent_a_limit_where_there_was_none() {
+        // Pro has no cap. Adding a number to "no limit" would quietly create
+        // one, which is a paying customer being handed a restriction as a
+        // reward for inviting somebody.
+        let conn = index_store::tests::memory();
+        let _ = index_store::put_setting(&conn, "invite_bonus", "25");
+
+        assert_eq!(handover_allowance(&conn, Plan::Pro).1, None);
+        assert!(may_hand_over(&conn, Plan::Pro));
+    }
+
+    #[test]
     fn reads_the_tier_out_of_a_postgrest_response() {
         assert_eq!(
             parse_tier(r#"[{"plan_tier":"paid"}]"#).as_deref(),

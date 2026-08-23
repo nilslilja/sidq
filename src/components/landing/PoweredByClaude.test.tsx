@@ -34,16 +34,30 @@ describe('the marks', () => {
 });
 
 describe('the sentence', () => {
-  test('stays on one line', () => {
+  test('holds one line where there is room, and wraps where there is not', () => {
     /*
-     * It wrapped, and the wrap put "and every other one" on a line of its own
-     * under the logo, which read as two claims colliding rather than one
-     * sentence. The type steps down instead of breaking.
+     * Refusing to wrap outright was tried and it clipped instead: measured
+     * across the widths setup actually opens at, its column is 266 to 384
+     * points and the sentence is 355 at the smallest size, so "and every" was
+     * cut off mid-word against the panel edge.
+     *
+     * `nowrap` is a container query now — on above a certain column width, off
+     * below it — so the two failures cannot both be live at once.
      */
     const { container } = render(<PoweredByClaude />);
-    const line = container.querySelector('span.whitespace-nowrap');
+    const line = container.querySelector('span.\\@\\[26rem\\]\\:whitespace-nowrap');
     expect(line).not.toBeNull();
+    expect(line?.className).not.toMatch(/(^|\s)whitespace-nowrap(\s|$)/);
     expect(line?.textContent).toContain('and every other one');
+  });
+
+  test('the column is the container, not the window', () => {
+    // `sm:` and `lg:` measure the window. Setup is a wide window with a narrow
+    // column, so window-based steps picked the largest size and overflowed.
+    const { container } = render(<PoweredByClaude />);
+    const root = container.firstElementChild;
+    expect(root?.className).toContain('@container');
+    expect(root?.className).toContain('w-full');
   });
 
   test('the trailing clause follows the tone it was given', () => {
