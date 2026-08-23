@@ -8,7 +8,7 @@ import {
   type SearchHit,
 } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
-import { shareSessionWithDesktop } from '@/lib/supabase';
+import { adoptSession, shareSessionWithDesktop } from '@/lib/supabase';
 import { ConnectExtension } from '@/components/companion/ConnectExtension';
 import { GrantAccess } from '@/components/companion/GrantAccess';
 import { cn } from '@/lib/cn';
@@ -68,6 +68,13 @@ export function Home() {
   const [stats, setStats] = useState<[number, number]>([0, 0]);
 
   /*
+   * Bumped when a sign-in lands, and passed to the panels that need an account.
+   * They key off it to reload, which is cheaper than lifting their state up
+   * here and means each one decides for itself what a new session changes.
+   */
+  const [signedInAt, setSignedInAt] = useState(0);
+
+  /*
    * The plan as Rust understands it.
    *
    * Asked rather than assumed, and only ever used for wording. Rust confirms
@@ -93,6 +100,38 @@ export function Home() {
       .catch(() => {})
       .then(() => bridge.planStatus())
       .then(setPlan);
+  }, [bridge]);
+
+  /*
+   * Signing in has to change this window without being closed and reopened.
+   *
+   * The browser hands the tokens back through a `sidq://auth` deep link, and
+   * until this listener existed nothing in here was watching for it: you signed
+   * in, came back, and the panel still said to sign in. Onboarding had the same
+   * listener and this window had none, because sign-in only ever happened
+   * during setup — which is also why there was no way to start one from here.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void bridge
+      .onSignedIn((urls) => {
+        void adoptSession(urls)
+          .then(() => bridge.planStatus())
+          .then(setPlan)
+          .then(() => setSignedInAt(Date.now()));
+      })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [bridge]);
 
   // Real working time, summed from what the readers measured. Not an estimate.
@@ -220,7 +259,7 @@ export function Home() {
             {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
             {tab === 'profile' && <Profile bridge={bridge} />}
             {tab === 'plan' && <Plan bridge={bridge} plan={plan} />}
-            {tab === 'invite' && <Invite bridge={bridge} />}
+            {tab === 'invite' && <Invite bridge={bridge} signedInAt={signedInAt} />}
           </div>
         </div>
       </main>
@@ -571,6 +610,20 @@ function Row({ term, detail }: { term: string; detail: string }) {
   );
 }
 
+/**
+ * Whether a stated problem is "you have no account", as opposed to a network
+ * that is down or a profile row that has not been written yet.
+ *
+ * Matched on the sentence rather than a code, because the sentence is the whole
+ * contract between `invites.rs` and this panel — there is no code to match on.
+ * Getting it wrong shows a sign-in button to somebody who is already signed in,
+ * which is a wasted click, not a broken screen; the button is additive and Try
+ * again is always there.
+ */
+function needsAccount(problem: string): boolean {
+  return /sign in/i.test(problem);
+}
+
 /* ── Invite ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -586,12 +639,20 @@ function Row({ term, detail }: { term: string; detail: string }) {
  * and no way to fetch one offline, so those say so instead of showing a blank
  * box that looks like a bug.
  */
-function Invite({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+function Invite({
+  bridge,
+  signedInAt,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+  /** Changes when a sign-in lands, which is the cue to ask again. */
+  signedInAt: number;
+}) {
   const [summary, setSummary] = useState<InviteSummary | null>(null);
   const [copied, setCopied] = useState(false);
   const [entry, setEntry] = useState('');
   const [redeeming, setRedeeming] = useState(false);
   const [failure, setFailure] = useState('');
+  const [opening, setOpening] = useState(false);
 
   /*
    * A missing bridge is an answer, not a pause.
@@ -617,7 +678,7 @@ function Invite({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     void bridge.inviteSummary().then(setSummary);
   }, [bridge]);
 
-  useEffect(load, [load]);
+  useEffect(load, [load, signedInAt]);
 
   if (summary === null) {
     return <p className="text-[0.875rem] text-[#7A7489]">Reading your invites&hellip;</p>;
@@ -630,16 +691,47 @@ function Invite({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         <p className="mt-4 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
           {summary.problem}
         </p>
-        <button
-          onClick={load}
-          className={cn(
-            'mt-4 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
-            'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]',
+
+        {/*
+          * "Sign in to get your invite code", and then only a Try again button,
+          * which asks the same question and gets the same answer. Sign-in used
+          * to live entirely in setup, so an account that skipped it had nowhere
+          * in the app to make one. Saying what is wrong without offering the
+          * one action that fixes it is worse than not saying it.
+          */}
+        <div className="mt-5 flex items-center gap-2.5">
+          {needsAccount(summary.problem) && (
+            <button
+              onClick={() => {
+                setOpening(true);
+                void bridge?.openSignIn().catch((err: unknown) => {
+                  setOpening(false);
+                  setSummary({
+                    ...summary,
+                    problem: err instanceof Error ? err.message : String(err),
+                  });
+                });
+              }}
+              className={cn(
+                'rounded-lg bg-[#16141C] px-3.5 py-2 text-[0.8125rem] font-medium text-white',
+                'cursor-pointer transition-opacity duration-150 hover:opacity-85',
+                opening && 'pointer-events-none opacity-60',
+              )}
+            >
+              {opening ? 'Waiting for the browser…' : 'Sign in'}
+            </button>
           )}
-        >
-          Try again
-        </button>
+          <button
+            onClick={load}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
+              'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
+              'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5]',
+            )}
+          >
+            Try again
+          </button>
+        </div>
       </>
     );
   }

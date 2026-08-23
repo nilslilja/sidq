@@ -65,6 +65,8 @@ const bridge: Partial<OnboardingBridge> = {
   assistantList: vi.fn(async () => []),
   searchConversations: vi.fn(async () => [[], 0] as [never[], number]),
   openUpgrade: vi.fn(async () => {}),
+  openSignIn: vi.fn(async () => {}),
+  onSignedIn: vi.fn(async () => () => {}),
   inviteSummary: vi.fn(async () => invite),
   redeemInvite: vi.fn((code: string) => redeem(code)),
 };
@@ -235,13 +237,30 @@ describe('the invite panel', () => {
     expect(screen.getByText('None yet')).toBeInTheDocument();
   });
 
-  test('not being signed in is said out loud, with a way to retry', async () => {
-    // There is no local answer to "what is my code". A blank box here reads as
-    // a broken panel, and the reason it is blank is the useful part.
+  test('not being signed in offers the sign-in, not just a retry', async () => {
+    /*
+     * This said "Sign in to get your invite code" above a Try again button,
+     * which asks the same question and gets the same answer. Sign-in lived
+     * entirely in setup, so anyone who skipped it had no way to make an account
+     * from inside the app — the panel named the problem and then dead-ended.
+     */
     invite = { ...INVITE, code: '', problem: 'Sign in to get your invite code.' };
     await open('Invite a friend');
 
     expect(screen.getByText('Sign in to get your invite code.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
+    expect(bridge.openSignIn).toHaveBeenCalled();
+  });
+
+  test('a server that is merely down is not treated as a missing account', async () => {
+    // Offering "Sign in" to somebody already signed in, whose network dropped,
+    // sends them off to fix the wrong thing.
+    invite = { ...INVITE, code: '', problem: 'Could not reach the server. Try again in a moment.' };
+    await open('Invite a friend');
+
+    expect(screen.queryByRole('button', { name: /^sign in$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 

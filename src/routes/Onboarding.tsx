@@ -16,7 +16,7 @@ const BROWSER_ASSISTANTS: { id: string; label: string }[] = [
   { id: 'perplexity', label: 'Perplexity' },
 ];
 import { desktopBridge } from '@/lib/onboarding/bridge';
-import { getSupabase , shareSessionWithDesktop } from '@/lib/supabase';
+import { adoptSession } from '@/lib/supabase';
 import { cn } from '@/lib/cn';
 
 /*
@@ -408,39 +408,6 @@ export default function Onboarding() {
             className="w-full max-w-[26rem]"
           />
         );
-    }
-  }
-}
-
-/**
- * Take the session the browser handed back.
- *
- * The tokens arrive in the URL fragment, which is where the browser put them so
- * they never travelled to a server. Without this step the app would advance past
- * sign-in while still being signed out, which is the worst of both.
- *
- * Never throws: a malformed callback leaves the person signed out and moving
- * forward, which is recoverable, rather than stuck on a dead screen.
- */
-async function adoptSession(urls: string[]): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) return;
-
-  for (const url of urls) {
-    const fragment = url.split('#')[1];
-    if (!fragment) continue;
-
-    const params = new URLSearchParams(fragment);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    if (!access_token || !refresh_token) continue;
-
-    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (!error) {
-      // Rust needs it too, to confirm the plan against billing rather than
-      // taking this page's word for which tier the account is on.
-      await shareSessionWithDesktop();
-      return;
     }
   }
 }
