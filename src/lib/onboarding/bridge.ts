@@ -51,6 +51,12 @@ export interface InviteSummary {
   each: number;
   /** The ceiling on the bonus, for the same reason. */
   most: number;
+  /** How many have used the code inside the current week. */
+  thisWeek: number;
+  /** How many are allowed to, per week. */
+  perWeek: number;
+  /** ISO time the oldest invite still being paid for lapses. Empty if none is. */
+  expires: string;
 }
 
 export interface PlanStatus {
@@ -334,6 +340,9 @@ export function desktopBridge(): OnboardingBridge | null {
           problem: 'Sidq could not read your invites.',
           each: 0,
           most: 0,
+          thisWeek: 0,
+          perWeek: 0,
+          expires: '',
         }
       );
     },

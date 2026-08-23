@@ -625,6 +625,22 @@ function needsAccount(problem: string): boolean {
   return /sign in/i.test(problem);
 }
 
+/**
+ * When the bonus next drops, said as a person would say it.
+ *
+ * An empty string means nothing is currently being paid for, which is not the
+ * same as expiring now and must not read as a date.
+ */
+function lapses(expires: string): string {
+  if (!expires) return '';
+
+  const days = Math.ceil((new Date(expires).getTime() - Date.now()) / DAY_MS);
+  if (Number.isNaN(days)) return '';
+  if (days <= 0) return ', lapsing today';
+  if (days === 1) return ', until tomorrow';
+  return `, for ${days} more days`;
+}
+
 /* ── Invite ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -672,6 +688,9 @@ function Invite({
         redeemed: false,
         each: 0,
         most: 0,
+        thisWeek: 0,
+        perWeek: 0,
+        expires: '',
         problem: 'Invites live in the Sidq app. Open it there.',
       });
       return;
@@ -740,9 +759,20 @@ function Invite({
   return (
     <>
       <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Invite</h1>
+      {/*
+        * The offer, and the fact that it runs out, in the same breath.
+        *
+        * It used to say "permanently", which paid once and kept paying: invite
+        * five friends in your first week and you are on a better free plan for
+        * the life of the account, with no reason to invite anybody again or to
+        * ever pay. It is a rolling week now, so keeping the lift means bringing
+        * somebody new — and the number of numbers here is the reason this is
+        * one sentence rather than a table.
+        */}
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-        Anyone who signs up with your code adds {summary.each} handovers a week to your account
-        and {summary.each} to theirs, permanently, up to {summary.most}.
+        Anyone who signs up with your code adds {summary.each} handovers a week to your
+        account and {summary.each} to theirs, for the next seven days. Up to{' '}
+        {summary.perWeek} friends a week.
       </p>
 
       {/* The code, at the size of the thing you are meant to read off a screen
@@ -779,11 +809,17 @@ function Invite({
           detail={summary.invited === 0 ? 'Nobody yet' : String(summary.invited)}
         />
         <Row
+          term="This week"
+          detail={
+            summary.thisWeek >= summary.perWeek && summary.perWeek > 0
+              ? `${summary.thisWeek} of ${summary.perWeek} — full until one lapses`
+              : `${summary.thisWeek} of ${summary.perWeek}`
+          }
+        />
+        <Row
           term="Extra handovers a week"
           detail={
-            summary.bonus === 0
-              ? 'None yet'
-              : `+${summary.bonus}${summary.bonus >= summary.most ? ' (the most there is)' : ''}`
+            summary.bonus === 0 ? 'None right now' : `+${summary.bonus}${lapses(summary.expires)}`
           }
         />
       </dl>

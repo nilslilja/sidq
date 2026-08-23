@@ -36,6 +36,9 @@ const INVITE: InviteSummary = {
   problem: '',
   each: 5,
   most: 25,
+  thisWeek: 2,
+  perWeek: 3,
+  expires: new Date(Date.now() + 3 * 86_400_000).toISOString(),
 };
 
 let invite: InviteSummary = INVITE;
@@ -204,7 +207,7 @@ describe('the invite panel', () => {
 
     expect(screen.getByText('K4PQ7RM')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('+10')).toBeInTheDocument();
+    expect(screen.getByText(/^\+10/)).toBeInTheDocument();
   });
 
   test('states the offer with the numbers the server sent', async () => {
@@ -213,28 +216,47 @@ describe('the invite panel', () => {
      * invite pays out and `entitlement.rs` is what grants it; a promise
      * maintained separately from the payout is a promise that drifts.
      */
-    invite = { ...INVITE, each: 7, most: 40 };
+    invite = { ...INVITE, each: 7, perWeek: 5 };
     await open('Invite a friend');
 
     expect(
       screen.getByText(/adds 7 handovers a week to your account and 7 to theirs/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/up to 40/i)).toBeInTheDocument();
+    expect(screen.getByText(/up to 5 friends a week/i)).toBeInTheDocument();
   });
 
-  test('says when the bonus is as high as it goes', async () => {
-    invite = { ...INVITE, invited: 9, bonus: 25 };
+  test('says when the bonus lapses, because it does now', async () => {
+    /*
+     * It used to say "permanently". An invite is worth five handovers a week
+     * for seven days now, so the panel has to say when the number it is
+     * showing stops being true — otherwise it drops one morning with no
+     * explanation and reads as the product losing track.
+     */
+    await open('Invite a friend');
+    expect(screen.getByText(/\+10, for 3 more days/)).toBeInTheDocument();
+  });
+
+  test('a full week says so rather than just showing a number', async () => {
+    invite = { ...INVITE, thisWeek: 3, perWeek: 3 };
     await open('Invite a friend');
 
-    expect(screen.getByText('+25 (the most there is)')).toBeInTheDocument();
+    expect(screen.getByText(/3 of 3 . full until one lapses/)).toBeInTheDocument();
+  });
+
+  test('the offer states the weekly limit from the server', async () => {
+    invite = { ...INVITE, each: 5, perWeek: 3 };
+    await open('Invite a friend');
+
+    expect(screen.getByText(/for the next seven days/i)).toBeInTheDocument();
+    expect(screen.getByText(/up to 3 friends a week/i)).toBeInTheDocument();
   });
 
   test('an account with no invites says so rather than showing zeroes', async () => {
-    invite = { ...INVITE, invited: 0, bonus: 0 };
+    invite = { ...INVITE, invited: 0, bonus: 0, thisWeek: 0, expires: '' };
     await open('Invite a friend');
 
     expect(screen.getByText('Nobody yet')).toBeInTheDocument();
-    expect(screen.getByText('None yet')).toBeInTheDocument();
+    expect(screen.getByText('None right now')).toBeInTheDocument();
   });
 
   test('not being signed in offers the sign-in, not just a retry', async () => {

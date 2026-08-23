@@ -29,6 +29,13 @@ const HTTP_TIMEOUT_SECS: u32 = 8;
 pub const MOST_PER_ACCOUNT: u32 = 25;
 
 /// What one person joining is worth, per week, to each side.
+///
+/// For a week, not forever. `0008_invites_expire.sql` pays only for referrals
+/// inside a rolling seven days: an invite that is not followed by another one
+/// lapses, and the account lands back on the plain free allowance. Permanent
+/// was the wrong shape — it pays once and keeps paying, so somebody who invites
+/// five friends in their first week never has a reason to invite anybody again
+/// or to ever pay.
 pub const EACH_INVITE: u32 = 5;
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -49,6 +56,13 @@ pub struct Summary {
     pub each: u32,
     /// The ceiling, for the same reason.
     pub most: u32,
+    /// How many have used the code inside the current window.
+    pub this_week: u32,
+    /// How many are allowed to, per window.
+    pub per_week: u32,
+    /// When the oldest invite still being paid for stops counting. Empty when
+    /// nothing is earning anything, which is not the same as "expires now".
+    pub expires: String,
 }
 
 impl Default for Summary {
@@ -61,6 +75,9 @@ impl Default for Summary {
             problem: String::new(),
             each: EACH_INVITE,
             most: MOST_PER_ACCOUNT,
+            this_week: 0,
+            per_week: 0,
+            expires: String::new(),
         }
     }
 }
@@ -172,6 +189,13 @@ pub fn summary(conn: &Connection) -> Summary {
             .get("redeemed")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
+        this_week: value.get("thisWeek").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        per_week: value.get("perWeek").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        expires: value
+            .get("expires")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string(),
         ..Summary::default()
     };
 
