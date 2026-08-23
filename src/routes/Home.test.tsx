@@ -201,6 +201,50 @@ describe('staying current', () => {
   });
 });
 
+describe('what setup asked for', () => {
+  /*
+   * Setup collected two answers and used neither — both were written to
+   * localStorage and read by no code in the app. A question whose answer
+   * changes nothing should not be asked, so these pin the uses.
+   */
+  test('the name is in the greeting', async () => {
+    localStorage.setItem('sidq.name', 'Nils');
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByRole('heading', { name: /Good (morning|afternoon|evening), Nils/ }))
+      .toBeInTheDocument();
+    localStorage.removeItem('sidq.name');
+  });
+
+  test('no name is a greeting, not a dangling comma', async () => {
+    localStorage.removeItem('sidq.name');
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByRole('heading', { name: /^Good (morning|afternoon|evening)$/ }))
+      .toBeInTheDocument();
+  });
+
+  test('the AIs you said you use come first in Sources', async () => {
+    localStorage.setItem('sidq.intents', JSON.stringify(['gemini', 'chatgpt']));
+    await open('Sources');
+
+    const rows = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(rows[0]).toMatch(/ChatGPT|Gemini/);
+    expect(rows[1]).toMatch(/ChatGPT|Gemini/);
+    localStorage.removeItem('sidq.intents');
+  });
+
+  test('and the fixed order stands when nothing was picked', async () => {
+    localStorage.removeItem('sidq.intents');
+    await open('Sources');
+
+    const rows = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+    expect(rows[0]).toMatch(/Claude Code/);
+  });
+});
+
 describe('the mark', () => {
   test('is the app icon, not a redrawing of it', async () => {
     /*

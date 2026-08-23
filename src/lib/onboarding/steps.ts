@@ -51,7 +51,9 @@ export type StepId =
   | 'signin'
   | 'sources'
   | 'intake'
+  | 'name'
   | 'pill'
+  | 'handover'
   | 'browse';
 
 /** How a step is allowed to advance. */
@@ -107,8 +109,24 @@ export const STEPS: Step[] = [
     id: 'intake',
     phase: 'Set up',
     title: 'Which do you use most?',
-    subtitle: 'Pick any. It tells us which to support next.',
+    /*
+     * This said "it tells us which to support next", which was a way of saying
+     * the answer went nowhere. It ordered nothing and changed nothing; it was
+     * written to localStorage and read by no code in the app.
+     *
+     * It now orders the Sources panel, so the AIs somebody actually uses are at
+     * the top of the list they will look at most.
+     */
+    subtitle: 'They go to the top of your Sources list.',
     gate: { kind: 'button', label: 'Continue' },
+  },
+  {
+    id: 'name',
+    phase: 'Set up',
+    title: 'What should Sidq call you?',
+    subtitle: 'Only used to greet you. It never leaves this Mac.',
+    gate: { kind: 'button', label: 'Continue' },
+    optional: true,
   },
   /*
    * The only thing anybody has to learn.
@@ -141,11 +159,26 @@ export const STEPS: Step[] = [
    * browser and points at the extension, and the first minute ends with the
    * product working rather than with a settings panel.
    */
+  /*
+   * The one step that makes somebody do the thing the product is for.
+   *
+   * Setup taught the shortcut and then ended, so the first handover happened
+   * later, alone, with nothing to fall back on if it went wrong. Doing it once
+   * here means the file has been made, seen, and understood before anybody is
+   * left on their own with it.
+   */
+  {
+    id: 'handover',
+    phase: 'Learn',
+    title: 'Carry one into another AI',
+    subtitle: 'Pick any conversation and press Enter. It writes a file.',
+    gate: { kind: 'condition', waiting: 'Waiting for the first one' },
+  },
   {
     id: 'browse',
     phase: 'Start',
     title: 'Open one and carry on',
-    subtitle: 'In your own browser, where you are already signed in.',
+    subtitle: 'Anything you open from now on is read as you use it.',
     gate: { kind: 'button', label: 'Done' },
   },
 ];

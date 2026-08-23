@@ -45,9 +45,32 @@ export default function Onboarding() {
   const [shortcutStuck, setShortcutStuck] = useState(false);
   const [discovery, setDiscovery] = useState<string | null>(null);
   const [intents, setIntents] = useState<string[]>([]);
+  const [name, setName] = useState('');
+  /*
+   * Handovers made, polled while the handover step is up. The step advances
+   * when this goes above zero, so it is gated on the thing actually happening
+   * rather than on a button that says it did.
+   */
+  const [handovers, setHandovers] = useState(0);
   // What Sidq can already see, shown on the sources step so the claim is
   // evidenced rather than asserted.
   const [claudeSessions, setClaudeSessions] = useState(0);
+
+  /*
+   * Count handovers while that step is up.
+   *
+   * Polled rather than announced: the handover happens in the pill, not in this
+   * window, and a poll that runs only while one step is on screen cannot fail
+   * silently the way an event can.
+   */
+  useEffect(() => {
+    if (!bridge || step !== 'handover') return;
+
+    const look = () => void bridge.recentHandovers().then((rows) => setHandovers(rows.length));
+    look();
+    const timer = setInterval(look, 1500);
+    return () => clearInterval(timer);
+  }, [bridge, step]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -175,6 +198,7 @@ export default function Onboarding() {
     try {
       if (discovery) localStorage.setItem('sidq.discovery', discovery);
       if (intents.length) localStorage.setItem('sidq.intents', JSON.stringify(intents));
+      if (name.trim()) localStorage.setItem('sidq.name', name.trim());
     } catch {
       /* private mode; losing an analytics answer is not worth a dead end */
     }
@@ -289,6 +313,94 @@ export default function Onboarding() {
        * escape below appears after twelve seconds so a shortcut collision
        * cannot trap anybody here.
        */
+      case 'name':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') advance();
+              }}
+              placeholder="Your first name"
+              spellCheck={false}
+              className={cn(
+                'w-full max-w-[22rem] rounded-[12px] border border-white/[0.12] bg-white/[0.04]',
+                'px-4 py-3 text-[1rem] text-white placeholder:text-white/30',
+                'outline-none transition-colors duration-150 focus:border-[#B8A6FF]/60',
+              )}
+            />
+            <div className="mt-7">
+              <PrimaryAction
+                label={name.trim() ? 'Continue' : 'Skip'}
+                onClick={advance}
+              />
+            </div>
+          </Instruction>
+        );
+
+      case 'handover':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
+              {/*
+                * A plain inline kbd, not the <Key> component. That one is built
+                * for the shortcut rail — it is a full-width block — and inside
+                * a paragraph it stacked three purple bars down the page.
+                */}
+              Press{' '}
+              <kbd className="rounded-[5px] border border-white/[0.16] bg-white/[0.08] px-1.5 py-0.5 font-mono text-[0.8125rem] text-white/85">
+                &#8984;&#8679;K
+              </kbd>
+              , choose any conversation and press Enter. Sidq writes the whole thing to your
+              Downloads as a Markdown file, with an instruction at both ends telling the next AI
+              to read it and carry on rather than summarise it back at you. Attach that file
+              anywhere.
+            </p>
+
+            <div
+              className={cn(
+                'mt-6 max-w-[46ch] rounded-[12px] border p-4',
+                handovers > 0
+                  ? 'border-[#B8A6FF]/45 bg-[#B8A6FF]/[0.08]'
+                  : 'border-white/[0.10] bg-white/[0.03]',
+              )}
+            >
+              {handovers > 0 ? (
+                <>
+                  <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+                    <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
+                    That is one, in your Downloads folder
+                  </p>
+                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+                    Every one you make from now on lands there too, so nothing is lost to a
+                    misclick the way a clipboard is.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[0.875rem] text-white/60">Waiting for your first one&hellip;</p>
+              )}
+            </div>
+
+            <div className="mt-7">
+              {handovers > 0 ? (
+                <PrimaryAction label="Continue" onClick={advance} />
+              ) : (
+                <button
+                  onClick={advance}
+                  className={cn(
+                    'text-[0.8125rem] text-white/40 underline-offset-4',
+                    'cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline',
+                  )}
+                >
+                  Skip for now
+                </button>
+              )}
+            </div>
+          </Instruction>
+        );
+
       case 'pill':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>

@@ -11,7 +11,7 @@ import type { WorkSession } from '@/lib/companion/work-history';
 import { adoptSession, shareSessionWithDesktop } from '@/lib/supabase';
 import { ConnectExtension } from '@/components/companion/ConnectExtension';
 import { GrantAccess } from '@/components/companion/GrantAccess';
-import { SOURCES, sourceLabel } from '@/lib/companion/sources';
+import { SOURCES, sourceLabel, type Source } from '@/lib/companion/sources';
 import { cn } from '@/lib/cn';
 
 /*
@@ -524,9 +524,26 @@ function today(): string {
  */
 function greeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  /*
+   * The name setup asked for, and the reason it is worth asking.
+   *
+   * Setup used to collect two answers and use neither — both went to
+   * localStorage and were read by nothing. A question whose answer changes
+   * nothing is a question that should not be asked. This one is on screen every
+   * time the window opens.
+   */
+  const name = (() => {
+    try {
+      return localStorage.getItem('sidq.name')?.trim() ?? '';
+    } catch {
+      // A browser refusing storage is not worth failing a greeting over.
+      return '';
+    }
+  })();
+
+  return name ? `${part}, ${name}` : part;
 }
 
 /* ── Overview ─────────────────────────────────────────────────────────────── */
@@ -1486,6 +1503,30 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
   );
 }
 
+/**
+ * The sources, with the ones somebody said they use at the top.
+ *
+ * Setup asks "which do you use most?" and the answer used to go to localStorage
+ * and be read by nothing. It orders this list now, so the panel opens on the
+ * AIs that matter to the person looking at it rather than on a fixed order.
+ */
+function orderedSources(): readonly Source[] {
+  let picked: string[] = [];
+  try {
+    picked = JSON.parse(localStorage.getItem('sidq.intents') ?? '[]') as string[];
+  } catch {
+    picked = [];
+  }
+  if (picked.length === 0) return SOURCES;
+
+  // Stable within each group: the fixed order still decides ties, so the list
+  // does not reshuffle itself for no reason.
+  return [
+    ...SOURCES.filter((s) => picked.includes(s.id)),
+    ...SOURCES.filter((s) => !picked.includes(s.id)),
+  ];
+}
+
 function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: ReturnType<typeof desktopBridge> }) {
   const [stale, setStale] = useState<string[]>([]);
   const [accessible, setAccessible] = useState<boolean | null>(null);
@@ -1530,7 +1571,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       </p>
 
       <ul className="mt-6 space-y-1.5">
-        {SOURCES.map((source) => {
+        {orderedSources().map((source) => {
           const found = counts.get(source.id) ?? 0;
           return (
             <li
