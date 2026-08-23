@@ -155,13 +155,34 @@ export function DesktopMock({ className }: { className?: string }) {
         * understood the product without being told.
         */}
       <div className="absolute inset-x-0 bottom-[2.5%] z-10 flex justify-center">
+        {/*
+          * Liquid glass, built out of CSS rather than pasted in.
+          *
+          * The reference implementation for this look leans on an SVG
+          * `feTurbulence` + `feDisplacementMap` filter over the backdrop, and
+          * pulls its icons off a third-party file host. Neither ships here: a
+          * displacement filter on a blurred backdrop is one of the most
+          * expensive things you can put on a page and this one is in the hero,
+          * and the front page should not depend on somebody else's bucket
+          * staying up — or on Apple's icons, which is the same trap the last
+          * product shot fell into.
+          *
+          * Three layers do it natively. A blurred, brightened backdrop; a white
+          * wash for body; and an inset highlight along the top edge with a
+          * darker one along the bottom, which is what actually reads as a
+          * curved piece of glass rather than a grey bar.
+          */}
         <div
           className={cn(
-            'flex items-end gap-[0.9%] rounded-[14%/38%] px-[1.2%] py-[0.7%]',
-            'bg-white/25 ring-1 ring-inset ring-white/25 backdrop-blur-xl',
-            'shadow-[0_8px_28px_-10px_rgba(0,0,0,0.45)]',
+            'relative flex items-end gap-[0.9%] rounded-[14%/38%] px-[1.2%] py-[0.7%]',
+            'backdrop-blur-2xl backdrop-brightness-125 backdrop-saturate-150',
+            'bg-white/20 ring-1 ring-inset ring-white/30',
+            'shadow-[0_10px_34px_-12px_rgba(0,0,0,0.5)]',
+            // The edge. Light catching the top lip, shadow gathering under it.
+            'before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit]',
+            'before:shadow-[inset_0_1.5px_0_0_rgba(255,255,255,0.6),inset_0_-1px_0_0_rgba(0,0,0,0.12)]',
           )}
-          style={{ width: 'min(46%, 26rem)' }}
+          style={{ width: 'min(52%, 30rem)' }}
         >
           {DOCK.map((tile, i) => (
             <span
@@ -172,8 +193,40 @@ export function DesktopMock({ className }: { className?: string }) {
             />
           ))}
 
+          {/*
+            * Sidq, on the end where a recently opened application sits.
+            *
+            * Worth knowing rather than assuming: the real app has no Dock tile.
+            * It sets its activation policy to accessory, which removes it, and
+            * that is what lets the pill float over another application's
+            * fullscreen Space. This is the shot saying which product it is, in
+            * the place a reader's eye already goes.
+            */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'relative grid aspect-square flex-1 place-items-center rounded-[22%]',
+              'bg-[linear-gradient(160deg,#FFFFFF,#EDEAF7)]',
+              'shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]',
+            )}
+          >
+            <svg
+              viewBox="72 116 386 208"
+              className="w-[62%] text-[#4F46E5]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="30"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
+              <path d="M236 236 C258 196 286 256 324 256 L416 256" />
+              <circle cx="416" cy="256" r="34" fill="currentColor" stroke="none" />
+            </svg>
+          </span>
+
           {/* The divider and the bin, which every Dock has and nothing else does. */}
-          <span aria-hidden="true" className="mx-[0.6%] h-[70%] w-px self-center bg-white/35" />
+          <span aria-hidden="true" className="mx-[0.6%] h-[70%] w-px self-center bg-white/40" />
           <span
             aria-hidden="true"
             className="aspect-square flex-1 rounded-[22%] bg-[linear-gradient(160deg,#F2F2F4,#C9C9CF)] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"

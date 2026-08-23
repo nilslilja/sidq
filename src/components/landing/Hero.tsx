@@ -54,13 +54,30 @@ export function Hero() {
       </svg>
 
       <div className="relative mx-auto max-w-[76rem] px-6 pt-24 lg:pt-32">
-        <div className="mb-7 flex justify-center">
+        {/*
+          * ── Arriving, rather than being there already ─────────────────────
+          *
+          * Everything below the fold has come in on a Reveal since the start;
+          * the hero, which is the only thing most people see, was simply
+          * present. The page loaded finished.
+          *
+          * Same discipline as `Reveal`: sixteen pixels and a fade, opacity and
+          * transform only so it stays on the compositor, and the whole thing
+          * off under prefers-reduced-motion — the keyframes in global.css are
+          * guarded there, so nothing here needs to check.
+          *
+          * Staggered by roughly a tenth of a second, in reading order. Any
+          * further apart and it stops being an entrance and starts being a
+          * sequence somebody has to wait through.
+          */}
+        <div className="animate-rise mb-7 flex justify-center">
           <PoweredByClaude />
         </div>
 
         <h1
           id="hero"
-          className="mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
+          className="animate-rise mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
+          style={{ animationDelay: '90ms' }}
         >
           The models got extraordinary. Nobody joined them up
         </h1>
@@ -90,11 +107,14 @@ export function Hero() {
           * cut, it moved to WhatThisMeans, where somebody who has decided to
           * care will actually read it.
           */}
-        <p className="mx-auto mt-7 text-center text-[clamp(1.0625rem,1.7vw,1.4375rem)] leading-snug text-white/60">
+        <p
+          className="animate-rise mx-auto mt-7 text-center text-[clamp(1.0625rem,1.7vw,1.4375rem)] leading-snug text-white/60"
+          style={{ animationDelay: '180ms' }}
+        >
           Sidq is the layer that does.
         </p>
 
-        <div className="mt-10 flex justify-center">
+        <div className="animate-rise mt-10 flex justify-center" style={{ animationDelay: '270ms' }}>
           <DownloadButton size="lg" />
         </div>
 
