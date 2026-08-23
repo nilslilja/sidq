@@ -242,7 +242,21 @@ export function Home() {
       </aside>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
-      <main className="min-w-0 py-3 pl-0 pr-3">
+      {/*
+        * `min-h-0` is load-bearing, and its absence is a real bug rather than a
+        * tidiness one.
+        *
+        * A grid row is `auto`, which means it grows to its content and will not
+        * shrink below it — even inside a container with a fixed height. So the
+        * card stretched to the full height of whatever was inside it, its
+        * `overflow-y-auto` never had anything to scroll, and everything past
+        * the window was simply cut off with no way to reach it. Measured on the
+        * Sources panel: viewport 900, this element 1256.
+        *
+        * `min-h-0` lets the row shrink to the viewport, which is what hands the
+        * overflow to the card.
+        */}
+      <main className="min-h-0 min-w-0 py-3 pl-0 pr-3">
         <div
           className={cn(
             'h-full min-h-0 overflow-y-auto rounded-[16px] bg-white',
@@ -1349,11 +1363,19 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
   return (
     <>
       <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Sources</h1>
+      {/*
+        * This credited the extension, and so did every row below it. The
+        * extension stopped being how any of this works when the Accessibility
+        * permission replaced it, and telling somebody their AIs are read "via
+        * extension" sends them looking for an install that is not part of the
+        * product any more — while the thing that actually reads them sits
+        * further down the same screen.
+        */}
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-        Sidq is not tied to any one AI. The ones that write conversations to this Mac
-        are read with nothing to set up. The ones that run in a browser keep nothing readable
-        here. You open them in your own browser, where you are already signed in, and the Sidq
-        extension reads them as you use them. Sidq never asks you to log in to anything.
+        Sidq is not tied to any one AI. The ones that write conversations to this Mac are
+        read with nothing to set up. The ones that run in a browser keep nothing readable
+        here, so Sidq reads them from the window instead, in whichever browser you already
+        use. Sidq never asks you to log in to anything.
       </p>
 
       <ul className="mt-6 space-y-1.5">
@@ -1373,11 +1395,20 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
               />
               <span className="flex-1 text-[0.875rem] text-[#16141C]">{source.label}</span>
               <span className="text-[0.75rem] text-[#7A7489]">
+                {/*
+                  * What a row with nothing in it is waiting for, which is a
+                  * different thing for the two kinds of source. A local one has
+                  * simply never been used. A browser one is read the moment you
+                  * open it, unless the permission is off, in which case that is
+                  * the only thing standing in the way and the row should say so.
+                  */}
                 {found > 0
                   ? `${found} ${found === 1 ? 'conversation' : 'conversations'}`
                   : source.local
                     ? 'none found'
-                    : 'via extension'}
+                    : accessible === false
+                      ? 'needs permission'
+                      : 'when you open it'}
               </span>
             </li>
           );
