@@ -33,12 +33,19 @@ use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, TCFType};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::string::CFString;
+use core_foundation::url::CFURL;
 
 /// Depth beyond which a page is pathological rather than deep.
 const MAX_DEPTH: usize = 70;
 
 /// Nodes to visit before giving up. A busy page is tens of thousands.
 const MAX_NODES: usize = 250_000;
+
+/// How long to give a browser to build its accessibility tree once asked.
+///
+/// Two seconds is what Chrome took on this machine, measured rather than
+/// guessed. Under it the walk finds an empty window and reports nothing open.
+const TREE_BUILD_WAIT: std::time::Duration = std::time::Duration::from_millis(2000);
 
 /// Below this a "conversation" is a loading screen or an empty composer.
 const MIN_CONVERSATION_CHARS: usize = 200;
@@ -151,6 +158,36 @@ fn string_attribute(element: AXUIElementRef, name: &str) -> Option<String> {
     attribute(element, name)?
         .downcast::<CFString>()
         .map(|s| s.to_string())
+}
+
+/**
+ * A page address, whatever type the browser chose to hand it over as.
+ *
+ * This is the single most important line in the file and it was one cast wrong.
+ *
+ * `AXURL` on a Chrome web area is a **CFURL**, not a CFString. Reading it as a
+ * string returned `None`, so the address was empty, so `source_for("")` matched
+ * nothing, so every browser tab was skipped on every sweep — silently, because
+ * an empty address is indistinguishable from a window that is not an AI and
+ * both are supposed to be ignored.
+ *
+ * The effect was that the entire browser half of the product did nothing. The
+ * only conversations that ever reached the index were from assistants with
+ * their own app, which are matched on the app's name and need no address at
+ * all. Measured against a live Chrome: web area found, tree readable, 5000
+ * characters of conversation sitting there, address `None`, nothing written.
+ *
+ * Safari and the others are not guaranteed to make the same choice, so both
+ * types are accepted rather than swapping one hard-coded assumption for
+ * another.
+ */
+fn url_attribute(element: AXUIElementRef, name: &str) -> Option<String> {
+    let value = attribute(element, name)?;
+
+    if let Some(url) = value.downcast::<CFURL>() {
+        return Some(url.get_string().to_string());
+    }
+    value.downcast::<CFString>().map(|s| s.to_string())
 }
 
 /**
@@ -354,9 +391,34 @@ pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String,
     }
 
     let mut found = Vec::new();
+    let apps = readable_processes();
 
-    for (pid, app_name) in readable_processes() {
-        enable_web_content(pid);
+    /*
+     * ── Ask first, then wait, then read ──────────────────────────────────────
+     *
+     * Chrome does not keep an accessibility tree for web content standing. It
+     * builds one when a client sets `AXManualAccessibility`, and it tears it
+     * down again once nothing is asking. Building it is asynchronous.
+     *
+     * So enabling and immediately walking finds an empty tree, every time. That
+     * is what was happening: the walk ran microseconds after the request, saw
+     * nothing under the window, and reported no conversation open — while the
+     * page sat there perfectly readable to anything that waited. Measured: walk
+     * at once, zero web areas; wait two seconds, the web area and five thousand
+     * characters of conversation.
+     *
+     * The wait is once per sweep rather than once per application, and this
+     * runs on the indexer's own thread ninety seconds apart, so it costs
+     * nothing anybody can feel.
+     */
+    for (pid, _) in &apps {
+        enable_web_content(*pid);
+    }
+    if !apps.is_empty() {
+        std::thread::sleep(TREE_BUILD_WAIT);
+    }
+
+    for (pid, app_name) in apps {
         // SAFETY: a live pid taken from the process list a moment ago. Create
         // returns a reference we own.
         let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
@@ -367,7 +429,7 @@ pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String,
 
         // A browser: the address decides, before any text is touched.
         for area in &areas {
-            let url = string_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+            let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
             let Some(source) = source_for(&url) else { continue };
 
             let turns = into_turns(&collect(area.as_raw()), person_by_class);
@@ -427,12 +489,46 @@ fn readable_processes() -> Vec<(i32, String)> {
                 .next()?
                 .to_string();
 
-            // Helper processes share the bundle name, so the same app appears
-            // several times; only the one with a window has a tree to walk and
-            // the rest cost one failed lookup each.
             READABLE_APPS.contains(&name.as_str()).then_some((pid, name))
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .into_iter()
+        /*
+         * One process per application, and it has to be the right one.
+         *
+         * A browser is a few dozen processes sharing its bundle name: measured
+         * here, Chrome was twenty-five of the thirty-six that came back. Only
+         * one of them owns an accessibility tree; the rest each cost an
+         * element, an `AXManualAccessibility` write and a failed walk on every
+         * sweep for as long as the browser is running.
+         *
+         * Picking by pid does not work. The obvious rule — the main process is
+         * the oldest, since it spawns the helpers — is wrong in practice:
+         * Chrome's lowest pid on this machine was 183, a helper left over from
+         * a previous launch, while the window-owning process was 40098. Reading
+         * that one found nothing and reported no conversation open.
+         *
+         * So the process is asked instead of guessed. Only the main one has
+         * windows, and one attribute read is far cheaper than the tree walk it
+         * saves.
+         */
+        .fold(Vec::<(i32, String)>::new(), |mut kept, (pid, name)| {
+            if kept.iter().any(|(_, seen)| *seen == name) {
+                return kept;
+            }
+            if owns_windows(pid) {
+                kept.push((pid, name));
+            }
+            kept
+        })
+}
+
+/// Whether this process is the one with the windows, rather than a helper.
+fn owns_windows(pid: i32) -> bool {
+    // SAFETY: a live pid from the process list. Create returns a reference we
+    // own, and `Element` releases it.
+    let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
+    !children(app.as_raw()).is_empty()
 }
 
 fn find_web_areas(element: AXUIElementRef, depth: usize, out: &mut Vec<Element>, budget: &mut usize) {
