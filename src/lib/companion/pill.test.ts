@@ -1,5 +1,13 @@
 import { describe, test, expect } from 'vitest';
-import { filterSessions, moveSelection, statusLine, MAX_VISIBLE } from './pill';
+import {
+  ANY_SOURCE,
+  filterSessions,
+  moveSelection,
+  sourceOf,
+  sourcesIn,
+  statusLine,
+  MAX_VISIBLE,
+} from './pill';
 import type { RankedSession } from './rank-sessions';
 
 function ranked(over: Partial<RankedSession['session']> = {}, score = 1): RankedSession {
@@ -123,5 +131,100 @@ describe('statusLine', () => {
   test('distinguishes an empty history from a query that matched nothing', () => {
     expect(statusLine(0, 0, '')).toBe('No conversations found yet');
     expect(statusLine(0, 0, 'xyz')).toBe('Nothing matches that');
+  });
+});
+
+/*
+ * ── The source filter ────────────────────────────────────────────────────────
+ *
+ * The picker loaded fifty conversations from every AI on the machine and
+ * ordered them only by when they ended, so the ChatGPT thread from this morning
+ * sat somewhere in the middle of everything else.
+ */
+describe('filtering by which AI it came from', () => {
+  const mixed = [
+    ranked({ title: 'Pricing page copy', source: 'claude-code' }),
+    ranked({ title: 'Notch placement', source: 'chatgpt' }),
+    ranked({ title: 'Referral schema', source: 'chatgpt' }),
+    ranked({ title: 'Colour tokens', source: 'cursor' }),
+  ];
+
+  test('narrows to one AI', () => {
+    const found = filterSessions(mixed, '', 'chatgpt');
+    expect(found.map((r) => r.session.title)).toEqual(['Notch placement', 'Referral schema']);
+  });
+
+  test('the default shows everything', () => {
+    expect(filterSessions(mixed, '')).toHaveLength(4);
+    expect(filterSessions(mixed, '', ANY_SOURCE)).toHaveLength(4);
+  });
+
+  test('the query narrows within the chosen AI, not across all of them', () => {
+    // "page" matches a Claude Code row. Filtered to ChatGPT it must find
+    // nothing, rather than reaching back out to the other source.
+    expect(filterSessions(mixed, 'page', 'chatgpt')).toHaveLength(0);
+    expect(filterSessions(mixed, 'page', ANY_SOURCE)).toHaveLength(1);
+  });
+
+  test('a session with no source counts as Claude Code', () => {
+    // The field was added after the first reader shipped, and every row written
+    // before it is one of its transcripts. Rust defaults the same way.
+    const old = ranked({ title: 'Before the field existed' });
+    expect(sourceOf(old)).toBe('claude-code');
+    expect(filterSessions([old], '', 'claude-code')).toHaveLength(1);
+  });
+});
+
+describe('the sources offered', () => {
+  test('only the ones actually present, with counts', () => {
+    /*
+     * Offering all ten supported AIs would give somebody nine options that lead
+     * to an empty picker — a menu longer than the list it filters.
+     */
+    const found = sourcesIn([
+      ranked({ source: 'chatgpt' }),
+      ranked({ source: 'chatgpt' }),
+      ranked({ source: 'cursor' }),
+    ]);
+
+    expect(found.map((s) => [s.id, s.count])).toEqual([
+      ['chatgpt', 2],
+      ['cursor', 1],
+    ]);
+  });
+
+  test('the most used comes first, so it is under the cursor', () => {
+    const found = sourcesIn([
+      ranked({ source: 'cursor' }),
+      ranked({ source: 'chatgpt' }),
+      ranked({ source: 'chatgpt' }),
+    ]);
+    expect(found[0].id).toBe('chatgpt');
+  });
+
+  test('names are shortened enough to sit in the picker', () => {
+    // The full label is "Cursor, Windsurf, VS Code", which is right on a
+    // settings panel and far too long for a 560 point filter.
+    expect(sourcesIn([ranked({ source: 'cursor' })])[0].label).toBe('Editors');
+  });
+
+  test('an empty list offers nothing rather than a row of zeroes', () => {
+    expect(sourcesIn([])).toEqual([]);
+  });
+});
+
+describe('the count under a source filter', () => {
+  test('an empty source says which one, not that there is no history', () => {
+    /*
+     * "No conversations found yet" for somebody with fifty of them, because
+     * they picked Gemini, is the kind of wrong that makes the whole count
+     * untrustworthy.
+     */
+    expect(statusLine(0, 0, '', 'gemini')).toBe('Nothing from Gemini');
+    expect(statusLine(0, 0, '', ANY_SOURCE)).toBe('No conversations found yet');
+  });
+
+  test('a query that matches nothing still blames the query', () => {
+    expect(statusLine(0, 0, 'zzz', 'gemini')).toBe('Nothing matches that');
   });
 });

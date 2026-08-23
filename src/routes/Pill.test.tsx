@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import type { OnboardingBridge } from '@/lib/onboarding/bridge';
 
 /*
@@ -43,6 +43,18 @@ const bridge: Partial<OnboardingBridge> = {
       turns: 40,
       activeMinutes: 90,
       source: 'claude-code',
+    },
+    {
+      sessionId: 'def',
+      project: '/Users/x/Sidq',
+      projectName: 'Sidq',
+      title: 'Notch placement on the pill',
+      lastPrompt: 'where does it go on a notched mac',
+      branch: 'main',
+      endedAt: Date.now() - 3_600_000,
+      turns: 22,
+      activeMinutes: 40,
+      source: 'chatgpt',
     },
   ]),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
@@ -140,5 +152,59 @@ describe('the pill, across the two states', () => {
     });
 
     expect(bridge.expandPill).toHaveBeenCalled();
+  });
+});
+
+describe('the source filter', () => {
+  test('offers only the AIs in the list, and narrows to one', async () => {
+    /*
+     * The picker showed fifty rows from every AI on the machine ordered only by
+     * when they ended, so finding this morning's ChatGPT thread meant reading
+     * past everything else.
+     */
+    render(<Pill />);
+    await resizeTo(EXPANDED_WIDTH);
+
+    expect(screen.getByText('Pricing page copy')).toBeInTheDocument();
+    expect(screen.getByText('Notch placement on the pill')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /all ais/i }));
+    });
+
+    // Gemini is supported and unused, so it is not offered.
+    expect(screen.queryByRole('button', { name: /gemini/i })).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /chatgpt/i }));
+    });
+    await settle();
+
+    expect(screen.getByText('Notch placement on the pill')).toBeInTheDocument();
+    expect(screen.queryByText('Pricing page copy')).not.toBeInTheDocument();
+  });
+
+  test('escape closes the menu without closing the picker', async () => {
+    /*
+     * Backing out of a dropdown must not throw away the query typed to get
+     * there. The menu takes Escape first; the second one dismisses.
+     */
+    render(<Pill />);
+    await resizeTo(EXPANDED_WIDTH);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /all ais/i }));
+    });
+    expect(screen.getByRole('button', { name: /chatgpt/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.keyDown(screen.getByPlaceholderText(/pick up where you stopped/i), {
+        key: 'Escape',
+      });
+    });
+
+    expect(screen.queryByRole('button', { name: /chatgpt/i })).not.toBeInTheDocument();
+    expect(bridge.hidePill).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText(/pick up where you stopped/i)).toBeInTheDocument();
   });
 });

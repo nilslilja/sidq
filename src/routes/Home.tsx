@@ -11,6 +11,7 @@ import type { WorkSession } from '@/lib/companion/work-history';
 import { adoptSession, shareSessionWithDesktop } from '@/lib/supabase';
 import { ConnectExtension } from '@/components/companion/ConnectExtension';
 import { GrantAccess } from '@/components/companion/GrantAccess';
+import { SOURCES, sourceLabel } from '@/lib/companion/sources';
 import { cn } from '@/lib/cn';
 
 /*
@@ -1120,20 +1121,6 @@ function whenHandedOver(seconds: number): string {
 
 /* ── Sources ──────────────────────────────────────────────────────────────── */
 
-/** Everything Sidq can read, and how. Counts come from what was actually found. */
-const SOURCES: { id: string; label: string; local: boolean }[] = [
-  { id: 'claude-code', label: 'Claude Code', local: true },
-  { id: 'cowork', label: 'Claude Cowork', local: true },
-  { id: 'cursor', label: 'Cursor, Windsurf, VS Code', local: true },
-  { id: 'chatgpt', label: 'ChatGPT', local: false },
-  { id: 'claude.ai', label: 'Claude.ai', local: false },
-  { id: 'gemini', label: 'Gemini', local: false },
-  { id: 'perplexity', label: 'Perplexity', local: false },
-  { id: 'grok', label: 'Grok', local: false },
-  { id: 'deepseek', label: 'DeepSeek', local: false },
-  { id: 'mistral', label: 'Mistral', local: false },
-];
-
 /**
  * Bring in the history you already have, from whichever assistant it is in.
  *
@@ -1417,16 +1404,6 @@ function Stat({ value, label }: { value: string; label: string }) {
       <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">{label}</span>
     </p>
   );
-}
-
-function sourceLabel(source: string): string {
-  const names: Record<string, string> = {
-    'claude-code': 'Claude Code',
-    cursor: 'Cursor',
-    chatgpt: 'ChatGPT',
-    gemini: 'Gemini',
-  };
-  return names[source] ?? source;
 }
 
 function whenLabel(endedAt: number): string {

@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { rankSessions } from '@/lib/companion/rank-sessions';
-import { filterSessions, moveSelection, statusLine } from '@/lib/companion/pill';
+import {
+  ANY_SOURCE,
+  filterSessions,
+  moveSelection,
+  sourceOf,
+  sourcesIn,
+  statusLine,
+} from '@/lib/companion/pill';
+import { sourceLabel } from '@/lib/companion/sources';
 import { playCue } from '@/lib/companion/sound';
 import { desktopBridge } from '@/lib/onboarding/bridge';
 import type { PillState } from '@/lib/onboarding/bridge';
@@ -84,6 +92,8 @@ export function Pill() {
   // Measured, never announced. Launch shows the bar.
   const [mode, setMode] = useState<PillState>(() => modeForWidth(window.innerWidth));
   const [indexed, setIndexed] = useState(0);
+  const [source, setSource] = useState(ANY_SOURCE);
+  const [picking, setPicking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   /*
@@ -97,7 +107,37 @@ export function Pill() {
     () => rankSessions(sessions.filter((s) => Boolean(s.sessionId))),
     [sessions],
   );
-  const visible = useMemo(() => filterSessions(ranked, query), [ranked, query]);
+  /*
+   * Everything from the chosen AI, before the query narrows it.
+   *
+   * This is what the count reports. `visible` is capped at twelve rows, and
+   * reporting that cap once told somebody with twenty-nine conversations that
+   * they had five.
+   */
+  const inSource = useMemo(
+    () => (source === ANY_SOURCE ? ranked : ranked.filter((r) => sourceOf(r) === source)),
+    [ranked, source],
+  );
+  const visible = useMemo(() => filterSessions(ranked, query, source), [ranked, query, source]);
+
+  /*
+   * The filter, built from the list rather than from the list of AIs we support.
+   *
+   * Ten fixed options would mean nine dead ones for almost everybody. What is
+   * here is what they actually have.
+   */
+  const tallies = useMemo(() => sourcesIn(ranked), [ranked]);
+
+  /*
+   * A source that empties out is not a filter, it is a trap.
+   *
+   * The list reloads every time the picker opens, and a source with nothing in
+   * it any more would leave the picker permanently empty with the reason hidden
+   * behind a closed menu.
+   */
+  useEffect(() => {
+    if (source !== ANY_SOURCE && !tallies.some((t) => t.id === source)) setSource(ANY_SOURCE);
+  }, [tallies, source]);
 
   /*
    * Clamp rather than reset when the list shrinks under a query.
@@ -283,6 +323,22 @@ export function Pill() {
   }, [bridge, phase.kind, selected, visible]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    /*
+     * While the menu is open it owns the keyboard.
+     *
+     * Escape shuts the menu rather than the whole picker — closing everything
+     * because somebody backed out of a dropdown loses the query they typed to
+     * get there. Arrows are swallowed for the same reason: moving the selection
+     * behind an open menu changes what Enter does without showing it.
+     */
+    if (picking) {
+      if (e.key === 'Escape' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (e.key === 'Escape') setPicking(false);
+        return;
+      }
+    }
+
     if (e.key === 'Escape') {
       e.preventDefault();
       dismiss();
@@ -404,8 +460,77 @@ export function Pill() {
               'placeholder:text-white/30 focus:outline-none',
             )}
           />
+          {/*
+            * The source filter.
+            *
+            * Everything arrived in one pile: fifty rows from six different AIs
+            * ordered only by when they ended, so finding the ChatGPT thread
+            * from this morning meant reading past everything else.
+            *
+            * Drawn rather than a `<select>`. A native menu on macOS takes the
+            * arrow keys as soon as it has focus, and those belong to the list —
+            * a picker where Down moves an invisible dropdown selection instead
+            * of the highlighted conversation is broken in a way nobody would
+            * guess at.
+            */}
+          {tallies.length > 1 && (
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setPicking((open) => !open)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2 py-1',
+                  'text-[0.75rem] transition-colors duration-100',
+                  source === ANY_SOURCE
+                    ? 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
+                    : 'bg-[#B8A6FF]/15 text-[#B8A6FF]',
+                )}
+              >
+                {source === ANY_SOURCE ? 'All AIs' : sourceLabel(source, true)}
+                <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
+                  <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              {picking && (
+                <div
+                  className={cn(
+                    'absolute right-0 top-[calc(100%+6px)] z-20 min-w-[11rem] overflow-hidden',
+                    'rounded-[10px] border border-white/[0.09] bg-[#141419] py-1',
+                    'shadow-[0_16px_40px_-12px_rgba(0,0,0,0.9)]',
+                  )}
+                >
+                  <SourceRow
+                    label="All AIs"
+                    count={ranked.length}
+                    on={source === ANY_SOURCE}
+                    onPick={() => {
+                      setSource(ANY_SOURCE);
+                      setIndex(0);
+                      setPicking(false);
+                      inputRef.current?.focus();
+                    }}
+                  />
+                  {tallies.map((t) => (
+                    <SourceRow
+                      key={t.id}
+                      label={t.label}
+                      count={t.count}
+                      on={source === t.id}
+                      onPick={() => {
+                        setSource(t.id);
+                        setIndex(0);
+                        setPicking(false);
+                        inputRef.current?.focus();
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <span className="shrink-0 text-[0.6875rem] tabular-nums text-white/30">
-            {statusLine(visible.length, ranked.length, query)}
+            {statusLine(visible.length, inSource.length, query, source)}
           </span>
         </div>
 
@@ -568,6 +693,38 @@ export function Pill() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One line of the source menu.
+ *
+ * The count is the point of it: "ChatGPT 3" tells you whether narrowing to it
+ * is worth the click before you make it, which a bare list of names does not.
+ */
+function SourceRow({
+  label,
+  count,
+  on,
+  onPick,
+}: {
+  label: string;
+  count: number;
+  on: boolean;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      onClick={onPick}
+      className={cn(
+        'flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left',
+        'text-[0.8125rem] transition-colors duration-100',
+        on ? 'text-[#B8A6FF]' : 'text-white/70 hover:bg-white/[0.06] hover:text-white',
+      )}
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">{count}</span>
+    </button>
   );
 }
 

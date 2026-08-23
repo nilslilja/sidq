@@ -1,4 +1,5 @@
 import type { RankedSession } from './rank-sessions';
+import { sourceLabel } from './sources';
 
 /*
  * The picker's logic, without the picker.
@@ -36,10 +37,17 @@ export const MAX_VISIBLE = 12;
  * Matches the project as well as the title, because "sidq" is what someone types
  * when they mean "the thing I was doing in that folder".
  */
-export function filterSessions(sessions: readonly RankedSession[], query: string): RankedSession[] {
+export function filterSessions(
+  sessions: readonly RankedSession[],
+  query: string,
+  source: string = ANY_SOURCE,
+): RankedSession[] {
+  const withinSource =
+    source === ANY_SOURCE ? sessions : sessions.filter((r) => sourceOf(r) === source);
+
   const q = query.trim().toLowerCase();
   const matches = q
-    ? sessions.filter((r) => {
+    ? withinSource.filter((r) => {
         const { title, projectName, lastPrompt } = r.session;
         return (
           title.toLowerCase().includes(q) ||
@@ -47,9 +55,55 @@ export function filterSessions(sessions: readonly RankedSession[], query: string
           lastPrompt.toLowerCase().includes(q)
         );
       })
-    : [...sessions];
+    : [...withinSource];
 
   return matches.slice(0, MAX_VISIBLE);
+}
+
+/**
+ * The id of the "no filter" option.
+ *
+ * A named constant rather than an empty string, because empty is also what an
+ * unset field looks like and the two must not be confused when one means "show
+ * everything" and the other means "this row has no source".
+ */
+export const ANY_SOURCE = 'all';
+
+/**
+ * Which AI a session came from.
+ *
+ * Defaults to Claude Code, matching Rust: the field was added after the first
+ * reader shipped, and every row written before it is one of its transcripts.
+ */
+export function sourceOf(ranked: RankedSession): string {
+  return ranked.session.source ?? 'claude-code';
+}
+
+export interface SourceTally {
+  id: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * The sources actually present, with how many each has.
+ *
+ * Only what is in the list. Offering a filter for an AI somebody has never
+ * opened gives them ten options, nine of which lead to an empty picker — the
+ * menu would be longer than the thing it filters.
+ *
+ * Ordered by count, so the one they use most is the first one under the cursor.
+ */
+export function sourcesIn(sessions: readonly RankedSession[]): SourceTally[] {
+  const counts = new Map<string, number>();
+  for (const ranked of sessions) {
+    const id = sourceOf(ranked);
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([id, count]) => ({ id, label: sourceLabel(id, true), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 /**
@@ -71,8 +125,20 @@ export function moveSelection(index: number, delta: number, length: number): num
  * people they had five conversations when they had twenty-nine, which is the
  * kind of wrong that makes someone distrust everything else on the screen.
  */
-export function statusLine(shown: number, total: number, query: string): string {
-  if (total === 0) return query.trim() ? 'Nothing matches that' : 'No conversations found yet';
+export function statusLine(
+  shown: number,
+  total: number,
+  query: string,
+  source: string = ANY_SOURCE,
+): string {
+  if (total === 0) {
+    if (query.trim()) return 'Nothing matches that';
+    // A filtered source with nothing in it is not the same as an empty index,
+    // and telling somebody they have no conversations because they picked
+    // Gemini is the kind of wrong that makes them stop trusting the count.
+    if (source !== ANY_SOURCE) return `Nothing from ${sourceLabel(source, true)}`;
+    return 'No conversations found yet';
+  }
 
   const label = total === 1 ? '1 conversation' : `${total} conversations`;
   // Only mention the slice when there genuinely is one being hidden.
