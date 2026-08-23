@@ -85,10 +85,22 @@ export function Home() {
    */
   const [plan, setPlan] = useState<PlanStatus | null>(null);
 
-  useEffect(() => {
+  /**
+   * Everything on this screen that Rust owns, asked for again.
+   *
+   * Cheap: three local reads, no network. Called on mount, whenever Rust says
+   * something changed, and whenever the window comes back to the front.
+   */
+  const refresh = useCallback(() => {
     if (!bridge) return;
     void bridge.recentWork(200).then((rows) => setSessions(rows as WorkSession[]));
     void bridge.indexStats().then(setStats);
+    void bridge.planStatus().then(setPlan);
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge) return;
+    refresh();
     /*
      * Refresh the token, then ask what the plan is.
      *
@@ -101,7 +113,42 @@ export function Home() {
       .catch(() => {})
       .then(() => bridge.planStatus())
       .then(setPlan);
-  }, [bridge]);
+  }, [bridge, refresh]);
+
+  /*
+   * ── Why this window listens, and also does not rely on listening ──────────
+   *
+   * It asked for the plan on mount and never again, so the allowance it printed
+   * was the one from the moment it opened: you handed a conversation over, the
+   * count stayed where it was, and it stayed there until the app was quit.
+   * Nothing was miscounted — Rust records every handover — the window just
+   * never looked a second time.
+   *
+   * So Rust announces, and this listens. But an event that fails to arrive
+   * fails silently, and events in this app have done exactly that twice. The
+   * focus listener is the belt to that braces: you hand a conversation over,
+   * you come back to the window, and it is right, whatever the plumbing did.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void bridge.onChanged(refresh).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [bridge, refresh]);
 
   /*
    * Signing in has to change this window without being closed and reopened.
@@ -295,7 +342,8 @@ export function Home() {
           )}
         >
           <div data-tauri-drag-region className="h-3" />
-          <div className="px-9 pb-12 pt-5">
+          {/* Keyed on the tab so switching panels replays the entrance. */}
+          <div key={tab} className="animate-rise px-9 pb-12 pt-5">
             {tab === 'overview' && (
               <Overview bridge={bridge} plan={plan} stats={stats} hoursRead={hoursRead} />
             )}
@@ -576,7 +624,11 @@ function Overview({
               {rows.map((row) => (
                 <li
                   key={`${row.sessionId}-${row.madeAt}`}
-                  className="flex items-baseline gap-4 px-1 py-3 transition-colors duration-100 hover:bg-[#F8F6FD]"
+                  className={cn(
+                    'flex items-baseline gap-4 rounded-[10px] px-3 py-3',
+                    'transition-[transform,background-color,box-shadow] duration-150',
+                    'hover:-translate-y-px hover:bg-[#F8F6FD] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]',
+                  )}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.875rem] text-[#16141C]">
@@ -1086,7 +1138,8 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             key={fact.text}
             className={cn(
               'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
-              'transition-colors duration-100 hover:bg-[#F4F2FB]',
+              'transition-[transform,background-color] duration-150',
+              'hover:-translate-y-px hover:bg-[#F4F2FB]',
             )}
           >
             <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-[#16141C]">

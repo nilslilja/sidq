@@ -168,8 +168,36 @@ struct HandoverResult {
     cap: Option<u32>,
 }
 
+/**
+ * Tell every window that something it is showing has changed.
+ *
+ * ── Why this exists at all ───────────────────────────────────────────────────
+ * The window asked for the plan twice: on mount, and after a sign-in. Nothing
+ * ever told it a handover had happened, so the allowance it printed was the one
+ * from the moment it opened and stayed there until the app was quit. Reported
+ * as "the handovers didn't change when I used them, still said 5 over and
+ * over", and it was not a counting bug — `record_handover` was writing every
+ * time. The window simply never looked again.
+ *
+ * The same silence is why reading a browser conversation appeared to do
+ * nothing: the sweep wrote it, and no screen was told.
+ *
+ * ── The two rules this codebase paid for ─────────────────────────────────────
+ * `emit_to(label, …)` builds an `EventTarget::AnyLabel` that no JS `listen()`
+ * receives — an afternoon went into finding that once, and the comment is at
+ * the top of `pill_window.rs`. It has to be the global `emit`.
+ *
+ * And it must not sit at the end of a chain of `?`, because one earlier failure
+ * then skips the announcement with nothing reported anywhere. Hence a free
+ * function called on its own line rather than a link in a chain.
+ */
+fn announce(app: &AppHandle) {
+    let _ = app.emit("sidq:changed", ());
+}
+
 #[tauri::command]
 async fn save_transcript(
+    app: AppHandle,
     session_id: String,
     title: String,
     source: String,
@@ -204,6 +232,9 @@ async fn save_transcript(
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
             let _ = index_store::record_handover(conn, &session_id, stamp);
+
+            // The window is open and showing a number that has just changed.
+            announce(&app);
         }
 
         let (used, cap) = conn
@@ -1231,7 +1262,7 @@ fn main() {
             // Keeps the index current in the background. Search reads from it;
             // the picker still works without it, so a failure here costs a
             // feature rather than the app.
-            indexer::spawn();
+            indexer::spawn(app.handle().clone());
 
             if !has_onboarded(&app.handle().clone()) {
                 if let Some(welcome) = app.get_webview_window("welcome") {
@@ -1349,8 +1380,22 @@ fn main() {
              */
             if window.label() == "home" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    /*
+                     * Minimise rather than hide.
+                     *
+                     * Hiding removed the window from every list macOS keeps —
+                     * no Dock icon on an accessory app, nothing in the window
+                     * menu — so the only routes back were the tray and a small
+                     * grey link inside the picker. "The big window should
+                     * ALWAYS be open, and not only opened with search all
+                     * history on the pill, that is easily missable."
+                     *
+                     * Minimised, it is still a real window in the Dock's right
+                     * hand side, and clicking it brings it back the way it does
+                     * for every other app.
+                     */
                     api.prevent_close();
-                    let _ = window.hide();
+                    let _ = window.minimize();
                 }
             }
 

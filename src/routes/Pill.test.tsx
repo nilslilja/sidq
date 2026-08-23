@@ -61,6 +61,7 @@ const bridge: Partial<OnboardingBridge> = {
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
   openHome: vi.fn(async () => {}),
+  onChanged: vi.fn(async () => () => {}),
 };
 
 vi.mock('@/lib/onboarding/bridge', async (original) => ({

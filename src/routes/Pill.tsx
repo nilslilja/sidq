@@ -92,6 +92,12 @@ export function Pill() {
   // Measured, never announced. Launch shows the bar.
   const [mode, setMode] = useState<PillState>(() => modeForWidth(window.innerWidth));
   const [indexed, setIndexed] = useState(0);
+  /*
+   * Bumped whenever the count changes, and used as a React key so the pulse
+   * restarts. Re-adding the same class does not replay a CSS animation; a new
+   * key remounts the element, which does.
+   */
+  const [beat, setBeat] = useState(0);
   const [source, setSource] = useState(ANY_SOURCE);
   const [picking, setPicking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -170,10 +176,34 @@ export function Pill() {
   useEffect(() => {
     if (!bridge || mode !== 'collapsed') return;
 
-    const read = () => void bridge.indexStats().then(([count]) => setIndexed(count));
+    const read = () =>
+      void bridge.indexStats().then(([count]) =>
+        setIndexed((was) => {
+          if (count !== was) setBeat((n) => n + 1);
+          return count;
+        }),
+      );
     read();
+
+    /*
+     * Polled and announced. The poll is the floor — the count must never be
+     * wrong for longer than one interval — and the announcement is what makes a
+     * capture show up the moment it lands rather than up to a minute later.
+     */
     const timer = setInterval(read, INDEX_POLL_MS);
-    return () => clearInterval(timer);
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void bridge.onChanged(read).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      clearInterval(timer);
+    };
   }, [bridge, mode]);
 
   /*
@@ -349,6 +379,20 @@ export function Pill() {
       setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, visible.length));
       return;
     }
+    /*
+     * ⌘O opens the window.
+     *
+     * The link in the footer was the only visible route to it from the thing
+     * that is always on screen, and it read "Search all history", which names a
+     * feature rather than the window. A shortcut is learnable; a small grey
+     * link is findable at best.
+     */
+    if (e.key === 'o' && e.metaKey) {
+      e.preventDefault();
+      void bridge?.openHome();
+      void bridge?.hidePill();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       /*
@@ -400,11 +444,21 @@ export function Pill() {
             'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
           )}
         >
+          {/*
+            * The dot beats when the count changes.
+            *
+            * The reader captures a conversation every fifteen seconds and said
+            * nothing about it, so the one always-visible piece of the product
+            * gave no sign it was working. Keyed on the change so the animation
+            * replays — re-adding a class does not restart one.
+            */}
           <span
+            key={beat}
             aria-hidden="true"
             className={cn(
               'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
               'opacity-80 group-hover:opacity-100',
+              beat > 0 && 'animate-pulse-once',
             )}
           />
           <span className="truncate text-[0.6875rem] leading-none text-white/70">
@@ -656,7 +710,7 @@ export function Pill() {
             {phase.kind === 'saved' && 'Ready to attach'}
             {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && '↵ file to attach · ⌘↵ copy'}
+            {phase.kind === 'browsing' && '↵ file to attach · ⌘↵ copy · ⌘O the window'}
           </span>
           <button
             onClick={() => {
@@ -668,7 +722,7 @@ export function Pill() {
               'cursor-pointer transition-colors duration-100 hover:text-white/70',
             )}
           >
-            Search all history ›
+            Open Sidq ›
           </button>
           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>

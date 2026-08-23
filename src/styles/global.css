@@ -478,3 +478,54 @@
     opacity: 1;
   }
 }
+
+/*
+ * ── Motion for the app window ────────────────────────────────────────────────
+ *
+ * Transform and opacity only, so every one of these runs on the compositor. The
+ * window is open all day; anything that touches layout would be paid for on
+ * every frame of every scroll.
+ *
+ * All of it is off under `prefers-reduced-motion`, which is not a formality:
+ * the pulse below fires whenever a conversation is captured, and something that
+ * moves in the corner of your eye without being asked is exactly what that
+ * setting exists to stop.
+ */
+@layer utilities {
+  @keyframes sidq-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* A capture landing. Brief and small — it is a confirmation, not an event. */
+  @keyframes sidq-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.12);
+    }
+  }
+
+  .animate-rise {
+    animation: sidq-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .animate-pulse-once {
+    animation: sidq-pulse 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise,
+    .animate-pulse-once {
+      animation: none;
+    }
+  }
+}

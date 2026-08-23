@@ -110,6 +110,14 @@ export interface OnboardingBridge {
    */
   onShortcut: (event: 'shortcut-pill', callback: () => void) => Promise<() => void>;
   /**
+   * Rust saying something a window is showing has changed.
+   *
+   * Fired after a handover is recorded and after a sweep writes a conversation.
+   * Named rather than a generic `listen`, for the same reason `onSignedIn` is:
+   * a window should subscribe to a thing that happened, not to a string.
+   */
+  onChanged: (callback: () => void) => Promise<() => void>;
+  /**
    * Claude Code sessions found on disk.
    *
    * Used on the sources step to show a real count rather than claiming Sidq can
@@ -285,6 +293,7 @@ export function desktopBridge(): OnboardingBridge | null {
         if (authUrls.length > 0) callback(authUrls);
       }),
     onShortcut: (name, callback) => event.listen(name, () => callback()),
+    onChanged: (callback) => event.listen('sidq:changed', () => callback()),
     recentWork: async (limit) => {
       const rows = await invoke('recent_work', { limit });
       return Array.isArray(rows) ? rows : [];

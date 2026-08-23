@@ -160,8 +160,9 @@ pub fn sweep(conn: &Connection) -> usize {
  * and the searching side needs one that is not blocked behind an index pass.
  * WAL mode is what makes those two coexist.
  */
-pub fn spawn() {
-    std::thread::spawn(|| {
+pub fn spawn(app: tauri::AppHandle) {
+    let disk = app.clone();
+    std::thread::spawn(move || {
         std::thread::sleep(FIRST_SWEEP_DELAY);
 
         let Some(conn) = index_store::open() else {
@@ -171,7 +172,9 @@ pub fn spawn() {
         };
 
         loop {
-            sweep(&conn);
+            if sweep(&conn) > 0 {
+                crate::announce(&disk);
+            }
             std::thread::sleep(SWEEP_INTERVAL);
         }
     });
@@ -184,7 +187,7 @@ pub fn spawn() {
      * the other. WAL is what lets all three coexist.
      */
     #[cfg(target_os = "macos")]
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
         std::thread::sleep(FIRST_SWEEP_DELAY);
 
         let Some(conn) = index_store::open() else {
@@ -192,7 +195,11 @@ pub fn spawn() {
         };
 
         loop {
-            crate::screen_reader::sweep_into(&conn);
+            // Only when something was actually written. A sweep that finds an
+            // unchanged conversation must not make the window refetch.
+            if crate::screen_reader::sweep_into(&conn) > 0 {
+                crate::announce(&app);
+            }
             std::thread::sleep(SCREEN_INTERVAL);
         }
     });

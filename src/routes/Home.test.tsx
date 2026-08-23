@@ -70,6 +70,7 @@ const bridge: Partial<OnboardingBridge> = {
   openUpgrade: vi.fn(async () => {}),
   openSignIn: vi.fn(async () => {}),
   onSignedIn: vi.fn(async () => () => {}),
+  onChanged: vi.fn(async () => () => {}),
   inviteSummary: vi.fn(async () => invite),
   redeemInvite: vi.fn((code: string) => redeem(code)),
 };
@@ -135,6 +136,68 @@ describe('the sidebar', () => {
 
     expect(screen.queryByRole('button', { name: /didn.t tell you/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument();
+  });
+});
+
+describe('staying current', () => {
+  test('the allowance follows a handover without reopening the window', async () => {
+    /*
+     * The reported bug, and the reason it was worth a mechanism rather than a
+     * patch: "the handovers didn't change when I used them, still said 5 over
+     * and over".
+     *
+     * Nothing was miscounted. `record_handover` wrote every time. The window
+     * asked for the plan on mount and never again, so it printed the number
+     * from the moment it opened for as long as it stayed open.
+     */
+    let handed = 0;
+    (bridge.planStatus as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+      ...PLAN,
+      handoversUsed: handed,
+    }));
+
+    let announce = () => {};
+    (bridge.onChanged as ReturnType<typeof vi.fn>).mockImplementation(async (cb: () => void) => {
+      announce = cb;
+      return () => {};
+    });
+
+    await open('Plan');
+    expect(screen.getByText('0 of 5 used')).toBeInTheDocument();
+
+    // A handover happens somewhere else entirely — the pill — and Rust says so.
+    handed = 1;
+    await act(async () => {
+      announce();
+    });
+    await settle();
+
+    expect(screen.getByText('1 of 5 used')).toBeInTheDocument();
+  });
+
+  test('and follows it on focus too, whatever the event plumbing did', async () => {
+    /*
+     * Tauri events in this app have silently failed to arrive twice. Coming
+     * back to the window is the one thing a person always does after handing a
+     * conversation over, so it is the path that must not depend on plumbing.
+     */
+    let handed = 0;
+    (bridge.planStatus as ReturnType<typeof vi.fn>).mockImplementation(async () => ({
+      ...PLAN,
+      handoversUsed: handed,
+    }));
+    (bridge.onChanged as ReturnType<typeof vi.fn>).mockImplementation(async () => () => {});
+
+    await open('Plan');
+    expect(screen.getByText('0 of 5 used')).toBeInTheDocument();
+
+    handed = 3;
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await settle();
+
+    expect(screen.getByText('3 of 5 used')).toBeInTheDocument();
   });
 });
 
