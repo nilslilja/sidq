@@ -529,3 +529,94 @@
     }
   }
 }
+
+/*
+ * ── Weather for the dawn sky ─────────────────────────────────────────────────
+ *
+ * Stars in the dark band at the top, a rare shooting star, birds across the
+ * middle, cloud drifting near the horizon. All of it deliberately at the edge
+ * of noticeable: the sky's job is to hold white copy at contrast, and anything
+ * here that competes for attention with the headline is a bug rather than a
+ * flourish.
+ *
+ * Transform and opacity only, so every one of these stays on the compositor and
+ * none of them can shift layout. Off entirely under prefers-reduced-motion —
+ * drifting movement in peripheral vision is exactly what that setting is for,
+ * and a shooting star is the clearest case of it on the page.
+ */
+@layer utilities {
+  @keyframes sky-twinkle {
+    0%,
+    100% {
+      opacity: 0.18;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  /*
+   * Rare on purpose. Eighteen seconds of nothing, then a streak lasting under
+   * one — the point is that somebody catches it once and wonders whether they
+   * did.
+   */
+  @keyframes sky-shoot {
+    0%,
+    94% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) scaleX(0.2);
+    }
+    95.5% {
+      opacity: 0.7;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(14rem, 7rem, 0) scaleX(1);
+    }
+  }
+
+  /* Across and very slightly up, the way a bird crossing a wide sky reads. */
+  @keyframes sky-cross {
+    from {
+      transform: translate3d(-12%, 0, 0);
+    }
+    to {
+      transform: translate3d(112%, -3rem, 0);
+    }
+  }
+
+  @keyframes sky-cloud {
+    from {
+      transform: translate3d(-6%, 0, 0);
+    }
+    to {
+      transform: translate3d(6%, 0, 0);
+    }
+  }
+
+  .sky-twinkle {
+    animation: sky-twinkle 6s ease-in-out infinite;
+  }
+  .sky-shoot {
+    animation: sky-shoot 18s linear infinite;
+  }
+  .sky-cross {
+    animation: sky-cross 64s linear infinite;
+  }
+  .sky-cloud {
+    animation: sky-cloud 90s ease-in-out infinite alternate;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sky-twinkle,
+    .sky-shoot,
+    .sky-cross,
+    .sky-cloud {
+      animation: none;
+    }
+    /* A shooting star that is not moving is a stray dash across the sky. */
+    .sky-shoot {
+      opacity: 0;
+    }
+  }
+}
