@@ -99,7 +99,6 @@ export interface ProfileFact {
 export type PillState = 'collapsed' | 'expanded';
 
 export interface OnboardingBridge {
-  setAutostart: (enabled: boolean) => Promise<void>;
   openSignIn: () => Promise<void>;
   /** Fires when the browser hands the session back through sidq://. */
   onSignedIn: (callback: (urls: string[]) => void) => Promise<() => void>;
@@ -131,14 +130,6 @@ export interface OnboardingBridge {
     when: string;
     project: string;
   }) => Promise<string | null>;
-  /**
-   * The whole conversation for one session, to hand to another assistant.
-   *
-   * Verbatim, not summarised: a summary is what any assistant can already
-   * produce on request, and it drops the corrections and reversals that are the
-   * reason a handover works at all. Null when the transcript cannot be read.
-   */
-  sessionTranscript: (sessionId: string) => Promise<string | null>;
   /**
    * Write the conversation to a file in Downloads and return its path.
    *
@@ -282,9 +273,6 @@ export function desktopBridge(): OnboardingBridge | null {
   const invoke = core.invoke;
 
   return {
-    setAutostart: async (enabled) => {
-      await invoke('set_autostart', { enabled });
-    },
     openSignIn: async () => {
       await invoke('open_sign_in');
     },
@@ -303,10 +291,6 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     handoverText: async (args) => {
       const text = await invoke('handover_text', args);
-      return typeof text === 'string' ? text : null;
-    },
-    sessionTranscript: async (sessionId) => {
-      const text = await invoke('session_transcript', { sessionId });
       return typeof text === 'string' ? text : null;
     },
     saveTranscript: async (args) => {

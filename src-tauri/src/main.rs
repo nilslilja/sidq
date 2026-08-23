@@ -12,7 +12,6 @@
 
 mod assistants;
 mod browser_bridge;
-mod handover;
 mod index_store;
 mod entitlement;
 mod indexer;
@@ -27,7 +26,7 @@ mod screen_reader;
 mod work_history;
 
 
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager};
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
 // scope the method simply does not exist, which is what the compiler was saying.
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
@@ -36,51 +35,6 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 // OpenerExt puts .opener() on AppHandle. This is the supported way to hand a URL
 // to the system browser; shell().open() still works but is deprecated.
 use tauri_plugin_opener::OpenerExt;
-
-/// Show or hide the card. Bound to a global shortcut so it can be dismissed
-/// without reaching for the mouse mid-task.
-#[tauri::command]
-fn toggle_overlay(window: WebviewWindow) -> Result<(), String> {
-    let visible = window.is_visible().map_err(|e| e.to_string())?;
-    if visible {
-        window.hide().map_err(|e| e.to_string())?;
-    } else {
-        window.show().map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-/// Bring the card forward and focus it, for quick capture.
-///
-/// Separate from `toggle_overlay` because capture must always end with the card
-/// visible AND focused: a shortcut that sometimes hides the thing you are trying
-/// to type into is worse than no shortcut.
-#[tauri::command]
-fn focus_overlay(window: WebviewWindow) -> Result<(), String> {
-    window.show().map_err(|e| e.to_string())?;
-    window.set_focus().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-/// Whether the app launches at login, and setting it.
-///
-/// Default on, because an overlay you have to remember to start is an overlay you
-/// stop using in a week. The user is told this on first run rather than finding
-/// out later, which is the difference between a default and a trick.
-#[tauri::command]
-fn autostart_enabled(app: AppHandle) -> bool {
-    app.autolaunch().is_enabled().unwrap_or(false)
-}
-
-#[tauri::command]
-fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let manager = app.autolaunch();
-    if enabled {
-        manager.enable().map_err(|e| e.to_string())
-    } else {
-        manager.disable().map_err(|e| e.to_string())
-    }
-}
 
 
 /// Is Accessibility granted, without spawning anything.
@@ -265,7 +219,7 @@ fn build_handover(
         })
         .unwrap_or_default();
 
-    let brief = handover::Brief {
+    let brief = compiler::Brief {
         source,
         when,
         project,
@@ -371,24 +325,6 @@ async fn search_conversations(
     .unwrap_or((Vec::new(), 0))
 }
 
-
-/**
- * Show or hide the recording backdrop.
- *
- * Used only when shooting product footage. The alternative was recording over
- * whatever happened to be on the machine, which put a stranger's wallpaper and
- * open windows into the first attempt and made it unusable.
- */
-#[tauri::command]
-fn set_backdrop(app: tauri::AppHandle, shown: bool) {
-    if let Some(w) = app.get_webview_window("backdrop") {
-        if shown {
-            let _ = w.show();
-        } else {
-            let _ = w.hide();
-        }
-    }
-}
 
 /**
  * Sites whose selectors have stopped matching, reported by the extension.
@@ -867,14 +803,6 @@ fn transcript_of(session_id: &str) -> Option<String> {
         .or_else(|| index_store::open().and_then(|c| index_store::session_transcript(&c, session_id)))
 }
 
-#[tauri::command]
-async fn session_transcript(session_id: String) -> Option<String> {
-    tauri::async_runtime::spawn_blocking(move || transcript_of(&session_id))
-        .await
-        .ok()
-        .flatten()
-}
-
 /// How large an export may be. Beyond this it is not one.
 const MAX_EXPORT_BYTES: usize = 200 * 1024 * 1024;
 
@@ -1057,43 +985,6 @@ fn finish_onboarding(app: AppHandle) -> Result<(), String> {
 
 
 /*
- * Nudge the card with the arrow keys.
- *
- * Deliberately NOT a global shortcut. ⌘ and ⌘⇧ with arrows are "move/select to
- * end of line" in every text field on the system, and registering those globally
- * would break text editing in every other application on the machine to save one
- * drag. So this is a command the overlay calls from its own keydown handler, and
- * it only does anything while the card actually has focus.
- */
-#[tauri::command]
-fn move_overlay(window: WebviewWindow, dx: f64, dy: f64) -> Result<(), String> {
-    let position = window.outer_position().map_err(|e| e.to_string())?;
-    let scale = window.scale_factor().map_err(|e| e.to_string())?;
-
-    window
-        .set_position(tauri::LogicalPosition::new(
-            position.x as f64 / scale + dx,
-            position.y as f64 / scale + dy,
-        ))
-        .map_err(|e| e.to_string())
-}
-
-/// Lets the card grow and shrink as its content changes without the user resizing.
-#[tauri::command]
-fn resize_overlay(window: WebviewWindow, height: f64) -> Result<(), String> {
-    let size = window.outer_size().map_err(|e| e.to_string())?;
-    let scale = window.scale_factor().map_err(|e| e.to_string())?;
-    // Width is whatever the user dragged it to; height always follows content.
-    // Clamping height to a guess is what causes a card to be cut in half.
-    window
-        .set_size(tauri::LogicalSize::new(
-            size.width as f64 / scale,
-            height.clamp(64.0, 640.0),
-        ))
-        .map_err(|e| e.to_string())
-}
-
-/*
  * While setup is open, the shortcuts belong to setup.
  *
  * These are GLOBAL shortcuts, so the OS delivers them to Rust rather than to
@@ -1148,10 +1039,7 @@ fn main() {
             None,
         ))
         .invoke_handler(tauri::generate_handler![
-            toggle_overlay,
-            focus_overlay,
             recent_work,
-            session_transcript,
             hide_pill,
             expand_pill,
             plan_status,
@@ -1159,7 +1047,6 @@ fn main() {
             recent_handovers,
             invite_summary,
             redeem_invite,
-            set_backdrop,
             accessibility_granted,
             request_accessibility,
             open_accessibility_settings,
@@ -1176,10 +1063,6 @@ fn main() {
             search_conversations,
             index_stats,
             save_transcript,
-            resize_overlay,
-            move_overlay,
-            autostart_enabled,
-            set_autostart,
             open_sign_in,
             open_upgrade,
             finish_onboarding
@@ -1226,13 +1109,33 @@ fn main() {
              * process gets force-quit and never reopened.
              */
             {
-                use tauri::menu::{Menu, MenuItem};
+                use tauri::menu::{CheckMenuItem, Menu, MenuItem};
                 use tauri::tray::TrayIconBuilder;
 
                 let open = MenuItem::with_id(app, "open", "Open Sidq", true, None::<&str>)?;
                 let pick = MenuItem::with_id(app, "pick", "Pick up a conversation", true, Some("Cmd+Shift+K"))?;
+
+                /*
+                 * A way to turn off the thing setup switched on.
+                 *
+                 * Sidq enables its login item on first run and there was no
+                 * off switch anywhere in the product: two commands existed for
+                 * it, `autostart_enabled` and `set_autostart`, and nothing had
+                 * ever called either. An app that adds itself to login items
+                 * and then makes you go to System Settings to undo it is
+                 * behaving badly, and the fix is one line of menu.
+                 */
+                let at_login = CheckMenuItem::with_id(
+                    app,
+                    "at_login",
+                    "Open at login",
+                    true,
+                    app.autolaunch().is_enabled().unwrap_or(false),
+                    None::<&str>,
+                )?;
+
                 let quit = MenuItem::with_id(app, "quit", "Quit Sidq", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&open, &pick, &quit])?;
+                let menu = Menu::with_items(app, &[&open, &pick, &at_login, &quit])?;
                 let _ = TrayIconBuilder::with_id("sidq")
                     .icon(app.default_window_icon().unwrap().clone())
                     .menu(&menu)
@@ -1245,6 +1148,14 @@ fn main() {
                             if let Some(w) = app.get_webview_window("pill") {
                                 let _ = show_pill(&w);
                             }
+                        }
+                        "at_login" => {
+                            // Read the state back rather than tracking it here:
+                            // the checkmark and the launcher must agree, and the
+                            // launcher is the one that can fail.
+                            let launcher = app.autolaunch();
+                            let on = launcher.is_enabled().unwrap_or(false);
+                            let _ = if on { launcher.disable() } else { launcher.enable() };
                         }
                         "quit" => app.exit(0),
                         _ => {}
