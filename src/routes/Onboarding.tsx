@@ -213,9 +213,11 @@ export default function Onboarding() {
             }
           >
             {/* The same attribution as the site, on the first screen anyone
-                sees inside the app. */}
+                sees inside the app. Left, because everything around it is:
+                centred, it sat a few pixels off the heading's edge and read as
+                a misalignment rather than a choice. */}
             <div className="mb-7">
-              <PoweredByClaude />
+              <PoweredByClaude className="items-start" />
             </div>
             <PrimaryAction label="Continue" onClick={advance} />
           </Instruction>

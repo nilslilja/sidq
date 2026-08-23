@@ -45,6 +45,18 @@ interface Model {
   logo: string;
   /** The brand colour, used on the word so it reads even before the mark loads. */
   colour: string;
+  /**
+   * A one-colour mark, drawn in the text's colour rather than its own.
+   *
+   * OpenAI ships theirs as `fill="#000000"` and xAI ships theirs as
+   * `currentColor`, which inside an `<img>` resolves to the file's own default,
+   * also black. Both were invisible on the dark hero and the dark setup screen:
+   * a 26 point hole where a logo should be.
+   *
+   * A mask takes the colour of the text beside it, which is what a monochrome
+   * mark is supposed to do anyway. The full-colour ones stay images.
+   */
+  mono?: true;
 }
 
 /*
@@ -54,12 +66,12 @@ interface Model {
  * advertising the slowest path into the product.
  */
 const MODELS: Model[] = [
-  { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F' },
+  { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F', mono: true },
   { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
   { name: 'Cursor', logo: '', colour: '#E5E5E5' },
   { name: 'Perplexity', logo: '/perplexity-logo.svg', colour: '#22B8CD' },
-  { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5' },
+  { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5', mono: true },
   { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7' },
 ];
 
@@ -121,20 +133,50 @@ export function PoweredByClaude({
     >
       <span
         className={cn(
-          'inline-flex items-center gap-2.5 text-[1.0625rem] font-semibold tracking-[-0.01em]',
+          /*
+           * One line, always.
+           *
+           * It wrapped, and the wrap put "and every other one" on a line of its
+           * own under a 30 point logo — which read as two separate claims
+           * colliding rather than one sentence. The type steps down instead of
+           * breaking, because the longest name in the rotation is Perplexity
+           * and the line has to hold it in whatever column it is dropped into.
+           */
+          'inline-flex items-center gap-2.5 whitespace-nowrap font-semibold tracking-[-0.01em]',
+          'text-[0.8125rem] sm:text-[0.9375rem] lg:text-[1.0625rem]',
           'transition-opacity',
           light ? 'text-white/70' : 'text-ink/60',
         )}
         style={{ opacity: visible ? 1 : 0, transitionDuration: `${FADE_MS}ms` }}
       >
-        {model.logo && !missing[model.logo] && (
+        {model.logo && model.mono && (
+          <span
+            aria-hidden="true"
+            className="size-[1.4em] shrink-0"
+            style={{
+              backgroundColor: 'currentColor',
+              maskImage: `url(${model.logo})`,
+              WebkitMaskImage: `url(${model.logo})`,
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              maskPosition: 'center',
+              WebkitMaskPosition: 'center',
+            }}
+          />
+        )}
+
+        {model.logo && !model.mono && !missing[model.logo] && (
           <img
             src={model.logo}
             alt=""
             aria-hidden="true"
-            width={30}
-            height={30}
-            className="size-[1.875rem] shrink-0"
+            width={26}
+            height={26}
+            // Sized against the text rather than fixed: at 30px beside 13px type
+            // on a narrow column the mark was the loudest thing in the sentence.
+            className="size-[1.4em] shrink-0"
             // Hidden silently if absent. A broken-image icon beside a brand name
             // is worse than the wordmark standing alone.
             onError={() => setMissing((m) => ({ ...m, [model.logo]: true }))}
@@ -142,7 +184,17 @@ export function PoweredByClaude({
         )}
         <span>
           Reads your <span style={{ color: model.colour }}>{model.name}</span> conversations
-          <span className="text-ink/35"> and every other one</span>
+          {/*
+            * Follows the tone like everything else here.
+            *
+            * This was `text-ink/35` whatever the surface was, so on the dark
+            * onboarding panel it was near-black on near-black: the clause was
+            * there, took up a line, and could not be read.
+            */}
+          <span className={light ? 'text-white/35' : 'text-ink/35'}>
+            {' '}
+            and every other one
+          </span>
         </span>
       </span>
 
