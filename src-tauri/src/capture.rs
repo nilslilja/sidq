@@ -168,8 +168,31 @@ fn block_of(block: &serde_json::Value) -> Option<Block> {
                 .and_then(|e| e.as_bool())
                 .unwrap_or(false),
         }),
-        // An image cannot be carried into a text handover, and pretending
-        // otherwise would put a broken reference in front of the next model.
+        /*
+         * ── An image says it was here, rather than vanishing ─────────────────
+         *
+         * This dropped the block entirely, on the reasoning that a reference to
+         * an image nobody can see is a broken reference. That is true and it is
+         * the smaller of the two problems: the sentence beside the image is not
+         * dropped with it.
+         *
+         * A model given a Sidq handover was asked what looked wrong with it and
+         * found exactly this — "the user holds up a part to the camera, and
+         * because the text does not contain the media these sentences lose
+         * their functional context." "Do you see this? Like the bike is fully
+         * off" arrives with nothing to see and no sign anything is absent.
+         *
+         * Worse than confusing, it is invisible. The same file tells the next
+         * model not to ask for context it appears to already have, so it fills
+         * the gap itself and carries on confidently.
+         *
+         * Named, the gap is something it can ask about. Which is also what the
+         * screen reader now does, so a conversation carried out of Claude Code
+         * and the same one carried out of claude.ai no longer differ.
+         */
+        "image" => Some(Block::Said(
+            "[an image was here, which Sidq cannot read]".to_string(),
+        )),
         _ => None,
     }
 }
@@ -303,13 +326,44 @@ mod tests {
     }
 
     #[test]
-    fn drops_images_rather_than_referring_to_one_that_cannot_travel() {
+    fn an_image_says_it_was_here_rather_than_vanishing() {
+        /*
+         * This asserted the opposite until a model was handed a real Sidq file
+         * and asked what looked wrong with it. It found that the user holds a
+         * part up to the camera and the sentences about it lose their meaning,
+         * because the image is gone and nothing says so.
+         *
+         * Dropping it silently is the worse half of the trade. A reference to
+         * an image nobody can see is at least a question the next model knows
+         * to ask; "see above" with nothing above it is a gap it will fill in
+         * itself, having been told in the same file not to ask for context it
+         * appears to already have.
+         */
         let blocks = blocks_of(&record(json!([
             { "type": "image", "source": { "type": "base64", "data": "…" } },
             { "type": "text", "text": "see above" }
         ])));
 
-        assert_eq!(blocks, vec![Block::Said("see above".into())]);
+        assert_eq!(
+            blocks,
+            vec![
+                Block::Said("[an image was here, which Sidq cannot read]".into()),
+                Block::Said("see above".into()),
+            ],
+        );
+    }
+
+    #[test]
+    fn the_two_readers_describe_a_missing_image_the_same_way() {
+        // A conversation carried out of Claude Code and the same one carried
+        // out of claude.ai used to differ: one dropped the image in silence,
+        // the other named it. Same product, same file, same words.
+        let blocks = blocks_of(&record(json!([
+            { "type": "image", "source": { "type": "base64", "data": "…" } }
+        ])));
+        let Block::Said(text) = &blocks[0] else { panic!("expected a marker") };
+
+        assert_eq!(text, "[an image was here, which Sidq cannot read]");
     }
 
     #[test]

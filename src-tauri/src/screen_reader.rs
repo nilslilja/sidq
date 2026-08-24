@@ -321,6 +321,29 @@ fn is_interface_label(text: &str) -> bool {
 }
 
 /**
+ * Is this image a piece of furniture rather than something in the conversation?
+ *
+ * Deliberately short. Chrome already omits images with an empty `alt`, so the
+ * ones arriving here were given a description by somebody, and most of those
+ * are content. These are the handful that are named and still furniture.
+ */
+fn is_an_icon(described: &str) -> bool {
+    const ICONS: [&str; 8] = [
+        "avatar",
+        "profile picture",
+        "user avatar",
+        "logo",
+        "icon",
+        "loading",
+        "spinner",
+        "attachment",
+    ];
+
+    let d = described.trim().to_lowercase();
+    ICONS.iter().any(|icon| d == *icon)
+}
+
+/**
  * Walk a web area and collect the text nodes under it.
  *
  * Depth-first so the result is in reading order, which is the order the
@@ -359,12 +382,53 @@ fn walk(
         return;
     }
 
-    if string_attribute(element, kAXRoleAttribute).as_deref() == Some("AXStaticText") {
-        if let Some(text) = string_attribute(element, kAXValueAttribute) {
-            if !text.trim().is_empty() && !is_interface_label(&text) {
-                out.push(Node { text, classes: classes.clone() });
+    match string_attribute(element, kAXRoleAttribute).as_deref() {
+        Some("AXStaticText") => {
+            if let Some(text) = string_attribute(element, kAXValueAttribute) {
+                if !text.trim().is_empty() && !is_interface_label(&text) {
+                    out.push(Node { text, classes: classes.clone() });
+                }
             }
         }
+        /*
+         * ── An image leaves a mark, because the sentence about it stays ──────
+         *
+         * Sidq reads text. A photo in a conversation is not text, so it was
+         * dropped — but "do you see this? like the bike is fully off" was not,
+         * and that sentence arrives at the next model with nothing to see and
+         * no sign anything is missing. Best case it says it cannot see an
+         * image. Worst case, and this is the one that matters, it invents what
+         * it thinks was there and carries on confidently.
+         *
+         * A marker turns a silent hole into a stated one. The next model knows
+         * to ask rather than guess, which is the whole difference.
+         *
+         * Chrome leaves decorative images out of the tree entirely — an empty
+         * `alt` means no `AXImage` node — so what reaches here is already the
+         * images somebody meant. The description is the alt text when there is
+         * one, and it is often the useful half.
+         */
+        Some("AXImage") => {
+            let described = string_attribute(element, "AXDescription")
+                .or_else(|| string_attribute(element, "AXTitle"))
+                .unwrap_or_default();
+            let described = described.trim();
+
+            if !is_interface_label(described) && !is_an_icon(described) {
+                let text = if described.is_empty() {
+                    "[an image was here, which Sidq cannot read]".to_string()
+                } else {
+                    format!("[an image was here: {described}]")
+                };
+
+                // A run of them collapses. An avatar beside every turn, or a
+                // row of thumbnails, is one absence rather than twenty.
+                if out.last().map(|n: &Node| n.text.as_str()) != Some(text.as_str()) {
+                    out.push(Node { text, classes: classes.clone() });
+                }
+            }
+        }
+        _ => {}
     }
 
     for child in children(element) {
@@ -1292,6 +1356,51 @@ mod tests {
         let nodes = vec![node("a question", "user-message"), node("typed by a reply", "")];
         let turns = into_turns(&nodes, person_by_class);
         assert_eq!(turns[1].0, "Assistant", "no classes means it is not a person's");
+    }
+
+    #[test]
+    fn an_image_is_named_as_missing_rather_than_dropped() {
+        /*
+         * ── The failure this replaces ────────────────────────────────────────
+         *
+         * Sidq reads text, so a photo in a conversation was dropped — and the
+         * sentence about it was not. "Do you see this? Like the bike is fully
+         * off" arrived at the next model with nothing to see and no sign that
+         * anything was missing. Best case it says it cannot see an image. Worst
+         * case it invents what it thinks was there, which is the one that
+         * matters, because the same file tells it not to ask for context it
+         * appears to already have.
+         *
+         * The marker rides in the turn it belongs to, so the absence sits where
+         * the photo was rather than at the end of the file.
+         */
+        let turns = into_turns(
+            &[
+                node("do you see this", "user-message"),
+                node("[an image was here: a chain hanging off a sprocket]", "user-message"),
+                node("That chain is far too slack.", "font-claude-message"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(turns.len(), 2);
+        assert!(turns[0].1.contains("do you see this"));
+        assert!(turns[0].1.contains("an image was here"), "in the turn, not appended after it");
+    }
+
+    #[test]
+    fn furniture_with_a_name_is_still_furniture() {
+        // Chrome leaves images with an empty alt out of the tree, so whatever
+        // arrives was named by somebody. Most named images are content; these
+        // few are not, and an avatar beside every turn would be noise.
+        assert!(is_an_icon("Avatar"));
+        assert!(is_an_icon("profile picture"));
+        assert!(is_an_icon("Logo"));
+
+        // Anything a person would actually have attached is kept.
+        assert!(!is_an_icon("a chain hanging off a sprocket"));
+        assert!(!is_an_icon("screenshot of the error"));
+        assert!(!is_an_icon(""), "undescribed, so it is still worth saying it existed");
     }
 
     #[test]
