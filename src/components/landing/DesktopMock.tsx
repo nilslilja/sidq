@@ -110,7 +110,20 @@ export function DesktopMock({ className }: { className?: string }) {
         * window, so it moved up into the strip nobody else uses. The picker is
         * far too tall for that and stays underneath.
         */}
-      <div className="pointer-events-none absolute left-1/2 top-0 z-30 w-[min(30rem,74%)] -translate-x-1/2">
+      {/*
+        * `inset-y-0`, and it is load-bearing.
+        *
+        * This was `top-0` with no height, so the box collapsed to zero — and
+        * every percentage inside it resolved against zero. The collapsed bar is
+        * `h-[5.5%]`, which came out as no height at all, so the pill simply was
+        * not drawn; and the picker's `top-[5.5%]` came out as zero too, so it
+        * sat over the menu bar instead of hanging under it.
+        *
+        * Reported as "the pill isn't visible, it's cropped out and too far up",
+        * which is two symptoms of the one cause. Giving the box the mock's full
+        * height gives both percentages something real to measure against.
+        */}
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 z-30 w-[min(30rem,74%)] -translate-x-1/2">
         {/* Collapsed: inside the menu bar, the width of a word. */}
         <div className="shot-bar absolute inset-x-0 top-0 flex h-[5.5%] origin-top items-center justify-center">
           <div
