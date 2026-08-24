@@ -546,6 +546,59 @@ function greeting(): string {
   return name ? `${part}, ${name}` : part;
 }
 
+/* ── Panel headings ───────────────────────────────────────────────────────── */
+
+/**
+ * The top of every panel that is not Overview.
+ *
+ * ── What this is fixing ──────────────────────────────────────────────────────
+ * Overview opens on today's date, then a greeting, then a line saying what Sidq
+ * is doing right now. Every other panel opened on a single bare word in 1.75rem
+ * on white — "Plan", "Search", "Sources" — which is a browser tab, not a screen
+ * somebody chose to look at. The window read warm for one route and sterile for
+ * the other five.
+ *
+ * ── Why the eyebrow carries a number ─────────────────────────────────────────
+ * The greeting works because the date is checkable: a person can look at it and
+ * confirm the app is awake rather than showing them a cached yesterday. An
+ * eyebrow reading "YOUR PLAN" above a heading reading "Plan" is decoration and
+ * would have been worse than the bare heading it replaced.
+ *
+ * So every eyebrow states something measured and live, and any panel that has
+ * no such number omits the eyebrow entirely rather than inventing one.
+ */
+function PanelHead({
+  eyebrow,
+  title,
+  lead,
+}: {
+  /** Something measured and true, or nothing. Rendered uppercase. */
+  eyebrow?: string;
+  title: React.ReactNode;
+  /** One line under the heading. Optional, and never two. */
+  lead?: React.ReactNode;
+}) {
+  return (
+    <header>
+      {eyebrow && (
+        <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">{eyebrow.toUpperCase()}</p>
+      )}
+      <h1
+        className={cn(
+          'font-display text-[1.75rem] leading-[1.1] tracking-[-0.04em]',
+          // Only pulled down when there is an eyebrow to be pulled down from.
+          eyebrow && 'mt-1.5',
+        )}
+      >
+        {title}
+      </h1>
+      {lead && (
+        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[#57516A]">{lead}</p>
+      )}
+    </header>
+  );
+}
+
 /* ── Overview ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -725,10 +778,10 @@ function Plan({
   if (!plan) {
     return (
       <>
-        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Plan</h1>
-        <p className="mt-4 text-[0.875rem] text-[#7A7489]">
-          {bridge ? 'Checking your plan…' : 'Your plan lives in the Sidq app. Open it there.'}
-        </p>
+        <PanelHead
+          title="Plan"
+          lead={bridge ? 'Checking your plan…' : 'Your plan lives in the Sidq app. Open it there.'}
+        />
       </>
     );
   }
@@ -737,7 +790,14 @@ function Plan({
 
   return (
     <>
-      <h1 className="font-display text-[1.75rem] capitalize tracking-[-0.04em]">{plan.plan}</h1>
+      <PanelHead
+        eyebrow={
+          plan.handoversCap == null
+            ? `${plan.handoversUsed} handovers this week`
+            : `${Math.max(plan.handoversCap - plan.handoversUsed, 0)} of ${plan.handoversCap} left this week`
+        }
+        title={<span className="capitalize">{plan.plan}</span>}
+      />
 
       <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
         <Row
@@ -888,10 +948,7 @@ function Invite({
   if (summary.problem) {
     return (
       <>
-        <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Invite</h1>
-        <p className="mt-4 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-          {summary.problem}
-        </p>
+        <PanelHead title="Invite a friend" lead={summary.problem} />
 
         {/*
           * "Sign in to get your invite code", and then only a Try again button,
@@ -939,7 +996,10 @@ function Invite({
 
   return (
     <>
-      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Invite</h1>
+      <PanelHead
+        eyebrow={`${summary.thisWeek} of ${summary.perWeek} used this week`}
+        title="Invite a friend"
+      />
       {/*
         * The offer, and the fact that it runs out, in the same breath.
         *
@@ -1092,7 +1152,10 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   }, [bridge]);
 
   const heading = (
-    <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">How you work</h1>
+    <PanelHead
+      eyebrow={facts && facts.length > 0 ? `${facts.length} taken from your own messages` : undefined}
+      title="How you work"
+    />
   );
 
   if (facts === null) {
@@ -1229,7 +1292,14 @@ function Search({
 
   return (
     <>
-      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Search</h1>
+      <PanelHead
+        eyebrow={
+          historyDays == null
+            ? 'Everything on this Mac'
+            : `Reaching back ${historyDays} ${historyDays === 1 ? 'day' : 'days'}`
+        }
+        title="Search"
+      />
 
       <div className="relative mt-5">
         <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8899]">
@@ -1553,7 +1623,6 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
 
   return (
     <>
-      <h1 className="font-display text-[1.75rem] tracking-[-0.04em]">Sources</h1>
       {/*
         * This credited the extension, and so did every row below it. The
         * extension stopped being how any of this works when the Accessibility
@@ -1562,12 +1631,11 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
         * product any more — while the thing that actually reads them sits
         * further down the same screen.
         */}
-      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-        Sidq is not tied to any one AI. The ones that write conversations to this Mac are
-        read with nothing to set up. The ones that run in a browser keep nothing readable
-        here, so Sidq reads them from the window instead, in whichever browser you already
-        use. Sidq never asks you to log in to anything.
-      </p>
+      <PanelHead
+        eyebrow={sessions.length > 0 ? `${sessions.length} being read` : undefined}
+        title="Sources"
+        lead="Sidq is not tied to any one AI. The ones that write conversations to this Mac are read with nothing to set up. The ones that run in a browser keep nothing readable here, so Sidq reads them from the window instead, in whichever browser you already use. Sidq never asks you to log in to anything."
+      />
 
       <ul className="mt-6 space-y-1.5">
         {orderedSources().map((source) => {

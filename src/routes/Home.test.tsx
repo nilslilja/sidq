@@ -107,6 +107,83 @@ beforeEach(() => {
   invite = { ...INVITE };
   redeem = async () => 15;
   vi.clearAllMocks();
+  /*
+   * `clearAllMocks` clears recorded calls. It does not undo an implementation
+   * set with `mockResolvedValue`, so a test that swaps the plan for an
+   * unlimited one leaves every test after it on an unlimited plan — passing or
+   * failing for a reason that is nowhere in the test that failed. Restored
+   * explicitly rather than relying on `restoreMocks`, which only rewinds spies.
+   */
+  (bridge.planStatus as ReturnType<typeof vi.fn>).mockResolvedValue(PLAN);
+});
+
+describe('the panel headings', () => {
+  /*
+   * ── The rule these protect ───────────────────────────────────────────────
+   * Overview opens on today's date, and it reads as the app being awake rather
+   * than as decoration for exactly one reason: the date is checkable. Somebody
+   * can look at it and know they are not being shown a cached yesterday.
+   *
+   * So an eyebrow on any other panel has to be measured and live too. "YOUR
+   * PLAN" above a heading reading "Plan" would be worse than the bare heading
+   * it replaced, and it is the obvious thing to add when a screen looks empty.
+   * These tests make that a build failure rather than a code review comment.
+   */
+
+  test('the plan eyebrow counts down, because that is the number people watch', async () => {
+    // Three used against a cap of five. This is the figure that was reported
+    // stale — "still said 5 over and over" — so it is stated at the top of the
+    // panel that owns it rather than only in a row further down.
+    await open('Plan');
+    expect(screen.getByText('2 OF 5 LEFT THIS WEEK')).toBeInTheDocument();
+  });
+
+  test('an unlimited plan says what was used, since there is nothing to count down from', async () => {
+    (bridge.planStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...PLAN,
+      plan: 'pro',
+      handoversCap: null,
+    });
+    await open('Plan');
+    expect(screen.getByText('3 HANDOVERS THIS WEEK')).toBeInTheDocument();
+  });
+
+  test('the invite eyebrow states the weekly limit before the code is handed out', async () => {
+    /*
+     * Three a week, per account, enforced in `0008_invites_expire.sql`. The
+     * failure it prevents is somebody sending their code to five friends and
+     * finding out about the limit from an error message two of them hit.
+     */
+    await open('Invite a friend');
+    expect(screen.getByText('2 OF 3 USED THIS WEEK')).toBeInTheDocument();
+  });
+
+  test('a panel with no number to show has no eyebrow at all', async () => {
+    /*
+     * The harness returns no profile facts, which is the real state of a new
+     * install. The temptation is a label — "FROM YOUR OWN MESSAGES" — and that
+     * is the invented eyebrow this rule exists to stop.
+     */
+    await open('How you work');
+    const head = screen.getByRole('heading', { name: 'How you work' });
+    expect(head.previousElementSibling).toBeNull();
+  });
+
+  test('every panel puts its heading in a header landmark', async () => {
+    // A bare h1 floating in a fragment is what these panels were. The landmark
+    // is what lets the heading, the eyebrow and the lead be treated as one
+    // thing by a screen reader instead of three unrelated paragraphs.
+    for (const tab of ['Search', 'Sources', 'How you work', 'Plan', 'Invite a friend']) {
+      const { unmount } = render(<Home />);
+      await settle();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: tab }));
+      });
+      await settle();
+      expect(document.querySelector('header')).not.toBeNull();
+      unmount();
+    }
+  });
 });
 
 describe('the sidebar', () => {
@@ -313,7 +390,17 @@ describe('the invite panel', () => {
     await open('Invite a friend');
 
     expect(screen.getByText('K4PQ7RM')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    /*
+     * Asked for by its row rather than by the bare string "2".
+     *
+     * A free account with three of five handovers used renders "2" in the
+     * sidebar plan card as well, so `getByText('2')` matches two elements and
+     * fails on ambiguity. It only ever passed because an earlier test left the
+     * plan mocked as unlimited and that leaked forward — which is exactly the
+     * kind of pass this suite should not be collecting.
+     */
+    const used = screen.getByText('People who used it').closest('div');
+    expect(used?.textContent).toContain('2');
     expect(screen.getByText(/^\+10/)).toBeInTheDocument();
   });
 
