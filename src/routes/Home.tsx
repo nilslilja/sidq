@@ -116,6 +116,31 @@ export function Home() {
   }, [bridge, refresh]);
 
   /*
+   * ── Keep Rust's copy of the token alive ──────────────────────────────────
+   *
+   * `entitlement::current` calls Supabase with whatever token was last handed
+   * to it, and an access token lasts about an hour. Rust cannot renew one — it
+   * holds no refresh token, deliberately — so the only thing that keeps it
+   * valid is this window calling `getSession`, which renews it in passing.
+   *
+   * That happened on mount, on focus, and whenever something changed, which
+   * covers somebody using the product. It does not cover somebody who has paid
+   * and then left Sidq running untouched: the token lapses, every check fails,
+   * and `current` falls back to the last confirmed tier — correctly, but only
+   * for the grace period. After that a paying customer is quietly on Free.
+   *
+   * Measured while testing: the stored token was twelve minutes past expiry
+   * with the app running, and the server refused it.
+   *
+   * A timer costs one call every half hour against a token that lasts an hour.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+    const timer = setInterval(() => void shareSessionWithDesktop().catch(() => {}), SESSION_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [bridge]);
+
+  /*
    * ── Why this window listens, and also does not rely on listening ──────────
    *
    * It asked for the plan on mount and never again, so the allowance it printed
@@ -545,6 +570,14 @@ function greeting(): string {
 
   return name ? `${part}, ${name}` : part;
 }
+
+/**
+ * How often this window renews the token Rust holds.
+ *
+ * Half of the roughly one-hour life of an access token, so a single missed
+ * tick is not enough to let one lapse.
+ */
+const SESSION_REFRESH_MS = 30 * 60 * 1000;
 
 /* ── Panel headings ───────────────────────────────────────────────────────── */
 
