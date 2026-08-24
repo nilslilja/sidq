@@ -199,6 +199,11 @@ pub fn spawn(app: tauri::AppHandle) {
             return;
         };
 
+        // Before the first sweep, not on every one: conversations captured
+        // before the reader learned to drop page furniture still have it
+        // attached, and a handover made from one would carry it.
+        index_store::repair_once(&conn);
+
         loop {
             // Only when something was actually written. A sweep that finds an
             // unchanged conversation must not make the window refetch.

@@ -185,6 +185,58 @@ pub fn put_setting(conn: &Connection, key: &str, value: &str) -> Option<()> {
  * indistinguishable from one that simply grew by a turn. Only the first is
  * worth a sound and a notification.
  */
+/**
+ * Delete page furniture recorded before the reader learned to drop it.
+ *
+ * ── Why the index needs repairing and not just the reader ────────────────────
+ * Until this was fixed, everything the screen reader could not identify as a
+ * person's turn was filed as the assistant, so a browser conversation arrived
+ * with the sidebar, the header and every button attached to the front of it as
+ * one enormous reply. On a real index that was 159 of 418 lines: the title of
+ * every other conversation on the account, medical ones included.
+ *
+ * Fixing the reader stops new ones. It does nothing for what is already stored,
+ * and stored is where it matters — a handover made tomorrow from a conversation
+ * captured last week would still carry the whole list into a file handed to a
+ * different AI. The conversation is only re-read if it happens to be opened
+ * again, which may be never.
+ *
+ * The rule is the one the reader now applies, run backwards over the rows: a
+ * conversation starts with the person, so any assistant message stored before
+ * the first thing they said is furniture. Ordering is `rowid`, which is
+ * insertion order, which is reading order — `put_messages` writes a
+ * conversation in one pass, front to back.
+ *
+ * Runs once, then records that it has. Returns how many rows went, so the count
+ * is visible rather than assumed.
+ */
+pub fn strip_page_furniture(conn: &Connection) -> usize {
+    conn.execute(
+        "DELETE FROM messages
+          WHERE role = 'Assistant'
+            AND rowid < (
+              SELECT MIN(rowid) FROM messages inner_m
+               WHERE inner_m.session_id = messages.session_id
+                 AND inner_m.role = 'You'
+            )",
+        [],
+    )
+    .unwrap_or(0)
+}
+
+/// The same repair, but only the first time this version of Sidq runs.
+pub fn repair_once(conn: &Connection) {
+    const DONE: &str = "furniture_stripped";
+    if setting(conn, DONE).is_some() {
+        return;
+    }
+    let removed = strip_page_furniture(conn);
+    if removed > 0 {
+        eprintln!("sidq: removed {removed} rows of page furniture from earlier captures");
+    }
+    let _ = put_setting(conn, DONE, "1");
+}
+
 pub fn has_session(conn: &Connection, session_id: &str) -> bool {
     conn.query_row(
         "SELECT 1 FROM sessions WHERE session_id = ?1",
@@ -544,6 +596,82 @@ pub(crate) mod tests {
         put_session(conn, id, "claude-code", "A conversation", "Sidq", "main", ended_at, 10, 30)
             .unwrap();
         put_messages(conn, id, &[("You".into(), body.into())], "fp").unwrap();
+    }
+
+    #[test]
+    fn the_sidebar_is_stripped_out_of_conversations_captured_earlier() {
+        /*
+         * Fixing the reader stops new captures carrying the sidebar. It does
+         * nothing for the ones already stored, and those are the ones a
+         * handover is made from — the conversation is only re-read if it
+         * happens to be opened again, which may be never.
+         *
+         * Modelled on the real rows: one assistant block of furniture, then the
+         * conversation.
+         */
+        let conn = memory();
+        put_session(&conn, "s", "gemini", "A Friendly Greeting", "", "", 1, 4, 0).unwrap();
+        put_messages(
+            &conn,
+            "s",
+            &[
+                ("Assistant".into(), "Gemini\nNew chat\nMouth Widening Surgery".into()),
+                ("You".into(), "the chain keeps hopping off".into()),
+                ("Assistant".into(), "That usually means it is slack.".into()),
+                ("You".into(), "by how much".into()),
+            ],
+            "fp",
+        )
+        .unwrap();
+
+        let removed = strip_page_furniture(&conn);
+
+        assert_eq!(removed, 1, "only the block before the first thing they said");
+        let (hits, _) = search(&conn, "Mouth", 0, 10);
+        assert!(hits.is_empty(), "another conversation's title is gone");
+        let (kept, _) = search(&conn, "slack", 0, 10);
+        assert_eq!(kept.len(), 1, "and the conversation itself is untouched");
+    }
+
+    #[test]
+    fn a_reply_after_the_person_speaks_is_never_stripped() {
+        // The rule is positional, so it has to be exactly positional: an
+        // assistant turn is furniture only when nothing was asked before it.
+        let conn = memory();
+        put_session(&conn, "s", "gemini", "Fine", "", "", 1, 2, 0).unwrap();
+        put_messages(
+            &conn,
+            "s",
+            &[
+                ("You".into(), "first question".into()),
+                ("Assistant".into(), "an answer worth keeping".into()),
+            ],
+            "fp",
+        )
+        .unwrap();
+
+        assert_eq!(strip_page_furniture(&conn), 0);
+        assert_eq!(search(&conn, "worth", 0, 10).0.len(), 1);
+    }
+
+    #[test]
+    fn the_repair_runs_once_and_says_so() {
+        let conn = memory();
+        put_session(&conn, "s", "gemini", "x", "", "", 1, 2, 0).unwrap();
+        put_messages(
+            &conn,
+            "s",
+            &[("Assistant".into(), "furniture".into()), ("You".into(), "hello".into())],
+            "fp",
+        )
+        .unwrap();
+
+        repair_once(&conn);
+        assert!(search(&conn, "furniture", 0, 10).0.is_empty());
+
+        // A second call must not run again, or every launch pays for a scan of
+        // the whole index to find nothing.
+        assert_eq!(setting(&conn, "furniture_stripped").as_deref(), Some("1"));
     }
 
     #[test]
