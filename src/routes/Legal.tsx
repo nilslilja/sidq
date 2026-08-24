@@ -64,10 +64,10 @@ export function Privacy() {
       <P>
         That permission is powerful, so what Sidq does with it is deliberately narrow, and
         the narrowness is enforced in code rather than promised. Sidq looks at nine
-        applications: Chrome, Safari, Arc, Brave, Edge, Vivaldi and the ChatGPT, Claude and
-        Perplexity desktop apps. In a browser it reads a page only once its address is one
-        of the AIs it supports; the three desktop apps have no address, so being that app is
-        what identifies them. Every other window, in those applications and in every other
+        applications: Chrome, Safari, Arc, Brave, Edge, Vivaldi and the ChatGPT and Claude
+        desktop apps. In a browser it reads a page only once its address is one of the AIs it
+        supports; the two desktop apps have no address, so being that app is what identifies
+        them. Every other window, in those applications and in every other
         application on your Mac, is never read &mdash; not the contents, not the title, not
         the fact that it is open.
       </P>

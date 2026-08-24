@@ -236,10 +236,8 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
         "chatgpt" => "ChatGPT",
         "claude.ai" => "Claude",
         "gemini" => "Gemini",
-        "perplexity" => "Perplexity",
         "grok" => "Grok",
         "deepseek" => "DeepSeek",
-        "mistral" => "Mistral",
         other => other,
     };
 

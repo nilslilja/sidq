@@ -31,10 +31,8 @@ export const SOURCES: readonly Source[] = [
   { id: 'chatgpt', label: 'ChatGPT', local: false },
   { id: 'claude.ai', label: 'Claude.ai', local: false },
   { id: 'gemini', label: 'Gemini', local: false },
-  { id: 'perplexity', label: 'Perplexity', local: false },
   { id: 'grok', label: 'Grok', local: false },
   { id: 'deepseek', label: 'DeepSeek', local: false },
-  { id: 'mistral', label: 'Mistral', local: false },
 ];
 
 /**

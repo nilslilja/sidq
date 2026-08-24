@@ -52,11 +52,10 @@ pub struct Assistant {
     pub url: &'static str,
 }
 
-pub const ASSISTANTS: [Assistant; 6] = [
+pub const ASSISTANTS: [Assistant; 5] = [
     Assistant { id: "chatgpt", label: "ChatGPT", url: "https://chatgpt.com/" },
     Assistant { id: "claude.ai", label: "Claude", url: "https://claude.ai/" },
     Assistant { id: "gemini", label: "Gemini", url: "https://gemini.google.com/app" },
-    Assistant { id: "perplexity", label: "Perplexity", url: "https://www.perplexity.ai/" },
     Assistant { id: "grok", label: "Grok", url: "https://grok.com/" },
     Assistant { id: "deepseek", label: "DeepSeek", url: "https://chat.deepseek.com/" },
 ];

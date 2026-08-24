@@ -65,7 +65,7 @@ const MIN_CONVERSATION_CHARS: usize = 200;
 /// permission boundary: a window belonging to anything not named here is never
 /// walked, so a password manager or a mail client in front is not read even
 /// momentarily.
-pub const READABLE_APPS: [&str; 9] = [
+pub const READABLE_APPS: [&str; 8] = [
     "Google Chrome",
     "Safari",
     "Arc",
@@ -74,8 +74,27 @@ pub const READABLE_APPS: [&str; 9] = [
     "Vivaldi",
     "ChatGPT",
     "Claude",
-    "Perplexity",
 ];
+
+/*
+ * ── Perplexity and Mistral are not here, deliberately ────────────────────────
+ *
+ * Both were listed, both were read, and neither could ever produce anything.
+ * Perplexity puts the question and the answer inside one node — the extension
+ * reader gave up on splitting them and files the pair as an "Exchange" — and
+ * Mistral had no marker at all. With no turn recognised as the person's,
+ * `is_substantial` finds no question and the conversation is dropped in
+ * silence, every time.
+ *
+ * They are removed rather than left to fail quietly. A source that is offered
+ * and does nothing is worse than one that is not offered: the person has no way
+ * to tell it from a permission problem, and the app is making a claim it cannot
+ * keep. Reading a page Sidq can do nothing with is also a page it had no reason
+ * to read.
+ *
+ * They come back when somebody runs `real_classes` against a live conversation
+ * on either and reads the real marker off it, which is how Grok came back.
+ */
 
 /// Hosts and app names that are assistants, mapped to the source Sidq records.
 pub fn source_for(url_or_app: &str) -> Option<&'static str> {
@@ -85,10 +104,8 @@ pub fn source_for(url_or_app: &str) -> Option<&'static str> {
         ("chat.openai.com", "chatgpt"),
         ("claude.ai", "claude.ai"),
         ("gemini.google.com", "gemini"),
-        ("perplexity.ai", "perplexity"),
         ("grok.com", "grok"),
         ("chat.deepseek.com", "deepseek"),
-        ("chat.mistral.ai", "mistral"),
     ];
     if let Some((_, source)) = table.iter().find(|(needle, _)| it.contains(needle)) {
         return Some(source);
@@ -103,7 +120,6 @@ pub fn source_for(url_or_app: &str) -> Option<&'static str> {
     match url_or_app {
         "ChatGPT" => Some("chatgpt"),
         "Claude" => Some("claude.ai"),
-        "Perplexity" => Some("perplexity"),
         _ => None,
     }
 }
@@ -918,7 +934,7 @@ mod tests {
         assert!(!identifies_a_conversation("https://chatgpt.com/"));
         assert!(!identifies_a_conversation("https://claude.ai/new"));
         assert!(!identifies_a_conversation("https://gemini.google.com/app"));
-        assert!(!identifies_a_conversation("https://www.perplexity.ai/"));
+        assert!(!identifies_a_conversation("https://chat.deepseek.com/"));
     }
 
     #[test]
@@ -1276,6 +1292,29 @@ mod tests {
         let nodes = vec![node("a question", "user-message"), node("typed by a reply", "")];
         let turns = into_turns(&nodes, person_by_class);
         assert_eq!(turns[1].0, "Assistant", "no classes means it is not a person's");
+    }
+
+    #[test]
+    fn an_assistant_that_cannot_be_read_is_not_read_at_all() {
+        /*
+         * Perplexity and Mistral were both offered and both impossible.
+         * Perplexity puts the question and the answer inside one node — the
+         * extension reader gave up on splitting them — and Mistral had no
+         * marker at all, so every turn was filed as the assistant,
+         * `is_substantial` found no question, and the conversation was dropped
+         * in silence, every time.
+         *
+         * Offered-and-silent is worse than not offered: there is no way to tell
+         * it from a permission problem, and it is a claim the app cannot keep.
+         * It is also a page Sidq had no reason to open the text of.
+         */
+        assert!(source_for("https://www.perplexity.ai/search/anything").is_none());
+        assert!(source_for("https://chat.mistral.ai/chat/abc").is_none());
+        assert!(!READABLE_APPS.contains(&"Perplexity"), "nor its desktop app");
+
+        // And the ones that can be read still are.
+        assert_eq!(source_for("https://grok.com/c/abc"), Some("grok"));
+        assert_eq!(source_for("https://chat.deepseek.com/a/chat/s/abc"), Some("deepseek"));
     }
 
     #[test]

@@ -98,10 +98,8 @@ function labelFor(source: string): string {
     chatgpt: 'ChatGPT',
     'claude.ai': 'Claude',
     gemini: 'Gemini',
-    perplexity: 'Perplexity',
     grok: 'Grok',
     deepseek: 'DeepSeek',
-    mistral: 'Mistral',
   };
   return names[source] ?? 'an AI';
 }

@@ -129,7 +129,7 @@ export function GrantAccess({
           dark ? 'text-white/55' : 'text-[#57516A]',
         )}
       >
-        ChatGPT, Gemini, Claude.ai, Perplexity and Grok keep nothing readable on this Mac, so
+        ChatGPT, Gemini, Claude.ai, Grok and DeepSeek keep nothing readable on this Mac, so
         Sidq reads them from the window instead. One switch, and every one of them works at
         once. Without it, Sidq only sees the AIs that write to disk.
       </p>
@@ -147,9 +147,8 @@ export function GrantAccess({
         )}
       >
         <li>
-          <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Only AIs.</span> Nine
-          applications, and only tabs that are ChatGPT, Claude, Gemini, Perplexity, Grok,
-          DeepSeek or Mistral
+          <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Only AIs.</span> Eight
+          applications, and only tabs that are ChatGPT, Claude, Gemini, Grok or DeepSeek
         </li>
         <li>
           <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Nothing else, ever.</span>{' '}

@@ -16,7 +16,6 @@ const BROWSER_ASSISTANTS: { id: string; label: string }[] = [
   { id: 'chatgpt', label: 'ChatGPT' },
   { id: 'claude.ai', label: 'Claude' },
   { id: 'gemini', label: 'Gemini' },
-  { id: 'perplexity', label: 'Perplexity' },
 ];
 import { desktopBridge } from '@/lib/onboarding/bridge';
 import { adoptSession } from '@/lib/supabase';
@@ -603,7 +602,7 @@ export default function Onboarding() {
                   As you open them
                 </p>
                 <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
-                  ChatGPT, Gemini, Claude.ai, Perplexity and Grok live in a browser, and a
+                  ChatGPT, Gemini, Claude.ai, Grok and DeepSeek live in a browser, and a
                   browser keeps nothing readable on your Mac. So Sidq reads the conversation
                   you have open. Look at one for about ten seconds and it is yours from then
                   on &mdash; searchable, and ready to hand to another AI. You never open it

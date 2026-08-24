@@ -70,7 +70,7 @@ const MODELS: Model[] = [
   { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
   { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
   { name: 'Cursor', logo: '', colour: '#E5E5E5' },
-  { name: 'Perplexity', logo: '/perplexity-logo.svg', colour: '#22B8CD' },
+  { name: 'DeepSeek', logo: '', colour: '#4D6BFE' },
   { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5', mono: true },
   { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7' },
 ];

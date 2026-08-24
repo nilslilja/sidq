@@ -317,7 +317,6 @@ export const INTENTS: IntakeOption[] = [
   { id: 'chatgpt', label: 'ChatGPT' },
   { id: 'cursor', label: 'Cursor' },
   { id: 'gemini', label: 'Gemini' },
-  { id: 'perplexity', label: 'Perplexity' },
   { id: 'copilot', label: 'GitHub Copilot' },
   { id: 'other', label: 'Something else' },
 ];
