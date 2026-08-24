@@ -985,6 +985,88 @@ mod tests {
         println!();
     }
 
+    /**
+     * What the accessibility tree actually calls things, on this machine.
+     *
+     * cargo test --bin sidq real_classes -- --ignored --nocapture
+     *
+     * ── Why this exists ──────────────────────────────────────────────────────
+     * A site is only readable if `person_by_class` recognises the marker it puts
+     * on the person's own turn, and the accessibility tree exposes class names
+     * and nothing else — no author attribute, no roles worth trusting. Guessing
+     * a marker from another product's DOM has now failed twice.
+     *
+     * This prints every distinct class string on the page with how much text
+     * sits under it and whether the classifier currently claims it, which is
+     * enough to see at a glance which group is the question and which is the
+     * answer. Open the assistant, leave it in front, run it.
+     *
+     * Ignored, so it never runs in CI, where there is no browser and no
+     * permission.
+     */
+    #[test]
+    #[ignore]
+    fn real_classes() {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+
+        if !is_trusted() {
+            println!("\n  no Accessibility permission — nothing can be read\n");
+            return;
+        }
+
+        for (pid, app_name) in readable_processes() {
+            let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
+            enable_web_content(pid);
+            std::thread::sleep(TREE_BUILD_WAIT);
+
+            let mut areas = Vec::new();
+            let mut budget = MAX_NODES;
+            find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+
+            for area in &areas {
+                let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+                let Some(source) = source_for(&url) else { continue };
+
+                println!("\n  ── {source} in {app_name} ──");
+                println!("  {url}");
+
+                let nodes = collect(area.as_raw());
+                println!("  {} text nodes\n", nodes.len());
+
+                // Grouped by class string, biggest first: the two groups holding
+                // the most text are the two speakers, and everything else is
+                // furniture.
+                let mut groups: std::collections::HashMap<String, (usize, usize, String)> =
+                    std::collections::HashMap::new();
+                for n in &nodes {
+                    let e = groups.entry(n.classes.clone()).or_insert((0, 0, String::new()));
+                    e.0 += 1;
+                    e.1 += n.text.chars().count();
+                    if e.2.is_empty() {
+                        e.2 = n.text.chars().take(34).collect();
+                    }
+                }
+
+                let mut rows: Vec<_> = groups.into_iter().collect();
+                rows.sort_by_key(|(_, (_, chars, _))| std::cmp::Reverse(*chars));
+
+                for (classes, (count, chars, sample)) in rows.iter().take(10) {
+                    let who = if person_by_class(classes) { "YOU " } else { "    " };
+                    println!("  {who}{chars:>6} chars  x{count:<3}  {}", classes.chars().take(76).collect::<String>());
+                    println!("            sample: {sample}");
+                }
+
+                let turns = into_turns(&nodes, person_by_class);
+                println!(
+                    "\n  → {} turns kept, substantial: {}",
+                    turns.len(),
+                    is_substantial(&turns)
+                );
+            }
+        }
+        println!();
+    }
+
     fn node(text: &str, classes: &str) -> Node {
         Node { text: text.into(), classes: classes.into() }
     }
