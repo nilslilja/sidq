@@ -36,18 +36,27 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Coaches are the paying side. plan_status on coach_profiles is the entitlement
-  // that matters; profiles.plan_tier stays for the individual product.
-  const setCoachStatus = async (
-    customerId: string,
-    status: 'active' | 'past_due' | 'canceled',
-  ) => {
-    const { error } = await admin
-      .from('coach_profiles')
-      .update({ plan_status: status })
-      .eq('stripe_customer_id', customerId);
-    if (error) console.error('Failed to set coach plan status', error);
-  };
+  /*
+   * ── profiles.plan_tier is the entitlement. There is no second one ──────────
+   *
+   * The comment that used to sit here said the opposite: that plan_status on
+   * coach_profiles was "the entitlement that matters" and profiles.plan_tier
+   * was the lesser one. That was true of the coaching product this codebase
+   * used to be. It is exactly inverted for Sidq.
+   *
+   * `entitlement.rs` fetches `/rest/v1/profiles?select=plan_tier` and reads
+   * nothing else, anywhere. coach_profiles is not consulted by the app, the
+   * pill, or the limit check.
+   *
+   * It is called out at this length because of where the wrong version was
+   * sitting: in the one function standing between a payment and access. A
+   * future reader trusting it would have "fixed" billing by writing to a table
+   * nothing reads, and every paying customer would have stayed on free.
+   *
+   * The coach_profiles writes are gone with it. They updated rows for a product
+   * that no longer exists and their errors were logged and swallowed, so they
+   * were invisible either way.
+   */
 
   type Tier = 'free' | 'pro' | 'duo';
 
@@ -62,7 +71,6 @@ Deno.serve(async (req: Request) => {
   };
 
   const setTier = async (customerId: string, tier: Tier) => {
-    await setCoachStatus(customerId, tier === 'free' ? 'canceled' : 'active');
     const { error } = await admin.from('profiles').update({ plan_tier: tier }).eq('stripe_customer_id', customerId);
     if (error) console.error('Failed to set plan tier', error);
   };
@@ -83,10 +91,6 @@ Deno.serve(async (req: Request) => {
 
         if (userId) {
           await admin.from('profiles').update({ plan_tier: tier, stripe_customer_id: customerId }).eq('id', userId);
-          await admin
-            .from('coach_profiles')
-            .update({ plan_status: 'active', stripe_customer_id: customerId })
-            .eq('id', userId);
         } else if (customerId) {
           await setTier(customerId, tier);
         }
@@ -99,12 +103,6 @@ Deno.serve(async (req: Request) => {
         // past_due keeps access — dunning is Stripe's job, and yanking the product
         // over a card that expired is how you lose a customer who wanted to stay.
         const active = ['active', 'trialing', 'past_due'].includes(sub.status);
-        // past_due keeps access but is recorded accurately, so a coach can be shown
-        // a real warning instead of silently losing their clients mid-session.
-        await setCoachStatus(
-          customerId,
-          sub.status === 'past_due' ? 'past_due' : active ? 'active' : 'canceled',
-        );
         await setTier(
           customerId,
           active ? tierForPrice(sub.items.data[0]?.price?.id) : 'free',
