@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/Shell';
 import { PillPreview } from '@/components/landing/PillPreview';
 import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
+import { HowItGoes } from '@/components/onboarding/HowItGoes';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
 import { GrantAccess } from '@/components/companion/GrantAccess';
@@ -407,6 +408,38 @@ export default function Onboarding() {
           </Instruction>
         );
 
+      case 'walkthrough':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <ol className="max-w-[46ch] space-y-3 text-[0.9375rem] leading-relaxed text-white/55">
+              {[
+                ['Open the conversation you want.', 'The specific one, not a new chat. Sidq only reads what is on the page.'],
+                ['Stay on it for a few seconds.', 'That is all. Nothing to click, and it never asks you to sign in to anything.'],
+                ['Wait for the sound.', 'A notification names the conversation. You do not need to click it — it is only telling you.'],
+                ['Press ⌘⇧K and choose it.', 'The bar opens over whatever you are in. Narrow it by which AI it came from, then pick the conversation.'],
+                ['Drop the file into another AI.', 'It is in your Downloads as one Markdown file. Attach it, and that AI carries on where you stopped.'],
+              ].map(([head, tail], i) => (
+                <li key={head} className="flex gap-3">
+                  <span className="mt-px shrink-0 text-[0.8125rem] tabular-nums text-white/25">
+                    {i + 1}
+                  </span>
+                  <span>
+                    <span className="text-white">{head}</span>{' '}
+                    <span className="text-white/45">{tail}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-8">
+              <PrimaryAction
+                label={current.gate.kind === 'button' ? current.gate.label : 'Continue'}
+                onClick={advance}
+              />
+            </div>
+          </Instruction>
+        );
+
       case 'notifications':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
@@ -658,6 +691,12 @@ export default function Onboarding() {
       // of a system security dialog is impersonation, whatever the intent.
       case 'sources':
         return <ConnectModelsPreview found={claudeSessions} />;
+
+      // The one step whose subject is not a single screen. It crosses an
+      // assistant, a bar over everything, and a file — so it is played rather
+      // than described, and the description sits beside it.
+      case 'walkthrough':
+        return <HowItGoes />;
 
       /*
        * Every other step shows the pill.

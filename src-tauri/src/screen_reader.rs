@@ -475,27 +475,36 @@ pub fn person_by_class(classes: &str) -> bool {
         || c.contains("whitespace-pre-wrap")
         || c.contains("human")
         /*
-         * ── Grok and DeepSeek ────────────────────────────────────────────────
-         *
-         * Both were listed as sources and neither had a marker here, so every
-         * block came back as the assistant, `is_substantial` found no question,
-         * and the conversation was dropped without a word. Reported as "grok
-         * didn't work", and it could not have.
-         *
-         * These two are not guesses. They are the same markers the extension
-         * reader already uses in `assistants.rs`, which were taken off live
-         * pages: Grok puts the person's bubble in a flex column ending with
-         * `items-end`, and DeepSeek's build hashes the class on a person's
-         * message to `fbb737a4`.
-         *
-         * `items-end` is a plain Tailwind alignment class and could in
-         * principle appear elsewhere, which used to be a real risk when an
-         * unmatched block still became assistant prose. It is much smaller now:
-         * a false match can only pull the page furniture *after* it into the
-         * transcript, and `is_substantial` still has to find a reply as well.
+         * ── DeepSeek ─────────────────────────────────────────────────────────
+         * Its build hashes the class on a person's message. Taken from
+         * `assistants.rs`, where the extension reader already used it, and
+         * confirmed working on a live account.
          */
-        || c.contains("items-end")
         || c.contains("fbb737a4")
+        /*
+         * ── Grok, read off the page rather than guessed ──────────────────────
+         *
+         * `items-end` was here first, taken from the extension's selector table
+         * on the assumption it would carry over. It does not appear anywhere on
+         * a live Grok page, which is why Grok captured nothing at all.
+         *
+         * What is actually there, from `real_classes` on a real conversation:
+         *
+         *     break-words                                    ← the person
+         *     break-words last:mb-0 max-md:leading-[155%] …  ← Grok
+         *
+         * Both carry `break-words`, so the marker cannot be a substring match
+         * or every reply becomes a question. The person's container has that
+         * class and nothing else; the reply's carries a run of responsive
+         * modifiers with it. So this one is an exact match, which is narrower
+         * than anything else here and deliberately so.
+         *
+         * If Grok adds a second class to the person's bubble this stops
+         * matching and Grok goes quiet again, which is the failure this whole
+         * function keeps having. It is at least a failure that `real_classes`
+         * now diagnoses in one command instead of a guess.
+         */
+        || c.trim() == "break-words"
 }
 
 /**
@@ -1280,12 +1289,23 @@ mod tests {
          * Both markers come from `assistants.rs`, where the extension reader
          * already used them against live pages.
          */
-        assert!(person_by_class("flex flex-col items-end"), "grok");
+        /*
+         * Both strings below were printed by `real_classes` against live
+         * accounts. `items-end` was the first guess for Grok and appears
+         * nowhere on the page, which is why Grok captured nothing at all.
+         */
+        assert!(person_by_class("break-words"), "grok, exactly as the page has it");
         assert!(person_by_class("fbb737a4"), "deepseek");
 
-        // And the reply side of each is still not mistaken for the person.
-        assert!(!person_by_class("message-bubble"), "grok's own reply");
+        // Grok's own reply carries the same class plus a run of responsive
+        // modifiers, so a substring match here would make every reply a
+        // question and leave the conversation with no answer in it.
+        assert!(
+            !person_by_class("break-words last:mb-0 max-md:leading-[155%] max-md:mb-4"),
+            "grok's reply is not the person",
+        );
         assert!(!person_by_class("ds-markdown ds-markdown--block"), "deepseek's reply");
+        assert!(!person_by_class("flex flex-col items-end"), "the guess that never matched");
     }
 
     #[test]
@@ -1295,8 +1315,11 @@ mod tests {
         let turns = into_turns(
             &[
                 node("Grok", "brand"),
-                node(&"what is the torque spec for this bolt".repeat(6), "flex items-end"),
-                node(&"Around 12 Nm on that size.".repeat(20), "message-bubble"),
+                node(&"what is the torque spec for this bolt".repeat(6), "break-words"),
+                node(
+                    &"Around 12 Nm on that size.".repeat(20),
+                    "break-words last:mb-0 max-md:leading-[155%] max-md:mb-4",
+                ),
             ],
             person_by_class,
         );

@@ -56,7 +56,8 @@ export type StepId =
   | 'pill'
   | 'handover'
   | 'notifications'
-  | 'browse';
+  | 'browse'
+  | 'walkthrough';
 
 /** How a step is allowed to advance. */
 export type Gate =
@@ -227,7 +228,27 @@ export const STEPS: Step[] = [
     phase: 'Start',
     title: 'Open one and carry on',
     subtitle: 'Anything you open from now on is read as you use it.',
-    gate: { kind: 'button', label: 'Done' },
+    gate: { kind: 'button', label: 'Continue' },
+  },
+  /*
+   * ── The whole loop, last, before the window opens ────────────────────────
+   *
+   * "We know for sure what to do at this point. But new users won't have a
+   * clue." Every step before this teaches one thing in isolation — the
+   * permission, the shortcut, one handover — and none of them shows the shape
+   * of the thing: open a specific conversation, wait, get told, press the
+   * shortcut, filter, choose, drop the file somewhere else.
+   *
+   * It is last on purpose. Shown first it is a diagram of things that have not
+   * happened yet; shown here, every part of it is something they have now
+   * done once, and this is the join.
+   */
+  {
+    id: 'walkthrough',
+    phase: 'Start',
+    title: 'That is the whole thing',
+    subtitle: 'Five steps, every time. Watch it once and you have the product.',
+    gate: { kind: 'button', label: 'Start using Sidq' },
   },
 ];
 
