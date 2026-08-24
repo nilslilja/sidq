@@ -101,7 +101,7 @@ const MIN_WORD_CHARS: usize = 4;
  * (HIG, MD)` and `use labels with icons (Material Design)` — lines out of a
  * design skill, presented back to the person as their own standing rules.
  */
-const INJECTED_MARKERS: [&str; 8] = [
+const INJECTED_MARKERS: [&str; 12] = [
     "<system-reminder>",
     "<command-name>",
     "<command-message>",
@@ -110,6 +110,31 @@ const INJECTED_MARKERS: [&str; 8] = [
     "Base directory for this skill:",
     "Contents of /",
     "This session is being continued from a previous conversation",
+    /*
+     * ── Sidq's own handover, pasted back in ──────────────────────────────────
+     *
+     * The loop this closes: hand a conversation over, paste the file into
+     * Claude or ChatGPT, and Sidq reads that assistant a few seconds later.
+     * The paste is in the composer, so every word of it arrives attributed to
+     * the person — including the standing-instructions list from the handover
+     * itself. The profile then treats Sidq's own output as things they typed,
+     * and puts them into the next handover, which gets pasted somewhere, and so
+     * on. Found on a real index: sentences from one conversation about AI
+     * infrastructure turning up in unrelated handovers, because they had ridden
+     * back in through a paste.
+     *
+     * The rule above that catches pasted documents — any line starting with a
+     * heading — cannot see this. The assistant renders the Markdown, so by the
+     * time it reaches the accessibility tree the "#" is gone and it is just
+     * text. These phrases survive rendering, because they are prose.
+     *
+     * Chosen so that nobody types them by accident. "Do not summarise it back
+     * to them" is a sentence this program wrote.
+     */
+    "A complete record of a conversation that happened somewhere else",
+    "A record of a conversation that happened somewhere else",
+    "Do not summarise it back to them",
+    "Standing instructions this person has given assistants before",
 ];
 
 /**
@@ -734,5 +759,56 @@ mod tests {
         let facts = build(&turns(&[("a", original)]), 10);
 
         assert_eq!(facts[0].text, original);
+    }
+}
+#[cfg(test)]
+mod feedback_loop_tests {
+    use super::*;
+
+    #[test]
+    fn sidqs_own_handover_is_not_mistaken_for_something_they_typed() {
+        /*
+         * ── The loop ─────────────────────────────────────────────────────────
+         * Hand a conversation over, paste the file into Claude, and Sidq reads
+         * Claude a few seconds later. The paste sits in the composer, so every
+         * word arrives attributed to the person — including the standing
+         * instructions the last handover carried. The profile then feeds on
+         * Sidq's own output and puts it in the next handover.
+         *
+         * Found on a real index: sentences about AI infrastructure appearing in
+         * unrelated handovers, having ridden back in through a paste.
+         */
+        let pasted = "Continue this conversation\n\nWHAT THIS IS\n\nA complete record of a conversation that happened somewhere else, given to you \
+so it can carry on here.\n\nThey were there for all of it. Do not summarise it \
+back to them; that spends the turn on something they already know.";
+
+        assert!(!is_typed(pasted), "this is Sidq's own file coming back");
+    }
+
+    #[test]
+    fn the_rendered_form_is_caught_too() {
+        /*
+         * The existing rule catches a pasted document by its Markdown headings.
+         * It cannot catch this: the assistant renders the file, so by the time
+         * it reaches the accessibility tree the hashes are gone and it is
+         * ordinary prose. These phrases survive rendering because they are
+         * sentences rather than markup.
+         */
+        let rendered = "WHO YOU ARE TALKING TO Standing instructions this person \
+has given assistants before, in their own words. Apply them here unless they say \
+otherwise.";
+
+        assert!(!rendered.contains('#'), "no markup left to match on");
+        assert!(!is_typed(rendered));
+    }
+
+    #[test]
+    fn a_person_writing_normally_is_untouched() {
+        // The markers have to be things this program wrote and a person would
+        // not. If an ordinary instruction trips them, the profile loses the
+        // rules it exists to collect.
+        assert!(is_typed("always answer in British English, never American"));
+        assert!(is_typed("do not summarise my code back at me, just fix it"));
+        assert!(is_typed("keep a record of what we decided"));
     }
 }
