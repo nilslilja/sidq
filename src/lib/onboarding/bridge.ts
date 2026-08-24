@@ -59,6 +59,16 @@ export interface InviteSummary {
   expires: string;
 }
 
+/** A conversation the browser reader has just seen for the first time. */
+export interface FoundConversation {
+  /** Which assistant it came from, as Sidq records it: `chatgpt`, `gemini`… */
+  source: string;
+  /** The conversation's own title. */
+  title: string;
+  /** Always true on the wire today; kept so the meaning is on the type. */
+  firstTime: boolean;
+}
+
 export interface PlanStatus {
   plan: string;
   handoversUsed: number;
@@ -117,6 +127,18 @@ export interface OnboardingBridge {
    * a window should subscribe to a thing that happened, not to a string.
    */
   onChanged: (callback: () => void) => Promise<() => void>;
+  /**
+   * A conversation Sidq had never seen before, just read out of a browser.
+   *
+   * Separate from `onChanged` because it means something different. `onChanged`
+   * says a number moved and a window should refetch; this says something
+   * arrived, and it is the one event worth making a sound about.
+   *
+   * Only ever fired the first time a conversation is recorded. It grows every
+   * few seconds while somebody types in it, and announcing that would be the
+   * most irritating thing the product does.
+   */
+  onFound: (callback: (found: FoundConversation) => void) => Promise<() => void>;
   /**
    * Claude Code sessions found on disk.
    *
@@ -198,6 +220,19 @@ export interface OnboardingBridge {
   requestAccessibility: () => Promise<void>;
   /** Open the pane, for anybody who dismissed the prompt. */
   openAccessibilitySettings: () => Promise<void>;
+  /**
+   * Post one notification, which is what makes macOS ask.
+   *
+   * There is deliberately no `notificationsGranted()` beside this. The plugin's
+   * permission check is a stub on desktop that always answers granted, so a
+   * screen built on it would tell somebody notifications work while they are
+   * switched off. macOS only prompts on the first notification an app posts, so
+   * sending one is both the ask and the only honest test: the person sees the
+   * result on their own screen.
+   */
+  notifySample: () => Promise<void>;
+  /** The Notifications pane, for anyone who declined and changed their mind. */
+  openNotificationSettings: () => Promise<void>;
   /**
    * Whether the extension has reached the app, and how recently.
    *
@@ -294,6 +329,19 @@ export function desktopBridge(): OnboardingBridge | null {
       }),
     onShortcut: (name, callback) => event.listen(name, () => callback()),
     onChanged: (callback) => event.listen('sidq:changed', () => callback()),
+    onFound: (callback) =>
+      event.listen('sidq:found', (e) => {
+        // Rust's own struct, but it arrives as JSON over an event channel like
+        // anything else, so it is checked rather than asserted.
+        const payload = e.payload as Partial<FoundConversation> | null;
+        if (payload && typeof payload.title === 'string') {
+          callback({
+            source: String(payload.source ?? ''),
+            title: payload.title,
+            firstTime: payload.firstTime === true,
+          });
+        }
+      }),
     recentWork: async (limit) => {
       const rows = await invoke('recent_work', { limit });
       return Array.isArray(rows) ? rows : [];
@@ -351,6 +399,12 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     openAccessibilitySettings: async () => {
       await invoke('open_accessibility_settings');
+    },
+    notifySample: async () => {
+      await invoke('notify_sample');
+    },
+    openNotificationSettings: async () => {
+      await invoke('open_notification_settings');
     },
     extensionStatus: async () => {
       const out = (await invoke('extension_status')) as

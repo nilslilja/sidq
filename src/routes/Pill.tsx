@@ -207,6 +207,36 @@ export function Pill() {
   }, [bridge, mode]);
 
   /*
+   * ── The tone for a conversation arriving ─────────────────────────────────
+   *
+   * Deliberately not folded into the effect above, which returns early unless
+   * the bar is collapsed. That gate is right for the count — an expanded picker
+   * is not showing it — and wrong for this: reading a browser assistant needs
+   * that browser in front, so a find can perfectly well land while the picker
+   * happens to be open behind it.
+   *
+   * The pill is the window that is always alive, which is why the sound lives
+   * here rather than in the main window somebody may have minimised. The
+   * notification is raised by Rust and reaches them either way.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void bridge.onFound(() => playCue('found')).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [bridge]);
+
+  /*
    * Follow the window.
    *
    * Rust owns the resize — the shortcut that triggers it is global, and the

@@ -55,6 +55,7 @@ export type StepId =
   | 'name'
   | 'pill'
   | 'handover'
+  | 'notifications'
   | 'browse';
 
 /** How a step is allowed to advance. */
@@ -198,6 +199,28 @@ export const STEPS: Step[] = [
     title: 'Carry one into another AI',
     subtitle: 'Pick any conversation and press Enter. It writes a file.',
     gate: { kind: 'condition', waiting: 'Waiting for the first one' },
+  },
+  /*
+   * ── Notifications, placed after the first handover ───────────────────────
+   *
+   * Not with the Accessibility ask, which is the other permission in this flow
+   * and the tempting place to put it. Two system prompts back to back reads as
+   * an app helping itself to things, and the important one loses: somebody who
+   * has just been asked for Accessibility is at their least willing to grant
+   * anything else, and Accessibility is what the browser half of the product
+   * depends on.
+   *
+   * Here it follows the person having actually seen a handover work, so the
+   * offer is about something they now understand rather than a permission
+   * requested up front for reasons they cannot yet judge.
+   */
+  {
+    id: 'notifications',
+    phase: 'Learn',
+    title: 'Know when it finds something',
+    subtitle: 'Sidq reads while you are in another app, so it should say so.',
+    gate: { kind: 'button', label: 'Continue' },
+    optional: true,
   },
   {
     id: 'browse',

@@ -638,10 +638,71 @@ fn find_web_areas(element: AXUIElementRef, depth: usize, out: &mut Vec<Element>,
  * weaker — renaming a chat makes it look new — and it is the only stable
  * identifier those apps expose.
  */
-pub fn sweep_into(conn: &rusqlite::Connection) -> usize {
-    let mut written = 0usize;
+/// A conversation the sweep wrote, and whether this is the first sight of it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Found {
+    pub source: &'static str,
+    pub title: String,
+    /// True only on the pass that first recorded it. Growth is not a discovery.
+    pub first_time: bool,
+}
+
+/**
+ * Whether a URL names one conversation, as opposed to the place they start.
+ *
+ * Every assistant here addresses a conversation with a long opaque id at the
+ * end of the path — `/c/6a58d612-6a10-83eb-ba16-a25d6f94eb61` on ChatGPT,
+ * `/app/434b357ad2df6173` on Gemini — and every landing page is a short word:
+ * nothing at all, `/app`, `/new`, `/chat`.
+ *
+ * So the test is the length of the last segment rather than a list of paths per
+ * site, which would need editing every time one of them reorganised its routes,
+ * and would silently start dropping real conversations when one did.
+ */
+fn identifies_a_conversation(url: &str) -> bool {
+    let after_scheme = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let Some((_, path)) = after_scheme.split_once('/') else {
+        return false; // bare origin: chatgpt.com
+    };
+
+    path.split('?')
+        .next()
+        .unwrap_or(path)
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .next_back()
+        .is_some_and(|last| last.len() >= MIN_CONVERSATION_ID)
+}
+
+/// Shortest last path segment that can be an id rather than a route name.
+/// Gemini's are 16 characters; the longest route name in play is "settings".
+const MIN_CONVERSATION_ID: usize = 12;
+
+pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
+    let mut found = Vec::new();
 
     for (source, url, title, turns) in read_open_assistants() {
+        /*
+         * A page that is not yet a conversation is not worth recording.
+         *
+         * Observed: a first ChatGPT read landed under `https://chatgpt.com`
+         * with the title "ChatGPT" and three turns. That is the new-chat page,
+         * caught after the person had typed but before the site had assigned
+         * the conversation an address. The next sweep found the same exchange
+         * again under `/c/6a58d612-…` titled "Raw Milk in Carrefour", which is
+         * the row that should exist.
+         *
+         * The first one is not a duplicate that gets cleaned up, because the id
+         * is the URL: nothing ever addresses `httpschatgptcom` again, so it sits
+         * in the picker forever as a conversation called "ChatGPT". Harmless
+         * while nothing pointed at it; not harmless now that finding a
+         * conversation rings a bell and raises a notification.
+         */
+        if !url.is_empty() && !identifies_a_conversation(&url) {
+            continue;
+        }
+
         let identity = if url.is_empty() { format!("{source}:{title}") } else { url };
         let session_id: String = identity
             .chars()
@@ -650,6 +711,10 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> usize {
         if session_id.is_empty() {
             continue;
         }
+
+        // Asked before writing, because `put_session` replaces and would erase
+        // the distinction between a conversation appearing and one growing.
+        let first_time = !crate::index_store::has_session(conn, &session_id);
 
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -673,11 +738,11 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> usize {
             continue;
         }
         if crate::index_store::put_messages(conn, &session_id, &turns, &fingerprint).is_some() {
-            written += 1;
+            found.push(Found { source, title: clean, first_time });
         }
     }
 
-    written
+    found
 }
 
 #[cfg(test)]
@@ -692,6 +757,56 @@ mod tests {
      * they cause is silent: an unrecognised person-class does not error, it
      * quietly files the whole conversation as the assistant talking to itself.
      */
+
+    /*
+     * ── The new-chat page is not a conversation ──────────────────────────────
+     *
+     * Taken off a real install. A first ChatGPT read landed as
+     * `httpschatgptcom` titled "ChatGPT" with three turns — the new-chat page,
+     * caught after typing but before the site had given the conversation an
+     * address. The same exchange was then recorded properly under
+     * `/c/6a58d612-…` as "Raw Milk in Carrefour".
+     *
+     * The first row is permanent. The session id is the URL, so nothing ever
+     * addresses it again and it sits in the picker as a conversation called
+     * "ChatGPT" for as long as the index exists.
+     */
+    #[test]
+    fn a_landing_page_is_not_mistaken_for_a_conversation() {
+        assert!(!identifies_a_conversation("https://chatgpt.com"));
+        assert!(!identifies_a_conversation("https://chatgpt.com/"));
+        assert!(!identifies_a_conversation("https://claude.ai/new"));
+        assert!(!identifies_a_conversation("https://gemini.google.com/app"));
+        assert!(!identifies_a_conversation("https://www.perplexity.ai/"));
+    }
+
+    #[test]
+    fn the_real_addresses_from_this_machine_are_kept() {
+        // Both read off a live browser, not composed for the test.
+        assert!(identifies_a_conversation(
+            "https://chatgpt.com/c/6a58d612-6a10-83eb-ba16-a25d6f94eb61"
+        ));
+        assert!(identifies_a_conversation("https://gemini.google.com/app/434b357ad2df6173"));
+    }
+
+    #[test]
+    fn a_query_string_does_not_hide_the_identifier() {
+        // Shared links arrive with tracking on the end, and the id is still
+        // in the path where it always was.
+        assert!(identifies_a_conversation(
+            "https://chatgpt.com/c/6a58d612-6a10-83eb-ba16-a25d6f94eb61?model=gpt-4o"
+        ));
+    }
+
+    #[test]
+    fn a_desktop_app_is_still_allowed_through() {
+        /*
+         * The ChatGPT and Claude apps expose no URL at all, so `sweep_into`
+         * falls back to source and window title. The guard must only apply
+         * where there is a URL to judge, or those two stop being read entirely.
+         */
+        assert!(!identifies_a_conversation(""));
+    }
 
     #[test]
     fn gemini_turns_are_told_apart() {

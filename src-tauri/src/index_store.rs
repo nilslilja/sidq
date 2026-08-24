@@ -177,6 +177,23 @@ pub fn put_setting(conn: &Connection, key: &str, value: &str) -> Option<()> {
 }
 
 /// Record that a conversation was handed over, at a moment in seconds.
+/**
+ * Whether this conversation has been seen before.
+ *
+ * Asked by the screen sweep before it writes, because `put_session` replaces
+ * and would otherwise make a conversation appearing for the first time
+ * indistinguishable from one that simply grew by a turn. Only the first is
+ * worth a sound and a notification.
+ */
+pub fn has_session(conn: &Connection, session_id: &str) -> bool {
+    conn.query_row(
+        "SELECT 1 FROM sessions WHERE session_id = ?1",
+        [session_id],
+        |_| Ok(()),
+    )
+    .is_ok()
+}
+
 pub fn record_handover(conn: &Connection, session_id: &str, made_at: i64) -> Option<()> {
     conn.execute(
         "INSERT INTO handovers (session_id, made_at) VALUES (?1, ?2)",

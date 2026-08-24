@@ -197,9 +197,28 @@ pub fn spawn(app: tauri::AppHandle) {
         loop {
             // Only when something was actually written. A sweep that finds an
             // unchanged conversation must not make the window refetch.
-            if crate::screen_reader::sweep_into(&conn) > 0 {
+            let found = crate::screen_reader::sweep_into(&conn);
+            if !found.is_empty() {
                 crate::announce(&app);
             }
+
+            /*
+             * ── Say so when a conversation arrives ───────────────────────────
+             *
+             * The reader works in the background and used to report nothing, so
+             * the only way to learn whether opening ChatGPT had worked was to
+             * switch to Sidq and look. An app that is busy and silent is
+             * indistinguishable from one that is broken, and that is exactly
+             * how this one read.
+             *
+             * Only on `first_time`. A conversation grows every few seconds
+             * while somebody is typing in it, and a notification per turn would
+             * be the most irritating thing the product does.
+             */
+            for one in found.iter().filter(|f| f.first_time) {
+                crate::announce_found(&app, one);
+            }
+
             std::thread::sleep(SCREEN_INTERVAL);
         }
     });

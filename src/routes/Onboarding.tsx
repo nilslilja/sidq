@@ -55,6 +55,12 @@ export default function Onboarding() {
   // What Sidq can already see, shown on the sources step so the claim is
   // evidenced rather than asserted.
   const [claudeSessions, setClaudeSessions] = useState(0);
+  /*
+   * Whether a sample has been sent. Not whether it was allowed — nothing can
+   * tell us that — only that the ask has happened, so the copy can stop
+   * offering and start explaining what to do if nothing showed up.
+   */
+  const [notified, setNotified] = useState(false);
 
   /*
    * Count handovers while that step is up.
@@ -397,6 +403,69 @@ export default function Onboarding() {
                   Skip for now
                 </button>
               )}
+            </div>
+          </Instruction>
+        );
+
+      case 'notifications':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
+              Reading an AI that lives in a browser means that browser has to be in front, so
+              the moment Sidq picks a conversation up you are, by definition, looking at
+              something else. It plays a short tone and posts one notification the first time
+              it reads a conversation &mdash; not as it grows, once, when it appears.
+            </p>
+
+            <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
+              <p className="text-[0.875rem] font-medium text-white">
+                {notified ? 'Sent. Check the top-right of your screen' : 'Send one now'}
+              </p>
+              <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+                {notified
+                  ? 'If nothing appeared, macOS is holding them back for Sidq and the button below opens the setting.'
+                  : 'macOS asks the first time an app posts one, so this is the ask and the test at the same time.'}
+              </p>
+
+              <div className="mt-4 flex items-center gap-4">
+                <button
+                  onClick={() => {
+                    setNotified(true);
+                    void bridge?.notifySample();
+                  }}
+                  className={cn(
+                    'rounded-lg bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-[#0B0B10]',
+                    'cursor-pointer transition-opacity duration-150 hover:opacity-90',
+                  )}
+                >
+                  {notified ? 'Send another' : 'Send a test notification'}
+                </button>
+
+                {notified && (
+                  <button
+                    onClick={() => void bridge?.openNotificationSettings()}
+                    className={cn(
+                      'text-[0.8125rem] text-white/45 underline-offset-4',
+                      'cursor-pointer transition-colors duration-150 hover:text-white/75 hover:underline',
+                    )}
+                  >
+                    Open Notification settings
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/*
+              * Never gated on the notification having been allowed.
+              *
+              * There is no honest way to check. The plugin's permission call is
+              * a stub on desktop that always answers granted, so a gate here
+              * would either trap somebody who declined or wave through somebody
+              * who has them switched off. Sound and notifications are a
+              * courtesy on top of work that happens either way.
+              */}
+            <div className="mt-7">
+              <PrimaryAction label="Continue" onClick={advance} />
             </div>
           </Instruction>
         );

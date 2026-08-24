@@ -20,7 +20,7 @@
  * reverse without anybody being able to say why.
  */
 
-export type Cue = 'summon' | 'dismiss' | 'done';
+export type Cue = 'summon' | 'dismiss' | 'done' | 'found';
 
 /** Peak gain. Deliberately low: this is meant to be felt, not heard. */
 const PEAK = 0.06;
@@ -51,6 +51,22 @@ const CUES: Record<Cue, Partial[]> = {
   done: [
     { freq: 880.0, decay: 0.45, level: 1 },
     { freq: 1318.51, decay: 0.38, level: 0.5, delay: 0.012 },
+  ],
+  /*
+   * A conversation just arrived in the index.
+   *
+   * Two notes, rising a perfect fourth, the second clearly after the first
+   * rather than alongside it — the interval a doorbell uses, because that is
+   * exactly the job: something turned up, come and look when you like.
+   *
+   * The one cue here nobody asked for. `summon`, `dismiss` and `done` all
+   * follow a keypress; this one can land while somebody is mid-sentence in
+   * another app. So it sits lower than the rest and decays faster, and the
+   * notification beside it is what carries the actual information.
+   */
+  found: [
+    { freq: 659.25, decay: 0.16, level: 0.5 },
+    { freq: 880.0, decay: 0.26, level: 0.42, delay: 0.09 },
   ],
 };
 
@@ -113,6 +129,19 @@ export function playCue(cue: Cue): void {
   try {
     context ??= factory();
     if (!context) return;
+
+    /*
+     * Nudge it awake before using it.
+     *
+     * Every cue used to follow a keypress, so the context was always born
+     * inside a gesture and never suspended. `found` broke that: a conversation
+     * being read is not something the person did, and a context created on that
+     * path starts suspended and plays nothing at all.
+     *
+     * Fire and forget. If the platform refuses without a gesture, the result is
+     * the same silence every other failure here produces.
+     */
+    if (context.state === 'suspended') void context.resume().catch(() => undefined);
 
     const now = context.currentTime;
 

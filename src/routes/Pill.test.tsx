@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
-import type { OnboardingBridge } from '@/lib/onboarding/bridge';
+import type { OnboardingBridge, FoundConversation } from '@/lib/onboarding/bridge';
 
 /*
  * The pill across its two states.
@@ -62,7 +62,20 @@ const bridge: Partial<OnboardingBridge> = {
   hidePill: vi.fn(async () => {}),
   openHome: vi.fn(async () => {}),
   onChanged: vi.fn(async () => () => {}),
+  /*
+   * Captured rather than ignored, so the test below can fire a find the way
+   * Rust does instead of reaching into the component.
+   */
+  onFound: vi.fn(async (cb: (f: FoundConversation) => void) => {
+    announceFound = cb;
+    return () => {
+      announceFound = undefined;
+    };
+  }),
 };
+
+/** Set by the mocked `onFound` once the pill has subscribed. */
+let announceFound: ((found: FoundConversation) => void) | undefined;
 
 vi.mock('@/lib/onboarding/bridge', async (original) => ({
   ...(await original<Record<string, unknown>>()),
@@ -70,6 +83,7 @@ vi.mock('@/lib/onboarding/bridge', async (original) => ({
 }));
 
 // Nothing under test here makes a sound, and jsdom has no audio.
+import { playCue } from '@/lib/companion/sound';
 vi.mock('@/lib/companion/sound', () => ({ playCue: vi.fn() }));
 
 const { Pill } = await import('./Pill');
@@ -207,5 +221,48 @@ describe('the source filter', () => {
     expect(screen.queryByRole('button', { name: /chatgpt/i })).not.toBeInTheDocument();
     expect(bridge.hidePill).not.toHaveBeenCalled();
     expect(screen.getByPlaceholderText(/pick up where you stopped/i)).toBeInTheDocument();
+  });
+});
+
+describe('a conversation arriving', () => {
+  /*
+   * ── Why this is announced at all ─────────────────────────────────────────
+   * The browser reader can only see an assistant while that assistant's window
+   * is in front, which means at the instant Sidq finds a conversation the
+   * person is by definition looking at something else. Before this, the only
+   * way to learn whether opening ChatGPT had worked was to switch to Sidq and
+   * check — so the product was doing its main job invisibly and reading as
+   * broken.
+   */
+  test('rings once, on the window that is always alive', async () => {
+    render(<Pill />);
+    await settle();
+
+    expect(announceFound).toBeDefined();
+
+    await act(async () => {
+      announceFound?.({ source: 'chatgpt', title: 'Raw Milk in Carrefour', firstTime: true });
+    });
+
+    expect(playCue).toHaveBeenCalledWith('found');
+  });
+
+  test('it subscribes even while the picker is open', async () => {
+    /*
+     * The count effect beside this one returns early unless the bar is
+     * collapsed, which is right for a number nothing is showing and wrong here:
+     * a find lands while another app is in front, and the picker may well be
+     * sitting open behind it. Folding the two together would have silently
+     * dropped exactly the case this feature exists for.
+     */
+    render(<Pill />);
+    await settle();
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'k', metaKey: true, shiftKey: true });
+    });
+    await settle();
+
+    expect(announceFound).toBeDefined();
   });
 });

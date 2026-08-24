@@ -26,6 +26,7 @@ mod screen_reader;
 mod work_history;
 
 
+use tauri_plugin_notification::NotificationExt;
 use tauri::{AppHandle, Emitter, Manager};
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
 // scope the method simply does not exist, which is what the compiler was saying.
@@ -193,6 +194,49 @@ struct HandoverResult {
  */
 fn announce(app: &AppHandle) {
     let _ = app.emit("sidq:changed", ());
+}
+
+/**
+ * A conversation just arrived. Ring, and raise a notification.
+ *
+ * ── Two channels because they answer different questions ─────────────────────
+ * The event reaches whichever Sidq window is open and is what plays the tone:
+ * a quiet confirmation for somebody who is already looking, in the same voice
+ * as the rest of the app's sounds.
+ *
+ * The notification is for the case that actually matters. Reading a browser
+ * assistant requires that browser to be in front, which means at the moment
+ * Sidq finds a conversation the person is by definition looking at something
+ * else. A tone from a window they cannot see is not an answer to "did that
+ * work"; a notification is.
+ *
+ * ── Why the failure is silent ────────────────────────────────────────────────
+ * Notifications are a courtesy on top of work that has already been done and
+ * recorded. Somebody who denied the permission, or is in a Focus mode, has said
+ * what they want. Nothing here is worth an error.
+ */
+fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
+    let _ = app.emit("sidq:found", found);
+
+    let label = match found.source {
+        "chatgpt" => "ChatGPT",
+        "claude.ai" => "Claude",
+        "gemini" => "Gemini",
+        "perplexity" => "Perplexity",
+        "grok" => "Grok",
+        "deepseek" => "DeepSeek",
+        "mistral" => "Mistral",
+        other => other,
+    };
+
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("Read from {label}"))
+        // The conversation's own title, so it is obvious which one was picked
+        // up rather than being told that something, somewhere, happened.
+        .body(&found.title)
+        .show();
 }
 
 #[tauri::command]
@@ -501,6 +545,40 @@ fn request_accessibility() {
 fn open_accessibility_settings() {
     #[cfg(target_os = "macos")]
     screen_reader::open_settings();
+}
+
+/**
+ * Send one notification, so macOS asks the question.
+ *
+ * ── Why there is no "is it allowed?" command next to this ────────────────────
+ * There is nothing honest to put behind one. `tauri-plugin-notification`'s
+ * `permission_state()` and `request_permission()` are stubs on desktop that
+ * both return Granted unconditionally, so a screen built on them would report
+ * that notifications work to somebody who has them switched off.
+ *
+ * macOS only asks on the first notification an app actually posts, which makes
+ * sending a real one the only way to raise the prompt — and it doubles as the
+ * only truthful check available, because the person sees the result themselves.
+ * Same shape as the Accessibility step: the button does the thing, in the
+ * moment, rather than describing where a switch lives.
+ */
+#[tauri::command]
+fn notify_sample(app: AppHandle) {
+    let _ = app
+        .notification()
+        .builder()
+        .title("Sidq is set up")
+        .body("This is what you will see when a conversation is read.")
+        .show();
+}
+
+/// The Notifications pane, for anyone who said no and changed their mind.
+#[tauri::command]
+fn open_notification_settings() {
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("/usr/bin/open")
+        .arg("x-apple.systempreferences:com.apple.preference.notifications")
+        .status();
 }
 
 /// Whether the browser extension has ever reached the app, and when.
@@ -1116,6 +1194,8 @@ fn main() {
             accessibility_granted,
             request_accessibility,
             open_accessibility_settings,
+            notify_sample,
+            open_notification_settings,
             extension_status,
             download_extension,
             stale_sources,
