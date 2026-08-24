@@ -192,6 +192,20 @@ struct HandoverResult {
  * then skips the announcement with nothing reported anywhere. Hence a free
  * function called on its own line rather than a link in a chain.
  */
+/**
+ * Is this copy running out of a mounted disk image rather than installed?
+ *
+ * Anything under /Volumes is temporary by definition. It matters for the login
+ * item, which stores an absolute path: registered from the image, it points at
+ * a mount that will not be there, and the only visible result is macOS telling
+ * somebody that an app they cannot see runs in the background.
+ */
+fn running_from_a_mounted_image() -> bool {
+    std::env::current_exe()
+        .map(|p| p.starts_with("/Volumes/"))
+        .unwrap_or(false)
+}
+
 fn announce(app: &AppHandle) {
     let _ = app.emit("sidq:changed", ());
 }
@@ -229,12 +243,19 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
         other => other,
     };
 
+    /*
+     * The title says what happened, the body says which one.
+     *
+     * "Read from ChatGPT" said neither clearly: read is what Sidq does
+     * constantly and says nothing about, and a notification is only worth
+     * raising for the moment a conversation is actually kept. Naming the
+     * assistant in the headline and the conversation underneath means the
+     * whole thing is legible from a banner nobody clicks.
+     */
     let _ = app
         .notification()
         .builder()
-        .title(format!("Read from {label}"))
-        // The conversation's own title, so it is obvious which one was picked
-        // up rather than being told that something, somewhere, happened.
+        .title(format!("New chat from {label} saved"))
         .body(&found.title)
         .show();
 }
@@ -1301,7 +1322,29 @@ fn main() {
                             // launcher is the one that can fail.
                             let launcher = app.autolaunch();
                             let on = launcher.is_enabled().unwrap_or(false);
-                            let _ = if on { launcher.disable() } else { launcher.enable() };
+                            if on {
+                                let _ = launcher.disable();
+                            } else if running_from_a_mounted_image() {
+                                /*
+                                 * Registering from the disk image writes a login
+                                 * item pointing at /Volumes/Sidq/Sidq.app, which
+                                 * is gone the moment the image is ejected. Found
+                                 * exactly that on a real machine: a LaunchAgent
+                                 * aimed at a path that does not exist at login,
+                                 * so it silently never started, while macOS went
+                                 * on listing Sidq as a background item forever.
+                                 */
+                                let _ = app
+                                    .notification()
+                                    .builder()
+                                    .title("Move Sidq to Applications first")
+                                    .body(
+                                        "Opening at login needs Sidq installed, not run from the disk image.",
+                                    )
+                                    .show();
+                            } else {
+                                let _ = launcher.enable();
+                            }
                         }
                         "quit" => app.exit(0),
                         _ => {}

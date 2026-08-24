@@ -83,6 +83,29 @@ type Phase =
   | { kind: 'limited'; used: number; cap: number }
   | { kind: 'failed' };
 
+/** How long the bar shows what just landed before returning to the count. */
+const SAVED_BANNER_MS = 4200;
+
+/**
+ * The name a person would use, from the id Sidq records.
+ *
+ * Kept here rather than sent by Rust because it is presentation: the same
+ * mapping decides what the notification says, and a name that differs between
+ * the two would read as two different products talking.
+ */
+function labelFor(source: string): string {
+  const names: Record<string, string> = {
+    chatgpt: 'ChatGPT',
+    'claude.ai': 'Claude',
+    gemini: 'Gemini',
+    perplexity: 'Perplexity',
+    grok: 'Grok',
+    deepseek: 'DeepSeek',
+    mistral: 'Mistral',
+  };
+  return names[source] ?? 'an AI';
+}
+
 export function Pill() {
   const bridge = useMemo(() => desktopBridge(), []);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
@@ -92,6 +115,8 @@ export function Pill() {
   // Measured, never announced. Launch shows the bar.
   const [mode, setMode] = useState<PillState>(() => modeForWidth(window.innerWidth));
   const [indexed, setIndexed] = useState(0);
+  /** The assistant a conversation just arrived from, while the bar says so. */
+  const [saved, setSaved] = useState<string | null>(null);
   /*
    * Bumped whenever the count changes, and used as a React key so the pulse
    * restarts. Re-adding the same class does not replay a CSS animation; a new
@@ -207,6 +232,19 @@ export function Pill() {
   }, [bridge, mode]);
 
   /*
+   * ── The banner clears itself ─────────────────────────────────────────────
+   *
+   * Long enough to be read by somebody whose eyes are elsewhere, short enough
+   * that the bar is not lying about the count a minute later. Re-armed on every
+   * find, so two arriving together do not leave a stuck label.
+   */
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(null), SAVED_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [saved]);
+
+  /*
    * ── The tone for a conversation arriving ─────────────────────────────────
    *
    * Deliberately not folded into the effect above, which returns early unless
@@ -225,7 +263,12 @@ export function Pill() {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
-    void bridge.onFound(() => playCue('found')).then((fn) => {
+    void bridge
+      .onFound((one) => {
+        playCue('found');
+        setSaved(labelFor(one.source));
+      })
+      .then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;
     });
@@ -488,11 +531,29 @@ export function Pill() {
             className={cn(
               'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
               'opacity-80 group-hover:opacity-100',
-              beat > 0 && 'animate-pulse-once',
+              (beat > 0 || saved) && 'animate-pulse-once',
             )}
           />
-          <span className="truncate text-[0.6875rem] leading-none text-white/70">
-            {indexed > 0 ? indexed.toLocaleString() : 'Sidq'}
+          {/*
+            * The bar says what just happened, then goes back to the count.
+            *
+            * This is the only surface Sidq has that is guaranteed to be on
+            * screen at the moment a conversation is found: reading a browser
+            * assistant needs that browser in front, so the main window is
+            * behind something and the notification may be a banner that has
+            * already gone. The bar floats above everything, including another
+            * app's fullscreen Space.
+            *
+            * 152 points is not room for a conversation title, so it carries the
+            * assistant's name and the notification carries the title.
+            */}
+          <span
+            className={cn(
+              'truncate text-[0.6875rem] leading-none transition-colors duration-200',
+              saved ? 'text-[#D8CCFF]' : 'text-white/70',
+            )}
+          >
+            {saved ? `Saved · ${saved}` : indexed > 0 ? indexed.toLocaleString() : 'Sidq'}
           </span>
           {/*
             * The shortcut only on hover. At this size it is the difference

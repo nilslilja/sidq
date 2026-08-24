@@ -31,7 +31,7 @@
 //! goes away, this trade stops being defensible and the bar has to become
 //! focusable again.
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 
@@ -74,6 +74,14 @@ static NOTCH_HEIGHT: AtomicU64 = AtomicU64::new(0);
  * Called from setup and again on every raise, so moving the window to a display
  * with different hardware corrects itself on the next open.
  */
+/**
+ * Whether anybody has successfully asked the system about this screen yet.
+ *
+ * Separate from the height because zero is a real, useful answer and "we do not
+ * know" must never be mistaken for it.
+ */
+static NOTCH_MEASURED: AtomicBool = AtomicBool::new(false);
+
 fn measure_notch(ns_window: *mut objc::runtime::Object) {
     // SAFETY: main thread, and `ns_window` is a live NSWindow. `screen` returns
     // nil when the window is off-screen, which `mainScreen` covers.
@@ -106,12 +114,43 @@ fn measure_notch(ns_window: *mut objc::runtime::Object) {
         }
         let insets: EdgeInsets = msg_send![screen, safeAreaInsets];
         NOTCH_HEIGHT.store(insets.top.to_bits(), Ordering::Relaxed);
+        NOTCH_MEASURED.store(true, Ordering::Relaxed);
     }
 }
 
+/**
+ * The housing inset, or the safe answer when nobody has managed to look.
+ *
+ * ── Why unmeasured is not the same as zero ───────────────────────────────────
+ * Zero means "measured, and this screen has no housing", and it buys the
+ * collapsed bar its place inside the menu bar. Unmeasured used to produce the
+ * same answer, and the two are not remotely equivalent: on a 14 or 16 inch
+ * MacBook the bar is centred, the camera housing is centred, and a window at
+ * menu bar level is directly behind it. The bar would simply not exist, and
+ * would not exist in the way that is hardest to report — nothing is broken, it
+ * is just never there.
+ *
+ * So a failure to measure returns a value that keeps the bar below the menu
+ * bar. That position is worse on a Mac with no housing: it is the row browser
+ * tabs live in, which is why the bar moved up in the first place. It is still
+ * better than being invisible to most people buying a Mac today, and it is the
+ * direction a failure should fall.
+ */
 fn notch_height() -> f64 {
+    if !NOTCH_MEASURED.load(Ordering::Relaxed) {
+        return UNMEASURED_NOTCH;
+    }
     f64::from_bits(NOTCH_HEIGHT.load(Ordering::Relaxed))
 }
+
+/**
+ * What an unmeasured screen is treated as having.
+ *
+ * Any positive number picks the safe branch in `top_edge`. This one is a real
+ * housing height rather than 1.0 so that reading it in a log or a debugger says
+ * what it means.
+ */
+const UNMEASURED_NOTCH: f64 = 32.0;
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
 const EXPANDED: (f64, f64) = (560.0, 380.0);
@@ -710,6 +749,45 @@ mod tests {
         // tripping it. The inset is what decides now, and it is zero here.
         assert_eq!(top_edge(SCREEN_TOP, 33.0, true, 0.0), SCREEN_TOP);
         assert_eq!(top_edge(SCREEN_TOP, 36.0, true, 0.0), SCREEN_TOP);
+    }
+
+    #[test]
+    fn a_screen_nobody_could_measure_is_treated_as_having_a_housing() {
+        /*
+         * ── The failure that would be invisible ──────────────────────────────
+         *
+         * The bar is centred. The camera housing is centred. A collapsed bar at
+         * menu bar level on a 14 or 16 inch MacBook is directly behind it, so
+         * for most people buying a Mac today the bar would not exist — and it
+         * would fail in the worst possible way, which is silently. Nothing
+         * errors, nothing logs, it is simply never on screen.
+         *
+         * `safeAreaInsets` is measured once, on the main thread, against
+         * whichever screen the window is on at the time. Every way that can go
+         * wrong — an older system, a nil screen, the window created on an
+         * external display and the lid opened afterwards — used to leave the
+         * height at zero, which is also exactly what a real Mac with no housing
+         * reports. The dangerous answer and the common answer were the same
+         * value.
+         *
+         * They are now different. Unmeasured returns a positive height, which
+         * puts the bar below the menu bar: worse on a Mac without a housing,
+         * and visible on every Mac there is.
+         */
+        assert!(UNMEASURED_NOTCH > 0.0, "an unmeasured screen must take the safe branch");
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, UNMEASURED_NOTCH),
+            WORK_TOP_NOTCHED,
+            "below the menu bar, where nothing can cover it",
+        );
+    }
+
+    #[test]
+    fn zero_still_means_a_measured_screen_with_no_housing() {
+        // The other half of the same rule: a real answer of zero must keep the
+        // bar in the menu bar, or the housing check has cost every Mac without
+        // one the position it was designed for.
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0), SCREEN_TOP);
     }
 
     #[test]

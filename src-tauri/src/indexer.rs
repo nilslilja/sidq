@@ -35,13 +35,18 @@ const SWEEP_INTERVAL: Duration = Duration::from_secs(90);
  * this machine: a Grok tab open in Chrome, Claude in front, and the index
  * holding nothing from any browser at all while the desktop apps read fine.
  *
- * Fifteen seconds is short enough that a conversation is captured while you are
- * still looking at it. It costs almost nothing when there is no browser open —
- * the reader checks the permission and the process list first and returns — and
- * a conversation that has not grown since the last pass is skipped by its
- * fingerprint.
+ * Eight seconds, down from fifteen. Fifteen was chosen when nothing announced
+ * a capture, so the only cost of being slow was that the picker caught up
+ * eventually. Finding a conversation now rings and raises a notification, which
+ * turns the delay into the thing being judged: a minute of silence after
+ * opening ChatGPT reads as broken, whatever is happening underneath.
+ *
+ * It costs almost nothing when there is no browser open — the reader checks the
+ * permission and the process list first and returns — and a conversation that
+ * has not grown since the last pass is skipped by its fingerprint before any
+ * text is touched.
  */
-const SCREEN_INTERVAL: Duration = Duration::from_secs(15);
+const SCREEN_INTERVAL: Duration = Duration::from_secs(8);
 
 /// First sweep runs sooner, so search works shortly after launch.
 const FIRST_SWEEP_DELAY: Duration = Duration::from_secs(3);

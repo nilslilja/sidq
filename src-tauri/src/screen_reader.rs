@@ -47,6 +47,15 @@ const MAX_NODES: usize = 250_000;
 /// guessed. Under it the walk finds an empty window and reports nothing open.
 const TREE_BUILD_WAIT: std::time::Duration = std::time::Duration::from_millis(2000);
 
+/**
+ * A second chance for a page that was still building.
+ *
+ * Only ever waited on an address that is already known to be an assistant and
+ * whose first read produced nothing substantial, so it never slows down a sweep
+ * that is working.
+ */
+const TREE_SETTLE_WAIT: std::time::Duration = std::time::Duration::from_millis(2500);
+
 /// Below this a "conversation" is a loading screen or an empty composer.
 const MIN_CONVERSATION_CHARS: usize = 200;
 
@@ -364,6 +373,42 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
     }
 
     turns.retain(|(_, body)| !body.trim().is_empty());
+
+    /*
+     * ── Everything before the person speaks is the page, not the conversation ─
+     *
+     * Anything not recognised as a person's turn is filed as the assistant, so
+     * the sidebar, the header and every button in the chrome arrive as one
+     * enormous reply before the conversation has started.
+     *
+     * That was not a tidiness problem. Measured on a real handover: 159 of 418
+     * lines were Gemini's sidebar, which is the titles of every other
+     * conversation on the account — "Villa Exit Cost Analysis", "Mouth
+     * Widening Surgery: Risks and Realities", "Var det en civilpolis?" — and
+     * the whole point of a handover is that you give the file to a different
+     * AI. Sidq was quietly attaching a person's entire chat history, including
+     * medical and personal titles, to a file about fixing a motocross bike.
+     *
+     * The rule is the one thing true of every chat product there is: a
+     * conversation starts with the person. Whatever precedes their first turn
+     * is furniture, whichever site it came from and whatever it is called.
+     *
+     * Deliberately not a list of things to strip. A blocklist of sidebar class
+     * names is wrong the first time a site renames one, and it fails open — it
+     * leaks and says nothing. This fails closed.
+     */
+    if let Some(first_person) = turns.iter().position(|(who, _)| who == "You") {
+        turns.drain(..first_person);
+    } else {
+        /*
+         * No recognised person turn anywhere. Either the page is not a
+         * conversation, or this site's markers are unknown to `person_by_class`
+         * — which is the state Grok and DeepSeek are in. Both cases must
+         * produce nothing rather than a transcript of the page furniture.
+         */
+        turns.clear();
+    }
+
     turns
 }
 
@@ -388,6 +433,28 @@ pub fn person_by_class(classes: &str) -> bool {
         || c.contains("query-text")
         || c.contains("whitespace-pre-wrap")
         || c.contains("human")
+        /*
+         * ── Grok and DeepSeek ────────────────────────────────────────────────
+         *
+         * Both were listed as sources and neither had a marker here, so every
+         * block came back as the assistant, `is_substantial` found no question,
+         * and the conversation was dropped without a word. Reported as "grok
+         * didn't work", and it could not have.
+         *
+         * These two are not guesses. They are the same markers the extension
+         * reader already uses in `assistants.rs`, which were taken off live
+         * pages: Grok puts the person's bubble in a flex column ending with
+         * `items-end`, and DeepSeek's build hashes the class on a person's
+         * message to `fbb737a4`.
+         *
+         * `items-end` is a plain Tailwind alignment class and could in
+         * principle appear elsewhere, which used to be a real risk when an
+         * unmatched block still became assistant prose. It is much smaller now:
+         * a false match can only pull the page furniture *after* it into the
+         * transcript, and `is_substantial` still has to find a reply as well.
+         */
+        || c.contains("items-end")
+        || c.contains("fbb737a4")
 }
 
 /**
@@ -507,7 +574,31 @@ pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String,
             let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
             let Some(source) = source_for(&url) else { continue };
 
-            let turns = into_turns(&collect(area.as_raw()), person_by_class);
+            /*
+             * ── Ask twice before believing a thin read ───────────────────────
+             *
+             * Chrome builds the accessibility tree for web content on demand
+             * and tears it down when nothing is asking. `TREE_BUILD_WAIT` is
+             * one flat two-second pause for every application at once, which is
+             * ample for a short page and not always enough for a long one.
+             *
+             * When it is not enough the read comes back partial, or empty, and
+             * `is_substantial` correctly refuses it — then nothing happens for
+             * another fifteen seconds and the whole thing is tried again. That
+             * is what "sometimes it works and sometimes it doesn't" was, and
+             * why a big ChatGPT conversation could sit there for a minute while
+             * a short Gemini one appeared straight away.
+             *
+             * The retry costs nothing in the normal case, because it only runs
+             * where the address already says this is an assistant and the first
+             * attempt still produced nothing worth keeping.
+             */
+            let mut turns = into_turns(&collect(area.as_raw()), person_by_class);
+            if !is_substantial(&turns) {
+                std::thread::sleep(TREE_SETTLE_WAIT);
+                turns = into_turns(&collect(area.as_raw()), person_by_class);
+            }
+
             if is_substantial(&turns) {
                 let title = string_attribute(area.as_raw(), "AXTitle").unwrap_or_default();
                 found.push((source, url, title, turns));
@@ -1009,7 +1100,16 @@ mod tests {
             person_by_class,
         );
 
-        assert!(page.iter().map(|(_, b)| b.len()).sum::<usize>() > MIN_CONVERSATION_CHARS);
+        /*
+         * It used to survive as one long assistant turn, over the character
+         * floor, and was rejected a step later by `is_substantial`. It is now
+         * dropped here: with no person turn anywhere, there is nothing before
+         * which the furniture could sit, so all of it goes.
+         *
+         * Rejected twice over, which is the right number for the check that
+         * stands between somebody's sidebar and a file they hand to another AI.
+         */
+        assert!(page.is_empty(), "page furniture is not a transcript");
         assert!(!is_substantial(&page), "no user turn, so it is a page");
     }
 
@@ -1029,7 +1129,7 @@ mod tests {
             person_by_class,
         );
 
-        assert_eq!(unknown.len(), 1, "all one speaker");
+        assert!(unknown.is_empty(), "nothing recognised, so nothing kept");
         assert!(!is_substantial(&unknown));
     }
 
@@ -1038,8 +1138,88 @@ mod tests {
         // The author marker sits on the container; the text is a leaf several
         // levels down with no classes of its own. Reading only the leaf loses
         // every author attribution on the page.
-        let nodes = vec![node("typed by a person", "")];
-        let turns = into_turns(&nodes, |_| false);
-        assert_eq!(turns[0].0, "Assistant", "no classes means it is not a person's");
+        //
+        // A person's turn comes first, because a reply that precedes one is
+        // page furniture now and is dropped before this can be asserted.
+        let nodes = vec![node("a question", "user-message"), node("typed by a reply", "")];
+        let turns = into_turns(&nodes, person_by_class);
+        assert_eq!(turns[1].0, "Assistant", "no classes means it is not a person's");
+    }
+
+    #[test]
+    fn grok_and_deepseek_have_a_person_in_them_now() {
+        /*
+         * Reported: "grok didn't work". It could not have. Neither site had a
+         * marker in `person_by_class`, so every block was filed as the
+         * assistant, `is_substantial` found no question, and the whole
+         * conversation was dropped in silence.
+         *
+         * Both markers come from `assistants.rs`, where the extension reader
+         * already used them against live pages.
+         */
+        assert!(person_by_class("flex flex-col items-end"), "grok");
+        assert!(person_by_class("fbb737a4"), "deepseek");
+
+        // And the reply side of each is still not mistaken for the person.
+        assert!(!person_by_class("message-bubble"), "grok's own reply");
+        assert!(!person_by_class("ds-markdown ds-markdown--block"), "deepseek's reply");
+    }
+
+    #[test]
+    fn a_grok_conversation_survives_end_to_end() {
+        // The failure was never in one function; it was that no person turn
+        // existed, so the conversation never cleared `is_substantial`.
+        let turns = into_turns(
+            &[
+                node("Grok", "brand"),
+                node(&"what is the torque spec for this bolt".repeat(6), "flex items-end"),
+                node(&"Around 12 Nm on that size.".repeat(20), "message-bubble"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(turns.len(), 2, "the brand line is furniture and goes");
+        assert_eq!(turns[0].0, "You");
+        assert!(is_substantial(&turns), "this is a conversation and must be kept");
+    }
+
+    #[test]
+    fn the_sidebar_never_reaches_the_handover() {
+        /*
+         * ── The one this exists for ──────────────────────────────────────────
+         *
+         * Taken from a real handover written on this machine: 159 of its 418
+         * lines were Gemini's sidebar, filed as one assistant turn before the
+         * conversation began. That is the title of every other conversation on
+         * the account — including medical ones — inside a file whose entire
+         * purpose is being given to a different AI.
+         *
+         * The shape below is the real one: chrome, then the whole chat list,
+         * then the conversation.
+         */
+        let turns = into_turns(
+            &[
+                node("Gemini", "brand"),
+                node("Ny chatt", "nav-item"),
+                node("Villa Exit Cost Analysis", "conversation-title"),
+                node("Mouth Widening Surgery: Risks and Realities", "conversation-title"),
+                node("Var det en civilpolis?", "conversation-title"),
+                node("the chain keeps hopping off the sprocket", "query-text"),
+                node("That usually means the chain is too slack.", "model-response"),
+            ],
+            person_by_class,
+        );
+
+        let everything = turns.iter().map(|(_, b)| b.as_str()).collect::<String>();
+        assert!(!everything.contains("Villa Exit"), "another conversation's title");
+        assert!(!everything.contains("Mouth Widening"), "and a medical one");
+        assert!(!everything.contains("civilpolis"));
+        assert!(!everything.contains("Ny chatt"), "and the navigation with it");
+
+        // The conversation itself is untouched, both speakers intact.
+        assert_eq!(turns.len(), 2);
+        assert_eq!(turns[0].0, "You");
+        assert!(turns[0].1.contains("chain keeps hopping"));
+        assert_eq!(turns[1].0, "Assistant");
     }
 }

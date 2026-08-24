@@ -225,6 +225,14 @@ describe('the source filter', () => {
 });
 
 describe('a conversation arriving', () => {
+  beforeEach(() => {
+    // The width reset lives inside the other describe, so this block has to ask
+    // for it too — without it these run at whatever width the last test left
+    // behind, which is the expanded picker and not the bar under test.
+    window.innerWidth = COLLAPSED_WIDTH;
+    vi.clearAllMocks();
+  });
+
   /*
    * ── Why this is announced at all ─────────────────────────────────────────
    * The browser reader can only see an assistant while that assistant's window
@@ -245,6 +253,47 @@ describe('a conversation arriving', () => {
     });
 
     expect(playCue).toHaveBeenCalledWith('found');
+  });
+
+  test('the bar says which assistant it came from, then goes back to the count', async () => {
+    /*
+     * The bar is the only surface guaranteed to be on screen at the moment a
+     * conversation is found. Reading a browser assistant requires that browser
+     * to be in front, so the main window is behind something and the
+     * notification may be a banner that has already gone.
+     *
+     * It must also give the count back. A bar still reading "Saved" a minute
+     * later is showing something that is no longer news and is hiding the one
+     * number it exists for.
+     */
+    vi.useFakeTimers();
+    try {
+      render(<Pill />);
+      await settle();
+
+      await act(async () => {
+        announceFound?.({ source: 'chatgpt', title: 'Raw Milk in Carrefour', firstTime: true });
+      });
+      expect(screen.getByText('Saved · ChatGPT')).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByText('Saved · ChatGPT')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('an assistant nobody has a name for does not print its slug', async () => {
+    render(<Pill />);
+    await settle();
+
+    await act(async () => {
+      announceFound?.({ source: 'something-new', title: 'A conversation', firstTime: true });
+    });
+
+    expect(screen.getByText('Saved · an AI')).toBeInTheDocument();
   });
 
   test('it subscribes even while the picker is open', async () => {
