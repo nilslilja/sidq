@@ -572,9 +572,25 @@ export default function Onboarding() {
                 <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
                   ChatGPT, Gemini, Claude.ai, Perplexity and Grok live in a browser, and a
                   browser keeps nothing readable on your Mac. So Sidq reads the conversation
-                  you have open. Look at one for about fifteen seconds and it is yours from
-                  then on &mdash; searchable, and ready to hand to another AI. You never open
-                  it twice.
+                  you have open. Look at one for about ten seconds and it is yours from then
+                  on &mdash; searchable, and ready to hand to another AI. You never open it
+                  twice.
+                </p>
+                {/*
+                  * The one limit of reading a page rather than a file, said
+                  * here rather than discovered later.
+                  *
+                  * Sidq sees what the page has loaded. A long conversation is
+                  * not all there when you open it — sites fetch the recent part
+                  * and fetch the rest as you scroll up — so a handover made
+                  * without scrolling can be the tail of it. Sidq re-reads every
+                  * few seconds, which means scrolling is genuinely the fix
+                  * rather than an apology for a limitation.
+                  */}
+                <p className="mt-3 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/40">
+                  For a long one, scroll to the top once. A browser only loads the recent part
+                  of a conversation until you do, and Sidq can only read what is loaded. It
+                  picks up the rest within seconds of it appearing.
                 </p>
               </div>
             </div>

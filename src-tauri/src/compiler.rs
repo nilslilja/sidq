@@ -173,6 +173,24 @@ fn contents_of(turns: &[Turn]) -> String {
 }
 
 /**
+ * Was this conversation read off a screen, or out of a file?
+ *
+ * The distinction decides whether Sidq can honestly call a handover complete.
+ * Assistants that write transcripts to this disk are read in full; assistants
+ * that live in a browser are read through the accessibility tree, which sees
+ * the page as loaded and nothing that has not been fetched yet.
+ *
+ * Listed as the disk ones rather than the browser ones on purpose. A new
+ * browser assistant is added to `assistants.rs` regularly; a new editor that
+ * writes JSONL to disk is rare and is a deliberate piece of work. If this list
+ * is ever out of date, the failure is calling a complete transcript partial,
+ * which costs a sentence, rather than calling a partial one complete.
+ */
+fn read_from_a_screen(source: &str) -> bool {
+    !matches!(source, "claude-code" | "cowork" | "cursor" | "windsurf" | "vscode")
+}
+
+/**
  * Orient a model that has no idea what any of this is.
  *
  * The old version opened with "You are being handed a complete record of a
@@ -196,11 +214,36 @@ fn contents_of(turns: &[Turn]) -> String {
 fn instruction(brief: &Brief, contents: &str, arc: &str, has_reasoning: bool) -> String {
     let mut out = String::new();
 
-    out.push_str(
+    out.push_str(if read_from_a_screen(brief.source) {
+        /*
+         * ── The claim this could not back ────────────────────────────────────
+         *
+         * Every handover opened "A complete record of a conversation", whatever
+         * it was made from. For Claude Code, Cowork and Cursor that is true:
+         * those write a transcript to disk and Sidq reads the file, all of it.
+         *
+         * An assistant that lives in a browser writes nothing readable here, so
+         * Sidq reads the page through the accessibility tree — and a page holds
+         * what it has loaded, not what exists. Sites fetch the recent part of a
+         * long conversation and fetch the rest as you scroll up, so a handover
+         * made without scrolling can be the tail of a conversation described to
+         * the next model as the whole of it.
+         *
+         * That is the worst shape an error can take here. The receiving model
+         * is explicitly told not to ask for context it appears to already have,
+         * so it will confidently carry on from a beginning it never saw. Saying
+         * what this actually is costs one sentence.
+         */
+        "WHAT THIS IS\n\n\
+A record of a conversation that happened somewhere else, given to you so it can \
+carry on here. It was read from the page rather than from a file, so it holds \
+what was loaded at the time — if it seems to begin mid-thought, it does, and the \
+earlier part was never on screen to be read. Say so rather than guessing at it. "
+    } else {
         "WHAT THIS IS\n\n\
 A complete record of a conversation that happened somewhere else, given to you \
-so it can carry on here. ",
-    );
+so it can carry on here. "
+    });
     out.push_str(&format!(
         "It was between the person you are talking to now and {}, {}",
         brief.source, brief.when
@@ -777,5 +820,66 @@ mod tests {
 
         assert!(!out.contains(", working on ."));
         assert!(!out.contains("The last thing they asked"));
+    }
+}
+#[cfg(test)]
+mod honesty_tests {
+    use super::*;
+
+    fn brief_for(source: &str) -> Brief<'_> {
+        Brief { source, when: "just now", project: "", resume_point: "carry on", profile: &[] }
+    }
+
+    #[test]
+    fn a_conversation_read_off_a_page_is_not_called_complete() {
+        /*
+         * ── What this is protecting ──────────────────────────────────────────
+         *
+         * Sites fetch the recent part of a long conversation and load the rest
+         * as you scroll up, so the accessibility tree holds what has been
+         * loaded rather than what exists. A handover made without scrolling can
+         * be the tail of a conversation.
+         *
+         * Describing that to the next model as a complete record is the worst
+         * shape this error can take, because the same file tells it not to ask
+         * for context it appears to already have. It would carry on
+         * confidently from a beginning it never saw.
+         */
+        let out = compile(
+            &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+            &brief_for("chatgpt"),
+            Target::Markdown,
+        );
+
+        assert!(!out.contains("A complete record"), "chatgpt is read off the page");
+        assert!(out.contains("read from the page rather than from a file"));
+        assert!(out.contains("begin mid-thought"), "and says what that looks like");
+    }
+
+    #[test]
+    fn a_transcript_read_from_disk_still_says_complete() {
+        // Claude Code, Cowork and Cursor write the whole conversation to this
+        // machine and Sidq reads the file. Hedging there would be its own lie.
+        for source in ["claude-code", "cowork", "cursor"] {
+            let out = compile(
+                &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+                &brief_for(source),
+                Target::Markdown,
+            );
+            assert!(out.contains("A complete record"), "{source} is read from a file");
+        }
+    }
+
+    #[test]
+    fn an_assistant_nobody_has_classified_is_assumed_to_be_a_page() {
+        /*
+         * The list names the ones read from disk, so anything new falls to the
+         * cautious side by default. Getting it wrong that way calls a complete
+         * transcript partial, which costs a sentence. The other way tells a
+         * model it has the whole story when it does not.
+         */
+        assert!(read_from_a_screen("some-new-assistant"));
+        assert!(read_from_a_screen("grok"));
+        assert!(!read_from_a_screen("claude-code"));
     }
 }
