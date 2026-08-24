@@ -188,9 +188,11 @@ export function DesktopMock({ className }: { className?: string }) {
             <span
               key={i}
               aria-hidden="true"
-              className="aspect-square flex-1 rounded-[22%] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
-              style={{ background: tile }}
-            />
+              className="grid aspect-square flex-1 place-items-center rounded-[22%] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
+              style={{ background: tile.bg }}
+            >
+              {tile.glyph}
+            </span>
           ))}
 
           {/*
@@ -229,8 +231,14 @@ export function DesktopMock({ className }: { className?: string }) {
           <span aria-hidden="true" className="mx-[0.6%] h-[70%] w-px self-center bg-white/40" />
           <span
             aria-hidden="true"
-            className="aspect-square flex-1 rounded-[22%] bg-[linear-gradient(160deg,#F2F2F4,#C9C9CF)] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
-          />
+            className="grid aspect-square flex-1 place-items-center rounded-[22%] bg-[linear-gradient(160deg,#FBFBFC,#D6D6DC)] shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]"
+          >
+            <svg viewBox="0 0 24 24" className="w-[58%]" fill="none">
+              <path d="M5.5 7h13l-1 12.5a1.5 1.5 0 0 1-1.5 1.4H8a1.5 1.5 0 0 1-1.5-1.4Z" fill="#E9E9EF" stroke="#9A9AA4" strokeWidth="0.9" />
+              <path d="M9.6 10.5v7M12 10.5v7M14.4 10.5v7" stroke="#B4B4BE" strokeWidth="0.9" strokeLinecap="round" />
+              <rect x="4.2" y="5.2" width="15.6" height="2.1" rx="1.05" fill="#C7C7CF" />
+            </svg>
+          </span>
         </div>
       </div>
     </div>
@@ -273,11 +281,89 @@ function TrayMark() {
  * Apple owns the real ones and a screenshot of a real Dock is somebody's actual
  * machine, which is how the previous product shot had to be thrown away.
  */
-const DOCK: string[] = [
-  'linear-gradient(160deg,#5AC8FA,#0A84FF)',
-  'linear-gradient(160deg,#FF9F0A,#FF375F)',
-  'linear-gradient(160deg,#30D158,#00C7BE)',
-  'linear-gradient(160deg,#BF5AF2,#5E5CE6)',
-  'linear-gradient(160deg,#8E8E93,#48484A)',
-  'linear-gradient(160deg,#FFD60A,#FF9F0A)',
+/**
+ * The Dock's applications, drawn rather than borrowed.
+ *
+ * These were flat gradient squares and they did not read as a Dock — they read
+ * as six coloured tiles, which is what prompted "make these the official ones".
+ *
+ * They are drawn to be recognisably the shapes a Mac has, and not one of them
+ * is Apple's file. Shipping their actual icons would mean redistributing their
+ * artwork in a public bundle, which is a different thing from a mockup
+ * depicting a desktop, and it is the same trap the last product shot fell into
+ * with somebody's real screen. This gets the read without the exposure.
+ */
+const DOCK: { bg: string; glyph: React.ReactNode }[] = [
+  // Launchpad: the grid of colours.
+  {
+    bg: 'linear-gradient(160deg,#FDFDFE,#E4E4EA)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[62%]">
+        {[
+          ['#FF6B6B', '#FFB84D', '#4DD07A'],
+          ['#4DA3FF', '#B07BFF', '#FF7BC8'],
+          ['#FFD84D', '#5AD8D0', '#8E8E96'],
+        ].map((row, y) =>
+          row.map((fill, x) => (
+            <rect key={`${x}-${y}`} x={3 + x * 6.6} y={3 + y * 6.6} width="5" height="5" rx="1.4" fill={fill} />
+          )),
+        )}
+      </svg>
+    ),
+  },
+  // A compass, the way a browser draws one.
+  {
+    bg: 'linear-gradient(160deg,#F4F5F7,#D8DBE1)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[74%]">
+        <circle cx="12" cy="12" r="9" fill="#2E8FE0" />
+        <circle cx="12" cy="12" r="7.2" fill="none" stroke="#FFFFFF" strokeWidth="1.1" />
+        <path d="M15.6 8.4 10.9 10.9 8.4 15.6 13.1 13.1Z" fill="#FFFFFF" />
+        <path d="M15.6 8.4 13.1 13.1 10.9 10.9Z" fill="#F0524B" />
+      </svg>
+    ),
+  },
+  // A gear.
+  {
+    bg: 'linear-gradient(160deg,#9AA0A8,#5B6068)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[66%]">
+        <path
+          d="M12 3.4l1.5 1.9 2.4-.5.6 2.4 2.2 1.1-1 2.2 1 2.2-2.2 1.1-.6 2.4-2.4-.5L12 20.6l-1.5-1.9-2.4.5-.6-2.4-2.2-1.1 1-2.2-1-2.2 2.2-1.1.6-2.4 2.4.5Z"
+          fill="#E8EAEE"
+        />
+        <circle cx="12" cy="12" r="3.1" fill="#6E747C" />
+      </svg>
+    ),
+  },
+  // A video call tile.
+  {
+    bg: 'linear-gradient(160deg,#3F8CFF,#1F63E8)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[60%]">
+        <rect x="3.5" y="7" width="11.5" height="10" rx="2.4" fill="#FFFFFF" />
+        <path d="M16.4 11.2 20.5 8.6v6.8l-4.1-2.6Z" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  // A paper plane.
+  {
+    bg: 'linear-gradient(160deg,#5EC8F5,#2A9AD8)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[62%]">
+        <path d="M20.5 4.2 3.4 11.1l5.2 1.8 1.9 5.6 2.6-3.6 4.2 3.1Z" fill="#FFFFFF" />
+        <path d="M8.6 12.9 20.5 4.2l-8.4 10.7Z" fill="#D9EEF9" />
+      </svg>
+    ),
+  },
+  // A mail tile, for the last ordinary slot.
+  {
+    bg: 'linear-gradient(160deg,#5AC8FA,#1E8FE0)',
+    glyph: (
+      <svg viewBox="0 0 24 24" className="w-[62%]">
+        <rect x="3.4" y="6.4" width="17.2" height="11.2" rx="2.4" fill="#FFFFFF" />
+        <path d="M4.6 8.2 12 13.4l7.4-5.2" fill="none" stroke="#4FA9E8" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
 ];
