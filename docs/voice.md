@@ -43,17 +43,59 @@ attack anybody had.
 
 ---
 
-## The one argument
+## The two lines
 
-Everything is a restatement of this. Do not dilute it and do not add a second.
+There are exactly two, they do different jobs, and neither substitutes for the
+other. Everything else is a restatement of one of them.
 
-> The models got extraordinary. Nobody joined them up.
+**The headline.** What goes on the site, the page title, the poster.
+
+> The models remember everything except you.
+
+**The pitch.** What you say to a person, what goes on the social card, what
+sits over the download button.
+
+> Stop introducing yourself to robots.
+
+A headline is read on a page that is already explaining itself. A pitch is
+repeated, out loud, by somebody who is not being paid to. They needed different
+sentences and trying to make one sentence do both is what kept producing lines
+nobody said back to you.
+
+Both were chosen against one test — *would a stranger screenshot this and post
+it with no caption* — and both were checked against the harder one: could a
+competitor run this exact line? Neither can.
 
 That is the position, and it is bigger than the feature. These are the best
 tools anybody has built in a decade, most people pay for three or four of them,
-and not one can read another. Sidq is the layer that joins them. Say that with
-the confidence of somebody stating the obvious, because it is obvious the
-moment it is pointed at.
+and not one can read another. Sidq is the memory layer. Say it with the
+confidence of somebody stating the obvious, because it is obvious the moment it
+is pointed at.
+
+### Two things that are not allowed
+
+**Never punch at the labs.** Not OpenAI, not Anthropic, not Google. Sidq is
+built with Claude and the mark is on the front page; picking that fight would
+be both ungrateful and stupid, and it would make the product look small. The
+villain is the gap, never a company. "Four systems that have never met" is
+fair. "OpenAI wants you to start over" is not.
+
+**Never sound scrappy.** Not "I'm 18 and I built this in a weekend", not "come
+and take it", not "nobody else even tried". The register is a company that has
+already won and is describing the situation. Underdog framing invites people to
+judge the product against its excuses instead of against the alternatives.
+
+### The headline is closed
+
+It is the fourth. The first three went in three days — "Start where you
+actually stopped", "Your AI is hiding half of what it thinks", "Every AI you
+open starts from zero" — each true, each about a symptom, and each meaning the
+site said something different from the site a week earlier. That is how a
+product ends up with no identity.
+
+This one was picked on a stated bar rather than a Tuesday feeling, so it does
+not get rewritten because a better sentence turned up. Better sentences go into
+posts. That is what posts are for.
 
 Three follow-ons, in order of force:
 
@@ -92,6 +134,7 @@ not in a post they read once. Every string in the app follows the five rules.
 | Something went wrong | Could not read that one |
 | Upgrade to Pro for unlimited history | Free search reaches back 7 days |
 | We couldn't find any data yet | You have not handed one over yet |
+| Get started with Sidq | Stop introducing yourself to robots |
 
 Errors say what happened and what to do. Empty states say empty. Nothing in
 the app ever apologises, and nothing ever congratulates the person for using

@@ -82,14 +82,20 @@ export const STEPS: Step[] = [
     id: 'welcome',
     phase: 'Get started',
     title: 'Welcome to Sidq',
-    subtitle: 'Every conversation you have had with every AI, in one place.',
+    /*
+     * The pitch, because this is the first sentence anyone reads inside the
+     * product and the one they are most likely to repeat to somebody else.
+     * It is the same line that sits over the download button on the site, so
+     * the sentence that got them here is the sentence that greets them.
+     */
+    subtitle: 'Stop introducing yourself to robots. This takes about a minute.',
     gate: { kind: 'button', label: 'Continue' },
   },
   {
     id: 'discover',
     phase: 'Get started',
     title: 'How did you find Sidq?',
-    subtitle: 'One tap. It tells us which of these is worth doing more of.',
+    subtitle: 'One tap, and it tells us where to show up more.',
     gate: { kind: 'button', label: 'Continue' },
   },
   {

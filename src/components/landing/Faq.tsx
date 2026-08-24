@@ -80,7 +80,7 @@ export function Faq() {
         id="faq"
         className="font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
       >
-        Frequently asked questions
+        The questions people actually ask
       </h2>
 
       <dl className="mt-12 border-t border-ink/12">

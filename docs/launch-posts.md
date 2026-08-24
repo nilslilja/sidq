@@ -9,13 +9,20 @@ Voice rules in [voice.md](voice.md).
 
 ---
 
-## The line
+## The two lines
 
-> The models got extraordinary. Nobody joined them up.
+> **Headline.** The models remember everything except you.
+>
+> **Pitch.** Stop introducing yourself to robots.
 
-Everything else is evidence for that. It is the position rather than a feature,
-it is obviously true the moment somebody hears it, and no competitor is saying
-it because they are all building inside one assistant.
+Everything else is evidence for them. They are the position rather than a
+feature, both are obviously true the moment somebody hears them, and no
+competitor is saying either because they are all building inside one assistant.
+
+In a post, open on the pitch and close on the headline. The pitch earns the
+read; the headline is what somebody quotes when they repost it. Full reasoning
+in [voice.md](voice.md), including the two things that are never allowed:
+punching at the labs, and sounding scrappy.
 
 ## The argument, in one paragraph
 
@@ -53,9 +60,9 @@ that joins them, and it reads what is already on the machine.
 > So the summary was never going to work. You cannot summarise what you were
 > never shown.
 >
-> I built Sidq. It is the layer that joins them. Every conversation you have
-> ever had with any assistant, together on your Mac, and any one of them carried
-> whole into any other. Including the half you never saw.
+> I built Sidq. It is the memory layer. Every conversation you have ever had
+> with any assistant, together on your Mac, and any one of them carried whole
+> into any other. Including the half you never saw.
 >
 > Nothing is uploaded. It reads what is already on your machine.
 >

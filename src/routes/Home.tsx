@@ -1115,10 +1115,9 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       <>
         {heading}
       <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
-        Nothing yet. This fills up from the instructions you give your AIs
-        &mdash; the rules you repeat, the stack you keep explaining &mdash; and it
-        only counts sentences you actually typed, so it needs a few real
-        conversations behind it first.
+        Empty, and it should be. This builds itself out of the rules you repeat and
+        the stack you keep re-explaining, counting only sentences you actually
+        typed. Have a few real conversations and it will have something to say.
       </p>
       </>
     );
@@ -1254,7 +1253,7 @@ function Search({
       {searched && (
         <p className="mt-4 text-[0.8125rem] text-[#7A7489]">
           {hits.length === 0
-            ? 'Nothing matched.'
+            ? 'Nothing matched that one.'
             : `${hits.length} ${hits.length === 1 ? 'result' : 'results'}`}
         </p>
       )}

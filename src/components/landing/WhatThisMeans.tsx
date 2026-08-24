@@ -60,8 +60,8 @@ export function WhatThisMeans({ className }: { className?: string }) {
       </ol>
 
       <p className="mx-auto mt-14 max-w-[54ch] text-center text-[1.0625rem] leading-relaxed">
-        Sidq reads the conversations already on your Mac and carries any one of them into any
-        other AI, whole. Word for word, including the half you were never shown.{' '}
+        Sidq reads what is already on your Mac and carries any conversation into any other AI,
+        whole. Word for word, including the half you were never shown.{' '}
         <span className="ink-muted">Nothing is uploaded. It fetches nothing.</span>
       </p>
     </section>

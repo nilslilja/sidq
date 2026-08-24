@@ -116,26 +116,37 @@ export function Hero() {
 
         <h1
           id="hero"
-          className="animate-rise mx-auto max-w-[19ch] text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
+          className="animate-rise mx-auto max-w-[22ch] text-balance text-center font-display text-[clamp(2.5rem,5.6vw,4.75rem)] leading-[0.96] tracking-[-0.042em] text-white"
           style={{ animationDelay: '90ms' }}
         >
-          The models got extraordinary. Nobody joined them up
+          The models remember everything except&nbsp;you
         </h1>
 
         {/*
-          * The headline says what Sidq is, not what is wrong this week.
+          * ── The headline is chosen, and it is now closed ──────────────────
           *
-          * It was rewritten three times in three days — "Start where you
-          * actually stopped", "Your AI is hiding half of what it thinks",
-          * "Every AI you open starts from zero" — each a true sentence about a
-          * symptom, and each meaning the site said something different from the
-          * site a week earlier. That is how a product ends up with no identity.
+          * Four in total. The first three went in three days — "Start where
+          * you actually stopped", "Your AI is hiding half of what it thinks",
+          * "Every AI you open starts from zero" — each true, each about a
+          * symptom, and each meaning the site said something different from
+          * the site a week earlier. That is how a product ends up with no
+          * identity, and it is the reason this one was picked on a stated bar
+          * instead of on a Tuesday feeling.
           *
-          * This one is the position rather than a symptom, and it is the whole
-          * argument in seven words: the models are the achievement of the
-          * decade and they cannot see each other. Sidq is the layer that joins
-          * them. Symptoms belong in the posts, where a new angle every week is
-          * the point.
+          * The bar was: would a stranger screenshot this and post it with no
+          * caption. Everything else followed from it. No named villain, because
+          * Sidq is built with Claude and the mark is on this very page, so
+          * picking that fight would be both ungrateful and stupid. No hedge,
+          * because the claim is simply true. The gap is stated as settled fact,
+          * which is what confidence sounds like in a sentence.
+          *
+          * There is a second line, and it is not this one. "Stop introducing
+          * yourself to robots" is the pitch: what you say to a person, what
+          * goes on the social card, what sits over the download button below.
+          * A headline is read; a pitch is repeated. They are different jobs and
+          * they needed different sentences.
+          *
+          * The next good idea about what Sidq is goes into a post. Not here.
           */}
         {/*
           * One line under the headline, and nothing else.
@@ -148,13 +159,29 @@ export function Hero() {
           * care will actually read it.
           */}
         <p
-          className="animate-rise mx-auto mt-7 text-center text-[clamp(1.0625rem,1.7vw,1.4375rem)] leading-snug text-white/60"
+          className="animate-rise mx-auto mt-7 max-w-[46ch] text-center text-[clamp(1.0625rem,1.7vw,1.4375rem)] leading-snug text-white/60"
           style={{ animationDelay: '180ms' }}
         >
-          Sidq is the layer that does.
+          Sidq is the memory layer. Every conversation you have ever had, carried whole into
+          whichever AI you open next.
         </p>
 
-        <div className="animate-rise mt-10 flex justify-center" style={{ animationDelay: '270ms' }}>
+        {/*
+          * The pitch, directly over the button.
+          *
+          * This is the line somebody repeats, so it belongs at the moment they
+          * are deciding — not buried in the body where it would be read once
+          * and never said. It is deliberately the rudest sentence on the page
+          * and it is the only one that is.
+          */}
+        <p
+          className="animate-rise mt-11 text-center font-display text-[clamp(1.375rem,2.4vw,1.875rem)] tracking-[-0.03em] text-white"
+          style={{ animationDelay: '260ms' }}
+        >
+          Stop introducing yourself to robots.
+        </p>
+
+        <div className="animate-rise mt-7 flex justify-center" style={{ animationDelay: '340ms' }}>
           <DownloadButton size="lg" />
         </div>
 

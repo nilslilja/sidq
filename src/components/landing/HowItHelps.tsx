@@ -21,7 +21,7 @@ export function HowItHelps() {
         id="how"
         className="max-w-[20ch] font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
       >
-        One keystroke, and it is already there
+        One keystroke. It is already there.
       </h2>
 
       <div className="mt-14 grid gap-5 lg:grid-cols-2">

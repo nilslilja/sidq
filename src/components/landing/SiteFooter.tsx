@@ -55,8 +55,21 @@ export function SiteFooter() {
 
       <div className="relative mx-auto max-w-[76rem] px-6">
         <div className="py-20 text-center">
+          {/*
+            * The page closes on the pitch, which is also how it opened.
+            *
+            * This heading was empty. It held "Tomorrow is one of the 250." from
+            * the day planner, that line was deleted with the rest of the
+            * planner copy in 88e9f4d, and nothing replaced it — so the closing
+            * call to action had no headline at all and the accessibility tree
+            * carried an unnamed h2 to the bottom of every page.
+            *
+            * The pitch belongs here rather than a third new sentence. A line
+            * gets repeated because somebody heard it twice, and the two places
+            * anybody is deciding whether to download are the two buttons.
+            */}
           <h2 className="mx-auto max-w-[18ch] font-display text-[clamp(2rem,5vw,3.75rem)] leading-[0.94] tracking-[-0.045em]">
-            
+            Stop introducing yourself to robots.
           </h2>
           <p className="mx-auto mt-6 max-w-[42ch] text-[1rem] leading-relaxed ink-muted">
             If it has not earned its place on your screen within a week, delete it.
