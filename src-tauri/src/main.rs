@@ -927,6 +927,22 @@ async fn index_stats() -> (usize, usize) {
  * settings window. So this shows and focuses rather than creating, and the
  * window's own close button only hides it.
  */
+/**
+ * Put the window on screen, without stealing the keyboard.
+ *
+ * Used on the two paths that are not somebody asking for it — launching, and
+ * finishing setup. `open_home` takes focus, which is right when the answer to
+ * "why is this in front of me" is "because you just clicked Open Sidq", and
+ * wrong at login, where an app that was started for you should not take the
+ * cursor out of whatever you were typing in.
+ */
+fn present_home(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("home") {
+        let _ = w.unminimize();
+        let _ = w.show();
+    }
+}
+
 #[tauri::command]
 fn open_home(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("home") {
@@ -1154,6 +1170,9 @@ fn finish_onboarding(app: AppHandle) -> Result<(), String> {
     if let Some(pill) = app.get_webview_window("pill") {
         let _ = show_pill(&pill);
     }
+    // And the window with it. Setup ends on a working product, not on a bar
+    // two pixels tall and nothing else.
+    present_home(&app);
     Ok(())
 }
 
@@ -1403,6 +1422,20 @@ fn main() {
                 }
             } else if let Some(w) = &window {
                 /*
+                 * ── The window comes up with the bar ─────────────────────────
+                 *
+                 * Launching only ever showed the pill. The window existed but
+                 * was never put on screen, so the only routes to it were the
+                 * tray menu and a grey link inside the picker — which is what
+                 * "make sure this is ALWAYS OPEN, when the pill is on" is
+                 * about, asked twice.
+                 *
+                 * The red button no longer puts it away either, so the two
+                 * halves now agree: while Sidq is running, its window is on
+                 * screen unless somebody deliberately minimised it.
+                 */
+                present_home(&app.handle().clone());
+                /*
                  * Launching the app shows the picker.
                  *
                  * This showed nothing at all on a normal launch, on the
@@ -1526,8 +1559,26 @@ fn main() {
                      * hand side, and clicking it brings it back the way it does
                      * for every other app.
                      */
+                    /*
+                     * ── And now it does not minimise either ──────────────────
+                     *
+                     * Asked for twice: "make sure the UI in main big window is
+                     * ALWAYS open", then "make sure this is ALWAYS OPEN, when
+                     * the pill is on."
+                     *
+                     * Minimising was already better than hiding — the window
+                     * stayed in the Dock instead of vanishing from every list
+                     * macOS keeps — but it is still gone from the screen, and
+                     * the red button is the one people press to get a window
+                     * out of the way without meaning to close the app.
+                     *
+                     * So the red button now does nothing at all while Sidq is
+                     * running. The yellow one and ⌘M still minimise, because
+                     * taking away the deliberate gesture for putting a window
+                     * away would be a different kind of rude — this only stops
+                     * the accidental one.
+                     */
                     api.prevent_close();
-                    let _ = window.minimize();
                 }
             }
 
