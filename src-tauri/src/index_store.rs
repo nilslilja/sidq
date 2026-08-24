@@ -297,6 +297,44 @@ pub fn own_turns(conn: &Connection, limit: usize) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/**
+ * The same turns, keyed by which piece of work they belong to.
+ *
+ * ── Why the handover needs a different key ───────────────────────────────────
+ * `own_turns` groups by conversation, so `Fact.conversations` counts how many
+ * separate chats a sentence appeared in. That is the right number to show in
+ * the window: it is evidence, and more chats means a firmer rule.
+ *
+ * It is the wrong test for what to attach to a handover. Somebody building one
+ * thing says "make sure the pricing matches the app" in ten conversations about
+ * that thing, and it clears any threshold on repetition alone — then arrives
+ * stapled to a conversation about being exhausted, under a heading promising
+ * these are standing instructions to apply. Which is how a real handover read.
+ *
+ * Repetition inside one project is a task. The same sentence turning up in a
+ * second, unrelated project is a preference. That distinction is the whole
+ * difference, and it is one join away: group by project instead.
+ *
+ * `source` stands in when there is no project, which is every browser
+ * assistant — so a rule said to both ChatGPT and Gemini still counts as twice.
+ */
+pub fn own_turns_by_project(conn: &Connection, limit: usize) -> Vec<(String, String)> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT CASE WHEN s.project = '' THEN s.source ELSE s.project END, m.body
+           FROM messages m
+           JOIN sessions s ON s.session_id = m.session_id
+          WHERE m.role = 'You'
+          ORDER BY s.ended_at DESC
+          LIMIT ?1",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map([limit], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
 /// One conversation you handed to another assistant.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

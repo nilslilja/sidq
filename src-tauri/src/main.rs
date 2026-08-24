@@ -330,7 +330,16 @@ fn build_handover(
 ) -> Option<String> {
     let rules: Vec<String> = index_store::open()
         .map(|conn| {
-            let turns = index_store::own_turns(&conn, profile::TURN_BUDGET);
+            /*
+             * Grouped by project, not by conversation.
+             *
+             * A sentence repeated across ten conversations about one piece of
+             * work is a task for that work. The same sentence turning up in a
+             * second, unrelated project is how the person likes to be worked
+             * with — and only the second belongs in a file that may be handed
+             * to an assistant discussing something else entirely.
+             */
+            let turns = index_store::own_turns_by_project(&conn, profile::TURN_BUDGET);
             /*
              * Only rules said in more than one conversation.
              *

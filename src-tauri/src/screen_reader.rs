@@ -264,6 +264,47 @@ pub struct Node {
 }
 
 /**
+ * Is this whole node one of the interface's own words?
+ *
+ * ── What this catches, and what it deliberately does not ─────────────────────
+ * Gemini captions each of your turns with "You said", localised — "Du sa" on a
+ * Swedish account — and neither the composer placeholder ("Ask Gemini") nor a
+ * link's accessible name ("Opens in a new window") is hidden from the tree. All
+ * of them arrive as their own text nodes and end up inside the transcript, so a
+ * handover reads as a UI export with the chrome still attached.
+ *
+ * Matched on the entire node, exactly. Filtering the caption by class was tried
+ * once and reverted: the caption shares `query-text` with the question under
+ * it, and applying that rule took six of ten real user turns with it. A node
+ * whose whole content is two words of interface cannot take a question with it.
+ *
+ * A list of strings does rot, and this one is allowed to. Missing a new label
+ * puts two stray words in a transcript. Anything cleverer risks the questions.
+ */
+fn is_interface_label(text: &str) -> bool {
+    const LABELS: [&str; 10] = [
+        // Gemini's caption above each of your turns.
+        "You said",
+        "Du sa",
+        // The composer, which sits after the last real turn.
+        "Ask Gemini",
+        "Fråga Gemini",
+        // A link's accessible name, which lands mid-answer.
+        "Opens in a new window",
+        "Öppnas i ett nytt fönster",
+        // The disclaimer under the composer.
+        "Gemini can make mistakes",
+        "Gemini kan göra misstag",
+        // ChatGPT's equivalents.
+        "ChatGPT can make mistakes",
+        "Ask anything",
+    ];
+
+    let t = text.trim();
+    LABELS.iter().any(|label| t.eq_ignore_ascii_case(label))
+}
+
+/**
  * Walk a web area and collect the text nodes under it.
  *
  * Depth-first so the result is in reading order, which is the order the
@@ -304,7 +345,7 @@ fn walk(
 
     if string_attribute(element, kAXRoleAttribute).as_deref() == Some("AXStaticText") {
         if let Some(text) = string_attribute(element, kAXValueAttribute) {
-            if !text.trim().is_empty() {
+            if !text.trim().is_empty() && !is_interface_label(&text) {
                 out.push(Node { text, classes: classes.clone() });
             }
         }

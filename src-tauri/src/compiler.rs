@@ -504,16 +504,50 @@ it was too long to carry whole. What follows is everything after them.\n\n"
         };
     }
 
+    let reminder = closing(brief);
+
     match target {
         Target::Claude => format!(
             "<handover>\n<instructions>\n{instruction}\n</instructions>\n\n{body}\n\
-<instructions>\n{instruction}\n</instructions>\n</handover>\n"
+<instructions>\n{reminder}\n</instructions>\n</handover>\n"
         ),
         Target::Markdown => format!(
             "# Continue this conversation\n\n{instruction}\n\n---\n\n{body}\n---\n\n\
-# Reminder\n\n{instruction}\n"
+# Reminder\n\n{reminder}\n"
         ),
     }
+}
+
+/**
+ * The line at the far end, after the transcript.
+ *
+ * ── Why there is anything down here at all ───────────────────────────────────
+ * A model reading a long file weights the end of it more heavily than the
+ * middle, and the one instruction that matters — carry on, do not recap — is at
+ * the top, thousands of tokens away by the time it gets here.
+ *
+ * ── Why it is three lines and not the whole header again ─────────────────────
+ * It used to be `{instruction}` a second time, character for character. On a
+ * short conversation that made a fifth of the file a duplicate of itself, and
+ * it repeated the standing-instructions list, which reads as a template that
+ * has been pasted twice by accident rather than as a document written on
+ * purpose. A model given the same block twice also has to work out whether the
+ * second one supersedes the first.
+ *
+ * The framing is established at the top. This only has to survive the distance.
+ */
+fn closing(brief: &Brief) -> String {
+    let mut out = String::from(
+        "That was the whole of it. Carry on from where it stops rather than \
+summarising it back — they were there for all of it.",
+    );
+
+    if !brief.resume_point.trim().is_empty() {
+        out.push_str("\n\nPick up from: ");
+        out.push_str(brief.resume_point.trim());
+    }
+
+    out
 }
 
 #[cfg(test)]
@@ -584,15 +618,24 @@ mod tests {
     }
 
     #[test]
-    fn the_instruction_appears_at_both_ends() {
+    fn the_directive_survives_to_the_far_end_without_being_repeated() {
         /*
          * The copy at the end is the one that gets followed. An instruction
          * sitting before a hundred thousand tokens of conversation competes
          * with all of it; the same words after the material do not.
          */
+        /*
+         * This used to assert the whole instruction block appeared twice,
+         * verbatim. The thing it was protecting is that a model reading a long
+         * file still knows, at the end of it, not to recap — and that survives.
+         * What does not is the duplication: repeating the standing-instructions
+         * list reads as a template pasted twice, and made a fifth of a short
+         * handover a copy of itself.
+         */
         for target in [Target::Claude, Target::Markdown] {
             let out = compile(&turns(), &brief(), target);
-            assert_eq!(out.matches("Do not summarise it back").count(), 2, "{target:?}");
+            assert_eq!(out.matches("Do not summarise it back").count(), 1, "{target:?}");
+            assert!(out.contains("summarising it back"), "and again at the end: {target:?}");
         }
     }
 
@@ -826,12 +869,55 @@ mod tests {
 mod honesty_tests {
     use super::*;
 
-    fn brief_for(source: &str) -> Brief<'_> {
-        Brief { source, when: "just now", project: "", resume_point: "carry on", profile: &[] }
+    #[test]
+    fn the_far_end_is_a_reminder_and_not_the_header_again() {
+        let rules = standing();
+        /*
+         * It used to emit the whole instruction block a second time, character
+         * for character. On a short conversation that made a fifth of the file
+         * a duplicate of itself, and it repeated the standing-instructions
+         * list, which reads as a template pasted twice by accident. A model
+         * handed the same block twice also has to decide whether the second one
+         * supersedes the first.
+         */
+        let out = compile(
+            &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+            &brief_for("chatgpt", &rules),
+            Target::Markdown,
+        );
+
+        assert_eq!(out.matches("WHAT THIS IS").count(), 1, "said once");
+        assert_eq!(out.matches("WHO YOU ARE TALKING TO").count(), 1);
+        // The reminder is still there — it is the distance it has to survive.
+        assert!(out.contains("# Reminder"));
+        assert!(out.contains("Carry on from where it stops"));
+    }
+
+    #[test]
+    fn the_reminder_carries_the_resume_point_and_nothing_else() {
+        let rules = standing();
+        let out = compile(
+            &[Turn { role: Role::You, blocks: vec![Block::Said("x".into())] }],
+            &brief_for("chatgpt", &rules),
+            Target::Markdown,
+        );
+        let tail = out.split("# Reminder").nth(1).unwrap();
+
+        assert!(tail.contains("carry on"), "the resume point came through");
+        assert!(!tail.contains("Standing instructions"), "not the profile again");
+    }
+
+    fn standing() -> Vec<String> {
+        vec!["never use em dashes in the copy".to_string()]
+    }
+
+    fn brief_for<'a>(source: &'a str, profile: &'a [String]) -> Brief<'a> {
+        Brief { source, when: "just now", project: "", resume_point: "carry on", profile }
     }
 
     #[test]
     fn a_conversation_read_off_a_page_is_not_called_complete() {
+        let rules = standing();
         /*
          * ── What this is protecting ──────────────────────────────────────────
          *
@@ -847,7 +933,7 @@ mod honesty_tests {
          */
         let out = compile(
             &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
-            &brief_for("chatgpt"),
+            &brief_for("chatgpt", &rules),
             Target::Markdown,
         );
 
@@ -858,12 +944,13 @@ mod honesty_tests {
 
     #[test]
     fn a_transcript_read_from_disk_still_says_complete() {
+        let rules = standing();
         // Claude Code, Cowork and Cursor write the whole conversation to this
         // machine and Sidq reads the file. Hedging there would be its own lie.
         for source in ["claude-code", "cowork", "cursor"] {
             let out = compile(
                 &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
-                &brief_for(source),
+                &brief_for(source, &rules),
                 Target::Markdown,
             );
             assert!(out.contains("A complete record"), "{source} is read from a file");
