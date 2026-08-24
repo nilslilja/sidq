@@ -50,6 +50,7 @@ export type StepId =
   | 'discover'
   | 'signin'
   | 'sources'
+  | 'reading'
   | 'intake'
   | 'name'
   | 'pill'
@@ -104,6 +105,24 @@ export const STEPS: Step[] = [
     title: 'Connect your AIs',
     subtitle: 'The ones on this Mac are already done. The rest take one click.',
     gate: { kind: 'button', label: 'Continue' },
+  },
+  /*
+   * The one thing about Sidq that surprises people, said before it can.
+   *
+   * "It worked for ChatGPT, but only that one chat. That's wrong." It is not
+   * wrong, it is the whole shape of the product, and it was left to be
+   * discovered after setup by somebody who then thought it was broken.
+   *
+   * Its own step rather than a paragraph inside another one. It was a paragraph
+   * on the last screen, under a permission card, a row of chips and a live
+   * status panel — which is where prose goes to not be read.
+   */
+  {
+    id: 'reading',
+    phase: 'Connect',
+    title: 'How Sidq reads your AIs',
+    subtitle: 'Two kinds, and only one of them needs anything from you.',
+    gate: { kind: 'button', label: 'Got it' },
   },
   {
     id: 'intake',

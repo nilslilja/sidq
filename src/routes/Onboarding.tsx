@@ -467,6 +467,66 @@ export default function Onboarding() {
           </Instruction>
         );
 
+      case 'reading':
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <div className="space-y-3">
+              {/*
+                * Two blocks, because there are exactly two cases and the whole
+                * confusion is that people assume there is one. The first is
+                * already done and needs saying so; the second is the one with a
+                * rule attached.
+                */}
+              <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.07] p-4">
+                <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
+                  Already yours
+                </p>
+                <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
+                  Claude Code, Cowork, Cursor and the other editors write their conversations
+                  straight to this Mac.{' '}
+                  {claudeSessions > 0 ? (
+                    <>
+                      Sidq has read{' '}
+                      <span className="text-white">all {claudeSessions} of them</span> already.
+                    </>
+                  ) : (
+                    <>Sidq reads all of them with nothing to set up.</>
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
+                <p className="text-[0.875rem] font-medium text-white">
+                  As you open them
+                </p>
+                <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
+                  ChatGPT, Gemini, Claude.ai, Perplexity and Grok live in a browser, and a
+                  browser keeps nothing readable on your Mac. So Sidq reads the conversation
+                  you have open. Look at one for about fifteen seconds and it is yours from
+                  then on &mdash; searchable, and ready to hand to another AI. You never open
+                  it twice.
+                </p>
+              </div>
+            </div>
+
+            {/*
+              * The consequence, said plainly rather than left to be worked out.
+              * This is the sentence somebody needs a week later when they wonder
+              * why an old chat is not in the picker.
+              */}
+            <p className="mt-5 max-w-[46ch] text-[0.875rem] leading-relaxed text-white/70">
+              So the browser conversations you had <em className="not-italic text-white">before</em>{' '}
+              today are not in Sidq yet. They arrive as you go back to them, and a week of
+              ordinary use covers most of it.
+            </p>
+
+            <div className="mt-7">
+              <PrimaryAction label="Got it" onClick={advance} />
+            </div>
+          </Instruction>
+        );
+
       case 'intake':
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
