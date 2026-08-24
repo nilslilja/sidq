@@ -18,24 +18,20 @@
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
-    "@radix-ui/react-scroll-area": "^1.2.9",
     "@supabase/supabase-js": "^2.50.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^13.1.0",
     "lucide-react": "^0.514.0",
-    "motion": "^12.16.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",
     "tailwind-merge": "^3.3.0",
-    "tw-animate-css": "^1.4.0",
-    "@tauri-apps/api": "^2.1.0"
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
     "@tailwindcss/vite": "^4.1.8",
+    "@tauri-apps/cli": "^2.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -48,7 +44,6 @@
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
-    "vitest": "^3.2.2",
-    "@tauri-apps/cli": "^2.1.0"
+    "vitest": "^3.2.2"
   }
 }

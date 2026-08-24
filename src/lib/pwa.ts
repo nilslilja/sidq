@@ -5,6 +5,18 @@ function isDesktopShell(): boolean {
   return !window.location.protocol.startsWith('http');
 }
 
+/*
+ * Kept only to deliver the tombstone in `public/sw.js`.
+ *
+ * Sidq ships as a signed .dmg and the site has no offline story, so there is
+ * nothing here worth a service worker. There is, however, an old one still
+ * registered in every browser that has visited sidq.tech, and the only way to
+ * remove it is to let those browsers fetch the replacement that unregisters
+ * itself. Stopping the registration now would strand them on the old worker
+ * and its cache permanently.
+ *
+ * Delete this and `public/sw.js` together, once enough time has passed.
+ */
 export function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) return;
   if (import.meta.env.DEV) return; // the SW cache fights HMR
