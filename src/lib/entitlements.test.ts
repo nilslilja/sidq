@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   INVITE,
   entitlementsFor,
@@ -234,5 +235,67 @@ describe('pricing cards match the contract', () => {
 
   test('exactly one card is featured', () => {
     expect(PLANS.filter((p) => p.featured)).toHaveLength(1);
+  });
+});
+
+/*
+ * ── The two languages that both decide what Free gets ────────────────────────
+ *
+ * `entitlements.ts` is what the pricing page promises. `entitlement.rs` is what
+ * actually refuses a handover. They are separate files in separate languages
+ * with nothing holding them together, and they have already come apart once:
+ * the site advertised limits the app was not enforcing, and the test that was
+ * supposed to catch it passed by accident because the cap was 10 and the
+ * assertion looked for the substring "1".
+ *
+ * Reading the Rust from here is not elegant. It is, however, the only thing
+ * that fails when somebody changes one number and not the other — which is the
+ * whole failure, and it is a promise about what a paying customer gets.
+ */
+describe('the site and the app agree about the free plan', () => {
+  const rust = readFileSync('src-tauri/src/entitlement.rs', 'utf8');
+
+  /**
+   * The named function's body, from its signature to the start of the next one.
+   *
+   * A fixed-length window was tried and it read straight past the closing brace
+   * into the function after it, so `handovers_per_week` picked up the arm
+   * belonging to `history_days` and the counting test failed for a reason that
+   * had nothing to do with the plans.
+   */
+  const bodyOf = (fn: string): string => {
+    const from = rust.indexOf(`pub fn ${fn}(`);
+    if (from === -1) throw new Error(`${fn} is gone from entitlement.rs — has it been renamed?`);
+    const next = rust.indexOf('pub fn ', from + 1);
+    return rust.slice(from, next === -1 ? undefined : next);
+  };
+
+  /** Pull `Plan::Free => Some(N)` out of the named function's match arm. */
+  const freeLimit = (fn: string): number => {
+    const match = /Plan::Free\s*=>\s*Some\((\d+)\)/.exec(bodyOf(fn));
+    if (!match) throw new Error(`no Plan::Free arm found in ${fn} — has it been renamed?`);
+    return Number(match[1]);
+  };
+
+  test('handovers a week is the same number in both', () => {
+    expect(entitlementsFor('free').handoffsPerWeek).toBe(freeLimit('handovers_per_week'));
+  });
+
+  test('how far search reaches back is the same number in both', () => {
+    expect(entitlementsFor('free').historyDays).toBe(freeLimit('history_days'));
+  });
+
+  test('the paid plans are unlimited on both sides', () => {
+    /*
+     * Rust says `_ => None` for everything that is not Free, so the guard here
+     * is that no second `Plan::X => Some(n)` arm has quietly appeared — which
+     * would be a cap the site is not telling anybody about.
+     */
+    for (const fn of ['handovers_per_week', 'history_days']) {
+      const caps = bodyOf(fn).match(/Plan::\w+\s*=>\s*Some\(/g) ?? [];
+      expect(caps).toHaveLength(1);
+    }
+    expect(isUnlimited(entitlementsFor('pro').handoffsPerWeek)).toBe(true);
+    expect(isUnlimited(entitlementsFor('duo').handoffsPerWeek)).toBe(true);
   });
 });
