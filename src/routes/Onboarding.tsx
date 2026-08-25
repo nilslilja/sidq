@@ -412,7 +412,8 @@ export default function Onboarding() {
           <Instruction title={current.title} subtitle={current.subtitle}>
             <ol className="max-w-[46ch] space-y-3 text-[0.9375rem] leading-relaxed text-white/55">
               {[
-                ['Open the conversation you want.', 'The specific one, not a new chat. Sidq only reads what is on the page.'],
+                ['Open the conversation you want.', 'The specific one, not a new chat.'],
+                ['If it is long, flick to the top once.', 'A browser only loads the most recent part of a conversation until you scroll. Sidq can only read what is loaded, and it picks up the rest within seconds of it appearing.'],
                 ['Stay on it for a few seconds.', 'That is all. Nothing to click, and it never asks you to sign in to anything.'],
                 ['Wait for the sound.', 'A notification names the conversation. You do not need to click it — it is only telling you.'],
                 ['Press ⌘⇧K and choose it.', 'The bar opens over whatever you are in. Narrow it by which AI it came from, then pick the conversation.'],

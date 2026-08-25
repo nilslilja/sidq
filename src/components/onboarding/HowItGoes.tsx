@@ -33,6 +33,10 @@ const BEATS = [
     body: 'Not a new one. The conversation you actually want to carry over, in whichever AI it lives in.',
   },
   {
+    title: 'Flick it to the top once',
+    body: 'A browser only loads the recent part of a long conversation. Scroll up and the rest loads, and Sidq reads it within seconds.',
+  },
+  {
     title: 'Leave it there a few seconds',
     body: 'Sidq reads it from the window while you look at it. Nothing to click, nothing to sign into.',
   },

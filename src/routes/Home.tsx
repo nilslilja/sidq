@@ -1580,8 +1580,9 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
         * happen to have a file already.
         */}
       <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
-        Only worth it if you already downloaded one, since they take a day or two to
-        arrive. It brings in everything you did before installing Sidq. Claude and ChatGPT
+        This is the one route that needs no scrolling: an export holds every conversation
+        in full, however old, whether or not you ever open it again. Worth requesting now
+        even though it takes a day or two to arrive. Claude and ChatGPT
         both call it <code className="text-[#3A3547]">conversations.json</code>; Google
         Takeout calls it <code className="text-[#3A3547]">MyActivity.json</code>. Sidq works
         out which is which.
