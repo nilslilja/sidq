@@ -29,7 +29,7 @@ export function Shell({
   onBack?: () => void;
 }) {
   return (
-    <div className="grid min-h-[100dvh] grid-cols-1 grid-rows-[auto_1fr] bg-[#0B0B10] text-white">
+    <div className="grid h-[100dvh] grid-cols-1 grid-rows-[auto_1fr] overflow-hidden bg-[#0B0B10] text-white">
       {/*
        * The rail.
        *
@@ -39,7 +39,7 @@ export function Shell({
        */}
       {phase && <PhaseRail current={phase} progress={progress} />}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,42%)_1fr]">
+      <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,42%)_1fr]">
       {/* ── Instruction ─────────────────────────────────────────────────── */}
       {/*
        * Back sits in the layout, not on top of it.
@@ -49,7 +49,24 @@ export function Shell({
        * step happened to be. On the taller ones it ended up directly against
        * the heading. A row of its own cannot collide with anything.
        */}
-      <div className="grid grid-rows-[auto_1fr] px-10 py-10 lg:px-14">
+      {/*
+        * ── The instruction column scrolls, the window does not ──────────────
+        *
+        * The whole thing was min-height, so a step with more to say simply made
+        * the document taller and pushed its own action off the bottom. The
+        * onboarding window is a fixed 1040 by 720, so on the reading step the
+        * Continue button sat at 828 in a 720 window with nothing on screen
+        * suggesting there was anywhere to scroll to.
+        *
+        * That was true before anything was added to that step. It is the kind
+        * of fault that is invisible on a large display and total on a small
+        * one, which is the wrong way round for a first run.
+        *
+        * `min-h-0` is what lets a grid child be shorter than its content and
+        * therefore scroll at all. Without it the row keeps sizing to the
+        * content and the overflow never engages.
+        */}
+      <div className="grid min-h-0 grid-rows-[auto_1fr] overflow-y-auto px-10 py-10 lg:px-14">
         <div className="mx-auto flex h-9 w-full max-w-[24rem] items-center">
           {onBack && (
             <button

@@ -603,11 +603,9 @@ export default function Onboarding() {
                   As you open them
                 </p>
                 <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
-                  ChatGPT, Gemini, Claude.ai, Grok and DeepSeek live in a browser, and a
-                  browser keeps nothing readable on your Mac. So Sidq reads the conversation
-                  you have open. Look at one for about ten seconds and it is yours from then
-                  on &mdash; searchable, and ready to hand to another AI. You never open it
-                  twice.
+                  ChatGPT, Gemini, Claude.ai, Grok and DeepSeek keep nothing readable on your
+                  Mac, so Sidq reads the conversation you have open. Ten seconds and it is
+                  yours.
                 </p>
                 {/*
                   * The one limit of reading a page rather than a file, said
@@ -620,11 +618,40 @@ export default function Onboarding() {
                   * few seconds, which means scrolling is genuinely the fix
                   * rather than an apology for a limitation.
                   */}
-                <p className="mt-3 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/40">
-                  For a long one, scroll to the top once. A browser only loads the recent part
-                  of a conversation until you do, and Sidq can only read what is loaded. It
-                  picks up the rest within seconds of it appearing.
-                </p>
+                {/*
+                  * ── Three depths, not one limitation ──────────────────────
+                  *
+                  * A browser loads the recent part of a long conversation and
+                  * fetches the rest on scroll, so Sidq reads what is loaded.
+                  * Written as an apology that reads as a product that only
+                  * half works; written as three levels it reads as what it is,
+                  * which is a choice about how much effort you feel like.
+                  *
+                  * The floor matters more than the ceiling here. Even the
+                  * option that asks nothing at all is every word of the recent
+                  * part, which is already more than "summarise this in detail"
+                  * can give: a summary is the model's account of what happened,
+                  * and every one of these is the thing that actually happened.
+                  */}
+                <div className="mt-4 space-y-2.5 border-t border-white/[0.08] pt-4">
+                  <p className="text-[0.75rem] uppercase tracking-[0.16em] text-white/35">
+                    How much of it you get
+                  </p>
+                  {[
+                    ['Do nothing', 'every word the page has open'],
+                    ['Scroll to the top once', 'the whole conversation, however long'],
+                    ['Drop in an export', 'everything you have ever said to that AI'],
+                  ].map(([head, tail]) => (
+                    <p key={head} className="max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/45">
+                      <span className="text-white/85">{head}</span> &mdash; {tail}
+                    </p>
+                  ))}
+                  <p className="max-w-[46ch] pt-1 text-[0.8125rem] leading-relaxed text-white/40">
+                    Even the first one is the conversation itself. Asking an AI to summarise a
+                    chat gives you its account of what happened. These give the next one what
+                    happened.
+                  </p>
+                </div>
               </div>
             </div>
 
