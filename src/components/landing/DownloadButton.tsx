@@ -69,7 +69,7 @@ export function DownloadButton({
   if (!artifact && info.platform === 'phone') {
     return (
       <a
-        href="#download-heading"
+        href="#waitlist-email"
         className={cn(
           'inline-flex items-center justify-center gap-2.5 rounded-full',
           'bg-[#4F46E5] font-medium text-white',

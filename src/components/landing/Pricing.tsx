@@ -77,7 +77,7 @@ function PlanCta({ plan }: { plan: Plan }) {
        * Windows and Linux keep the dead label below, because for them the
        * build genuinely does not exist yet.
        */
-      <a href="#download-heading" className={className}>
+      <a href="#waitlist-email" className={className}>
         {info.label}
       </a>
     ) : (

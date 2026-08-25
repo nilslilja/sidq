@@ -125,6 +125,23 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
       <div className="mt-3 flex gap-2">
         <input
           id="waitlist-email"
+          /*
+           * ── Where the CTA actually lands ────────────────────────────────
+           *
+           * "Send me the link" pointed at the section heading, and measured on
+           * a 812 point screen that put this field at y=810 — one point of it
+           * visible, below the fold, after a button that promised to do the
+           * thing. The margin scrolls it to somewhere with the sentence
+           * explaining it still on screen above.
+           */
+          ref={(el) => {
+            if (!el) return;
+            // Arriving by the anchor means they pressed a button that said it
+            // would take their email, so the keyboard opens ready for it.
+            if (window.location.hash === '#waitlist-email') {
+              requestAnimationFrame(() => el.focus({ preventScroll: true }));
+            }
+          }}
           type="email"
           required
           value={email}
@@ -132,7 +149,7 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
           placeholder="you@work.com"
           autoComplete="email"
           className={cn(
-            'min-h-11 min-w-0 flex-1 rounded-full border border-ink/15 bg-transparent px-4',
+            'min-h-11 min-w-0 flex-1 scroll-mt-32 rounded-full border border-ink/15 bg-transparent px-4',
             'text-[0.875rem] placeholder:text-ink/30',
             'focus:border-accent focus:outline-none',
           )}
