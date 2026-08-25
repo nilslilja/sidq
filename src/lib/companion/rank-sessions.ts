@@ -133,29 +133,58 @@ function recencyWeight(endedAt: number, now: number): number {
   return RECENCY_FLOOR + (1 - RECENCY_FLOOR) * decay;
 }
 
-/** The strongest reason this session ranks where it does, for the picker. */
+/**
+ * When you stopped, said the way a person would.
+ *
+ * Today and yesterday by name, the rest of the last week by weekday, anything
+ * older by date. Nobody counts back six days from "144h ago".
+ */
+function whenItStopped(endedAt: number, now: number): string {
+  const day = 86_400_000;
+  const startOfToday = new Date(now).setHours(0, 0, 0, 0);
+  const daysBack = Math.floor((startOfToday - new Date(endedAt).setHours(0, 0, 0, 0)) / day);
+
+  if (daysBack <= 0) {
+    const hoursAgo = Math.round((now - endedAt) / 3_600_000);
+    return hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`;
+  }
+  if (daysBack === 1) return 'yesterday';
+  if (daysBack < 7) return new Date(endedAt).toLocaleDateString(undefined, { weekday: 'long' });
+  return new Date(endedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+/**
+ * The line under a conversation's title.
+ *
+ * ── Why it leads with when ───────────────────────────────────────────────────
+ * It used to lead with whichever fact was biggest: a long session said "24h
+ * session on main", a busy one said "96 exchanges in Sidq". Neither says when,
+ * so four sessions on the same project all read identically:
+ *
+ *     Sidq PRD blueprint   24h session on main · Sidq
+ *     Sidq PRD blueprint    3h session on main · Sidq
+ *     Sidq PRD blueprint    9h session on main · Sidq
+ *
+ * Those are four different days of work and the only thing separating them on
+ * screen was a number of hours nobody remembers. In a picker called "pick up
+ * where you stopped", when you stopped is the one fact that cannot be left out.
+ *
+ * The branch is gone with it. It was "main" on every row it ever appeared on,
+ * which is a column of the same word pretending to be information.
+ */
 function reasonFor(session: WorkSession, now: number): string {
-  const { turns, activeMinutes, endedAt, branch, projectName } = session;
+  const { turns, activeMinutes, endedAt } = session;
+  const when = whenItStopped(endedAt, now);
 
   if ((activeMinutes ?? 0) >= 90) {
-    const hours = Math.round((activeMinutes ?? 0) / 60);
-    return `${hours}h session${branch ? ` on ${branch}` : ''}`;
+    return `${when} · ${Math.round((activeMinutes ?? 0) / 60)}h`;
   }
   if (typeof turns === 'number' && turns >= 10) {
-    return `${turns} exchanges${projectName ? ` in ${projectName}` : ''}`;
+    return `${when} · ${turns} exchanges`;
   }
-  if (branch) return `on ${branch}`;
-
-  /*
-   * Not the project name on its own.
-   *
-   * The row already prints it after this line as "· Sidq", so returning it here
-   * rendered a browser conversation as "in Claude · Claude". For a conversation
-   * with no branch and few turns, when it happened is the useful half anyway.
-   */
-  const hoursAgo = Math.round((now - endedAt) / 3_600_000);
-  return hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`;
+  return when;
 }
+
 
 /**
  * Rank sessions best-first.

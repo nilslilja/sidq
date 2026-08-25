@@ -127,11 +127,35 @@ describe('rankSessions', () => {
     expect(ranked[0].substance).toBeGreaterThan(0);
   });
 
-  test('explains its ranking in words', () => {
+  test('says when you stopped, before anything else', () => {
+    /*
+     * ── What this replaced ───────────────────────────────────────────────────
+     *
+     * The line used to lead with whichever fact was biggest and never said
+     * when, so four sessions on one project read identically on a real
+     * machine: "24h session on main · Sidq" four times over, differing only by
+     * a number of hours nobody remembers working.
+     *
+     * In a picker called "pick up where you stopped", when you stopped is the
+     * one thing that cannot be left out.
+     *
+     * The branch went with it. It was "main" on every row it appeared on,
+     * which is a column of the same word pretending to be information.
+     */
     const ranked = rankSessions([realWork(NOW - 2 * HOUR)], NOW);
 
-    expect(ranked[0].reason).toContain('8h session');
-    expect(ranked[0].reason).toContain('fix/retry-drops-second-event');
+    expect(ranked[0].reason.startsWith('2h ago')).toBe(true);
+    expect(ranked[0].reason).toContain('8h');
+    expect(ranked[0].reason).not.toContain('fix/retry-drops-second-event');
+  });
+
+  test('four sessions on one project are told apart by their day', () => {
+    // The real case, from a real index: one title, one project, four days.
+    const days = [0, 1, 3, 12].map((d) => realWork(NOW - d * 24 * HOUR - 2 * HOUR));
+    const reasons = rankSessions(days, NOW).map((r) => r.reason);
+
+    expect(new Set(reasons).size).toBe(4, 'every row has to be distinguishable');
+    expect(reasons.some((r) => r.startsWith('yesterday'))).toBe(true);
   });
 
   test('returns nothing for no sessions rather than throwing', () => {
