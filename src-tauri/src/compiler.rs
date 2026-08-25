@@ -278,6 +278,18 @@ words. Apply them here unless they say otherwise.\n\n",
      * "By the end they were on: X" followed immediately by "The last thing they
      * asked was: X" — which reads as a file padding itself.
      */
+    /*
+     * ── The title is not a question ──────────────────────────────────────────
+     *
+     * `resumePoint` fell back to the conversation's title when there was no
+     * last prompt, which is every browser conversation. So a real handover read
+     * "The last thing they asked was: Espresso Setup Recommendation" — a page
+     * heading, presented to the next model as a question the person had asked.
+     *
+     * The pill now sends nothing rather than the title, and the arc above
+     * already carries where the conversation actually got to. An absent line
+     * beats a confidently wrong one.
+     */
     let resume = brief.resume_point.trim();
     let already = !resume.is_empty()
         && arc.contains(&resume.chars().take(60).collect::<String>());
@@ -537,10 +549,25 @@ it was too long to carry whole. What follows is everything after them.\n\n"
  * The framing is established at the top. This only has to survive the distance.
  */
 fn closing(brief: &Brief) -> String {
-    let mut out = String::from(
+    /*
+     * ── It cannot claim to be the whole of it if the header says otherwise ───
+     *
+     * The top of a screen-read handover says it holds what was loaded and may
+     * begin mid-thought. The bottom said "That was the whole of it." Both in
+     * the same file, and the bottom is the half a model weights most.
+     *
+     * Seen on a real one: three exchanges captured off a page, opening with a
+     * header admitting it might be partial and closing by insisting it was
+     * complete.
+     */
+    let mut out = String::from(if read_from_a_screen(brief.source) {
+        "That is as much as was on the page. Carry on from where it stops \
+rather than summarising it back — they were there for all of it, including \
+whatever came before this."
+    } else {
         "That was the whole of it. Carry on from where it stops rather than \
-summarising it back — they were there for all of it.",
-    );
+summarising it back — they were there for all of it."
+    });
 
     if !brief.resume_point.trim().is_empty() {
         out.push_str("\n\nPick up from: ");

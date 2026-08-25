@@ -353,7 +353,7 @@ export function Pill() {
         source: target.session.source ?? 'claude-code',
         // Where it stopped. The last prompt is sharper than the title: an
         // unanswered question is a better starting instruction than a topic.
-        resumePoint: target.session.lastPrompt || target.session.title || '',
+        resumePoint: target.session.lastPrompt || '',
         when: target.reason,
         project: target.session.projectName ?? '',
       });
@@ -401,7 +401,7 @@ export function Pill() {
         ? await bridge?.handoverText({
             sessionId: id,
             source: target.session.source ?? 'claude-code',
-            resumePoint: target.session.lastPrompt || target.session.title || '',
+            resumePoint: target.session.lastPrompt || '',
             when: target.reason,
             project: target.session.projectName ?? '',
           })

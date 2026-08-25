@@ -298,7 +298,7 @@ pub struct Node {
  * puts two stray words in a transcript. Anything cleverer risks the questions.
  */
 fn is_interface_label(text: &str) -> bool {
-    const LABELS: [&str; 10] = [
+    const LABELS: [&str; 12] = [
         // Gemini's caption above each of your turns.
         "You said",
         "Du sa",
@@ -311,8 +311,13 @@ fn is_interface_label(text: &str) -> bool {
         // The disclaimer under the composer.
         "Gemini can make mistakes",
         "Gemini kan göra misstag",
-        // ChatGPT's equivalents.
+        // ChatGPT's equivalents. Both the bare form and the one it actually
+        // renders, because an exact match on the wrong half catches nothing:
+        // the footer on a live page reads "ChatGPT can make mistakes. Check
+        // important info." and it went straight into a handover.
         "ChatGPT can make mistakes",
+        "ChatGPT can make mistakes. Check important info.",
+        "Gemini can make mistakes, so double-check it",
         "Ask anything",
     ];
 

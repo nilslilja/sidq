@@ -335,6 +335,22 @@ fn content_words(sentence: &str) -> Vec<String> {
  * Words so common that they appear in half of everything are skipped, or the
  * list collapses into one enormous group named after whatever you say most.
  */
+/**
+ * Are these two the same instruction, rather than two that share a word?
+ *
+ * Half the shorter sentence's distinctive words, which is enough to hold
+ * "never use em dashes in the copy" and "stop putting em dashes everywhere in
+ * the copy" together, and nowhere near enough to hold two unrelated sentences
+ * that both happen to begin "make sure".
+ */
+fn says_the_same_thing(chosen: &[String], other: &[String]) -> bool {
+    if chosen.is_empty() || other.is_empty() {
+        return false;
+    }
+    let shared = other.iter().filter(|w| chosen.contains(w)).count();
+    shared * 2 >= chosen.len().min(other.len())
+}
+
 fn group_key(words: &[String], frequency: &HashMap<String, usize>, generic_above: usize) -> Option<String> {
     words
         .iter()
@@ -391,13 +407,33 @@ pub fn build(turns: &[(String, String)], limit: usize) -> Vec<Fact> {
     // key -> (best phrasing, its content-word count, conversations it appeared in)
     let mut groups: HashMap<String, (String, usize, Vec<String>)> = HashMap::new();
 
+    /*
+     * ── Every member of a group, so the count can be earned ──────────────────
+     *
+     * `group_key` is a single word: the most distinctive one in the sentence.
+     * That is loose on purpose, so "never use em dashes" and "stop putting em
+     * dashes everywhere" are recognised as one rule rather than two.
+     *
+     * It is far too loose to count on. On a real index, "make sure ..."
+     * sentences appear across four different projects and all group on one
+     * shared word, so the group counted four, cleared the threshold meant to
+     * keep project tasks out, and the handover then printed one specific
+     * sentence from one of them. Instructions about launching this program
+     * arrived attached to a conversation about espresso machines, under a
+     * heading promising they were standing preferences.
+     *
+     * So the members are kept, and the count is taken only over the ones that
+     * actually resemble the sentence being printed.
+     */
+    let mut members: HashMap<String, Vec<(String, Vec<String>, String)>> = HashMap::new();
+
     for (session_id, sentence, words) in found {
         let Some(key) = group_key(&words, &frequency, generic_above) else {
             continue;
         };
 
         let entry = groups
-            .entry(key)
+            .entry(key.clone())
             .or_insert_with(|| (sentence.clone(), words.len(), Vec::new()));
 
         /*
@@ -417,13 +453,37 @@ pub fn build(turns: &[(String, String)], limit: usize) -> Vec<Fact> {
         if !entry.2.contains(session_id) {
             entry.2.push(session_id.clone());
         }
+
+        members
+            .entry(key)
+            .or_default()
+            .push((sentence.clone(), words.clone(), session_id.clone()));
     }
 
     let mut facts: Vec<Fact> = groups
-        .into_values()
-        .map(|(text, _, sessions)| Fact {
-            text,
-            conversations: sessions.len(),
+        .into_iter()
+        .map(|(key, (text, _, sessions))| {
+            let chosen = content_words(&text);
+            let scopes: Vec<&String> = members
+                .get(&key)
+                .map(|all| {
+                    all.iter()
+                        .filter(|(_, words, _)| says_the_same_thing(&chosen, words))
+                        .map(|(_, _, scope)| scope)
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let mut distinct: Vec<&String> = scopes;
+            distinct.sort();
+            distinct.dedup();
+
+            Fact {
+                text,
+                // Falls back to the group only if the representative somehow
+                // matched nothing, which would mean it did not match itself.
+                conversations: if distinct.is_empty() { sessions.len() } else { distinct.len() },
+            }
         })
         .collect();
 
@@ -509,6 +569,34 @@ mod tests {
         assert_eq!(facts.len(), 1);
         assert_eq!(facts[0].text, "never use em dashes in anything you write");
         assert_eq!(facts[0].conversations, 1);
+    }
+
+    #[test]
+    fn two_project_tasks_that_share_a_word_are_not_a_standing_rule() {
+        /*
+         * Taken from a real handover. `group_key` is a single word, so these
+         * grouped together, the group counted two projects, it cleared the
+         * threshold meant to keep project tasks out, and one of them was
+         * printed into a conversation about espresso machines under a heading
+         * promising it was a standing preference.
+         *
+         * They share "make" and "sure" and nothing else that matters.
+         */
+        let facts = build(
+            &turns(&[
+                ("sidq", "make sure the pricing on the site matches the program"),
+                ("other", "make sure the export file opens in a text editor"),
+            ]),
+            10,
+        );
+
+        for fact in &facts {
+            assert_eq!(
+                fact.conversations, 1,
+                "counted as repeated across projects: {}",
+                fact.text
+            );
+        }
     }
 
     #[test]

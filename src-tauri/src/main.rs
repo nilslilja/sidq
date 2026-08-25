@@ -372,14 +372,40 @@ fn build_handover(
             compiler::Target::for_source(source),
         )),
         None => {
-            // Cursor and browser-captured conversations have no per-block file,
-            // so they are compiled from the flat transcript instead. Smaller
-            // handover, same framing.
-            let transcript = transcript_of(session_id)?;
-            let turns = vec![capture::Turn {
-                role: capture::Role::You,
-                blocks: vec![capture::Block::Said(transcript)],
-            }];
+            /*
+             * ── Browser conversations kept their turns ───────────────────────
+             *
+             * This used to flatten the whole conversation into one string and
+             * hand it over as a single turn attributed to the person, with the
+             * speaker labels left inside it as text. Everything downstream then
+             * read wrong: the summary quoted "You:\nthen it sucks" as the
+             * opening line, the count said one exchange for six, and every
+             * reply was filed as something they had said.
+             *
+             * Measured on a real handover made from a live ChatGPT
+             * conversation. It is the path most people will use, and it was
+             * materially worse than the one for editors.
+             */
+            let conn = index_store::open()?;
+            let stored = index_store::session_turns(&conn, session_id);
+
+            let turns: Vec<capture::Turn> = if stored.is_empty() {
+                // Cursor and anything else with neither a per-block file nor
+                // rows in the index. One turn is still better than nothing.
+                vec![capture::Turn {
+                    role: capture::Role::You,
+                    blocks: vec![capture::Block::Said(transcript_of(session_id)?)],
+                }]
+            } else {
+                stored
+                    .into_iter()
+                    .map(|(who, body)| capture::Turn {
+                        role: if who == "You" { capture::Role::You } else { capture::Role::Assistant },
+                        blocks: vec![capture::Block::Said(body)],
+                    })
+                    .collect()
+            };
+
             Some(compiler::compile(
                 &turns,
                 &brief,

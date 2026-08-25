@@ -444,6 +444,34 @@ pub fn session_transcript(conn: &Connection, session_id: &str) -> Option<String>
     (!turns.is_empty()).then(|| turns.join("\n\n"))
 }
 
+/**
+ * The same conversation, still in turns.
+ *
+ * `session_transcript` flattens it to one string with "You:" and "Assistant:"
+ * written in as text, which is right for search and wrong for a handover: the
+ * compiler was handed that string as a single turn attributed to the person, so
+ * a browser conversation arrived as one enormous thing they had said, with the
+ * speaker labels sitting inside it as content.
+ *
+ * Everything downstream then read wrong. The summary quoted "You:\nthen it
+ * sucks" as the opening line, the count said one exchange for a conversation
+ * with six, and the whole reply side was filed as the person.
+ *
+ * `rowid` is insertion order, which is reading order: `put_messages` writes a
+ * conversation front to back in one pass.
+ */
+pub fn session_turns(conn: &Connection, session_id: &str) -> Vec<(String, String)> {
+    let Ok(mut stmt) = conn
+        .prepare("SELECT role, body FROM messages WHERE session_id = ?1 ORDER BY rowid")
+    else {
+        return Vec::new();
+    };
+
+    stmt.query_map([session_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
 /// Has this transcript already been indexed in exactly this state?
 pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> bool {
     conn.query_row(
