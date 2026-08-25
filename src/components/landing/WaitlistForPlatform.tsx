@@ -22,15 +22,26 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
   const [email, setEmail] = useState('');
   const [state, setState] = useState<State>('asking');
 
-  // Mac visitors have a button; there is nothing to wait for.
+  // Mac visitors have a working button; there is nothing to wait for.
   if (platform.startsWith('macos')) return null;
 
   const name = platform === 'windows' ? 'Windows' : platform === 'linux' ? 'Linux' : 'your machine';
 
+  /*
+   * A phone is waiting for nothing. Sidq exists, on a machine they very likely
+   * already own — it is simply not the one they are reading this on. So the
+   * ask is different in kind: not "tell me when it is ready" but "send me the
+   * link so I can do this at my desk", which is the whole conversion path for
+   * anybody arriving from a post.
+   */
+  const onAPhone = platform === 'phone';
+
   if (state === 'done') {
     return (
       <p className="mt-6 border-t border-ink/10 pt-5 text-[0.875rem] leading-relaxed ink-muted">
-        Noted. You get one email, the day the {name} build exists, and nothing else.
+        {onAPhone
+          ? 'Sent. Open it on your Mac and you are about a minute from having it.'
+          : `Noted. You get one email, the day the ${name} build exists, and nothing else.`}
       </p>
     );
   }
@@ -46,24 +57,70 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
         }
 
         setState('saving');
-        void supabase
-          .from('waitlist')
-          .insert({ email: email.trim().toLowerCase(), platform: platform === 'linux' ? 'linux' : platform === 'windows' ? 'windows' : 'unknown' })
-          .then(({ error }) => {
-            /*
-             * A duplicate is a success from where the person is standing.
-             *
-             * They asked to be told, they are on the list, and the fact that
-             * they were already on it is our bookkeeping, not their problem.
-             */
-            setState(!error || error.code === '23505' ? 'done' : 'failed');
-          });
+
+        /*
+         * ── Written twice on purpose ─────────────────────────────────────────
+         *
+         * `waitlist.platform` has a check constraint listing the values that
+         * existed when the table was made: windows, linux, unknown. Sending
+         * 'phone' before that constraint is widened fails the insert, and the
+         * only thing anybody would see is the form saying it did not work — on
+         * mobile, which is the surface this whole change exists for.
+         *
+         * So the better value is tried first and the safe one is the fallback.
+         * `23514` is a check violation and `42501` covers a policy refusing the
+         * row; either means the column will not take 'phone' yet. Once the
+         * migration in `0009_waitlist_phone.sql` is applied the first attempt
+         * simply succeeds and this never runs.
+         *
+         * The alternative was shipping the code and the migration together and
+         * remembering to apply one before the other. That is a coordination
+         * step, and a coordination step that fails silently on the busiest page
+         * is not worth the tidiness.
+         */
+        const record = (as: string) =>
+          supabase.from('waitlist').insert({ email: email.trim().toLowerCase(), platform: as });
+
+        const wanted =
+          platform === 'linux'
+            ? 'linux'
+            : platform === 'windows'
+              ? 'windows'
+              : platform === 'phone'
+                ? 'phone'
+                : 'unknown';
+
+        void record(wanted).then(async ({ error }) => {
+          // A duplicate is somebody pressing twice, which is impatience rather
+          // than a failure, so it counts as done.
+          if (!error || error.code === '23505') {
+            setState('done');
+            return;
+          }
+
+          if (wanted === 'phone' && (error.code === '23514' || error.code === '42501')) {
+            const { error: second } = await record('unknown');
+            setState(!second || second.code === '23505' ? 'done' : 'failed');
+            return;
+          }
+
+          setState('failed');
+        });
       }}
       className="mt-6 border-t border-ink/10 pt-5"
     >
       <label htmlFor="waitlist-email" className="block text-[0.875rem] leading-relaxed">
-        Sidq is a Mac app today. The {name} build does not exist yet, and it will not be
-        announced until it does.
+        {onAPhone ? (
+          <>
+            You are on a phone, and Sidq is a Mac app. Leave your email and the link is
+            waiting for you at your desk.
+          </>
+        ) : (
+          <>
+            Sidq is a Mac app today. The {name} build does not exist yet, and it will not be
+            announced until it does.
+          </>
+        )}
       </label>
       <div className="mt-3 flex gap-2">
         <input

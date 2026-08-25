@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/cn';
 import { WhatThisMeans } from '@/components/landing/WhatThisMeans';
 import { Hero } from '@/components/landing/Hero';
 import { Reveal } from '@/components/landing/Reveal';
@@ -36,7 +37,12 @@ export function Landing() {
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
           <Link
             to="/"
-            className="font-display text-[1.375rem] leading-none tracking-[-0.05em] text-white"
+            className={cn(
+              // The wordmark is a link home and was 22 points tall. Padded on
+              // touch only; the type itself does not move.
+              'inline-flex min-h-11 items-center sm:min-h-0',
+              'font-display text-[1.375rem] leading-none tracking-[-0.05em] text-white',
+            )}
           >
             Sidq
           </Link>
@@ -56,7 +62,12 @@ export function Landing() {
             </a>
             <Link
               to="/signin"
-              className="text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70"
+              className={cn(
+                // The only header link a phone can reach, and it was 21 points
+                // tall. Padded rather than resized, so the type stays put.
+                'inline-flex min-h-11 items-center px-1 text-[0.875rem] sm:min-h-0 sm:px-0',
+                'text-white/75 transition-opacity duration-150 hover:opacity-70',
+              )}
             >
               Sign in
             </Link>

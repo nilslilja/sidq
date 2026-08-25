@@ -49,6 +49,41 @@ export function DownloadButton({
    * instead sold a different, worse product to anyone not on a Mac, and left
    * them on a page that could not do the thing they had just read about.
    */
+  /*
+   * ── A phone gets something it can press ──────────────────────────────────
+   *
+   * Every platform without a build rendered the same dead, greyed-out pill
+   * reading "Mac only for now" — a `span`, so not even focusable. On a phone
+   * that is the worst thing on the site: a link is mostly opened on a phone,
+   * so somebody reads the whole page, agrees with it, reaches for the only
+   * button, and nothing happens. There was no next step at all.
+   *
+   * They are not an unsupported user. They almost certainly own a Mac; it is
+   * simply not the thing in their hand. So the button stays live and takes
+   * them to the one useful action, which is having the link sent to them.
+   *
+   * Windows and Linux keep the honest dead end, because for them the build
+   * genuinely does not exist yet — and the same section holds their waiting
+   * list underneath.
+   */
+  if (!artifact && info.platform === 'phone') {
+    return (
+      <a
+        href="#download-heading"
+        className={cn(
+          'inline-flex items-center justify-center gap-2.5 rounded-full',
+          'bg-[#4F46E5] font-medium text-white',
+          'transition-transform duration-150 active:scale-[0.98]',
+          size === 'lg' ? 'min-h-[3.75rem] px-9 text-[1.0625rem]' : 'min-h-11 px-5 text-[0.875rem]',
+          className,
+        )}
+      >
+        <Apple className={size === 'lg' ? 'size-5' : 'size-4'} />
+        {info.label}
+      </a>
+    );
+  }
+
   if (!artifact) {
     return (
       <span

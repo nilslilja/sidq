@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { DownloadButton } from './DownloadButton';
+import { cn } from '@/lib/cn';
+import { DownloadButton, usePlatform } from './DownloadButton';
 
 /*
  * Footer.
@@ -23,7 +24,12 @@ const COLUMNS = [
   {
     heading: 'Product',
     links: [
-      { label: 'Download for Mac', to: '/downloading' },
+      /*
+       * Labelled for the machine you are on. "Download for Mac" is an
+       * instruction a phone cannot follow, and it is the only word in this
+       * footer that changes — a desktop reads exactly what it always did.
+       */
+      { label: null, to: '/downloading' },
       { label: 'Pricing', to: '/#pricing' },
     ],
   },
@@ -44,6 +50,7 @@ const COLUMNS = [
 ];
 
 export function SiteFooter() {
+  const onAPhone = usePlatform().platform === 'phone';
   return (
     <footer className="relative overflow-hidden border-t border-ink/10">
       {/* The same dawn light as the hero, inverted and faint, so the page closes
@@ -92,12 +99,19 @@ export function SiteFooter() {
               <h3 className="text-[0.875rem] font-medium">{column.heading}</h3>
               <ul className="mt-4 space-y-2.5">
                 {column.links.map((link) => (
-                  <li key={link.label}>
+                  <li key={link.label ?? (onAPhone ? 'Get Sidq' : 'Download for Mac')}>
                     <Link
                       to={link.to}
-                      className="inline-flex min-h-9 items-center text-[0.875rem] ink-muted transition-colors duration-150 hover:text-accent"
+                      className={cn(
+                        // 44 points is Apple's minimum, and a footer link at 36
+                        // is the sort of thing you only notice by missing it
+                        // twice on a phone. Widened on touch alone: on a mouse
+                        // the extra height is dead space between rows.
+                        'inline-flex min-h-11 items-center text-[0.875rem] sm:min-h-9',
+                        'ink-muted transition-colors duration-150 hover:text-accent',
+                      )}
                     >
-                      {link.label}
+                      {link.label ?? (onAPhone ? 'Get Sidq' : 'Download for Mac')}
                     </Link>
                   </li>
                 ))}

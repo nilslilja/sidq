@@ -6,7 +6,7 @@
  * button removes the decision entirely.
  */
 
-export type Platform = 'macos-arm' | 'macos-intel' | 'windows' | 'linux' | 'unknown';
+export type Platform = 'macos-arm' | 'macos-intel' | 'windows' | 'linux' | 'phone' | 'unknown';
 
 export interface PlatformInfo {
   platform: Platform;
@@ -39,8 +39,22 @@ export function detectPlatform(): PlatformInfo {
 
   // Touch devices are not a download target. iPadOS lies and claims to be a Mac,
   // so the touch-point check has to come first or every iPad is offered a .dmg.
+  /*
+   * ── A phone is not "an unsupported machine" ──────────────────────────────
+   *
+   * Both used to answer `unknown`, which put "Mac only for now" in front of
+   * somebody on a phone as a dead, greyed-out pill. That is the single worst
+   * thing on this site, because a phone is where most people arrive from a
+   * link: they read the whole page, agree with it, and the only thing to press
+   * does nothing.
+   *
+   * The distinction matters because the answer differs. Somebody on Linux is
+   * waiting for a build that does not exist. Somebody on a phone already owns
+   * the right machine — it is just not the one in their hand — so there is
+   * something useful to do, which is send them the link.
+   */
   const isTouchMac = /Mac/.test(ua) && navigator.maxTouchPoints > 1;
-  if (isTouchMac || /iPhone|iPad|iPod|Android/i.test(ua)) return describe('unknown');
+  if (isTouchMac || /iPhone|iPad|iPod|Android/i.test(ua)) return describe('phone');
 
   if (platformHint.includes('win') || /Windows|Win64|Win32/i.test(ua)) return describe('windows');
   if (platformHint.includes('mac') || /Macintosh|Mac OS X/i.test(ua)) {
@@ -92,6 +106,13 @@ function describe(platform: Platform): PlatformInfo {
       return { platform, label: 'Download for Windows', detail: 'Windows 10 and 11', supported: true };
     case 'linux':
       return { platform, label: 'Download for Linux', detail: 'AppImage · x86_64', supported: true };
+    case 'phone':
+      return {
+        platform,
+        label: 'Send me the link',
+        detail: 'Sidq is a Mac app. Get the link on the machine you use it on.',
+        supported: false,
+      };
     default:
       return {
         platform,

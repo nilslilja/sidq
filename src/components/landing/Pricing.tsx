@@ -70,9 +70,20 @@ function PlanCta({ plan }: { plan: Plan }) {
       <a href={artifact.url} download={artifact.filename} className={className}>
         {info.label}
       </a>
+    ) : info.platform === 'phone' ? (
+      /*
+       * A phone owns the right machine, it is just not the one in their hand,
+       * so this stays a live control that goes where the link can be sent.
+       * Windows and Linux keep the dead label below, because for them the
+       * build genuinely does not exist yet.
+       */
+      <a href="#download-heading" className={className}>
+        {info.label}
+      </a>
     ) : (
-      // Mac only. No browser fallback to send people to, so the button states
-      // the platform instead of promising a product that does not exist.
+      // No build for this platform and no browser fallback to send people to,
+      // so the button states that instead of promising something that is not
+      // there.
       <span className={className}>Mac only for now</span>
     );
   }

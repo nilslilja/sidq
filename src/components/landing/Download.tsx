@@ -88,8 +88,20 @@ export function Download() {
               Desktop · v{RELEASE_VERSION}
             </div>
 
+            {/*
+              * ── Not /signin on a phone ─────────────────────────────────────
+              *
+              * Without a build this fell back to the sign-in page, which is the
+              * wrong end of the funnel: somebody who has not got the app yet
+              * has nothing to sign in to, and it reads as a paywall in front of
+              * a free product.
+              *
+              * On a phone the form directly beneath this button is the answer,
+              * so the button does nothing and gets out of the way rather than
+              * sending them somewhere worse.
+              */}
             <a
-              href={artifact?.url ?? '/signin'}
+              href={artifact?.url ?? (info.platform === 'phone' ? '#waitlist-email' : '/signin')}
               // Names the saved file. Without it people get Tauri's build name,
               // which has "aarch64" in it and reads as a mistake.
               download={artifact?.filename}
