@@ -155,11 +155,47 @@ fn call(conn: &Connection, function: &str, body: &str) -> Result<serde_json::Val
  * somebody, so it becomes a generic line instead.
  */
 fn server_message(body: &str) -> String {
-    serde_json::from_str::<serde_json::Value>(body)
+    let raw = serde_json::from_str::<serde_json::Value>(body)
         .ok()
         .and_then(|v| v.get("message")?.as_str().map(str::to_string))
-        .filter(|m| !m.is_empty() && m.len() < 200)
-        .unwrap_or_else(|| "Could not reach the server. Try again in a moment.".into())
+        .filter(|m| !m.is_empty() && m.len() < 200);
+
+    let Some(raw) = raw else {
+        return "Could not reach the server. Try again in a moment.".into();
+    };
+
+    /*
+     * ── Not every message from the server was written for a person ───────────
+     *
+     * Passing the server's sentence through is right for the ones this product
+     * wrote: "That code does not exist", "That is your own code". Those are
+     * finished sentences aimed at whoever typed a code in wrong, and replacing
+     * them with something generic throws away the only useful part.
+     *
+     * It is wrong for the ones PostgREST and the auth gateway write for
+     * developers. A panel reading "JWT expired" — which is what this actually
+     * showed — tells somebody nothing, blames them for nothing they did, and
+     * offers a Try again button that will fail exactly the same way, because
+     * the token does not renew by being asked for twice.
+     *
+     * The token is refreshed by the window, not by Rust, which holds no refresh
+     * token on purpose. So the honest thing to say is what will fix it.
+     */
+    if is_a_stale_session(&raw) {
+        return "Your sign-in needs refreshing. Give it a moment, or reopen Sidq.".into();
+    }
+
+    raw
+}
+
+/// Does this error mean the token lapsed, rather than anything the person did?
+///
+/// Matched on the words because there is no code to match on: the gateway
+/// answers `UNAUTHORIZED_ASYMMETRIC_JWT`, PostgREST answers `PGRST303`, and both
+/// put the useful part in prose.
+fn is_a_stale_session(message: &str) -> bool {
+    let m = message.to_lowercase();
+    m.contains("jwt") || m.contains("token is expired") || m.contains("unauthorized")
 }
 
 /// Your code and what it has earned.
@@ -249,6 +285,43 @@ mod tests {
         // is a sentence and neither belongs in front of a person.
         assert!(server_message("<html>502 Bad Gateway</html>").starts_with("Could not reach"));
         assert!(server_message("").starts_with("Could not reach"));
+    }
+
+    #[test]
+    fn a_lapsed_session_does_not_print_the_gateways_words_at_anybody() {
+        /*
+         * This panel showed "JWT expired" as its entire explanation, over a Try
+         * again button that would fail identically — a token is not renewed by
+         * being asked for twice.
+         *
+         * Rust cannot renew one; it holds no refresh token on purpose. The
+         * window does, in passing, whenever it reads the session. So the
+         * sentence says the thing that actually fixes it, and the panel now
+         * refreshes and retries before showing it at all.
+         */
+        for body in [
+            r#"{"message":"JWT expired"}"#,
+            r#"{"code":"PGRST303","message":"JWT expired"}"#,
+            r#"{"code":"UNAUTHORIZED_ASYMMETRIC_JWT","message":"Invalid JWT"}"#,
+        ] {
+            let out = server_message(body);
+            assert!(!out.contains("JWT"), "developer wording reached a person: {out}");
+            assert!(out.contains("sign-in needs refreshing"), "{out}");
+        }
+    }
+
+    #[test]
+    fn the_sentences_this_product_wrote_still_come_through() {
+        // The whole reason errors are passed through: these were written for
+        // whoever typed a code in wrong, and a generic line loses the point.
+        for message in [
+            "That code does not exist.",
+            "That is your own code.",
+            "You have already used an invite code.",
+        ] {
+            let body = format!(r#"{{"code":"P0001","message":"{message}"}}"#);
+            assert_eq!(server_message(&body), message);
+        }
     }
 
     #[test]

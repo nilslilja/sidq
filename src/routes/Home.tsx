@@ -579,6 +579,18 @@ function greeting(): string {
  */
 const SESSION_REFRESH_MS = 30 * 60 * 1000;
 
+/**
+ * Does this problem mean the sign-in lapsed, rather than anything being wrong?
+ *
+ * Rust already turns the server's developer-facing wording into a sentence, so
+ * this matches on that sentence. Kept in step with `is_a_stale_session` in
+ * `invites.rs`: if the two drift, the retry stops firing and the panel goes
+ * back to telling somebody to try again at something that cannot work.
+ */
+function isAStaleSession(problem: string): boolean {
+  return problem.includes('sign-in needs refreshing');
+}
+
 /* ── Panel headings ───────────────────────────────────────────────────────── */
 
 /**
@@ -969,7 +981,30 @@ function Invite({
       });
       return;
     }
-    void bridge.inviteSummary().then(setSummary);
+    /*
+     * ── Renew the session before asking, and again before giving up ──────────
+     *
+     * Rust calls Supabase with whatever token this window last handed it, and
+     * holds no refresh token of its own, deliberately. So a lapsed token is not
+     * something Rust can fix and not something the person did — but it surfaced
+     * here as the panel printing "JWT expired" over a Try again button that
+     * would fail in exactly the same way, because asking twice does not renew
+     * anything.
+     *
+     * `shareSessionWithDesktop` renews it in passing, since `getSession` does.
+     * Doing it before the call covers the common case; doing it again after an
+     * auth failure and retrying once covers the token that lapsed between the
+     * two. Anything still failing after that is a real problem and is shown.
+     */
+    void shareSessionWithDesktop()
+      .catch(() => {})
+      .then(() => bridge.inviteSummary())
+      .then(async (first) => {
+        if (!isAStaleSession(first.problem)) return first;
+        await shareSessionWithDesktop().catch(() => {});
+        return bridge.inviteSummary();
+      })
+      .then(setSummary);
   }, [bridge]);
 
   useEffect(load, [load, signedInAt]);
