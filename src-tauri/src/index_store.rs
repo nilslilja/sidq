@@ -482,6 +482,29 @@ pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> boo
     .is_ok()
 }
 
+/**
+ * How much of this conversation is already stored, in characters.
+ *
+ * Asked so a later read cannot make a conversation smaller. `put_messages`
+ * deletes and reinserts, so a sweep that catches a page holding less than the
+ * last one throws away the difference — and pages do hold less: these sites
+ * unload the top of a long conversation once you scroll away from it.
+ *
+ * Which made the one instruction worth giving useless. Scroll to the top, wait
+ * for Sidq to read the whole thing, scroll back down to carry on, and the next
+ * sweep quietly replaced it with the tail again. Seen on a real index: a
+ * handover made at twelve turns, and six left in the row afterwards.
+ */
+pub fn stored_length(conn: &Connection, session_id: &str) -> usize {
+    conn.query_row(
+        "SELECT COALESCE(SUM(LENGTH(body)), 0) FROM messages WHERE session_id = ?1",
+        [session_id],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|n| n.max(0) as usize)
+    .unwrap_or(0)
+}
+
 /// Metadata for one session, replacing any earlier version of it.
 #[allow(clippy::too_many_arguments)]
 pub fn put_session(

@@ -348,7 +348,24 @@ fn says_the_same_thing(chosen: &[String], other: &[String]) -> bool {
         return false;
     }
     let shared = other.iter().filter(|w| chosen.contains(w)).count();
-    shared * 2 >= chosen.len().min(other.len())
+
+    /*
+     * Measured against the sentence being printed, never against whichever of
+     * the two happens to be shorter.
+     *
+     * Against the shorter one, anything brief elsewhere in the group could
+     * vouch for a long sentence by sharing a couple of words, and on a real
+     * index that is what kept happening: instructions belonging to one project
+     * reached a handover about espresso machines because something short and
+     * unrelated had carried them over the line.
+     *
+     * Half of the printed sentence, and no absolute floor on top. Stopwords are
+     * stripped first, so real rules come down to very few words: "always run
+     * the tests before committing" is [committing, tests], and the same rule
+     * said again is [commit, tests]. They share one word out of two, which is
+     * everything they have in common and is the whole rule.
+     */
+    shared * 2 >= chosen.len()
 }
 
 fn group_key(words: &[String], frequency: &HashMap<String, usize>, generic_above: usize) -> Option<String> {

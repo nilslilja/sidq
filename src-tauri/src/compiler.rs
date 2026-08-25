@@ -365,10 +365,18 @@ fn arc_of(turns: &[Turn]) -> String {
         .filter_map(said)
         .collect();
 
+    /*
+     * An exchange is a question and a reply, so it is counted in questions.
+     *
+     * This counted turns and called them exchanges, which doubled it, and the
+     * header counted something else again: one real handover said "12
+     * exchanges" at the top, "6 exchanges" in the middle, and held three.
+     * Three numbers for one conversation, none of them right.
+     */
     let exchanges = format!(
         "{} exchange{}.",
-        turns.len(),
-        if turns.len() == 1 { "" } else { "s" }
+        mine.len(),
+        if mine.len() == 1 { "" } else { "s" }
     );
 
     match (mine.first(), mine.last()) {
@@ -788,7 +796,16 @@ mod tests {
         let out = compile(&travelled, &brief(), Target::Markdown);
         assert!(out.contains("It opened with: help me name the tiers"));
         assert!(out.contains("By the end they were on: the refund wording is wrong"));
-        assert!(out.contains("3 exchanges."));
+        /*
+         * Two, not three. The fixture is two questions and one reply, and an
+         * exchange is a question and a reply.
+         *
+         * This asserted three because the count was of turns wearing the word
+         * "exchanges". On a real handover that read "12 exchanges" in the
+         * header, "6 exchanges" in the middle, and held three: three numbers
+         * for one conversation, none of them right.
+         */
+        assert!(out.contains("2 exchanges."));
     }
 
     #[test]

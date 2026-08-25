@@ -180,7 +180,10 @@ function reasonFor(session: WorkSession, now: number): string {
     return `${when} · ${Math.round((activeMinutes ?? 0) / 60)}h`;
   }
   if (typeof turns === 'number' && turns >= 10) {
-    return `${when} · ${turns} exchanges`;
+    // Messages, not exchanges. An exchange is a question and a reply, and
+    // calling every message one doubled the number the handover then printed
+    // beside it.
+    return `${when} · ${turns} messages`;
   }
   return when;
 }

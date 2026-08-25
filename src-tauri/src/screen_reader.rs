@@ -963,6 +963,26 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
         if crate::index_store::is_current(conn, &session_id, &fingerprint) {
             continue;
         }
+
+        /*
+         * ── A conversation is never allowed to get smaller ───────────────────
+         *
+         * These sites unload the top of a long conversation once you scroll
+         * away from it, so a later sweep can genuinely see less than an earlier
+         * one. `put_messages` deletes and reinserts, so that read would throw
+         * the rest away.
+         *
+         * Which made the one thing worth telling people useless. Scroll to the
+         * top, wait for Sidq to take the whole thing, scroll back down to carry
+         * on reading, and the next sweep put the tail back. Seen on a real
+         * index: a handover made at twelve turns, six left in the row after.
+         *
+         * Growth still writes, so a conversation being added to is picked up as
+         * it always was. Only shrinking is refused.
+         */
+        if length < crate::index_store::stored_length(conn, &session_id) {
+            continue;
+        }
         if crate::index_store::put_messages(conn, &session_id, &turns, &fingerprint).is_some() {
             found.push(Found { source, title: clean, first_time });
         }
