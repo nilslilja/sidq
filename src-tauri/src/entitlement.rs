@@ -181,6 +181,26 @@ pub fn current(conn: &Connection) -> Plan {
                  * happened to look at the screen that shows them.
                  */
                 let _ = crate::invites::summary(conn);
+
+                /*
+                 * ── Mark the account as still in use ─────────────────────────
+                 *
+                 * The one measurement the app makes, and it sends nothing that
+                 * was not already implied by the call above: this token just
+                 * asked what plan it is on, so the server already knew somebody
+                 * was there. `seen()` writes today's date against the account
+                 * and returns nothing.
+                 *
+                 * Deliberately in here rather than on a timer of its own. This
+                 * runs at most every six hours, on a path that already exists,
+                 * so it costs no extra connection and cannot become a heartbeat
+                 * that reveals when somebody is at their desk.
+                 *
+                 * Ignored entirely if it fails. Nothing about the product
+                 * depends on it, and a person's handover must never wait on
+                 * bookkeeping.
+                 */
+                mark_seen(url, key, &token);
                 return plan;
             }
         }
@@ -194,6 +214,35 @@ pub fn current(conn: &Connection) -> Plan {
     index_store::setting(conn, "tier")
         .map(|t| Plan::from_tier(&t))
         .unwrap_or(Plan::Free)
+}
+
+/**
+ * Say the account is still in use. Best effort, and silent either way.
+ *
+ * `--max-time 4` because this is the least important request the app makes and
+ * must never be what a slow network makes somebody wait for.
+ */
+fn mark_seen(url: &str, key: &str, token: &str) {
+    let _ = Command::new("/usr/bin/curl")
+        .args([
+            "--silent",
+            "--output",
+            "/dev/null",
+            "--max-time",
+            "4",
+            "-X",
+            "POST",
+            &format!("{url}/rest/v1/rpc/seen"),
+            "-H",
+            &format!("apikey: {key}"),
+            "-H",
+            &format!("Authorization: Bearer {token}"),
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            "{}",
+        ])
+        .status();
 }
 
 /// The earliest `ended_at` search may return, from the plan rather than the page.

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Backdrop } from '@/routes/Backdrop';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Landing } from '@/routes/Landing';
@@ -106,6 +107,23 @@ export function App() {
 function Shell() {
   return (
     <>
+      {/*
+        * ── Counting visitors to the site, and only the site ─────────────────
+        *
+        * Inside `Shell`, which is the marketing routes and the legal pages.
+        * Not in `App`, or it would load inside the desktop windows too — and
+        * "no advertising or analytics trackers on the desktop app" is a
+        * sentence in the privacy policy that has to stay true.
+        *
+        * Vercel's own, so it is cookieless, needs no consent banner, and is
+        * one script from a host that is already serving the page.
+        *
+        * The reason it exists: without it a launch produces a download count
+        * and nothing else. Three people downloading out of two thousand
+        * visitors and three out of five are the same number and completely
+        * different problems, and they need opposite fixes.
+        */}
+      <Analytics />
       <Bloom />
       <div className="grain relative min-h-[100dvh]">
         <Routes>

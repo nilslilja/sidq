@@ -98,7 +98,10 @@ export function Privacy() {
       <P>
         If you create an account, we store your email address and your subscription
         status, because there is no way to sell you a subscription without knowing who
-        you are and what you bought. Payments are handled by Stripe and we never see or
+        you are and what you bought. We also store the date your copy last checked
+        which plan it is on &mdash; a date, not a time &mdash; so we can tell whether
+        people keep using Sidq after installing it. That check already happens; nothing
+        is sent for it that was not already being sent. Payments are handled by Stripe and we never see or
         store your card details. During setup we ask how you found Sidq and what you want
         it for; those two answers are kept on your own machine.
       </P>
