@@ -154,7 +154,8 @@ describe('rankSessions', () => {
     const days = [0, 1, 3, 12].map((d) => realWork(NOW - d * 24 * HOUR - 2 * HOUR));
     const reasons = rankSessions(days, NOW).map((r) => r.reason);
 
-    expect(new Set(reasons).size).toBe(4, 'every row has to be distinguishable');
+    // Every row has to be distinguishable, or the list is four of the same thing.
+    expect(new Set(reasons).size).toBe(4);
     expect(reasons.some((r) => r.startsWith('yesterday'))).toBe(true);
   });
 
