@@ -491,7 +491,9 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
         let role = if is_person(&node.classes) { "You" } else { "Assistant" };
         match turns.last_mut() {
             Some(last) if last.0 == role => {
-                last.1.push('\n');
+                if breaks_the_line(&last.1, &node.text) {
+                    last.1.push('\n');
+                }
                 last.1.push_str(&node.text);
             }
             _ => turns.push((role.to_string(), node.text.clone())),
@@ -536,6 +538,40 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
     }
 
     turns
+}
+
+/**
+ * Does a new line belong between these two pieces of text?
+ *
+ * ── Why anything is joined at all ────────────────────────────────────────────
+ * Every styled run is its own node in the accessibility tree, so a sentence
+ * with a bold phrase in the middle arrives as three. Joining all of them with a
+ * newline shattered ordinary prose across three lines each:
+ *
+ *     Bro for
+ *     2 flat whites a day + consistency + small kitchen
+ *     , I would not overcomplicate this.
+ *
+ * The receiving model reads that perfectly well, which is why it survived this
+ * long. A person opening the file sees a scrape.
+ *
+ * ── Why it is this cautious ──────────────────────────────────────────────────
+ * A newline is also carrying real structure: list items, prices, headings. Get
+ * it wrong in the other direction and a list becomes a paragraph, which is
+ * worse and harder to notice.
+ *
+ * So it only joins where the text says so outright. Something starting with a
+ * space or a comma was mid-sentence when it was split; something ending in a
+ * space or an open bracket was clearly about to continue. Everything else keeps
+ * its line.
+ */
+fn breaks_the_line(before: &str, after: &str) -> bool {
+    let continues = after.starts_with(|c: char| c.is_whitespace())
+        || after.starts_with([',', '.', ';', ':', '!', '?', ')', ']', '}', '”', '’', '»', '%'])
+        || before.ends_with(|c: char| c.is_whitespace())
+        || before.ends_with(['(', '[', '{', '“', '‘', '«']);
+
+    !continues
 }
 
 /// Is this block one the person typed, judged by the classes around it?
@@ -1500,6 +1536,73 @@ mod tests {
         assert_eq!(turns.len(), 2, "the brand line is furniture and goes");
         assert_eq!(turns[0].0, "You");
         assert!(is_substantial(&turns), "this is a conversation and must be kept");
+    }
+
+    #[test]
+    fn a_sentence_split_by_styling_is_put_back_together() {
+        /*
+         * Every styled run is its own node, so one sentence with a bold phrase
+         * in it arrives as three. Joined with newlines it read like a scrape:
+         *
+         *     Bro for
+         *     2 flat whites a day + consistency
+         *     , I would not overcomplicate this.
+         *
+         * Taken from a real handover. The receiving model coped, which is why
+         * it lasted this long; a person opening the file did not.
+         */
+        let turns = into_turns(
+            &[
+                node("Bro for ", "user-message"),
+                node("a question", "user-message"),
+                node("Bro for ", "font-claude-message"),
+                node("2 flat whites a day + consistency", "font-claude-message"),
+                node(", I would not overcomplicate this.", "font-claude-message"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(
+            turns[1].1,
+            "Bro for 2 flat whites a day + consistency, I would not overcomplicate this.",
+        );
+    }
+
+    #[test]
+    fn a_label_and_the_text_under_it_join_at_the_space() {
+        // "Bambino Plus:" then " compact, heats in ~3 seconds". The second
+        // piece carries the space, so the join is already written into it.
+        let turns = into_turns(
+            &[
+                node("a question", "user-message"),
+                node("Bambino Plus:", "font-claude-message"),
+                node(" compact, heats in ~3 seconds.", "font-claude-message"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(turns[1].1, "Bambino Plus: compact, heats in ~3 seconds.");
+    }
+
+    #[test]
+    fn a_list_keeps_its_lines() {
+        /*
+         * The other direction, and the one worth being cautious about. Prices
+         * and list items are separate nodes with no punctuation joining them,
+         * and running them together turns a list into a paragraph, which is
+         * worse than the problem and harder to spot.
+         */
+        let turns = into_turns(
+            &[
+                node("a question", "user-message"),
+                node("Sage Bambino Plus", "font-claude-message"),
+                node("5 899,00 kr", "font-claude-message"),
+                node("Baratza Encore ESP", "font-claude-message"),
+            ],
+            person_by_class,
+        );
+
+        assert_eq!(turns[1].1, "Sage Bambino Plus\n5 899,00 kr\nBaratza Encore ESP");
     }
 
     #[test]
