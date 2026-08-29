@@ -8,7 +8,7 @@ import {
   type Entitlements,
 } from './entitlements';
 import { FAQS } from '@/components/landing/Faq';
-import { PLANS, type PlanId } from './plans';
+import { PLANS, inheritedFeatures, type PlanId } from './plans';
 
 /*
  * These tests exist to stop the pricing page and the product disagreeing.
@@ -188,7 +188,7 @@ describe('pricing cards match the contract', () => {
      * check for itself.
      */
     const free = entitlementsFor('free');
-    const text = PLANS[0].features.join(' ');
+    const text = [...(PLANS[0].limits ?? []), ...PLANS[0].features].join(' ');
 
     expect(text).toContain(String(free.handoffsPerWeek));
 
@@ -297,5 +297,47 @@ describe('the site and the app agree about the free plan', () => {
     }
     expect(isUnlimited(entitlementsFor('pro').handoffsPerWeek)).toBe(true);
     expect(isUnlimited(entitlementsFor('duo').handoffsPerWeek)).toBe(true);
+  });
+});
+
+describe('the ladder reads as a ladder', () => {
+  /*
+   * Pro printed two bullets beside a free card printing five, so the row read
+   * downhill: more money, visibly less product. The cards now render what they
+   * carry up from below, which is true and was always true, and only ever
+   * looked like a longer list because nobody drew it.
+   */
+  test('every paid card ticks more than the one beneath it', () => {
+    /*
+     * Ticks, not lines. The free card's caps render with a dash and are not
+     * capabilities, so counting every rendered row put free level with Pro on
+     * five apiece — which is the exact impression the row is supposed to stop
+     * giving.
+     */
+    const ticks = (id: PlanId) =>
+      PLANS.find((p) => p.id === id)!.features.length + inheritedFeatures(id).length;
+
+    expect(ticks('pro')).toBeGreaterThan(ticks('free'));
+    expect(ticks('duo')).toBeGreaterThan(ticks('pro'));
+  });
+
+  /*
+   * The first attempt inherited the free card's caps, so Pro promised unlimited
+   * handovers and then, four lines below, "5 conversation handovers a week".
+   * A ceiling is the thing a paid tier removes; it must never travel upward.
+   */
+  test('no card inherits a limit that its own tier removes', () => {
+    for (const plan of PLANS) {
+      for (const carried of inheritedFeatures(plan.id)) {
+        expect(PLANS.flatMap((p) => p.limits ?? [])).not.toContain(carried);
+      }
+    }
+  });
+
+  test('a carried line is never also printed as the card its own', () => {
+    for (const plan of PLANS) {
+      const own = new Set(plan.features);
+      for (const carried of inheritedFeatures(plan.id)) expect(own.has(carried)).toBe(false);
+    }
   });
 });

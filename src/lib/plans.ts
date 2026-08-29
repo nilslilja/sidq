@@ -33,6 +33,16 @@ export interface Plan {
   inherits: string | null;
   features: string[];
   cta: string;
+  /**
+   * Lines that state a ceiling rather than a capability.
+   *
+   * They belong on the free card and nowhere above it: a paid tier exists
+   * precisely because it removes them. Kept apart from `features` so that
+   * `inheritedFeatures` cannot carry them upward, which it did the first time
+   * this was built and left Pro promising unlimited handovers directly above
+   * a line reading "5 conversation handovers a week".
+   */
+  limits?: readonly string[];
   featured?: boolean;
 }
 
@@ -47,20 +57,22 @@ export const PLANS: Plan[] = [
     promise: 'Enough to find out if it works.',
     inherits: null,
     cta: 'Download for Mac',
-    features: [
+    /*
+     * There is no "assistants connected" line any more.
+     *
+     * It promised `${free.sources} assistant connected`, and nothing in the
+     * app has ever enforced a source limit — entitlement.rs caps handovers
+     * and the history window, and that is all. A paid feature the code does
+     * not implement is a claim with a payment form attached.
+     *
+     * It also stopped describing anything real when the assistants moved
+     * inside Sidq: there is no connecting step left to limit.
+     */
+    limits: [
       `${free.handoffsPerWeek} conversation handovers a week`,
-      /*
-       * There is no "assistants connected" line any more.
-       *
-       * It promised `${free.sources} assistant connected`, and nothing in the
-       * app has ever enforced a source limit — entitlement.rs caps handovers
-       * and the history window, and that is all. A paid feature the code does
-       * not implement is a claim with a payment form attached.
-       *
-       * It also stopped describing anything real when the assistants moved
-       * inside Sidq: there is no connecting step left to limit.
-       */
       `Search back ${free.historyDays} days`,
+    ],
+    features: [
       'Every conversation already on your Mac, from day one',
       'Full transcripts, never summaries',
       'Nothing uploaded, ever',
@@ -111,12 +123,45 @@ export const PLANS: Plan[] = [
     promise: 'Two people, one bill.',
     inherits: 'Pro',
     cta: 'Subscribe',
+    /*
+     * The per-person price, said out loud.
+     *
+     * Two Pro seats are $39.98. Duo is $29.99 for the same two seats, so it is
+     * $15 a head against $19.99 — a real saving, printed rather than left for
+     * the reader to work out. That arithmetic is the entire argument for Duo
+     * and the card never made it.
+     *
+     * What this card must never say is that the two seats share anything. They
+     * do not. Each Mac keeps its own index and nothing crosses between them,
+     * which is the direct consequence of nothing leaving the Mac at all. People
+     * hear "Duo" and assume a shared team memory; the words here have to leave
+     * them no room to.
+     */
     features: [
-      'A second seat, with everything in Pro',
+      '$15 a person, against $19.99 each',
+      'A second Mac, with the same everything on it',
       'One bill, one subscription to cancel',
     ],
   },
 ];
+
+/**
+ * Everything a plan carries up from the tiers beneath it.
+ *
+ * The cards printed one small line — "Everything in Starter, plus" — above two
+ * bullets, while Starter itself printed five with ticks beside them. Read the
+ * row left to right and Pro looked like less product for more money. A founder
+ * who had sold his company spotted it within a minute of being shown the page,
+ * and he was right: the tiers are cumulative and the page was rendering them as
+ * though they competed.
+ *
+ * So render the carried lines too, muted, under the new ones. This adds no
+ * claim to any card. It stops the page hiding the claims it already had.
+ */
+export function inheritedFeatures(id: PlanId): readonly string[] {
+  const index = PLANS.findIndex((p) => p.id === id);
+  return index <= 0 ? [] : PLANS.slice(0, index).flatMap((p) => p.features);
+}
 
 export const PRO = PLANS[1];
 

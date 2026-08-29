@@ -202,10 +202,12 @@ describe('the sources offered', () => {
     expect(found[0].id).toBe('chatgpt');
   });
 
-  test('names are shortened enough to sit in the picker', () => {
+  test('the editors are named after the one people look for', () => {
     // The full label is "Cursor, Windsurf, VS Code", which is right on a
-    // settings panel and far too long for a 560 point filter.
-    expect(sourcesIn([ranked({ source: 'cursor' })])[0].label).toBe('Editors');
+    // settings panel and far too long for a 560 point filter. The short form
+    // was "Editors" until someone read the picker, did not see Cursor, and
+    // concluded we had dropped it.
+    expect(sourcesIn([ranked({ source: 'cursor' })])[0].label).toBe('Cursor');
   });
 
   test('an empty list offers nothing rather than a row of zeroes', () => {

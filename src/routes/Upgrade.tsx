@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { startCheckout, type BillingInterval } from '@/lib/billing';
 import { getAccessToken } from '@/lib/supabase';
-import { PLANS, type Plan, type PlanId } from '@/lib/plans';
+import { PLANS, inheritedFeatures, type Plan, type PlanId } from '@/lib/plans';
 import { cn } from '@/lib/cn';
 
 type PaidPlanId = Exclude<PlanId, 'free'>;
@@ -152,11 +152,8 @@ function PlanCard({
 
       <p className="mt-2 text-sm text-muted">{plan.promise}</p>
 
-      {plan.inherits && (
-        <p className="mt-5 text-sm">Everything in {plan.inherits}, plus</p>
-      )}
-
-      <ul className={cn('space-y-2.5', plan.inherits ? 'mt-3' : 'mt-5')}>
+      {/* New lines bright, carried lines muted below. See Pricing.tsx. */}
+      <ul className="mt-5 space-y-2.5">
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-3 text-[0.9375rem] leading-snug">
             <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent" />
@@ -164,6 +161,38 @@ function PlanCard({
           </li>
         ))}
       </ul>
+
+      {plan.inherits && (
+        <>
+          <p className="mt-5 text-xs font-medium text-muted">Everything in {plan.inherits}</p>
+          <ul className="mt-3 space-y-2.5">
+            {inheritedFeatures(plan.id).map((feature) => (
+              <li
+                key={feature}
+                className="flex items-start gap-3 text-[0.9375rem] leading-snug text-muted"
+              >
+                <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent/50" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/* Caps marked as caps, not ticked like benefits. See Pricing.tsx. */}
+      {plan.limits && (
+        <ul className="mt-5 space-y-2.5">
+          {plan.limits.map((limit) => (
+            <li
+              key={limit}
+              className="flex items-start gap-3 text-[0.9375rem] leading-snug text-muted"
+            >
+              <Minus aria-hidden="true" className="mt-0.5 size-4 shrink-0 opacity-50" />
+              {limit}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <Button
         className="mt-6 w-full"

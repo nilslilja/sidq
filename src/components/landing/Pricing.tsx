@@ -1,6 +1,6 @@
-import { Check } from 'lucide-react';
+import { Check, Minus } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { PLANS, type Plan } from '@/lib/plans';
+import { PLANS, inheritedFeatures, type Plan } from '@/lib/plans';
 import { usePlatform } from './DownloadButton';
 import { artifactFor } from '@/lib/releases';
 import { cn } from '@/lib/cn';
@@ -138,11 +138,13 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       <hr className={cn('mt-5', plan.featured ? 'border-paper/15' : 'border-ink/12')} />
 
-      {plan.inherits && (
-        <p className="mt-5 text-[0.875rem] font-medium">Everything in {plan.inherits}, plus</p>
-      )}
-
-      <ul className={cn('space-y-2.5', plan.inherits ? 'mt-3' : 'mt-5')}>
+      {/*
+        The new lines first and bright, because they are the reason to move up
+        a tier. The carried ones underneath and muted, because a card that
+        prints two bullets next to a free card printing five reads as a
+        downgrade however true both cards are.
+      */}
+      <ul className="mt-5 space-y-2.5">
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5 text-[0.9375rem] leading-snug">
             <Check
@@ -153,6 +155,60 @@ function PlanCard({ plan }: { plan: Plan }) {
           </li>
         ))}
       </ul>
+
+      {plan.inherits && (
+        <>
+          <p
+            className={cn(
+              'mt-5 text-[0.8125rem] font-medium',
+              plan.featured ? 'text-paper/60' : 'ink-muted',
+            )}
+          >
+            Everything in {plan.inherits}
+          </p>
+          <ul className="mt-3 space-y-2.5">
+            {inheritedFeatures(plan.id).map((feature) => (
+              <li
+                key={feature}
+                className={cn(
+                  'flex items-start gap-2.5 text-[0.9375rem] leading-snug',
+                  plan.featured ? 'text-paper/70' : 'ink-muted',
+                )}
+              >
+                <Check
+                  aria-hidden="true"
+                  className={cn(
+                    'mt-0.5 size-4 shrink-0',
+                    plan.featured ? 'text-paper/50' : 'text-accent/50',
+                  )}
+                />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {/*
+        A ceiling is not a benefit, and a green tick beside "5 handovers a
+        week" told people it was. The free card carried five ticks that way and
+        out-ticked Pro, which has two real differences and cannot honestly be
+        padded to beat it. Marking the caps as caps fixes the comparison
+        without adding a word to any card.
+      */}
+      {plan.limits && (
+        <ul className="mt-5 space-y-2.5">
+          {plan.limits.map((limit) => (
+            <li
+              key={limit}
+              className="ink-muted flex items-start gap-2.5 text-[0.9375rem] leading-snug"
+            >
+              <Minus aria-hidden="true" className="mt-0.5 size-4 shrink-0 opacity-50" />
+              <span>{limit}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

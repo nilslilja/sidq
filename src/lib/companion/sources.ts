@@ -39,11 +39,15 @@ export const SOURCES: readonly Source[] = [
  * Short enough to sit in a 560 point picker.
  *
  * `Cursor, Windsurf, VS Code` is honest on a settings panel with room to
- * explain and far too long for a filter chip, so the editors get one word
- * there. Only ids whose full label does not fit appear here.
+ * explain and far too long for a filter chip. The short form used to be
+ * `Editors`, which was tidy and cost us a user: someone looked down the picker
+ * for Cursor, found a category name instead of the product they use, and told
+ * us to our face that Sidq had dropped Cursor support. Name the chip after the
+ * thing people go looking for. Windsurf and VS Code sessions still land here,
+ * and the Sources panel still spells all three out.
  */
 const SHORT: Record<string, string> = {
-  cursor: 'Editors',
+  cursor: 'Cursor',
   'claude.ai': 'Claude',
 };
 
