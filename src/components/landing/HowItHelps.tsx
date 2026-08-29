@@ -1,8 +1,9 @@
-import { PillPreview } from './PillPreview';
-import { cn } from '@/lib/cn';
+import { PillPreview } from "./PillPreview";
+import { cn } from "@/lib/cn";
+import { HowReadingWorks } from "@/components/onboarding/HowReadingWorks";
 
 /*
- * How it helps, in two panels.
+ * How it helps, in three panels.
  *
  * Two cards, one filled and one glass, each with a live product fragment rather
  * than a description of one. The structure is the one every good product site in
@@ -33,16 +34,19 @@ export function HowItHelps() {
           {/* /85, not /70. Measured at 3.93:1 on this indigo at /70, which fails
               AA for body text. /85 clears it without flattening the hierarchy. */}
           <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed text-white/85">
-            Not the last thing you typed, which is usually a passing question. The
-            conversations you actually put hours into, ranked, waiting.
+            Not the last thing you typed, which is usually a passing question.
+            The conversations you actually put hours into, ranked, waiting.
           </p>
 
           <div className="mt-9">
             <PillPreview
               rows={[
-                { title: 'Pricing page copy', meta: '5h session · Sidq' },
-                { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
-                { title: 'Refund policy wording', meta: '40m · Sidq' },
+                { title: "Pricing page copy", meta: "5h session · Sidq" },
+                {
+                  title: "Onboarding email sequence",
+                  meta: "95 exchanges · Verdict",
+                },
+                { title: "Refund policy wording", meta: "40m · Sidq" },
               ]}
               className="w-full"
             />
@@ -56,14 +60,14 @@ export function HowItHelps() {
           </h3>
           <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed ink-muted">
             The whole conversation, word for word, into whichever AI you are in
-            now. Not a summary. It arrives knowing what you already decided and what you
-            already threw out.
+            now. Not a summary. It arrives knowing what you already decided and
+            what you already threw out.
           </p>
 
           <div className="mt-9">
             <PillPreview
               query="pricing"
-              rows={[{ title: 'Pricing page copy', meta: '5h session · Sidq' }]}
+              rows={[{ title: "Pricing page copy", meta: "5h session · Sidq" }]}
               selected={0}
               status="1,402 messages"
               footer="Copied. Paste it anywhere."
@@ -71,19 +75,60 @@ export function HowItHelps() {
             />
           </div>
         </Panel>
+
+        {/*
+         * ── Where all of it came from ────────────────────────────────────
+         *
+         * The two panels above show the product working and skip the question
+         * everybody asks about thirty seconds later: how is there anything in
+         * it yet, I only just installed it. The FAQ answered that in a
+         * hundred and seventy-five words, which is the wrong place and the
+         * wrong length for the thing that decides whether the download is
+         * worth it.
+         *
+         * Same component the setup screen uses, on the light surface. The
+         * scroll rule in particular is not a limitation to bury: it is the
+         * only place a person has any control over how far back this reaches,
+         * and it is far more convincing drawn than described.
+         */}
+        <Panel className="lg:col-span-2">
+          <div className="grid gap-10 lg:grid-cols-[1fr_28rem] lg:items-center">
+            <div>
+              <h3 className="text-[clamp(1.375rem,2.4vw,1.75rem)] leading-snug tracking-[-0.02em]">
+                And it is <Pill>already full</Pill>
+              </h3>
+              <p className="mt-4 max-w-[38ch] text-[0.9375rem] leading-relaxed ink-muted">
+                Nothing has to build up first. Sidq reads what is already on
+                your Mac, so a conversation from two months ago is there the
+                first time you open it.
+              </p>
+            </div>
+
+            <HowReadingWorks read={0} surface="light" />
+          </div>
+        </Panel>
       </div>
     </section>
   );
 }
 
-function Panel({ children, filled }: { children: React.ReactNode; filled?: boolean }) {
+function Panel({
+  children,
+  filled,
+  className,
+}: {
+  children: React.ReactNode;
+  filled?: boolean;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-[22px] p-8 lg:p-10',
+        "overflow-hidden rounded-[22px] p-8 lg:p-10",
         filled
-          ? 'bg-[linear-gradient(165deg,#B8A6FF_0%,#4F46E5_55%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.22)_inset,0_36px_80px_-30px_rgba(79,70,229,0.5)]'
-          : 'glass',
+          ? "bg-[linear-gradient(165deg,#B8A6FF_0%,#4F46E5_55%,#4338CA_100%)] shadow-[0_1px_0_0_rgba(255,255,255,0.22)_inset,0_36px_80px_-30px_rgba(79,70,229,0.5)]"
+          : "glass",
+        className,
       )}
     >
       {children}
@@ -92,12 +137,18 @@ function Panel({ children, filled }: { children: React.ReactNode; filled?: boole
 }
 
 /** The inline highlight on the verb. One per panel, on the word doing the work. */
-function Pill({ children, filled }: { children: React.ReactNode; filled?: boolean }) {
+function Pill({
+  children,
+  filled,
+}: {
+  children: React.ReactNode;
+  filled?: boolean;
+}) {
   return (
     <span
       className={cn(
-        'mx-0.5 inline-block rounded-full px-3 py-0.5 align-baseline',
-        filled ? 'bg-white/20 text-white' : 'bg-accent/10 text-accent',
+        "mx-0.5 inline-block rounded-full px-3 py-0.5 align-baseline",
+        filled ? "bg-white/20 text-white" : "bg-accent/10 text-accent",
       )}
     >
       {children}

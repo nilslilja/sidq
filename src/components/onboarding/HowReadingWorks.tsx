@@ -1,11 +1,11 @@
 /*
  * The one thing about Sidq that surprises people, shown instead of explained.
  *
- * This screen used to be about two hundred and fifty words: two bordered cards,
- * a three-row list and two closing paragraphs, all of it correct and none of it
- * read. People at a demo said the same thing twice — too technical, and stop
- * telling me what happens, show me — and they were right. Everything here is a
- * fact the old prose stated; the prose is now a caption under a picture of it.
+ * The setup screen for this used to be about two hundred and fifty words: two
+ * bordered cards, a three-row list and two closing paragraphs, all of it correct
+ * and none of it read. People at a demo said the same thing twice — too
+ * technical, and stop telling me what happens, show me — and they were right.
+ * Everything here is a fact that prose stated; the prose is now a caption.
  *
  * Two lanes, because the entire confusion is that people assume there is one.
  * The editors on this Mac are already done. The browsers are read while you
@@ -13,31 +13,85 @@
  * see it: the further up you scroll, the further back it reaches.
  *
  * Motion is transform and opacity only, and stops completely under
- * prefers-reduced-motion, where the scroll lane simply renders at full reach.
+ * prefers-reduced-motion, where the reach lane simply renders at full extent.
+ *
+ * It takes a surface because it is used twice: on the dark setup panel, and on
+ * the light marketing page, where the same confusion costs a download rather
+ * than a support message.
  */
 import { cn } from "@/lib/cn";
+
+export type Surface = "dark" | "light";
 
 /** Rows in the conversation mock. The tail is what you get for doing nothing. */
 const MESSAGE_ROWS = 7;
 /** How many of those are lit before the reach animation runs. */
 const ROWS_ALREADY_READ = 2;
 
+/*
+ * The two palettes, named once.
+ *
+ * Threading `surface === "dark" ? … : …` through a dozen className calls is how
+ * a component ends up with one of its variants quietly half-styled.
+ */
+const TONE = {
+  dark: {
+    card: "border-white/[0.10] bg-white/[0.03]",
+    eyebrow: "text-white/40",
+    caption: "text-white/55",
+    strong: "text-white",
+    chip: "border-[#B8A6FF]/30 bg-[#B8A6FF]/[0.10] text-white/80",
+    tick: "text-[#B8A6FF]",
+    stage: "border-white/[0.08] bg-black/20",
+    said: "bg-[#B8A6FF]/45",
+    reply: "bg-white/25",
+    frame: "border-[#B8A6FF]/55 bg-[#B8A6FF]/[0.07]",
+    note: "text-white/45",
+  },
+  light: {
+    card: "border-ink/10 bg-ink/[0.02]",
+    eyebrow: "ink-muted",
+    caption: "ink-muted",
+    strong: "text-ink",
+    chip: "border-accent/25 bg-accent/[0.07] text-ink/75",
+    tick: "text-accent",
+    stage: "border-ink/10 bg-ink/[0.03]",
+    said: "bg-accent/50",
+    reply: "bg-ink/20",
+    frame: "border-accent/50 bg-accent/[0.06]",
+    note: "ink-muted",
+  },
+} as const;
+
 function Lane({
   eyebrow,
   caption,
+  surface,
   children,
 }: {
   eyebrow: string;
   caption: React.ReactNode;
+  surface: Surface;
   children: React.ReactNode;
 }) {
+  const t = TONE[surface];
   return (
-    <div className="rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
-      <p className="text-[0.6875rem] uppercase tracking-[0.18em] text-white/40">
+    <div className={cn("rounded-[12px] border p-4", t.card)}>
+      <p
+        className={cn(
+          "text-[0.6875rem] uppercase tracking-[0.18em]",
+          t.eyebrow,
+        )}
+      >
         {eyebrow}
       </p>
       <div className="mt-3">{children}</div>
-      <p className="mt-3 max-w-[42ch] text-[0.8125rem] leading-relaxed text-white/55">
+      <p
+        className={cn(
+          "mt-3 max-w-[42ch] text-[0.8125rem] leading-relaxed",
+          t.caption,
+        )}
+      >
         {caption}
       </p>
     </div>
@@ -45,21 +99,24 @@ function Lane({
 }
 
 /** The editors, already on disk. A settled row: no motion, nothing pending. */
-function AlreadyHere({ read }: { read: number }) {
+function AlreadyHere({ read, surface }: { read: number; surface: Surface }) {
+  const t = TONE[surface];
   return (
     <Lane
+      surface={surface}
       eyebrow="Already here"
       caption={
         read > 0 ? (
           <>
             Claude Code, Cursor and Cowork keep their conversations on this Mac.
-            Sidq has read <span className="text-white">all {read}</span> of them
+            Sidq has read <span className={t.strong}>all {read}</span> of them
             already.
           </>
         ) : (
           <>
             Claude Code, Cursor and Cowork keep their conversations on this Mac.
-            Sidq reads them with nothing to set up.
+            Sidq reads them with nothing to set up, going back long before you
+            installed it.
           </>
         )
       }
@@ -69,8 +126,8 @@ function AlreadyHere({ read }: { read: number }) {
           <span
             key={label}
             className={cn(
-              "rounded-[7px] border border-[#B8A6FF]/30 bg-[#B8A6FF]/[0.10] px-2 py-1",
-              "text-[0.6875rem] text-white/80",
+              "rounded-[7px] border px-2 py-1 text-[0.6875rem]",
+              t.chip,
             )}
           >
             {label}
@@ -78,7 +135,7 @@ function AlreadyHere({ read }: { read: number }) {
         ))}
         <span
           aria-hidden="true"
-          className="ml-0.5 text-[0.75rem] text-[#B8A6FF]"
+          className={cn("ml-0.5 text-[0.75rem]", t.tick)}
         >
           &#10003;
         </span>
@@ -95,9 +152,11 @@ function AlreadyHere({ read }: { read: number }) {
  * column, lighting rows as it passes. That is the whole scroll rule, and it is
  * a sentence nobody finishes reading and a picture nobody needs explained.
  */
-function AsYouOpenThem() {
+function AsYouOpenThem({ surface }: { surface: Surface }) {
+  const t = TONE[surface];
   return (
     <Lane
+      surface={surface}
       eyebrow="As you open them"
       caption={
         <>
@@ -107,7 +166,12 @@ function AsYouOpenThem() {
         </>
       }
     >
-      <div className="relative flex h-[96px] items-end overflow-hidden rounded-[9px] border border-white/[0.08] bg-black/20 px-3 py-2.5">
+      <div
+        className={cn(
+          "relative flex h-[96px] items-end overflow-hidden rounded-[9px] border px-3 py-2.5",
+          t.stage,
+        )}
+      >
         {/* The conversation. Oldest at the top, which is where scrolling goes. */}
         <div className="flex flex-1 flex-col-reverse justify-start gap-[4px]">
           {Array.from({ length: MESSAGE_ROWS }, (_, i) => (
@@ -116,9 +180,7 @@ function AsYouOpenThem() {
               aria-hidden="true"
               className={cn(
                 "h-[7px] rounded-full",
-                i % 2
-                  ? "w-[58%] self-end bg-[#B8A6FF]/45"
-                  : "w-[76%] bg-white/25",
+                i % 2 ? cn("w-[58%] self-end", t.said) : cn("w-[76%]", t.reply),
                 // Rows above the tail brighten in turn as the frame climbs past.
                 i >= ROWS_ALREADY_READ && "reach-row",
               )}
@@ -134,19 +196,36 @@ function AsYouOpenThem() {
         {/* What the page has loaded, climbing. */}
         <span
           aria-hidden="true"
-          className="reach-frame pointer-events-none absolute inset-x-[7px] bottom-[8px] h-[26px] rounded-[6px] border border-[#B8A6FF]/55 bg-[#B8A6FF]/[0.07]"
+          className={cn(
+            "reach-frame pointer-events-none absolute inset-x-[7px] bottom-[8px] h-[26px]",
+            "rounded-[6px] border",
+            t.frame,
+          )}
         />
       </div>
     </Lane>
   );
 }
 
-export function HowReadingWorks({ read }: { read: number }) {
+export function HowReadingWorks({
+  read,
+  surface = "dark",
+  className,
+}: {
+  read: number;
+  surface?: Surface;
+  className?: string;
+}) {
   return (
-    <div className="space-y-3">
-      <AlreadyHere read={read} />
-      <AsYouOpenThem />
-      <p className="max-w-[44ch] text-[0.8125rem] leading-relaxed text-white/45">
+    <div className={cn("space-y-3", className)}>
+      <AlreadyHere read={read} surface={surface} />
+      <AsYouOpenThem surface={surface} />
+      <p
+        className={cn(
+          "max-w-[44ch] text-[0.8125rem] leading-relaxed",
+          TONE[surface].note,
+        )}
+      >
         So the browser chats you had before today are not in Sidq yet. They
         arrive as you go back to them.
       </p>
