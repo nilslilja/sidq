@@ -53,7 +53,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const bridge = useMemo(desktopBridge, []);
 
-  const [step, setStep] = useState<StepId>("welcome");
+  const [step, setStep] = useState<StepId>("signin");
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [shortcutStuck, setShortcutStuck] = useState(false);
@@ -235,35 +235,6 @@ export default function Onboarding() {
 
   function renderLeft() {
     switch (step) {
-      case "welcome":
-        return (
-          <Instruction
-            title={
-              <>
-                Welcome to
-                <br />
-                Sidq
-              </>
-            }
-            subtitle={current.subtitle}
-            footer={
-              <p className="text-[0.75rem] leading-relaxed text-white/30">
-                By continuing you agree to the Terms and the Privacy Policy.
-                Nothing about what is on your screen ever leaves this machine.
-              </p>
-            }
-          >
-            {/* The same attribution as the site, on the first screen anyone
-                sees inside the app. Left, because everything around it is:
-                centred, it sat a few pixels off the heading's edge and read as
-                a misalignment rather than a choice. */}
-            <div className="mb-7">
-              <PoweredByClaude className="items-start" />
-            </div>
-            <PrimaryAction label="Continue" onClick={advance} />
-          </Instruction>
-        );
-
       case "discover":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
@@ -282,9 +253,27 @@ export default function Onboarding() {
           </Instruction>
         );
 
+      /*
+       * The welcome screen used to come first and did nothing but say hello:
+       * a title, the pitch, and a Continue that revealed this one. Its pitch is
+       * this screen's title now, and its attribution and terms line sit around
+       * the button they were always about.
+       */
       case "signin":
         return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
+          <Instruction
+            title={current.title}
+            subtitle={current.subtitle}
+            footer={
+              <p className="text-[0.75rem] leading-relaxed text-white/30">
+                By continuing you agree to the Terms and the Privacy Policy.
+                Nothing about what is on your screen ever leaves this machine.
+              </p>
+            }
+          >
+            <div className="mb-7">
+              <PoweredByClaude className="items-start" />
+            </div>
             <PrimaryAction
               label={signingIn ? "Waiting for the browser" : "Sign in"}
               waiting={signingIn}
@@ -323,10 +312,21 @@ export default function Onboarding() {
           </Instruction>
         );
 
+      /*
+       * The permission and the picture of what it buys, on one screen.
+       *
+       * "How Sidq reads your AIs" was the step after this one, explaining what
+       * this one had just asked for — the explanation arriving after the
+       * decision it was meant to inform. See HowReadingWorks for why it is a
+       * picture rather than the two hundred and fifty words it used to be.
+       */
       case "sources":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <ConnectModels found={claudeSessions} onContinue={advance} />
+            <div className="mt-8">
+              <HowReadingWorks read={claudeSessions} />
+            </div>
           </Instruction>
         );
 
@@ -392,61 +392,6 @@ export default function Onboarding() {
                   Skip for now
                 </button>
               )}
-            </div>
-          </Instruction>
-        );
-
-      case "walkthrough":
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <ol className="max-w-[46ch] space-y-3 text-[0.9375rem] leading-relaxed text-white/55">
-              {[
-                [
-                  "Open the conversation you want.",
-                  "The specific one, not a new chat.",
-                ],
-                [
-                  "If it is long, flick to the top once.",
-                  "A browser only loads the most recent part of a conversation until you scroll. Sidq can only read what is loaded, and it picks up the rest within seconds of it appearing.",
-                ],
-                [
-                  "Stay on it for a few seconds.",
-                  "That is all. Nothing to click, and it never asks you to sign in to anything.",
-                ],
-                [
-                  "Wait for the sound.",
-                  "A notification names the conversation. You do not need to click it — it is only telling you.",
-                ],
-                [
-                  "Press ⌘⇧K and choose it.",
-                  "The bar opens over whatever you are in. Narrow it by which AI it came from, then pick the conversation.",
-                ],
-                [
-                  "Drop the file into another AI.",
-                  "It is in your Downloads as one Markdown file. Attach it, and that AI carries on where you stopped.",
-                ],
-              ].map(([head, tail], i) => (
-                <li key={head} className="flex gap-3">
-                  <span className="mt-px shrink-0 text-[0.8125rem] tabular-nums text-white/25">
-                    {i + 1}
-                  </span>
-                  <span>
-                    <span className="text-white">{head}</span>{" "}
-                    <span className="text-white/45">{tail}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-
-            <div className="mt-8">
-              <PrimaryAction
-                label={
-                  current.gate.kind === "button"
-                    ? current.gate.label
-                    : "Continue"
-                }
-                onClick={advance}
-              />
             </div>
           </Instruction>
         );
@@ -593,20 +538,6 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      /*
-       * Shown, not explained. See HowReadingWorks for why this stopped being
-       * two hundred and fifty words of correct prose that nobody read.
-       */
-      case "reading":
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <HowReadingWorks read={claudeSessions} />
-            <div className="mt-7">
-              <PrimaryAction label="Got it" onClick={advance} />
-            </div>
-          </Instruction>
-        );
-
       default:
         return null;
     }
@@ -619,10 +550,15 @@ export default function Onboarding() {
       case "sources":
         return <ConnectModelsPreview found={claudeSessions} />;
 
-      // The one step whose subject is not a single screen. It crosses an
-      // assistant, a bar over everything, and a file — so it is played rather
-      // than described, and the description sits beside it.
-      case "walkthrough":
+      /*
+       * The whole loop, played beside the first handover rather than recapped
+       * after it.
+       *
+       * It was its own step at the end: a diagram of five things somebody had
+       * just done one at a time. Here it runs while they do the one that joins
+       * them up, which is the moment it actually explains something.
+       */
+      case "handover":
         return <HowItGoes />;
 
       /*

@@ -55,7 +55,9 @@ function Page({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[76rem] px-6 py-16 lg:py-24">{children}</main>
+      <main className="mx-auto max-w-[76rem] px-6 py-16 lg:py-24">
+        {children}
+      </main>
       <SiteFooter />
     </div>
   );

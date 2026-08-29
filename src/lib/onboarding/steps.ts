@@ -53,15 +53,12 @@ export const PHASES = ["Get started", "Connect", "Learn", "Start"] as const;
 export type Phase = (typeof PHASES)[number];
 
 export type StepId =
-  | "welcome"
   | "signin"
   | "sources"
-  | "reading"
   | "pill"
   | "handover"
   | "notifications"
   | "browse"
-  | "walkthrough"
   | "discover";
 
 /** How a step is allowed to advance. */
@@ -86,30 +83,32 @@ export interface Step {
 
 export const STEPS: Step[] = [
   {
-    id: "welcome",
-    phase: "Get started",
-    title: "Welcome to Sidq",
     /*
-     * The pitch, because this is the first sentence anyone reads inside the
-     * product and the one they are most likely to repeat to somebody else.
-     * It is the same line that sits over the download button on the site, so
-     * the sentence that got them here is the sentence that greets them.
+     * The welcome screen is folded in here.
+     *
+     * It was a title, the pitch, and a Continue button that did nothing except
+     * reveal the sign-in screen — a whole step spent saying hello. The pitch is
+     * still the first sentence anybody reads inside the product; it is just
+     * sitting above the thing they came to do rather than a click before it.
      */
-    subtitle: "Stop introducing yourself to robots. This takes about a minute.",
-    gate: { kind: "button", label: "Continue" },
-  },
-  {
     id: "signin",
     phase: "Get started",
-    title: "Sign in to keep your history",
-    subtitle: "Opens in your browser, then comes straight back here.",
+    title: "Stop introducing yourself to robots",
+    subtitle:
+      "Sign in to keep your history. Opens in your browser and comes straight back.",
     gate: { kind: "condition", waiting: "Waiting for the browser" },
   },
   {
+    /*
+     * "How Sidq reads your AIs" was the next screen along, and it was
+     * explaining the thing this one is doing. Two screens about one subject,
+     * the second of which arrived after the decision it was meant to inform.
+     * The picture moved here, under the switch.
+     */
     id: "sources",
     phase: "Connect",
     title: "Connect your AIs",
-    subtitle: "The ones on this Mac are already done. The rest take one click.",
+    subtitle: "Two kinds, and only one of them needs anything from you.",
     gate: { kind: "button", label: "Continue" },
   },
   /*
@@ -123,13 +122,6 @@ export const STEPS: Step[] = [
    * on the last screen, under a permission card, a row of chips and a live
    * status panel — which is where prose goes to not be read.
    */
-  {
-    id: "reading",
-    phase: "Connect",
-    title: "How Sidq reads your AIs",
-    subtitle: "Two kinds, and only one of them needs anything from you.",
-    gate: { kind: "button", label: "Got it" },
-  },
   /*
    * The only thing anybody has to learn.
    *
@@ -218,13 +210,6 @@ export const STEPS: Step[] = [
    * happened yet; shown here, every part of it is something they have now
    * done once, and this is the join.
    */
-  {
-    id: "walkthrough",
-    phase: "Start",
-    title: "That is the whole thing",
-    subtitle: "Five steps, every time. Watch it once and you have the product.",
-    gate: { kind: "button", label: "Continue" },
-  },
   /*
    * ── The one question we ask for our own benefit, asked last ──────────────
    *

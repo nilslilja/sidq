@@ -58,8 +58,8 @@ export function Hero() {
           className="animate-rise mt-7 max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.375rem)] leading-snug text-white/60"
           style={{ animationDelay: "120ms" }}
         >
-          Sidq is the one that remembers. Every conversation you have ever
-          had, carried whole into whichever AI you open next.
+          Sidq is the one that remembers. Every conversation you have ever had,
+          carried whole into whichever AI you open next.
         </p>
 
         {/* The line somebody repeats, directly over the button. */}
