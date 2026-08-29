@@ -34,7 +34,12 @@ use std::path::PathBuf;
 /// never rebuilds what is already there — but without the bump, an index
 /// created before the change would skip the new tables entirely and every read
 /// of them would fail on a machine that had run an earlier build.
-const SCHEMA_VERSION: i64 = 2;
+/*
+ * 3 adds `transcript_digest`. Everything here is CREATE TABLE IF NOT EXISTS and
+ * the whole batch is skipped once user_version has caught up, so a new table
+ * only reaches an existing install if this number moves.
+ */
+const SCHEMA_VERSION: i64 = 3;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -147,6 +152,39 @@ fn migrate(conn: &Connection) -> Option<()> {
         );
 
         CREATE INDEX IF NOT EXISTS handovers_made ON handovers(made_at DESC);
+
+        /*
+         * ── What the picker already worked out about a transcript ──────────
+         *
+         * Listing recent work meant reading and scanning every JSONL on the
+         * machine, every time the pill was opened. Measured on one real Mac:
+         * 157MB across fifteen sessions, 1.5 seconds, on the one interaction
+         * in the product that has to be instant — and growing with every day
+         * of use, because these files only ever get longer.
+         *
+         * Almost none of it changes. One transcript is being appended to; the
+         * rest have been finished for days. So the derived row is kept here
+         * against the file's size and modification time, and a scan becomes a
+         * stat of each file plus a re-read of the one that moved.
+         *
+         * Keyed by path rather than session id: the id comes from the filename,
+         * and the same conversation copied to a second location is a second
+         * file with its own mtime.
+         */
+        CREATE TABLE IF NOT EXISTS transcript_digest (
+            path           TEXT PRIMARY KEY,
+            mtime          INTEGER NOT NULL,
+            size           INTEGER NOT NULL,
+            session_id     TEXT NOT NULL,
+            project        TEXT NOT NULL,
+            project_name   TEXT NOT NULL,
+            title          TEXT NOT NULL,
+            last_prompt    TEXT NOT NULL,
+            branch         TEXT NOT NULL,
+            ended_at       INTEGER NOT NULL,
+            turns          INTEGER NOT NULL,
+            active_minutes INTEGER NOT NULL
+        );
         ",
     )
     .ok()?;
@@ -681,6 +719,90 @@ pub(crate) mod tests {
         conn
     }
 
+    fn a_digest(title: &str) -> Digest {
+        Digest {
+            session_id: "abc".into(),
+            project: "/Users/x/Sidq".into(),
+            project_name: "Sidq".into(),
+            title: title.into(),
+            last_prompt: "carry on".into(),
+            branch: "main".into(),
+            ended_at: 1_700_000_000_000,
+            turns: 12,
+            active_minutes: 40,
+        }
+    }
+
+    /*
+     * ── The cache must never answer for a file that moved ────────────────────
+     *
+     * It exists because listing recent work meant reading every transcript on
+     * the machine: 157MB and 1.5 seconds on one real Mac, on every press of the
+     * shortcut. The whole saving comes from trusting a remembered row, so the
+     * condition for trusting it is the only thing worth testing. A stale title
+     * in the picker would be worse than the wait it replaced.
+     */
+    #[test]
+    fn a_remembered_transcript_comes_back() {
+        let conn = memory();
+        remember_digest(&conn, "/t/a.jsonl", 100, 500, &a_digest("Pricing page copy"));
+
+        let found = digest(&conn, "/t/a.jsonl", 100, 500).expect("same file, same answer");
+        assert_eq!(found.title, "Pricing page copy");
+        assert_eq!(found.turns, 12);
+    }
+
+    #[test]
+    fn a_transcript_that_grew_is_read_again() {
+        let conn = memory();
+        remember_digest(&conn, "/t/a.jsonl", 100, 500, &a_digest("Pricing page copy"));
+
+        // Appended to: same mtime is impossible in practice, but size alone has
+        // to be enough, because that is the case this is protecting against.
+        assert!(digest(&conn, "/t/a.jsonl", 100, 900).is_none());
+        assert!(digest(&conn, "/t/a.jsonl", 200, 500).is_none());
+    }
+
+    #[test]
+    fn re_reading_replaces_the_row_rather_than_adding_one() {
+        let conn = memory();
+        remember_digest(&conn, "/t/a.jsonl", 100, 500, &a_digest("Old title"));
+        remember_digest(&conn, "/t/a.jsonl", 200, 900, &a_digest("New title"));
+
+        let rows: i64 = conn
+            .query_row("SELECT COUNT(*) FROM transcript_digest", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 1, "one row per path, not one per version");
+        assert_eq!(digest(&conn, "/t/a.jsonl", 200, 900).unwrap().title, "New title");
+    }
+
+    #[test]
+    fn a_deleted_conversation_stops_being_remembered() {
+        let conn = memory();
+        remember_digest(&conn, "/t/a.jsonl", 1, 1, &a_digest("Still here"));
+        remember_digest(&conn, "/t/gone.jsonl", 1, 1, &a_digest("Deleted"));
+
+        forget_missing_digests(&conn, &["/t/a.jsonl".to_string()]);
+
+        assert!(digest(&conn, "/t/a.jsonl", 1, 1).is_some());
+        assert!(digest(&conn, "/t/gone.jsonl", 1, 1).is_none());
+    }
+
+    /*
+     * An empty scan is a scan that found nothing, which happens when the
+     * transcript directories are missing entirely. Treating it as "everything
+     * was deleted" would throw the cache away every time a reader was absent.
+     */
+    #[test]
+    fn a_scan_that_saw_nothing_deletes_nothing() {
+        let conn = memory();
+        remember_digest(&conn, "/t/a.jsonl", 1, 1, &a_digest("Still here"));
+
+        forget_missing_digests(&conn, &[]);
+
+        assert!(digest(&conn, "/t/a.jsonl", 1, 1).is_some());
+    }
+
     fn seed(conn: &Connection, id: &str, ended_at: i64, body: &str) {
         put_session(conn, id, "claude-code", "A conversation", "Sidq", "main", ended_at, 10, 30)
             .unwrap();
@@ -878,4 +1000,98 @@ pub(crate) mod tests {
 
         assert_eq!(search(&conn, "decide", 0, 10).0.len(), 1);
     }
+}
+
+/* ── The picker's cache of what it already read ──────────────────────────── */
+
+/// One transcript's derived listing, as the picker needs it.
+///
+/// Deliberately not `WorkSession`: that carries a `&'static str` source, which
+/// the caller already knows and which has no business in a row keyed by path.
+#[derive(Debug, Clone)]
+pub struct Digest {
+    pub session_id: String,
+    pub project: String,
+    pub project_name: String,
+    pub title: String,
+    pub last_prompt: String,
+    pub branch: String,
+    pub ended_at: i64,
+    pub turns: u32,
+    pub active_minutes: u32,
+}
+
+/// What was worked out for this file last time, if it has not changed since.
+///
+/// `mtime` and `size` together are the identity. A file rewritten to the same
+/// length within the same millisecond would fool it; a transcript is appended
+/// to, so that is not a thing that happens.
+pub fn digest(conn: &Connection, path: &str, mtime: i64, size: i64) -> Option<Digest> {
+    conn.query_row(
+        "SELECT session_id, project, project_name, title, last_prompt, branch,
+                ended_at, turns, active_minutes
+           FROM transcript_digest
+          WHERE path = ?1 AND mtime = ?2 AND size = ?3",
+        params![path, mtime, size],
+        |row| {
+            Ok(Digest {
+                session_id: row.get(0)?,
+                project: row.get(1)?,
+                project_name: row.get(2)?,
+                title: row.get(3)?,
+                last_prompt: row.get(4)?,
+                branch: row.get(5)?,
+                ended_at: row.get(6)?,
+                turns: row.get(7)?,
+                active_minutes: row.get(8)?,
+            })
+        },
+    )
+    .ok()
+}
+
+/// Remember what a transcript came out as, so the next scan can skip it.
+pub fn remember_digest(conn: &Connection, path: &str, mtime: i64, size: i64, d: &Digest) {
+    let _ = conn.execute(
+        "INSERT INTO transcript_digest
+            (path, mtime, size, session_id, project, project_name, title,
+             last_prompt, branch, ended_at, turns, active_minutes)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+         ON CONFLICT(path) DO UPDATE SET
+            mtime = excluded.mtime, size = excluded.size,
+            session_id = excluded.session_id, project = excluded.project,
+            project_name = excluded.project_name, title = excluded.title,
+            last_prompt = excluded.last_prompt, branch = excluded.branch,
+            ended_at = excluded.ended_at, turns = excluded.turns,
+            active_minutes = excluded.active_minutes",
+        params![
+            path,
+            mtime,
+            size,
+            d.session_id,
+            d.project,
+            d.project_name,
+            d.title,
+            d.last_prompt,
+            d.branch,
+            d.ended_at,
+            d.turns,
+            d.active_minutes
+        ],
+    );
+}
+
+/// Drop rows for transcripts that are no longer on disk.
+///
+/// Without it the table keeps a row for every conversation ever deleted. It is
+/// given the paths a scan actually saw, so it can only ever remove rows the
+/// caller is authoritative about.
+pub fn forget_missing_digests(conn: &Connection, seen: &[String]) {
+    if seen.is_empty() {
+        return;
+    }
+
+    let holes = std::iter::repeat("?").take(seen.len()).collect::<Vec<_>>().join(",");
+    let sql = format!("DELETE FROM transcript_digest WHERE path NOT IN ({holes})");
+    let _ = conn.execute(&sql, rusqlite::params_from_iter(seen.iter()));
 }

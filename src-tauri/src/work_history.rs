@@ -414,13 +414,38 @@ fn clamp_to_tail(text: String) -> String {
 pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
     let titles = cowork_titles();
 
+    /*
+     * ── Why this is not just a directory walk any more ───────────────────────
+     *
+     * It was, and it read every transcript on the machine to build a list of
+     * fifteen rows. Measured on one real Mac: 157MB, 1.5 seconds, every single
+     * time the pill was opened — on the one interaction in the product that has
+     * to be instant, and getting slower with every day of use, because these
+     * files only ever grow.
+     *
+     * Nothing about the answer changes for a conversation that has been closed
+     * since Tuesday. So each file is stat'd, the derived row is taken from the
+     * index when its size and mtime still match, and only the transcript that
+     * actually moved is read. In steady state that is one file.
+     *
+     * The cache is an optimisation and never a source of truth: with no index
+     * to talk to, every path here falls back to reading the file.
+     */
+    let cache = crate::index_store::open();
+    let mut seen_paths: Vec<String> = Vec::new();
+
     let mut sessions: Vec<WorkSession> = project_roots()
         .iter()
         .flat_map(|(root, source)| {
             read_dirs(root)
                 .into_iter()
-                .flat_map(move |dir| sessions_in_project(&dir, source))
+                .map(move |dir| (dir, *source))
         })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flat_map(|(dir, source)| sessions_in_project(&dir, source, cache.as_ref(), &mut seen_paths))
+        .collect::<Vec<_>>()
+        .into_iter()
         .map(|mut session| {
             /*
              * Cowork writes the conversation's real title beside the
@@ -439,6 +464,14 @@ pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
             session
         })
         .collect();
+
+    /*
+     * Conversations that have been deleted keep a row otherwise, for ever.
+     * Only the paths this scan is authoritative about are considered.
+     */
+    if let Some(conn) = cache.as_ref() {
+        crate::index_store::forget_missing_digests(conn, &seen_paths);
+    }
 
     // Newest first, so "where did I stop" is the first element.
     sessions.sort_by(|a, b| b.ended_at.cmp(&a.ended_at));
@@ -554,17 +587,99 @@ fn read_dirs(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn sessions_in_project(dir: &Path, source: &'static str) -> Vec<WorkSession> {
+fn sessions_in_project(
+    dir: &Path,
+    source: &'static str,
+    cache: Option<&rusqlite::Connection>,
+    seen_paths: &mut Vec<String>,
+) -> Vec<WorkSession> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Vec::new();
     };
 
-    entries
-        .flatten()
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "jsonl"))
-        .filter_map(|e| read_session(&e.path(), source))
-        .filter(|s| !s.title.is_empty() || !s.last_prompt.is_empty())
-        .collect()
+    let mut out = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "jsonl") {
+            continue;
+        }
+
+        let Some(session) = cached_session(&path, source, cache, seen_paths) else {
+            continue;
+        };
+        if session.title.is_empty() && session.last_prompt.is_empty() {
+            continue;
+        }
+        out.push(session);
+    }
+
+    out
+}
+
+/**
+ * One transcript's listing row, read from the file only when the file moved.
+ *
+ * The stat is the whole trick: size and modification time are what a scan can
+ * afford to look at for every conversation on the machine, and they are enough
+ * to know whether last time's answer still stands.
+ */
+fn cached_session(
+    path: &Path,
+    source: &'static str,
+    cache: Option<&rusqlite::Connection>,
+    seen_paths: &mut Vec<String>,
+) -> Option<WorkSession> {
+    let key = path.to_string_lossy().to_string();
+    let meta = fs::metadata(path).ok()?;
+    let size = meta.len();
+    if size > MAX_BYTES {
+        return None;
+    }
+
+    let mtime = modified_millis(&meta);
+    seen_paths.push(key.clone());
+
+    if let Some(conn) = cache {
+        if let Some(d) = crate::index_store::digest(conn, &key, mtime, size as i64) {
+            return Some(WorkSession {
+                session_id: d.session_id,
+                project: d.project,
+                project_name: d.project_name,
+                title: d.title,
+                last_prompt: d.last_prompt,
+                branch: d.branch,
+                ended_at: d.ended_at,
+                turns: d.turns,
+                active_minutes: d.active_minutes,
+                source,
+            });
+        }
+    }
+
+    let session = read_session(path, source)?;
+
+    if let Some(conn) = cache {
+        crate::index_store::remember_digest(
+            conn,
+            &key,
+            mtime,
+            size as i64,
+            &crate::index_store::Digest {
+                session_id: session.session_id.clone(),
+                project: session.project.clone(),
+                project_name: session.project_name.clone(),
+                title: session.title.clone(),
+                last_prompt: session.last_prompt.clone(),
+                branch: session.branch.clone(),
+                ended_at: session.ended_at,
+                turns: session.turns,
+                active_minutes: session.active_minutes,
+            },
+        );
+    }
+
+    Some(session)
 }
 
 fn read_session(path: &Path, source: &'static str) -> Option<WorkSession> {
@@ -1066,5 +1181,53 @@ mod tests {
     fn leaves_a_conversation_that_fits_completely_alone() {
         let text = "You:\nhi\n\nAssistant:\nhello\n\n".to_string();
         assert_eq!(clamp_to_tail(text.clone()), text);
+    }
+}
+
+#[cfg(test)]
+mod timing {
+    /*
+     * What the picker actually costs, against the transcripts on this machine.
+     *
+     * Ignored, like the other diagnostics here: it measures real files, so it
+     * proves nothing on a machine that has none. Run it with
+     *
+     *   cargo test --package sidq timing -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn how_long_the_picker_takes() {
+        let bytes: u64 = super::project_roots()
+            .iter()
+            .flat_map(|(root, _)| super::read_dirs(root))
+            .flat_map(|dir| std::fs::read_dir(dir).into_iter().flatten().flatten())
+            .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
+            .filter_map(|e| e.metadata().ok().map(|m| m.len()))
+            .sum();
+
+        println!("{:.0}MB of transcripts on disk", bytes as f64 / 1_048_576.0);
+
+        for pass in 0..3 {
+            let a = std::time::Instant::now();
+            let files = super::recent_sessions(50).len();
+            let t_files = a.elapsed().as_secs_f64() * 1000.0;
+
+            let b = std::time::Instant::now();
+            let cursor = crate::cursor_history::recent_sessions(50).len();
+            let t_cursor = b.elapsed().as_secs_f64() * 1000.0;
+
+            let c = std::time::Instant::now();
+            let screen = crate::index_store::open()
+                .map(|conn| crate::index_store::recent_screen_sessions(&conn, 50).len())
+                .unwrap_or(0);
+            let t_screen = c.elapsed().as_secs_f64() * 1000.0;
+
+            println!(
+                "pass {pass}:  transcripts {t_files:>7.0}ms ({files})  \
+cursor {t_cursor:>6.0}ms ({cursor})  index {t_screen:>5.0}ms ({screen})  \
+= {:>7.0}ms",
+                t_files + t_cursor + t_screen,
+            );
+        }
     }
 }
