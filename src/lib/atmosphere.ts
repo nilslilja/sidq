@@ -23,12 +23,36 @@ type Listener = (live: boolean) => void;
 const listeners = new Set<Listener>();
 let live = true;
 
+/**
+ * `?plain` turns every moving thing on this page off and keeps it off.
+ *
+ * Not a feature — a way to answer one question without a profiler. This page
+ * was reported as laggy three times, and the environment it is developed in
+ * does not composite, so neither frame timing nor IntersectionObserver can be
+ * observed there and every fix was reasoning rather than measurement.
+ *
+ * With this, the question "is it the animation" takes five seconds to settle:
+ * open the site, open it again with ?plain, and see whether scrolling changes.
+ * If it does not, the cost is somewhere else entirely and nothing else in this
+ * file is worth touching.
+ */
+const LOCKED_STILL =
+  typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("plain");
+
+if (LOCKED_STILL && typeof document !== "undefined") {
+  document.documentElement.dataset.atmosphere = "still";
+  live = false;
+}
+
 /** True while the hero is on screen. Starts true: the page opens on it. */
 export function atmosphereIsLive(): boolean {
   return live;
 }
 
 export function setAtmosphere(next: boolean): void {
+  // `?plain` outranks the observer: the whole point is that nothing starts.
+  if (LOCKED_STILL) return;
   if (next === live) return;
   live = next;
 

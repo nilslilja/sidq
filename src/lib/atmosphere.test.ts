@@ -104,7 +104,12 @@ describe("the atmosphere signal", () => {
     expect(atmosphereIsLive()).toBe(true);
   });
 
-  test("and nothing to watch is not an error", () => {
+  /*
+   * The escape hatch has to actually hold, or the experiment it exists for
+   * gives a false negative: the hero would quietly start animating again the
+   * moment it scrolled into view and the comparison would mean nothing.
+   */
+  test("nothing to watch is not an error", () => {
     expect(() => watchAtmosphere(null)()).not.toThrow();
     expect(atmosphereIsLive()).toBe(true);
   });
