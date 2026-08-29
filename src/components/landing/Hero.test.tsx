@@ -1,6 +1,6 @@
-import { describe, test, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Hero } from './Hero';
+import { describe, test, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { Hero } from "./Hero";
 
 /*
  * The headline and the pitch.
@@ -21,15 +21,15 @@ import { Hero } from './Hero';
  * that stops "you" being orphaned on a phone getting normalised away.
  */
 
-describe('the headline', () => {
-  test('is the one that was chosen, and it is the h1', () => {
+describe("the headline", () => {
+  test("is the one that was chosen, and it is the h1", () => {
     render(<Hero />);
-    const h1 = screen.getByRole('heading', { level: 1 });
+    const h1 = screen.getByRole("heading", { level: 1 });
     // Normalised, because the real string carries a non-breaking space that the
     // next test is responsible for. Comparing against a pasted literal would
     // mean an invisible byte decides whether the suite passes.
-    expect(h1.textContent?.replace(/\s+/g, ' ')).toBe(
-      'The models remember everything except you',
+    expect(h1.textContent?.replace(/\s+/g, " ")).toBe(
+      "The models remember everything except you",
     );
   });
 
@@ -43,37 +43,46 @@ describe('the headline', () => {
      * requirement is legible in the source instead of hiding in a byte.
      */
     render(<Hero />);
-    const text = screen.getByRole('heading', { level: 1 }).textContent ?? '';
-    const afterExcept = text.charCodeAt(text.indexOf('except') + 'except'.length);
+    const text = screen.getByRole("heading", { level: 1 }).textContent ?? "";
+    const afterExcept = text.charCodeAt(
+      text.indexOf("except") + "except".length,
+    );
     expect(afterExcept).toBe(0x00a0);
   });
 
-  test('still labels the section', () => {
+  test("still labels the section", () => {
     // The section is `aria-labelledby="hero"`. Drop the id and the landmark
     // loses its name, which no visual check would ever show.
     render(<Hero />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveAttribute('id', 'hero');
+    expect(screen.getByRole("heading", { level: 1 })).toHaveAttribute(
+      "id",
+      "hero",
+    );
   });
 });
 
-describe('the pitch', () => {
-  test('is on the page, over the button', () => {
+describe("the pitch", () => {
+  test("is on the page, over the button", () => {
     /*
      * The headline is read; the pitch is repeated. It sits at the moment
      * somebody is deciding rather than buried in the body, and it is the only
      * deliberately rude sentence on the site.
      */
     render(<Hero />);
-    expect(screen.getByText('Stop introducing yourself to robots.')).toBeInTheDocument();
+    expect(
+      screen.getByText("Stop introducing yourself to robots."),
+    ).toBeInTheDocument();
   });
 });
 
-describe('the sub-line', () => {
-  test('carries the category and the benefit, since the headline carries neither', () => {
+describe("the sub-line", () => {
+  test("carries the category and the benefit, since the headline carries neither", () => {
     // The headline states the gap. Somebody who stops reading after two lines
     // still has to know what Sidq is and what it does for them.
     render(<Hero />);
-    const sub = screen.getByText(/Sidq is the memory layer/);
-    expect(sub.textContent).toMatch(/carried whole into whichever AI you open next/);
+    const sub = screen.getByText(/Sidq is the one that remembers/);
+    expect(sub.textContent).toMatch(
+      /carried whole into whichever AI you open next/,
+    );
   });
 });

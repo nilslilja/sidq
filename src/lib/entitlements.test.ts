@@ -113,7 +113,7 @@ describe("what the site says an invite is worth", () => {
 
   test("the FAQ quotes the contract rather than a number typed into it", () => {
     const free = entitlementsFor("free");
-    const answers = FAQS.map((f) => f.a).join(" ");
+    const answers = FAQS.flatMap((f) => f.a).join(" ");
 
     expect(answers).toContain(`${free.handoffsPerWeek} handovers a week`);
     expect(answers).toContain(`${INVITE.bonusPerWeek} more a week`);
@@ -127,7 +127,7 @@ describe("what the site says an invite is worth", () => {
      * Sidq reads every AI on the Mac with nothing to connect.
      */
     const text = [
-      ...FAQS.map((f) => `${f.q} ${f.a}`),
+      ...FAQS.flatMap((f) => [f.q, ...(Array.isArray(f.a) ? f.a : [f.a])]),
       ...PLANS.flatMap((p) => p.features),
     ]
       .join(" ")

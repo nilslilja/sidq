@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/cn';
-import { INVITE, entitlementsFor } from '@/lib/entitlements';
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { INVITE, entitlementsFor } from "@/lib/entitlements";
 
 /*
  * The numbers come from the code, never from memory.
@@ -11,7 +11,7 @@ import { INVITE, entitlementsFor } from '@/lib/entitlements';
  * of prose has nothing checking it. Interpolating the real values means the
  * claim cannot drift from the product again.
  */
-const FREE = entitlementsFor('free');
+const FREE = entitlementsFor("free");
 
 /*
  * FAQ.
@@ -26,35 +26,40 @@ const FREE = entitlementsFor('free');
 
 export const FAQS = [
   {
-    q: 'What does it actually do?',
-    a: 'You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.',
+    q: "What does it actually do?",
+    a: "You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.",
   },
   {
-    q: 'Which AIs does it work with?',
-    a: 'Two ways, and neither needs you to remember anything. AIs that write conversations to your Mac (Claude Code, Cowork, Cursor, Windsurf, VS Code) are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq. AIs that run in a browser (ChatGPT, Claude, Gemini, Grok, DeepSeek and the rest) keep nothing readable on your computer, so you use them in your own browser exactly as you do now, where you are already signed in and your passkeys and password manager work, and the Sidq extension reads them as you go. Sidq never asks you to log in to an AI. For what you did in them before today, each one gives you an export file and Sidq reads all of them. Nothing is uploaded either way: the extension hands text to the app over your own machine\u2019s loopback address, which cannot leave it.',
+    q: "Which AIs does it work with?",
+    a: [
+      "Two kinds, and neither asks you to remember anything.",
+      "The ones that keep their conversations on your Mac — Claude Code, Cowork, Cursor, Windsurf, VS Code — are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq.",
+      "The ones that live in a browser — ChatGPT, Claude, Gemini, Grok, DeepSeek — keep nothing readable on your computer. So you use them in your own browser, exactly as you do now, already signed in with your passkeys and password manager working, and Sidq reads them as you go. It never asks you to log in to an AI. For what you said in them before today, each one lets you download your history, and Sidq reads the file.",
+      "Nothing is uploaded either way. The reading happens between two programs on your own Mac, on a connection that cannot leave it.",
+    ],
   },
   {
-    q: 'I only installed it today. Is it empty until I build up history?',
-    a: 'No, and this is the part people expect to be worse than it is. Sidq reads what is already on your Mac, so a conversation from two months ago is there the first time you open it. Nothing has to accumulate.',
+    q: "I only installed it today. Is it empty until I build up history?",
+    a: "No, and this is the part people expect to be worse than it is. Sidq reads what is already on your Mac, so a conversation from two months ago is there the first time you open it. Nothing has to accumulate.",
   },
   {
-    q: 'Why not just ask the AI to summarise the chat and paste that?',
-    a: 'Because a summary is the thing you lose. It keeps the conclusions and throws away the corrections, the ideas you rejected, the way you actually talk. The next AI reads about your work instead of having been there, and you spend the next twenty minutes fixing its assumptions. Sidq hands over the conversation itself, not a description of it.',
+    q: "Why not just ask the AI to summarise the chat and paste that?",
+    a: "Because a summary is the thing you lose. It keeps the conclusions and throws away the corrections, the ideas you rejected, the way you actually talk. The next AI reads about your work instead of having been there, and you spend the next twenty minutes fixing its assumptions. Sidq hands over the conversation itself, not a description of it.",
   },
   {
-    q: 'Does any of this leave my Mac?',
-    a: 'No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded and it works with the wifi off. An account is needed to set Sidq up, so your history and subscription follow you to a new machine, but your conversations are never part of it. Sidq does read your transcripts in the background, about every ninety seconds, to keep search working, and it skips any conversation that has not changed since it last looked. That index is a file on your Mac. It is never uploaded, and deleting Sidq deletes it.',
+    q: "Does any of this leave my Mac?",
+    a: "No. Your conversations are read from your own disk and go to your own clipboard. Nothing is uploaded and it works with the wifi off. An account is needed to set Sidq up, so your history and subscription follow you to a new machine, but your conversations are never part of it. Sidq does read your transcripts in the background, about every ninety seconds, to keep search working, and it skips any conversation that has not changed since it last looked. That index is a file on your Mac. It is never uploaded, and deleting Sidq deletes it.",
   },
   {
-    q: 'What can it see on my screen?',
-    a: 'Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your AIs already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.',
+    q: "What can it see on my screen?",
+    a: "Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your AIs already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.",
   },
   {
-    q: 'Is this just a wrapper around a chatbot?',
-    a: 'No, and the honest test is that most of it does not call a model at all. Finding what is worth resuming, reading the transcript and handing it over are file operations on your machine. That is why it is instant, why it costs nothing to run, and why it works offline.',
+    q: "Is this just a wrapper around a chatbot?",
+    a: "No, and the honest test is that most of it does not call a model at all. Finding what is worth resuming, reading the transcript and handing it over are file operations on your machine. That is why it is instant, why it costs nothing to run, and why it works offline.",
   },
   {
-    q: 'What do I get for free?',
+    q: "What do I get for free?",
     /*
      * This said "and 1 AI connected", which was wrong twice.
      *
@@ -66,8 +71,8 @@ export const FAQS = [
     a: `${FREE.handoffsPerWeek} handovers a week, and every AI on your Mac read with nothing to connect. Search reaches back ${FREE.historyDays} days on free and all the way on Pro. Nothing is behind a padlock, you simply run out. Inviting a friend adds ${INVITE.bonusPerWeek} more a week to both of you for ${INVITE.lastsDays} days, up to ${INVITE.perWeek} friends a week. That is the other way past it.`,
   },
   {
-    q: 'Is there a web version?',
-    a: 'No. Sidq is a Mac app and only a Mac app, because everything it does depends on being on the machine your conversations are already stored on. A browser tab cannot read them, so shipping one would mean selling a different and much worse product under the same name.',
+    q: "Is there a web version?",
+    a: "No. Sidq is a Mac app and only a Mac app, because everything it does depends on being on the machine your conversations are already stored on. A browser tab cannot read them, so shipping one would mean selling a different and much worse product under the same name.",
   },
 ];
 
@@ -100,8 +105,8 @@ export function Faq() {
                   <ChevronDown
                     aria-hidden="true"
                     className={cn(
-                      'size-5 shrink-0 ink-muted transition-transform duration-300 ease-(--ease-out-expo)',
-                      isOpen && 'rotate-180',
+                      "size-5 shrink-0 ink-muted transition-transform duration-300 ease-(--ease-out-expo)",
+                      isOpen && "rotate-180",
                     )}
                   />
                 </button>
@@ -114,14 +119,28 @@ export function Faq() {
                */}
               <dd
                 className={cn(
-                  'grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out-expo)',
-                  isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                  "grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out-expo)",
+                  isOpen
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0",
                 )}
               >
-                <div className="overflow-hidden">
-                  <p className="max-w-[62ch] pb-6 text-[0.9375rem] leading-relaxed ink-muted">
-                    {item.a}
-                  </p>
+                {/*
+                 * Answers may be several paragraphs.
+                 *
+                 * The longest one here ran to a hundred and seventy-five words
+                 * in a single block, which is where an answer goes to not be
+                 * read. Nothing about it was wrong; it was just a wall.
+                 */}
+                <div className="space-y-3.5 overflow-hidden pb-6">
+                  {(Array.isArray(item.a) ? item.a : [item.a]).map((para) => (
+                    <p
+                      key={para}
+                      className="max-w-[62ch] text-[0.9375rem] leading-relaxed ink-muted"
+                    >
+                      {para}
+                    </p>
+                  ))}
                 </div>
               </dd>
             </div>

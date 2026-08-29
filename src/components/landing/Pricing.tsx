@@ -40,9 +40,8 @@ export function Pricing() {
       </div>
 
       <p className="mt-8 max-w-[46ch] text-[0.875rem] leading-relaxed ink-muted">
-        Nothing is locked on the free plan, it is metered. You get the whole
-        product and run out of it, which is a different feeling from being shown
-        a padlock.
+        Nothing is locked on the free plan. You get the whole product and run
+        out of it, which is a different feeling from being shown a padlock.
       </p>
     </section>
   );

@@ -1,13 +1,13 @@
-import { Link } from 'react-router-dom';
-import { cn } from '@/lib/cn';
-import { WhatThisMeans } from '@/components/landing/WhatThisMeans';
-import { Hero } from '@/components/landing/Hero';
-import { Reveal } from '@/components/landing/Reveal';
-import { HowItHelps } from '@/components/landing/HowItHelps';
-import { Pricing } from '@/components/landing/Pricing';
-import { Faq } from '@/components/landing/Faq';
-import { SiteFooter } from '@/components/landing/SiteFooter';
-import { Download } from '@/components/landing/Download';
+import { Link } from "react-router-dom";
+import { cn } from "@/lib/cn";
+import { WhatThisMeans } from "@/components/landing/WhatThisMeans";
+import { Hero } from "@/components/landing/Hero";
+import { Reveal } from "@/components/landing/Reveal";
+import { HowItHelps } from "@/components/landing/HowItHelps";
+import { Pricing } from "@/components/landing/Pricing";
+import { Faq } from "@/components/landing/Faq";
+import { SiteFooter } from "@/components/landing/SiteFooter";
+import { Download } from "@/components/landing/Download";
 
 /*
  * Landing.
@@ -40,8 +40,8 @@ export function Landing() {
             className={cn(
               // The wordmark is a link home and was 22 points tall. Padded on
               // touch only; the type itself does not move.
-              'inline-flex min-h-11 items-center sm:min-h-0',
-              'font-display text-[1.375rem] leading-none tracking-[-0.05em] text-white',
+              "inline-flex min-h-11 items-center sm:min-h-0",
+              "font-display text-[1.375rem] leading-none tracking-[-0.05em] text-white",
             )}
           >
             Sidq
@@ -65,8 +65,8 @@ export function Landing() {
               className={cn(
                 // The only header link a phone can reach, and it was 21 points
                 // tall. Padded rather than resized, so the type stays put.
-                'inline-flex min-h-11 items-center px-1 text-[0.875rem] sm:min-h-0 sm:px-0',
-                'text-white/75 transition-opacity duration-150 hover:opacity-70',
+                "inline-flex min-h-11 items-center px-1 text-[0.875rem] sm:min-h-0 sm:px-0",
+                "text-white/75 transition-opacity duration-150 hover:opacity-70",
               )}
             >
               Sign in
@@ -103,30 +103,31 @@ export function Landing() {
           <div className="mt-14 grid gap-px border border-paper/15 bg-paper/15 sm:grid-cols-3">
             <Reveal delay={0}>
               <Stat
-              n="0"
-              k="Words uploaded"
-              v="Read from your own disk, written to your own clipboard. It works with the wifi off."
-            />
+                n="0"
+                k="Words uploaded"
+                v="Read from your own disk, written to your own clipboard. It works with the wifi off."
+              />
             </Reveal>
             <Reveal delay={0.08}>
               <Stat
-              n="1 key"
-              k="To move all of it"
-              v="One keystroke moves a whole conversation. Not a summary, not an export, not a copy and paste."
-            />
+                n="1 key"
+                k="To move all of it"
+                v="One keystroke moves a whole conversation. Not a summary, not an export, not a copy and paste."
+              />
             </Reveal>
             <Reveal delay={0.16}>
               <Stat
-              n="Everything"
-              k="Waiting on day one"
-              v="Conversations from months before you installed Sidq are there the first time you open it."
-            />
+                n="Everything"
+                k="Waiting on day one"
+                v="Conversations from months before you installed Sidq are there the first time you open it."
+              />
             </Reveal>
           </div>
 
           <p className="mt-10 max-w-[46ch] text-[1rem] leading-relaxed text-paper/70">
-            None of that is a discipline problem, and no amount of trying harder touches it.
-            It is a measurement problem, and nobody has ever measured it.
+            None of that is a discipline problem, and no amount of trying harder
+            touches it. Nothing you own can carry a conversation from one AI
+            into another, so you do it by hand, every time.
           </p>
         </div>
       </section>
@@ -144,8 +145,8 @@ export function Landing() {
       </div>
 
       <Reveal>
-          <Faq />
-        </Reveal>
+        <Faq />
+      </Reveal>
 
       <SiteFooter />
     </div>
@@ -156,9 +157,10 @@ function Stat({ k, v, n }: { k: string; v: string; n: string }) {
   return (
     <div className="bg-ink p-6">
       <div className="tabular text-[1.75rem] leading-none text-paper">{n}</div>
-      <div className="mt-3 text-[0.625rem] uppercase tracking-[0.2em] text-paper/50">{k}</div>
+      <div className="mt-3 text-[0.625rem] uppercase tracking-[0.2em] text-paper/50">
+        {k}
+      </div>
       <p className="mt-2 text-[0.9375rem] leading-relaxed text-paper/75">{v}</p>
     </div>
   );
 }
-

@@ -129,7 +129,16 @@ export const PLANS: Plan[] = [
     name: "Duo",
     price: "$29.99",
     cadence: "/ month",
-    promise: "Two people, one bill.",
+    /*
+     * Warmer than "Two people, one bill", which is an invoicing arrangement.
+     *
+     * It must not say the two seats share anything, because they do not: each
+     * Mac keeps its own index and nothing crosses between them, which is the
+     * direct consequence of nothing leaving the Mac at all. People hear "Duo"
+     * and assume a shared team memory, and the words here have to leave them
+     * no room to.
+     */
+    promise: "You and your co-founder. Cheaper than two.",
     inherits: "Pro",
     cta: "Subscribe",
     /*

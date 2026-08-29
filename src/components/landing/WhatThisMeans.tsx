@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from "@/lib/cn";
 
 /*
  * The argument, below the fold.
@@ -14,25 +14,28 @@ import { cn } from '@/lib/cn';
 
 const BEATS: { count: string; label: string; body: string }[] = [
   {
-    count: '4',
-    label: 'AIs, no introductions',
-    body: 'Most people now pay for three or four. Not one of them can read another. You explain your project to the first, then explain it again to the second, and again on Monday to both.',
+    count: "4",
+    label: "AIs, no introductions",
+    body: "Most people now pay for three or four. Not one of them can read another. You explain your project to the first, then explain it again to the second, and again on Monday to both.",
   },
   {
-    count: '1',
-    label: 'summary, and the detail is gone',
-    body: 'Want a second opinion, which is the entire reason to keep a second model? All you can hand it is a paste. So what comes back is an opinion on your summary rather than on your problem.',
+    count: "1",
+    label: "summary, and the detail is gone",
+    body: "Want a second opinion, which is the entire reason to keep a second model? All you can hand it is a paste. So what comes back is an opinion on your summary rather than on your problem.",
   },
   {
-    count: '44%',
-    label: 'you were never shown',
-    body: 'And the summary was never going to work anyway. Your AI writes its reasoning to your own disk, renders none of it, and forgets it after the turn. You cannot summarise what you never saw.',
+    count: "44%",
+    label: "you were never shown",
+    body: "And the summary was never going to work anyway. Your AI works most of it out before it answers and shows you none of that part. It is sitting on your own Mac, and it goes when the reply ends. You cannot summarise what you were never shown.",
   },
 ];
 
 export function WhatThisMeans({ className }: { className?: string }) {
   return (
-    <section aria-labelledby="what-this-means" className={cn('mx-auto max-w-[68rem] px-6', className)}>
+    <section
+      aria-labelledby="what-this-means"
+      className={cn("mx-auto max-w-[68rem] px-6", className)}
+    >
       <h2
         id="what-this-means"
         className="mx-auto max-w-[24ch] text-center font-display text-[clamp(1.75rem,3.4vw,2.75rem)] leading-[1.05] tracking-[-0.035em]"
@@ -41,8 +44,9 @@ export function WhatThisMeans({ className }: { className?: string }) {
       </h2>
 
       <p className="mx-auto mt-5 max-w-[52ch] text-center text-[1.0625rem] leading-relaxed ink-muted">
-        Everybody accepted this. It is the most obvious gap in the most impressive
-        technology of the decade, and it is sitting on your own hard drive.
+        Everybody accepted this. It is the most obvious gap in the most
+        impressive technology of the decade, and it is sitting on your own hard
+        drive.
       </p>
 
       <ol className="mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
@@ -54,15 +58,20 @@ export function WhatThisMeans({ className }: { className?: string }) {
               {beat.count}
             </p>
             <p className="mt-3 text-[0.9375rem] font-medium">{beat.label}</p>
-            <p className="mt-2.5 text-[0.9375rem] leading-relaxed ink-muted">{beat.body}</p>
+            <p className="mt-2.5 text-[0.9375rem] leading-relaxed ink-muted">
+              {beat.body}
+            </p>
           </li>
         ))}
       </ol>
 
       <p className="mx-auto mt-14 max-w-[54ch] text-center text-[1.0625rem] leading-relaxed">
-        Sidq reads what is already on your Mac and carries any conversation into any other AI,
-        whole. Word for word, including the half you were never shown.{' '}
-        <span className="ink-muted">Nothing is uploaded. It fetches nothing.</span>
+        Sidq reads what is already on your Mac and carries any conversation into
+        any other AI, whole. Word for word, including the half you were never
+        shown.{" "}
+        <span className="ink-muted">
+          Nothing is uploaded. It fetches nothing.
+        </span>
       </p>
     </section>
   );
