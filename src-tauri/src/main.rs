@@ -834,13 +834,25 @@ fn team_folder() -> Option<std::path::PathBuf> {
     path.is_dir().then_some(path)
 }
 
-/// What teammates see this person called. Their account name, unless they said otherwise.
-fn team_name() -> String {
+/// The name this person chose for the team folder, if they have chosen one.
+fn stored_team_name() -> Option<String> {
     index_store::open()
         .and_then(|conn| index_store::setting(&conn, "team.name"))
         .map(|n| n.trim().to_string())
         .filter(|n| !n.is_empty())
-        .unwrap_or_else(|| "Me".to_string())
+}
+
+/**
+ * What teammates see this person called.
+ *
+ * The fallback exists so nothing can panic on a missing name, and it is
+ * deliberately never reached in practice: the window will not let anybody pick
+ * a folder until they have typed one. It has to be, because the filename is
+ * built from this, and two people both publishing as the fallback into the same
+ * folder would overwrite each other.
+ */
+fn team_name() -> String {
+    stored_team_name().unwrap_or_else(|| "Me".to_string())
 }
 
 /**
@@ -970,7 +982,9 @@ async fn team_settings() -> TeamSettings {
         TeamSettings {
             folder: folder.map(|p| p.to_string_lossy().to_string()),
             file: team_context::file_name_for(&name),
-            name,
+            // Empty when they have not chosen one, so the window can offer the
+            // account's name rather than having to know Rust's fallback.
+            name: stored_team_name().unwrap_or_default(),
             members,
             sharing,
             allowed,
@@ -1012,6 +1026,17 @@ async fn set_team_folder(path: Option<String>) -> bool {
         let dir = std::path::PathBuf::from(raw.trim());
         if std::fs::create_dir_all(&dir).is_err() {
             return false;
+        }
+
+        /*
+         * Leaving the old one behind would leave you in that team's handovers
+         * for ever, quoting rules you had moved on from, with no way to tell
+         * from this Mac that it was still happening.
+         */
+        if let Some(old) = team_folder() {
+            if old != dir {
+                team_context::publish(&old, &team_name(), &[]);
+            }
         }
 
         index_store::put_setting(&conn, team_context::FOLDER_KEY, &dir.to_string_lossy());

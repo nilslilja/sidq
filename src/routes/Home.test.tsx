@@ -479,6 +479,30 @@ describe("your team", () => {
     expect(screen.queryByText("iCloud Drive")).not.toBeInTheDocument();
   });
 
+  /*
+   * The filename is built from the name, and Rust's fallback is the same string
+   * for everybody. Two co-founders who pointed at one folder without setting a
+   * name would both publish `me.sidq-context.md` and overwrite each other — the
+   * worst shape of bug here, because the folder still looks like it is working
+   * and simply holds one of them.
+   */
+  test("a folder cannot be chosen before there is a name to publish under", async () => {
+    localStorage.removeItem("sidq.name");
+    withTeam({ allowed: true, name: "" });
+    await open("Your team");
+
+    expect(screen.getByRole("button", { name: "iCloud Drive" })).toBeDisabled();
+  });
+
+  test("and the account's name is offered so nobody has to invent one", async () => {
+    localStorage.setItem("sidq.name", "Nils");
+    withTeam({ allowed: true, name: "" });
+    await open("Your team");
+
+    expect(screen.getByRole("button", { name: "iCloud Drive" })).toBeEnabled();
+    localStorage.removeItem("sidq.name");
+  });
+
   test("Duo with no folder yet is offered the ones that actually sync", async () => {
     withTeam({ allowed: true });
     await open("Your team");

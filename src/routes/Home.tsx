@@ -1410,6 +1410,15 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
 
 /* ── Your team ────────────────────────────────────────────────────────────── */
 
+/** The first name taken from the signed-in account at sign-in. Blank if unknown. */
+function accountName(): string {
+  try {
+    return localStorage.getItem("sidq.name")?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Duo, made into something.
  *
@@ -1436,7 +1445,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     if (!bridge) return;
     void bridge.teamSettings().then((next) => {
       setSettings(next);
-      setName(next.name);
+      // Empty means they have not chosen one. The account already knows a name,
+      // and it is the one their co-founder would recognise.
+      setName(next.name || accountName());
     });
   }, [bridge]);
 
@@ -1480,8 +1491,21 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     );
   }
 
+  /*
+   * The name is written before the folder, always.
+   *
+   * The file is named after the person, and the fallback name is the same for
+   * everybody. Two co-founders who pointed at the same folder without setting
+   * one would both publish `me.sidq-context.md` and silently overwrite each
+   * other's rules — the worst kind of bug here, because it looks like it is
+   * working and the folder only ever holds one of them.
+   */
   const choose = (path: string | null) => {
-    void bridge?.setTeamFolder(path).then(load);
+    if (!bridge) return;
+    const settle = path
+      ? bridge.setTeamName(name.trim())
+      : Promise.resolve(true);
+    void settle.then(() => bridge.setTeamFolder(path)).then(load);
   };
 
   if (!settings.folder) {
@@ -1495,14 +1519,41 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           to us; your drive does the syncing you already trust it with.
         </p>
 
+        {/*
+         * Named before anything is written, not after.
+         *
+         * Everybody's fallback name is the same, so two people setting this up
+         * without one would publish the same filename into the same folder and
+         * overwrite each other. Asking first costs a field; finding out later
+         * costs somebody their rules.
+         */}
+        <label className="mt-5 block text-[0.8125rem]">
+          <span className="block text-[#7A7489]">
+            What your team sees you called
+          </span>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your first name"
+            spellCheck={false}
+            className={cn(
+              "mt-1.5 w-full max-w-[18rem] rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+            )}
+          />
+        </label>
+
         <div className="mt-5 flex flex-wrap gap-2">
           {options.map(([label, path]) => (
             <button
               key={path}
+              disabled={!name.trim()}
               onClick={() => choose(path)}
               className={cn(
                 "rounded-lg border border-[#E3DFF1] bg-white px-3 py-2 text-[0.8125rem]",
                 "cursor-pointer transition-colors duration-150 hover:border-[#B8A6FF]",
+                "disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#E3DFF1]",
               )}
             >
               {label}
@@ -1525,7 +1576,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             )}
           />
           <button
-            disabled={!typed.trim()}
+            disabled={!typed.trim() || !name.trim()}
             onClick={() => choose(typed.trim())}
             className={cn(
               "shrink-0 rounded-lg bg-[#16141C] px-3 py-2 text-[0.8125rem] font-medium text-white",
