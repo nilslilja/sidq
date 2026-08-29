@@ -28,7 +28,19 @@ import { useLayoutEffect, useRef } from "react";
  */
 
 const START_ANGLE_DEG = 18;
-const START_SCALE = 0.94;
+/*
+ * ── There is no scale any more, and that is a performance decision ──────────
+ *
+ * The pose used to scale from 0.94 to 1 alongside the rotation. Six percent,
+ * against an eighteen degree tilt — almost invisible, and the most expensive
+ * thing on the page. This wraps the desktop mock, and a subtree whose size
+ * changes cannot be re-used by the compositor: everything inside it is
+ * re-rasterised on every frame of the scroll. That subtree contained a
+ * backdrop-filtered dock and eight drop-shadowed icons.
+ *
+ * The rotation is what the effect actually is. It runs on the compositor, the
+ * raster is made once, and the six percent is not missed.
+ */
 /** Opacity has finished well before the tilt has, so the card is readable early. */
 const FADE_COMPLETE_AT = 0.35;
 
@@ -37,12 +49,11 @@ const MIN_VIEWPORT_HEIGHT = 520;
 
 export interface TiltPose {
   rotateXDeg: number;
-  scale: number;
   opacity: number;
 }
 
 /** The resting pose: what reduced motion, a tiny viewport and no JS all get. */
-export const AT_REST: TiltPose = { rotateXDeg: 0, scale: 1, opacity: 1 };
+export const AT_REST: TiltPose = { rotateXDeg: 0, opacity: 1 };
 
 /**
  * The pose for a card at `rectTop` in a viewport `viewportHeight` tall.
@@ -76,7 +87,6 @@ export function tiltPose(
 
   return {
     rotateXDeg: START_ANGLE_DEG * (1 - p),
-    scale: START_SCALE + (1 - START_SCALE) * p,
     opacity: Math.min(1, p / FADE_COMPLETE_AT),
   };
 }
@@ -138,9 +148,7 @@ export function ScrollTilt({
       // Written straight to the node. Routing this through state would re-render
       // the subtree on every frame of every scroll.
       card.style.transform =
-        pose === AT_REST
-          ? "none"
-          : `rotateX(${pose.rotateXDeg.toFixed(2)}deg) scale(${pose.scale.toFixed(4)})`;
+        pose === AT_REST ? "none" : `rotateX(${pose.rotateXDeg.toFixed(2)}deg)`;
       card.style.opacity = pose.opacity.toFixed(4);
     };
 

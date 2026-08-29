@@ -205,7 +205,17 @@ export function Bloom() {
      * loop running twice as fast as it should.
      */
     let running = false;
-    const FRAME_MS = 1000 / 30;
+    /*
+     * Fifteen, not thirty.
+     *
+     * This paints the whole viewport, and every section above it is
+     * transparent, so the compositor blends it under the entire page. What it
+     * is painting is a gradient whose slowest component takes eleven seconds to
+     * cross — there is nothing in the image that thirty frames a second
+     * resolves and fifteen does not, and it is half the GPU work on a machine
+     * that has other things to do.
+     */
+    const FRAME_MS = 1000 / 15;
     const start = performance.now();
 
     const loop = (now: number) => {

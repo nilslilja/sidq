@@ -293,15 +293,25 @@
       transform: translate3d(12px, -26px, 0) rotate(6deg);
     }
   }
+  /*
+   * ── Opacity only, and the reason matters ─────────────────────────────────
+   *
+   * This used to animate `transform: scale()` as well, on elements carrying
+   * `blur(70px)` and `blur(90px)`. A blurred layer that changes size cannot be
+   * re-used by the compositor: the blur has to be recomputed at the new scale,
+   * every frame, for ever. Two of the largest elements on the page were doing
+   * that continuously, and the hero was the worst part of the site to be on.
+   *
+   * Brightness was always most of the effect. A glow that pulses reads the same
+   * as one that pulses and swells by nine percent, and this one is free.
+   */
   @keyframes bloom-breathe {
     0%,
     100% {
       opacity: 0.5;
-      transform: scale(1);
     }
     50% {
       opacity: 0.78;
-      transform: scale(1.09);
     }
   }
   .drift-a {
