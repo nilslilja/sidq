@@ -917,3 +917,40 @@ otherwise.";
         assert!(is_typed("keep a record of what we decided"));
     }
 }
+
+#[cfg(test)]
+mod profile_timing {
+    /*
+     * What the "How you work" panel costs, against this machine's real index.
+     *
+     * Ignored like the other diagnostics: it measures real data and proves
+     * nothing on a machine with none.
+     *
+     *   cargo test --package sidq profile_timing -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn how_long_the_profile_takes() {
+        let Some(conn) = crate::index_store::open() else {
+            println!("no index on this machine");
+            return;
+        };
+
+        for pass in 0..3 {
+            let a = std::time::Instant::now();
+            let turns = crate::index_store::own_turns(&conn, super::TURN_BUDGET);
+            let read = a.elapsed().as_secs_f64() * 1000.0;
+
+            let b = std::time::Instant::now();
+            let facts = super::build(&turns, 25);
+            let built = b.elapsed().as_secs_f64() * 1000.0;
+
+            println!(
+                "pass {pass}: read {read:>6.0}ms ({} turns)  build {built:>6.0}ms ({} facts)  = {:>6.0}ms",
+                turns.len(),
+                facts.len(),
+                read + built,
+            );
+        }
+    }
+}
