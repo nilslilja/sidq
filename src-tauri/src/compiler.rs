@@ -123,6 +123,18 @@ pub struct Brief<'a> {
      * every convention on the first turn.
      */
     pub profile: &'a [String],
+    /**
+     * The same thing, from the other people on the team.
+     *
+     * Kept apart from `profile` rather than merged into it, because the
+     * receiving model has to be told whose rule it is reading. A colleague's
+     * convention presented as yours is worse than not carrying it: you would
+     * spend the next turn arguing with an instruction you never gave.
+     *
+     * Empty for everybody who has not pointed Sidq at a shared folder, which is
+     * most people, and the heading does not appear at all then.
+     */
+    pub team: &'a [(String, String)],
 }
 
 /**
@@ -266,6 +278,25 @@ words. Apply them here unless they say otherwise.\n\n",
         );
         for rule in brief.profile {
             out.push_str(&format!("- {rule}\n"));
+        }
+    }
+
+    /*
+     * The team's rules, under their own heading and with a name against each.
+     *
+     * Attribution is the whole point. "Apply them here unless they say
+     * otherwise" is the right instruction for something the person said
+     * themselves and the wrong one for something a colleague said, so the two
+     * sets are never mixed and the second is framed as what it is: how this
+     * team works, from people who are not in the room.
+     */
+    if !brief.team.is_empty() {
+        out.push_str(
+            "\nHOW THIS TEAM WORKS\n\nStanding instructions from the people this person works with, in their own \
+words. Follow them unless this person says otherwise.\n\n",
+        );
+        for (who, rule) in brief.team {
+            out.push_str(&format!("- {who}: {rule}\n"));
         }
     }
 
@@ -492,12 +523,18 @@ pub fn compile(turns: &[Turn], brief: &Brief, target: Target) -> String {
      * closed the tag early and the rest of the brief became malformed markup.
      */
     let escaped: Vec<String>;
+    let escaped_team: Vec<(String, String)>;
     let quoted = match target {
         Target::Claude => {
             escaped = brief.profile.iter().map(|r| escape(r)).collect();
-            Brief { profile: &escaped, ..*brief }
+            escaped_team = brief
+                .team
+                .iter()
+                .map(|(who, rule)| (escape(who), escape(rule)))
+                .collect();
+            Brief { profile: &escaped, team: &escaped_team, ..*brief }
         }
-        Target::Markdown => Brief { profile: brief.profile, ..*brief },
+        Target::Markdown => Brief { profile: brief.profile, team: brief.team, ..*brief },
     };
     let arc = match target {
         Target::Claude => escape(&arc_of(kept)),
@@ -598,6 +635,7 @@ mod tests {
             project: "Sidq",
             resume_point: "carry on with the tiers",
             profile: &[],
+            team: &[],
         }
     }
 
@@ -616,6 +654,70 @@ mod tests {
             Turn { role: Role::You, blocks: vec![Block::Interrupted] },
         ]
     }
+
+    /*
+     * ── The team's rules, and why they are not just more of yours ────────────
+     *
+     * Duo shares standing instructions between the people on one team. The
+     * receiving model has to be told whose rule it is reading: a colleague's
+     * convention presented as this person's own is worse than not carrying it
+     * at all, because they would spend the next turn arguing with an
+     * instruction they never gave.
+     */
+    #[test]
+    fn a_teammates_rule_arrives_with_their_name_on_it() {
+        let team = [("Sam".to_string(), "always TypeScript, never JS".to_string())];
+        let brief = Brief { team: &team, ..brief() };
+        let out = compile(&turns(), &brief, Target::Markdown);
+
+        assert!(out.contains("HOW THIS TEAM WORKS"));
+        assert!(out.contains("- Sam: always TypeScript, never JS"));
+    }
+
+    #[test]
+    fn the_team_heading_is_absent_for_everybody_without_one() {
+        let out = compile(&turns(), &brief(), Target::Markdown);
+
+        assert!(!out.contains("HOW THIS TEAM WORKS"));
+    }
+
+    /*
+     * "Apply them here unless they say otherwise" is the right instruction for
+     * something this person said and the wrong one for something a colleague
+     * said, so the two sets never share a heading.
+     */
+    #[test]
+    fn your_rules_and_the_teams_are_never_mixed_together() {
+        let rules: Vec<String> = vec!["no em dashes".into()];
+        let team = [("Sam".to_string(), "always TypeScript".to_string())];
+        let brief = Brief { profile: &rules, team: &team, ..brief() };
+        let out = compile(&turns(), &brief, Target::Markdown);
+
+        let mine = out.find("WHO YOU ARE TALKING TO").expect("own rules");
+        let theirs = out.find("HOW THIS TEAM WORKS").expect("team rules");
+        assert!(mine < theirs, "yours first, then the team's");
+
+        let own_block = &out[mine..theirs];
+        assert!(own_block.contains("no em dashes"));
+        assert!(!own_block.contains("always TypeScript"), "a colleague's rule under your heading");
+    }
+
+    /*
+     * A name and a rule both come off a shared drive and both land inside
+     * <instructions>. One `<` in either closes the tag early and the rest of
+     * the brief becomes malformed markup, which is the same bug the profile
+     * already had once.
+     */
+    #[test]
+    fn a_teammate_cannot_break_the_markup() {
+        let team = [("Sa<m>".to_string(), "use <Foo /> everywhere".to_string())];
+        let brief = Brief { team: &team, ..brief() };
+        let out = compile(&turns(), &brief, Target::Claude);
+
+        assert!(out.contains("Sa&lt;m&gt;"));
+        assert!(out.contains("use &lt;Foo /&gt; everywhere"));
+    }
+
 
     #[test]
     fn claude_gets_xml_and_chatgpt_gets_markdown() {
@@ -772,7 +874,7 @@ mod tests {
         let rules: Vec<String> = RULES.iter().map(|s| s.to_string()).collect();
         let brief = Brief {
             source: "Claude Code", when: "yesterday", project: "Sidq",
-            resume_point: "carry on with the tiers", profile: &rules,
+            resume_point: "carry on with the tiers", profile: &rules, team: &[],
         };
 
         let out = compile(&turns(), &brief, Target::Markdown);
@@ -901,7 +1003,7 @@ mod tests {
     #[test]
     fn an_empty_project_does_not_leave_a_dangling_comma() {
         let brief = Brief {
-            source: "ChatGPT", when: "today", project: "", resume_point: "", profile: &[],
+            source: "ChatGPT", when: "today", project: "", resume_point: "", profile: &[], team: &[],
         };
         let out = compile(&turns(), &brief, Target::Markdown);
 
@@ -956,7 +1058,7 @@ mod honesty_tests {
     }
 
     fn brief_for<'a>(source: &'a str, profile: &'a [String]) -> Brief<'a> {
-        Brief { source, when: "just now", project: "", resume_point: "carry on", profile }
+        Brief { source, when: "just now", project: "", resume_point: "carry on", profile, team: &[] }
     }
 
     #[test]

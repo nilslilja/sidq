@@ -18,6 +18,7 @@ mod indexer;
 mod invites;
 mod pill_window;
 mod profile;
+mod team_context;
 mod capture;
 mod imports;
 mod compiler;
@@ -357,12 +358,26 @@ fn build_handover(
         })
         .unwrap_or_default();
 
+    /*
+     * ── And how the rest of the team works ───────────────────────────────────
+     *
+     * Empty for anybody who has not pointed Sidq at a shared folder, which is
+     * everybody on Starter and Pro. Reading a folder that is not there costs
+     * one failed `read_dir`, so there is nothing to guard.
+     *
+     * Published on the way past, too. The alternative is a Sync button, and a
+     * shared context that is only as fresh as the last time somebody remembered
+     * to press one is not shared context.
+     */
+    let team = team_rules(&rules);
+
     let brief = compiler::Brief {
         source,
         when,
         project,
         resume_point,
         profile: &rules,
+        team: &team,
     };
 
     match work_history::session_capture(session_id) {
@@ -804,6 +819,223 @@ async fn recent_handovers() -> Vec<index_store::Handover> {
     })
     .await
     .unwrap_or_default()
+}
+
+/**
+ * Where this Mac's shared-context folder is, if one was chosen.
+ *
+ * Absent for everybody who has not set one up, which is the default and the
+ * only state Starter and Pro can be in.
+ */
+fn team_folder() -> Option<std::path::PathBuf> {
+    let conn = index_store::open()?;
+    let raw = index_store::setting(&conn, team_context::FOLDER_KEY)?;
+    let path = std::path::PathBuf::from(raw);
+    path.is_dir().then_some(path)
+}
+
+/// What teammates see this person called. Their account name, unless they said otherwise.
+fn team_name() -> String {
+    index_store::open()
+        .and_then(|conn| index_store::setting(&conn, "team.name"))
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| "Me".to_string())
+}
+
+/**
+ * Publish this person's rules into the shared folder, and read everyone else's.
+ *
+ * Both halves in one call because they happen at the same moment for the same
+ * reason: a handover is being made, so this is exactly when the folder should
+ * be current in both directions.
+ *
+ * `mine` is what already went into the handover's own standing instructions, so
+ * the file a teammate reads is the same set this person's own handovers carry.
+ * Publishing something different would mean the team saw a version of you that
+ * your own assistants never do.
+ */
+fn team_rules(mine: &[String]) -> Vec<(String, String)> {
+    let Some(folder) = team_folder() else {
+        return Vec::new();
+    };
+
+    let name = team_name();
+
+    /*
+     * Checked here rather than only in the window.
+     *
+     * This is what Duo is for, so the plan decides, and it decides in Rust like
+     * every other limit does. It also covers the case a UI check cannot: an
+     * account that had Duo, set a folder up, and then stopped paying. Their
+     * file is withdrawn on the way out rather than left in the folder being
+     * read by teammates for ever.
+     */
+    let paid = index_store::open()
+        .map(|conn| entitlement::current(&conn) == entitlement::Plan::Duo)
+        .unwrap_or(false);
+    if !paid {
+        team_context::publish(&folder, &name, &[]);
+        return Vec::new();
+    }
+    team_context::publish(&folder, &name, mine);
+
+    team_context::read_others(&folder, &team_context::file_name_for(&name))
+        .into_iter()
+        .map(|r| (r.who, r.text))
+        .collect()
+}
+
+/* ── Duo: one shared folder, no server ──────────────────────────────────── */
+
+/// What the Duo panel needs to draw itself.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamSettings {
+    /// The chosen folder, if it is set and still exists.
+    folder: Option<String>,
+    /// What teammates see this person called.
+    name: String,
+    /// Everyone else publishing into the folder, and how many rules each shares.
+    members: Vec<(String, usize)>,
+    /// How many of this person's own rules are being published.
+    sharing: usize,
+    /// The file this Mac writes. Shown so it is obvious what leaves.
+    file: String,
+    /// Whether the plan allows it. Read, not assumed: Rust decides, not the window.
+    allowed: bool,
+}
+
+/**
+ * Folders on this Mac that already sync somewhere.
+ *
+ * Offered instead of a file picker, and not only to save a dependency: the
+ * folder has to be one that syncs, and a raw picker invites somebody to choose
+ * Documents and then wonder why their co-founder never appears. These are the
+ * places that will actually work, detected rather than explained.
+ */
+#[tauri::command]
+fn team_folder_options() -> Vec<(String, String)> {
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        return Vec::new();
+    };
+
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut offer = |label: &str, path: std::path::PathBuf| {
+        if path.is_dir() {
+            out.push((label.to_string(), path.join("Sidq Team").to_string_lossy().to_string()));
+        }
+    };
+
+    offer("iCloud Drive", home.join("Library/Mobile Documents/com~apple~CloudDocs"));
+    offer("Dropbox", home.join("Dropbox"));
+
+    /*
+     * Google Drive and OneDrive both mount under CloudStorage with the account
+     * name in the directory, so they cannot be named ahead of time.
+     */
+    if let Ok(entries) = std::fs::read_dir(home.join("Library/CloudStorage")) {
+        for entry in entries.flatten().take(6) {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let label = name.split('-').next().unwrap_or(&name).to_string();
+            offer(&label, entry.path());
+        }
+    }
+
+    out
+}
+
+#[tauri::command]
+async fn team_settings() -> TeamSettings {
+    tauri::async_runtime::spawn_blocking(|| {
+        let name = team_name();
+        let folder = team_folder();
+        let allowed = index_store::open()
+            .map(|conn| entitlement::current(&conn) == entitlement::Plan::Duo)
+            .unwrap_or(false);
+
+        let (members, sharing) = match folder.as_ref() {
+            Some(dir) => (
+                team_context::members(dir, &team_context::file_name_for(&name)),
+                dir.join(team_context::file_name_for(&name))
+                    .exists()
+                    .then(|| std::fs::read_to_string(dir.join(team_context::file_name_for(&name))))
+                    .and_then(Result::ok)
+                    .map(|t| t.lines().filter(|l| l.starts_with("- ")).count())
+                    .unwrap_or(0),
+            ),
+            None => (Vec::new(), 0),
+        };
+
+        TeamSettings {
+            folder: folder.map(|p| p.to_string_lossy().to_string()),
+            file: team_context::file_name_for(&name),
+            name,
+            members,
+            sharing,
+            allowed,
+        }
+    })
+    .await
+    .unwrap_or(TeamSettings {
+        folder: None,
+        name: "Me".into(),
+        members: Vec::new(),
+        sharing: 0,
+        file: String::new(),
+        allowed: false,
+    })
+}
+
+/**
+ * Point Sidq at a shared folder, or stop.
+ *
+ * Creating the directory is part of setting it: every suggested path ends in
+ * "Sidq Team", which will not exist the first time. Passing nothing clears the
+ * setting and removes this Mac's file from wherever it was, so turning Duo
+ * sharing off actually takes you out of your teammates' handovers rather than
+ * merely stopping you reading theirs.
+ */
+#[tauri::command]
+async fn set_team_folder(path: Option<String>) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(conn) = index_store::open() else { return false };
+
+        let Some(raw) = path.filter(|p| !p.trim().is_empty()) else {
+            if let Some(old) = team_folder() {
+                team_context::publish(&old, &team_name(), &[]);
+            }
+            index_store::put_setting(&conn, team_context::FOLDER_KEY, "");
+            return true;
+        };
+
+        let dir = std::path::PathBuf::from(raw.trim());
+        if std::fs::create_dir_all(&dir).is_err() {
+            return false;
+        }
+
+        index_store::put_setting(&conn, team_context::FOLDER_KEY, &dir.to_string_lossy());
+        true
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// What teammates see this person called. Blank falls back to the account name.
+#[tauri::command]
+async fn set_team_name(name: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        // Renaming leaves the old file behind under the old name, still being
+        // read by everyone. Take it out before the new one is written.
+        if let Some(dir) = team_folder() {
+            team_context::publish(&dir, &team_name(), &[]);
+        }
+        index_store::open()
+            .and_then(|conn| index_store::put_setting(&conn, "team.name", name.trim()))
+            .is_some()
+    })
+    .await
+    .unwrap_or(false)
 }
 
 /**
@@ -1261,6 +1493,10 @@ fn main() {
             expand_pill,
             plan_status,
             memory_profile,
+            team_settings,
+            team_folder_options,
+            set_team_folder,
+            set_team_name,
             recent_handovers,
             invite_summary,
             redeem_invite,

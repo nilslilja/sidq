@@ -366,3 +366,55 @@ describe("the ladder reads as a ladder", () => {
     }
   });
 });
+
+describe("what Duo promises", () => {
+  const duo = PLANS.find((p) => p.id === "duo")!;
+
+  /*
+   * Duo shares standing instructions through a folder the team already syncs.
+   * It does not share conversations, and it is not going to: the only thing
+   * that crosses is a small Markdown file of rules the person can read first.
+   *
+   * "Shared context" is exactly the phrase somebody hears as "my co-founder can
+   * see my chats". If that reading is ever available on this page, the plan is
+   * mis-sold to the people most likely to buy it.
+   */
+  test("it never suggests conversations cross between the two seats", () => {
+    const text = [
+      duo.promise,
+      ...duo.features,
+      ...FAQS.flatMap((f) => [f.q, ...(Array.isArray(f.a) ? f.a : [f.a])]),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    for (const claim of [
+      "share your conversations",
+      "shared conversations",
+      "sync your conversations",
+      "see each other's chats",
+      "shares your chats",
+    ]) {
+      expect(text).not.toContain(claim);
+    }
+  });
+
+  test("and it says which thing is shared, rather than leaving it to be guessed", () => {
+    const bullets = duo.features.join(" ").toLowerCase();
+
+    expect(bullets).toContain("standing instructions");
+  });
+
+  /*
+   * The whole reason Duo went through a folder rather than Supabase. If a card
+   * ever contradicts the front page, one of the two is a lie and the page is
+   * the one people read first.
+   */
+  test("it does not contradict the page's promise that nothing is uploaded", () => {
+    const answer = FAQS.find((f) => /Duo actually share/.test(f.q));
+    const text = (Array.isArray(answer?.a) ? answer.a.join(" ") : (answer?.a ?? "")).toLowerCase();
+
+    expect(text).toContain("uploads nothing");
+    expect(text).toContain("not shared");
+  });
+});

@@ -130,34 +130,30 @@ export const PLANS: Plan[] = [
     price: "$29.99",
     cadence: "/ month",
     /*
-     * Warmer than "Two people, one bill", which is an invoicing arrangement.
+     * ── What Duo actually does, now that it does something ───────────────────
      *
-     * It must not say the two seats share anything, because they do not: each
-     * Mac keeps its own index and nothing crosses between them, which is the
-     * direct consequence of nothing leaving the Mac at all. People hear "Duo"
-     * and assume a shared team memory, and the words here have to leave them
-     * no room to.
+     * It sold two seats and one invoice. Asked what it did, the honest answer
+     * was "you both get Sidq", and the thing people at a demo were excited
+     * about — that a team could work from one context — was a guess they had
+     * made about the name. It is real now: the standing instructions on each
+     * member's "How you work" tab are shared through a folder the team already
+     * syncs, and every handover any of them makes carries the team's rules as
+     * well as their own.
+     *
+     * The line that must never appear here is that conversations are shared.
+     * They are not, and they are not going to be: nothing leaves the Mac except
+     * one small Markdown file of rules the person can open and read first. A
+     * buyer who reads "shared context" as "my co-founder can see my chats" has
+     * been mis-sold, so the bullet says which thing is shared.
      */
-    promise: "You and your co-founder. Cheaper than two.",
+    promise: "Both of you, working from the same context.",
+    priceNote: "$15 each",
     inherits: "Pro",
     cta: "Subscribe",
-    /*
-     * The per-person price, said out loud.
-     *
-     * Two Pro seats are $39.98. Duo is $29.99 for the same two seats, so it is
-     * $15 a head against $19.99 — a real saving, printed rather than left for
-     * the reader to work out. That arithmetic is the entire argument for Duo
-     * and the card never made it.
-     *
-     * What this card must never say is that the two seats share anything. They
-     * do not. Each Mac keeps its own index and nothing crosses between them,
-     * which is the direct consequence of nothing leaving the Mac at all. People
-     * hear "Duo" and assume a shared team memory; the words here have to leave
-     * them no room to.
-     */
     features: [
       "$15 a person, against $19.99 each",
-      "A second Mac, with the same everything on it",
+      "Your standing instructions, shared: every handover knows how the team works",
+      "Through a folder you already sync, so still nothing uploaded",
       "One bill, one subscription to cancel",
     ],
   },

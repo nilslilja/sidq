@@ -940,6 +940,7 @@ mod tests {
             project: &session.project_name,
             resume_point: &session.last_prompt,
             profile: &[],
+            team: &[],
         };
         let compiled = crate::compiler::compile(
             &turns,

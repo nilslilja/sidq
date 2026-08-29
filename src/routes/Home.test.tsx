@@ -5,6 +5,7 @@ import type {
   InviteSummary,
   PlanStatus,
   ProfileFact,
+  TeamSettings,
 } from "@/lib/onboarding/bridge";
 
 /*
@@ -445,6 +446,75 @@ describe("how you work", () => {
       screen.getByText(/ride along with every\s+handover/),
     ).toBeInTheDocument();
     bridge.memoryProfile = original;
+  });
+});
+
+describe("your team", () => {
+  const NOT_PAYING: TeamSettings = {
+    folder: null,
+    name: "Nils",
+    members: [] as [string, number][],
+    sharing: 0,
+    file: "nils.sidq-context.md",
+    allowed: false,
+  };
+
+  function withTeam(next: Partial<TeamSettings>) {
+    bridge.teamSettings = vi.fn(async () => ({ ...NOT_PAYING, ...next }));
+    bridge.teamFolderOptions = vi.fn(async () => [
+      ["iCloud Drive", "/Users/x/iCloud/Sidq Team"] as [string, string],
+    ]);
+  }
+
+  /*
+   * The plan gate is Rust's answer. `team_rules` refuses to publish or read
+   * regardless of what this window draws, so the panel renders what it was
+   * told rather than deciding for itself.
+   */
+  test("a plan without Duo is told what Duo would do, not shown the setup", async () => {
+    withTeam({ allowed: false });
+    await open("Your team");
+
+    expect(screen.getByText(/standing instructions on your/i)).toBeInTheDocument();
+    expect(screen.queryByText("iCloud Drive")).not.toBeInTheDocument();
+  });
+
+  test("Duo with no folder yet is offered the ones that actually sync", async () => {
+    withTeam({ allowed: true });
+    await open("Your team");
+
+    expect(screen.getByText("iCloud Drive")).toBeInTheDocument();
+  });
+
+  /*
+   * Naming the file in the window is the point of using a file at all: what
+   * leaves this Mac is one thing, it has a name, and you can go and read it.
+   */
+  test("it names the one file that leaves the Mac", async () => {
+    withTeam({ allowed: true, folder: "/Users/x/iCloud/Sidq Team", sharing: 4 });
+    await open("Your team");
+
+    expect(screen.getAllByText("nils.sidq-context.md").length).toBeGreaterThan(0);
+  });
+
+  test("an empty folder says what to do, not that something is missing", async () => {
+    withTeam({ allowed: true, folder: "/Users/x/iCloud/Sidq Team", sharing: 4 });
+    await open("Your team");
+
+    expect(screen.getByText(/point their Sidq at it/i)).toBeInTheDocument();
+  });
+
+  test("and teammates are listed with what each of them contributes", async () => {
+    withTeam({
+      allowed: true,
+      folder: "/Users/x/iCloud/Sidq Team",
+      sharing: 4,
+      members: [["Sam", 3]],
+    });
+    await open("Your team");
+
+    expect(screen.getByText("Sam")).toBeInTheDocument();
+    expect(screen.getByText("3 rules")).toBeInTheDocument();
   });
 });
 

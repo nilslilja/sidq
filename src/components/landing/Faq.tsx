@@ -55,6 +55,14 @@ export const FAQS = [
     a: "Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your AIs already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.",
   },
   {
+    q: "What does Duo actually share between two people?",
+    a: [
+      'Standing instructions, and only those. The lines on your "How you work" tab are sentences you have typed to assistants more than once: how you want things done, what stack you are on, the conventions you keep repeating. On Duo those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
+      "Your conversations are not shared, and will not be. Nothing crosses except one small Markdown file of those rules, which you can open and read in full before anybody else sees it.",
+      "It works through a folder you already sync, whether that is iCloud Drive, Dropbox or a git repo. Sidq writes its file there and reads the ones your teammates wrote. It still uploads nothing and still opens no connection, which also means it works between people in different countries rather than two laptops on one wifi.",
+    ],
+  },
+  {
     q: "Is this just a wrapper around a chatbot?",
     a: "No, and the honest test is that most of it does not call a model at all. Finding what is worth resuming, reading the transcript and handing it over are file operations on your machine. That is why it is instant, why it costs nothing to run, and why it works offline.",
   },

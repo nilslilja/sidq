@@ -100,13 +100,46 @@ export interface ProfileFact {
 }
 
 /**
+ * How this Mac shares standing instructions with the rest of a team.
+ *
+ * Duo works through a folder rather than a server: Sidq writes one small
+ * Markdown file into somewhere that already syncs — iCloud Drive, Dropbox, a
+ * git repo — and reads the files its teammates' copies wrote there. Nothing is
+ * uploaded by Sidq, which is what keeps the claim on the front page true.
+ */
+export interface TeamSettings {
+  /** The chosen folder, absent until one is picked. */
+  folder: string | null;
+  /** What teammates see this person called. */
+  name: string;
+  /** Everyone else in the folder, as [name, how many rules they share]. */
+  members: [string, number][];
+  /** How many of this person's own rules are published. */
+  sharing: number;
+  /** The one file this Mac writes. Named so it is obvious what leaves. */
+  file: string;
+  /** Whether the plan allows it. Rust decides this, not the window. */
+  allowed: boolean;
+}
+
+/** What the panel shows when the desktop app is not there to ask. */
+export const NO_TEAM: TeamSettings = {
+  folder: null,
+  name: "Me",
+  members: [],
+  sharing: 0,
+  file: "",
+  allowed: false,
+};
+
+/**
  * The pill has two sizes: a bar that is always there, and the picker.
  *
  * Nothing announces which one is in force. The pill measures its own window,
  * because an announcement is a thing that can fail to arrive and a width is
  * not — see the note in Pill.tsx for the two ways it did fail.
  */
-export type PillState = 'collapsed' | 'expanded';
+export type PillState = "collapsed" | "expanded";
 
 export interface OnboardingBridge {
   openSignIn: () => Promise<void>;
@@ -118,7 +151,10 @@ export interface OnboardingBridge {
    * The shortcut steps cannot use a keydown listener: these are global
    * shortcuts, so Rust receives them instead of the focused window.
    */
-  onShortcut: (event: 'shortcut-pill', callback: () => void) => Promise<() => void>;
+  onShortcut: (
+    event: "shortcut-pill",
+    callback: () => void,
+  ) => Promise<() => void>;
   /**
    * Rust saying something a window is showing has changed.
    *
@@ -138,7 +174,9 @@ export interface OnboardingBridge {
    * few seconds while somebody types in it, and announcing that would be the
    * most irritating thing the product does.
    */
-  onFound: (callback: (found: FoundConversation) => void) => Promise<() => void>;
+  onFound: (
+    callback: (found: FoundConversation) => void,
+  ) => Promise<() => void>;
   /**
    * Claude Code sessions found on disk.
    *
@@ -182,7 +220,10 @@ export interface OnboardingBridge {
    * The second element is how many older matches were withheld — a real count
    * with none of their text, which is what the upgrade prompt shows.
    */
-  searchConversations: (query: string, limit: number) => Promise<[SearchHit[], number]>;
+  searchConversations: (
+    query: string,
+    limit: number,
+  ) => Promise<[SearchHit[], number]>;
   /**
    * What you keep telling assistants, and the same list ready to paste.
    *
@@ -190,6 +231,14 @@ export interface OnboardingBridge {
    * so it costs nothing to run and cannot say anything you did not.
    */
   memoryProfile: () => Promise<[ProfileFact[], string]>;
+  /** How this Mac is set up to share standing instructions with a team. */
+  teamSettings: () => Promise<TeamSettings>;
+  /** Folders on this Mac that already sync somewhere, as [label, path]. */
+  teamFolderOptions: () => Promise<[string, string][]>;
+  /** Point Sidq at a folder, or pass null to stop sharing and withdraw the file. */
+  setTeamFolder: (path: string | null) => Promise<boolean>;
+  /** What teammates see this person called. */
+  setTeamName: (name: string) => Promise<boolean>;
   /** What you have handed over, newest first. Read from the index, not invented. */
   recentHandovers: () => Promise<HandoverRecord[]>;
   /**
@@ -240,7 +289,10 @@ export interface OnboardingBridge {
    * people abandon an install is finishing it and not knowing whether it
    * worked.
    */
-  extensionStatus: () => Promise<{ connected: boolean; secondsAgo: number | null }>;
+  extensionStatus: () => Promise<{
+    connected: boolean;
+    secondsAgo: number | null;
+  }>;
   /** Download it, unzip it, and reveal the folder Chrome asks for. */
   downloadExtension: () => Promise<string | null>;
   /** Assistants Sidq can open in its own window. Nothing to install. */
@@ -302,13 +354,18 @@ interface TauriCore {
 }
 
 interface TauriEvent {
-  listen: (event: string, cb: (e: { payload: unknown }) => void) => Promise<() => void>;
+  listen: (
+    event: string,
+    cb: (e: { payload: unknown }) => void,
+  ) => Promise<() => void>;
 }
 
 export function desktopBridge(): OnboardingBridge | null {
-  const tauri = (window as unknown as {
-    __TAURI__?: { core?: TauriCore; event?: TauriEvent };
-  }).__TAURI__;
+  const tauri = (
+    window as unknown as {
+      __TAURI__?: { core?: TauriCore; event?: TauriEvent };
+    }
+  ).__TAURI__;
   const core = tauri?.core;
   const event = tauri?.event;
   if (!core || !event) return null;
@@ -317,144 +374,169 @@ export function desktopBridge(): OnboardingBridge | null {
 
   return {
     openSignIn: async () => {
-      await invoke('open_sign_in');
+      await invoke("open_sign_in");
     },
     onSignedIn: (callback) =>
-      event.listen('deep-link', (e) => {
+      event.listen("deep-link", (e) => {
         // Rust forwards the raw URLs. Anything that is not our auth callback is
         // ignored rather than treated as a successful sign-in.
         const urls = Array.isArray(e.payload) ? (e.payload as string[]) : [];
-        const authUrls = urls.filter((u) => u.startsWith('sidq://auth'));
+        const authUrls = urls.filter((u) => u.startsWith("sidq://auth"));
         if (authUrls.length > 0) callback(authUrls);
       }),
     onShortcut: (name, callback) => event.listen(name, () => callback()),
-    onChanged: (callback) => event.listen('sidq:changed', () => callback()),
+    onChanged: (callback) => event.listen("sidq:changed", () => callback()),
     onFound: (callback) =>
-      event.listen('sidq:found', (e) => {
+      event.listen("sidq:found", (e) => {
         // Rust's own struct, but it arrives as JSON over an event channel like
         // anything else, so it is checked rather than asserted.
         const payload = e.payload as Partial<FoundConversation> | null;
-        if (payload && typeof payload.title === 'string') {
+        if (payload && typeof payload.title === "string") {
           callback({
-            source: String(payload.source ?? ''),
+            source: String(payload.source ?? ""),
             title: payload.title,
             firstTime: payload.firstTime === true,
           });
         }
       }),
     recentWork: async (limit) => {
-      const rows = await invoke('recent_work', { limit });
+      const rows = await invoke("recent_work", { limit });
       return Array.isArray(rows) ? rows : [];
     },
     handoverText: async (args) => {
-      const text = await invoke('handover_text', args);
-      return typeof text === 'string' ? text : null;
+      const text = await invoke("handover_text", args);
+      return typeof text === "string" ? text : null;
     },
     saveTranscript: async (args) => {
-      const out = (await invoke('save_transcript', args)) as HandoverResult | null;
+      const out = (await invoke(
+        "save_transcript",
+        args,
+      )) as HandoverResult | null;
       return out ?? { path: null, limited: false, used: 0, cap: null };
     },
     searchConversations: async (query, limit) => {
-      const out = await invoke('search_conversations', { query, limit });
+      const out = await invoke("search_conversations", { query, limit });
       return Array.isArray(out) ? (out as [SearchHit[], number]) : [[], 0];
     },
     memoryProfile: async () => {
-      const out = await invoke('memory_profile');
-      return Array.isArray(out) ? (out as [ProfileFact[], string]) : [[], ''];
+      const out = await invoke("memory_profile");
+      return Array.isArray(out) ? (out as [ProfileFact[], string]) : [[], ""];
     },
+    teamSettings: async () => {
+      const out = (await invoke("team_settings")) as TeamSettings | null;
+      return out ?? NO_TEAM;
+    },
+    teamFolderOptions: async () => {
+      const out = await invoke("team_folder_options");
+      return Array.isArray(out) ? (out as [string, string][]) : [];
+    },
+    setTeamFolder: async (path) =>
+      (await invoke("set_team_folder", { path })) === true,
+    setTeamName: async (name) =>
+      (await invoke("set_team_name", { name })) === true,
     recentHandovers: async () => {
-      const out = await invoke('recent_handovers');
+      const out = await invoke("recent_handovers");
       return Array.isArray(out) ? (out as HandoverRecord[]) : [];
     },
     importExport: async (json) => {
-      const count = await invoke('import_export', { json });
-      return typeof count === 'number' ? count : 0;
+      const count = await invoke("import_export", { json });
+      return typeof count === "number" ? count : 0;
     },
     inviteSummary: async () => {
-      const out = (await invoke('invite_summary')) as InviteSummary | null;
+      const out = (await invoke("invite_summary")) as InviteSummary | null;
       return (
         out ?? {
-          code: '',
+          code: "",
           invited: 0,
           bonus: 0,
           redeemed: false,
-          problem: 'Sidq could not read your invites.',
+          problem: "Sidq could not read your invites.",
           each: 0,
           most: 0,
           thisWeek: 0,
           perWeek: 0,
-          expires: '',
+          expires: "",
         }
       );
     },
     redeemInvite: async (code) => {
-      const bonus = await invoke('redeem_invite', { code });
-      return typeof bonus === 'number' ? bonus : 0;
+      const bonus = await invoke("redeem_invite", { code });
+      return typeof bonus === "number" ? bonus : 0;
     },
     accessibilityGranted: async () => {
-      return (await invoke('accessibility_granted')) === true;
+      return (await invoke("accessibility_granted")) === true;
     },
     requestAccessibility: async () => {
-      await invoke('request_accessibility');
+      await invoke("request_accessibility");
     },
     openAccessibilitySettings: async () => {
-      await invoke('open_accessibility_settings');
+      await invoke("open_accessibility_settings");
     },
     notifySample: async () => {
-      await invoke('notify_sample');
+      await invoke("notify_sample");
     },
     openNotificationSettings: async () => {
-      await invoke('open_notification_settings');
+      await invoke("open_notification_settings");
     },
     extensionStatus: async () => {
-      const out = (await invoke('extension_status')) as
-        | { connected: boolean; secondsAgo: number | null }
-        | null;
+      const out = (await invoke("extension_status")) as {
+        connected: boolean;
+        secondsAgo: number | null;
+      } | null;
       return out ?? { connected: false, secondsAgo: null };
     },
     downloadExtension: async () => {
-      const path = await invoke('download_extension');
-      return typeof path === 'string' ? path : null;
+      const path = await invoke("download_extension");
+      return typeof path === "string" ? path : null;
     },
     staleSources: async () => {
-      const rows = await invoke('stale_sources');
+      const rows = await invoke("stale_sources");
       return Array.isArray(rows) ? (rows as string[]) : [];
     },
     assistantList: async () => {
-      const rows = await invoke('assistant_list');
-      return Array.isArray(rows) ? (rows as { id: string; label: string }[]) : [];
+      const rows = await invoke("assistant_list");
+      return Array.isArray(rows)
+        ? (rows as { id: string; label: string }[])
+        : [];
     },
     openAssistantInBrowser: async (id) => {
-      await invoke('open_assistant_in_browser', { id });
+      await invoke("open_assistant_in_browser", { id });
     },
     openAssistant: async (id) => {
-      await invoke('open_assistant', { id });
+      await invoke("open_assistant", { id });
     },
     planStatus: async () => {
-      const out = (await invoke('plan_status')) as PlanStatus | null;
-      return out ?? { plan: 'free', handoversUsed: 0, handoversCap: null, historyDays: null };
+      const out = (await invoke("plan_status")) as PlanStatus | null;
+      return (
+        out ?? {
+          plan: "free",
+          handoversUsed: 0,
+          handoversCap: null,
+          historyDays: null,
+        }
+      );
     },
     setDesktopSession: async (accessToken) => {
-      await invoke('set_desktop_session', { accessToken });
+      await invoke("set_desktop_session", { accessToken });
     },
     indexStats: async () => {
-      const out = await invoke('index_stats');
+      const out = await invoke("index_stats");
       return Array.isArray(out) ? (out as [number, number]) : [0, 0];
     },
     openHome: async () => {
-      await invoke('open_home');
+      await invoke("open_home");
     },
     openUpgrade: async () => {
-      await invoke('open_upgrade');
+      await invoke("open_upgrade");
     },
     hidePill: async () => {
-      await invoke('hide_pill');
+      await invoke("hide_pill");
     },
     expandPill: async () => {
-      await invoke('expand_pill');
+      await invoke("expand_pill");
     },
     finish: async () => {
-      await invoke('finish_onboarding');
+      await invoke("finish_onboarding");
     },
   };
 }

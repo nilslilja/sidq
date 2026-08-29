@@ -6,6 +6,7 @@ import {
   type InviteSummary,
   type ProfileFact,
   type SearchHit,
+  type TeamSettings,
 } from "@/lib/onboarding/bridge";
 import type { WorkSession } from "@/lib/companion/work-history";
 import { adoptSession, shareSessionWithDesktop } from "@/lib/supabase";
@@ -37,7 +38,8 @@ import { cn } from "@/lib/cn";
  * than that. Every row in the sidebar leads somewhere that works.
  */
 
-type Tab = "overview" | "search" | "sources" | "profile" | "plan" | "invite";
+type Tab =
+  "overview" | "search" | "sources" | "profile" | "team" | "plan" | "invite";
 
 type IconName = Tab;
 
@@ -53,6 +55,7 @@ const TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] = [
   { id: "search", label: "Search", icon: "search" },
   { id: "sources", label: "Sources", icon: "sources" },
   { id: "profile", label: "How you work", icon: "profile" },
+  { id: "team", label: "Your team", icon: "team" },
   { id: "plan", label: "Plan", icon: "plan", secondary: true },
   { id: "invite", label: "Invite a friend", icon: "invite", secondary: true },
 ];
@@ -402,6 +405,7 @@ export function Home() {
               <Sources sessions={sessions} bridge={bridge} />
             )}
             {tab === "profile" && <Profile bridge={bridge} />}
+            {tab === "team" && <Team bridge={bridge} />}
             {tab === "plan" && <Plan bridge={bridge} plan={plan} />}
             {tab === "invite" && (
               <Invite bridge={bridge} signedInAt={signedInAt} />
@@ -521,6 +525,14 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
       <>
         <path d="M4 3h7l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
         <path d="M6 8.5h6M6 11.5h4" />
+      </>
+    ),
+    team: (
+      <>
+        <circle cx="6.5" cy="6" r="2.6" />
+        <path d="M2 15c0-2.5 2-4.2 4.5-4.2S11 12.5 11 15" />
+        <path d="M12 4.2a2.6 2.6 0 0 1 0 5" />
+        <path d="M13 10.9c1.9.4 3 1.9 3 4.1" />
       </>
     ),
     plan: (
@@ -1392,6 +1404,225 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* ── Your team ────────────────────────────────────────────────────────────── */
+
+/**
+ * Duo, made into something.
+ *
+ * It sold two seats and one invoice. Asked what it did, the honest answer was
+ * "you both get Sidq" — and the thing people at a demo got excited about, that
+ * a team could work from one shared context, was a guess they had made about
+ * the name rather than a feature. This is that guess, made true.
+ *
+ * Through a folder, not a server. The front page says nothing is uploaded and
+ * that it works with the wifi off, and those sentences are the product; making
+ * them false for the paid tier is a worse trade than any feature is worth. So
+ * Sidq writes one small readable file into somewhere that already syncs and
+ * reads the files its teammates' copies wrote there. Sidq opens no socket, and
+ * it works between people in different countries rather than two laptops on one
+ * wifi.
+ */
+function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [settings, setSettings] = useState<TeamSettings | null>(null);
+  const [options, setOptions] = useState<[string, string][]>([]);
+  const [typed, setTyped] = useState("");
+  const [name, setName] = useState("");
+
+  const load = useCallback(() => {
+    if (!bridge) return;
+    void bridge.teamSettings().then((next) => {
+      setSettings(next);
+      setName(next.name);
+    });
+  }, [bridge]);
+
+  useEffect(() => {
+    load();
+    void bridge?.teamFolderOptions().then(setOptions);
+  }, [bridge, load]);
+
+  const heading = <PanelHead eyebrow="Duo" title="Your team" />;
+
+  if (!settings) {
+    return (
+      <>
+        {heading}
+        <p className="mt-4 text-[0.875rem] text-[#7A7489]">Checking&hellip;</p>
+      </>
+    );
+  }
+
+  /*
+   * The plan check is Rust's answer, not this window's guess.
+   *
+   * Sharing is refused in `team_rules` regardless of what is on screen, so the
+   * two can never disagree about whether somebody is paying for it.
+   */
+  if (!settings.allowed) {
+    return (
+      <>
+        {heading}
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+          On Duo, the standing instructions on your{" "}
+          <strong>How you work</strong> tab are shared with the people you work
+          with, and theirs with you. Every handover any of you makes then
+          arrives already knowing how the team works, not just how you do.
+        </p>
+        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+          It goes through a folder you already sync, so nothing is uploaded to
+          us and it still works with the wifi off.
+        </p>
+      </>
+    );
+  }
+
+  const choose = (path: string | null) => {
+    void bridge?.setTeamFolder(path).then(load);
+  };
+
+  if (!settings.folder) {
+    return (
+      <>
+        {heading}
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+          Pick somewhere that syncs. Sidq writes one small file there,{" "}
+          <span className="tabular text-[#16141C]">{settings.file}</span>, and
+          reads the ones your teammates&rsquo; copies write. Nothing is uploaded
+          to us; your drive does the syncing you already trust it with.
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {options.map(([label, path]) => (
+            <button
+              key={path}
+              onClick={() => choose(path)}
+              className={cn(
+                "rounded-lg border border-[#E3DFF1] bg-white px-3 py-2 text-[0.8125rem]",
+                "cursor-pointer transition-colors duration-150 hover:border-[#B8A6FF]",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) =>
+              e.key === "Enter" && typed.trim() && choose(typed.trim())
+            }
+            placeholder="Or a path of your own, including a git repo"
+            spellCheck={false}
+            className={cn(
+              "min-w-0 flex-1 rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+            )}
+          />
+          <button
+            disabled={!typed.trim()}
+            onClick={() => choose(typed.trim())}
+            className={cn(
+              "shrink-0 rounded-lg bg-[#16141C] px-3 py-2 text-[0.8125rem] font-medium text-white",
+              "cursor-pointer transition-opacity duration-150 hover:opacity-90",
+              "disabled:cursor-default disabled:opacity-35",
+            )}
+          >
+            Use this
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div>
+      {heading}
+
+      <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+        Sharing through{" "}
+        <span className="tabular text-[#16141C]">{settings.folder}</span>. Sidq
+        writes <span className="tabular text-[#16141C]">{settings.file}</span>{" "}
+        there and reads whatever your teammates put beside it. You can open that
+        file and read every word of it.
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-end gap-3">
+        <label className="text-[0.8125rem]">
+          <span className="block text-[#7A7489]">
+            What your team sees you called
+          </span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() =>
+              name.trim() !== settings.name &&
+              bridge?.setTeamName(name).then(load)
+            }
+            spellCheck={false}
+            className={cn(
+              "mt-1.5 rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+            )}
+          />
+        </label>
+        <button
+          onClick={() => choose(null)}
+          className={cn(
+            "rounded-lg border border-[#E3DFF1] px-3 py-2 text-[0.8125rem]",
+            "cursor-pointer transition-colors duration-150 hover:border-[#16141C]",
+          )}
+        >
+          Stop sharing
+        </button>
+      </div>
+
+      <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+        In this folder
+      </p>
+
+      <ul className="mt-3 space-y-px">
+        <li className="flex items-baseline gap-4 rounded-[10px] bg-[#F4F2FB] px-3 py-2.5">
+          <span className="min-w-0 flex-1 text-[0.875rem] text-[#16141C]">
+            {settings.name} <span className="text-[#8E8899]">(you)</span>
+          </span>
+          <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+            {settings.sharing === 1 ? "1 rule" : `${settings.sharing} rules`}
+          </span>
+        </li>
+        {settings.members.map(([who, count]: [string, number]) => (
+          <li
+            key={who}
+            className="flex items-baseline gap-4 rounded-[10px] px-3 py-2.5"
+          >
+            <span className="min-w-0 flex-1 text-[0.875rem] text-[#16141C]">
+              {who}
+            </span>
+            <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+              {count === 1 ? "1 rule" : `${count} rules`}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/*
+       * Nobody else yet is the normal first state, not a failure. It says what
+       * to do rather than reporting an absence, because the thing to do is the
+       * only part that is not obvious: the other person has to point their own
+       * Sidq at the same folder.
+       */}
+      {settings.members.length === 0 && (
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+          Nobody else is in here yet. Share the folder with whoever you work
+          with, and have them point their Sidq at it on the same tab. They will
+          appear the next time either of you makes a handover.
+        </p>
+      )}
     </div>
   );
 }
