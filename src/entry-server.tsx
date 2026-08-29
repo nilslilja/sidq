@@ -26,7 +26,7 @@ import "./styles/global.css";
  * for exactly that reason: it detects the machine as it renders, which is right
  * for a page reached by clicking Download and wrong for one built in advance.
  */
-export const ROUTES = ["/", "/privacy", "/terms"] as const;
+export const ROUTES = ["/", "/pricing", "/faq", "/privacy", "/terms"] as const;
 
 export function render(url: string): string {
   return renderToString(

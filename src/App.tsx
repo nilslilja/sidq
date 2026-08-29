@@ -3,7 +3,6 @@ import { Analytics } from "@vercel/analytics/react";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Landing } from "@/routes/Landing";
-import { Bloom } from "@/components/atmosphere/Bloom";
 
 // The app proper is a separate chunk. The landing page ships React, the router,
 // the shader and the hero stroke. Nothing else.
@@ -50,6 +49,12 @@ const DesktopSignIn = lazy(() =>
 // same reason the legal pages are: it must not demand a session first.
 const Backdrop = lazy(() =>
   import("@/routes/Backdrop").then((m) => ({ default: m.Backdrop })),
+);
+const PricingPage = lazy(() =>
+  import("@/routes/Detail").then((m) => ({ default: m.PricingPage })),
+);
+const FaqPage = lazy(() =>
+  import("@/routes/Detail").then((m) => ({ default: m.FaqPage })),
 );
 const Privacy = lazy(() =>
   import("@/routes/Legal").then((m) => ({ default: m.Privacy })),
@@ -154,10 +159,27 @@ function Shell() {
        * different problems, and they need opposite fixes.
        */}
       <Analytics />
-      <Bloom />
       <div className="relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
+          {/* What the landing page stopped being. Their own routes so each one
+              is something you can send to a person on its own. */}
+          <Route
+            path="/pricing"
+            element={
+              <Suspense fallback={<Blank />}>
+                <PricingPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/faq"
+            element={
+              <Suspense fallback={<Blank />}>
+                <FaqPage />
+              </Suspense>
+            }
+          />
           <Route
             path="/privacy"
             element={

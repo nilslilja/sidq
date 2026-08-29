@@ -75,8 +75,17 @@ export function SiteFooter() {
             * gets repeated because somebody heard it twice, and the two places
             * anybody is deciding whether to download are the two buttons.
             */}
+          {/*
+            * Not the pitch again.
+            *
+            * The comment above this used to argue that a line gets repeated
+            * because somebody heard it twice, and that was right when the
+            * landing page was eight sections long and this sat a very long way
+            * below the hero. The page is one screen now, so the two of them
+            * were inches apart and it read as a stammer rather than a refrain.
+            */}
           <h2 className="mx-auto max-w-[18ch] font-display text-[clamp(2rem,5vw,3.75rem)] leading-[0.94] tracking-[-0.045em]">
-            Stop introducing yourself to robots.
+            One keystroke. It is already there.
           </h2>
           <p className="mx-auto mt-6 max-w-[42ch] text-[1rem] leading-relaxed ink-muted">
             If it has not earned its place on your screen within a week, delete it.

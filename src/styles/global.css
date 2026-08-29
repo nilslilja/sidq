@@ -858,23 +858,3 @@
   }
 }
 
-/*
- * ── The atmosphere stops when nobody can see it ────────────────────────────
- *
- * The hero holds twenty-three animated elements and ends about 1,600px into a
- * page many times that long. They all kept animating while somebody read the
- * pricing table, off screen, costing a composited layer each for nothing.
- *
- * Paused, not cancelled: a star holds the position it had rather than snapping
- * back to the start of its keyframes when the hero scrolls into view again.
- */
-[data-atmosphere="still"] .sky-twinkle,
-[data-atmosphere="still"] .sky-shoot,
-[data-atmosphere="still"] .sky-cross,
-[data-atmosphere="still"] .sky-cloud,
-[data-atmosphere="still"] .bloom-breathe,
-[data-atmosphere="still"] .drift-a,
-[data-atmosphere="still"] .drift-b,
-[data-atmosphere="still"] .float-soft {
-  animation-play-state: paused;
-}
