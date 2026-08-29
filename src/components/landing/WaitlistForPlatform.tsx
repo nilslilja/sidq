@@ -59,28 +59,20 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
         setState('saving');
 
         /*
-         * ── Written twice on purpose ─────────────────────────────────────────
+         * ── One call that records the address and sends the mail ─────────────
          *
-         * `waitlist.platform` has a check constraint listing the values that
-         * existed when the table was made: windows, linux, unknown. Sending
-         * 'phone' before that constraint is widened fails the insert, and the
-         * only thing anybody would see is the form saying it did not work — on
-         * mobile, which is the surface this whole change exists for.
+         * It used to insert straight into the table from here, which is why
+         * nothing was ever sent: there was nothing on the other side to send
+         * it. Doing it here would have meant a public endpoint whose job is
+         * "email whatever address I give you", which is a spam relay.
          *
-         * So the better value is tried first and the safe one is the fallback.
-         * `23514` is a check violation and `42501` covers a policy refusing the
-         * row; either means the column will not take 'phone' yet. Once the
-         * migration in `0009_waitlist_phone.sql` is applied the first attempt
-         * simply succeeds and this never runs.
+         * So the function does both, with the service role, and mails only the
+         * address it just recorded. Nothing here can be pointed at a stranger.
          *
-         * The alternative was shipping the code and the migration together and
-         * remembering to apply one before the other. That is a coordination
-         * step, and a coordination step that fails silently on the busiest page
-         * is not worth the tidiness.
+         * The check constraint fallback that used to live here is gone with it.
+         * The function decides what the column will accept, in the same place
+         * that writes to it.
          */
-        const record = (as: string) =>
-          supabase.from('waitlist').insert({ email: email.trim().toLowerCase(), platform: as });
-
         const wanted =
           platform === 'linux'
             ? 'linux'
@@ -90,22 +82,17 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
                 ? 'phone'
                 : 'unknown';
 
-        void record(wanted).then(async ({ error }) => {
-          // A duplicate is somebody pressing twice, which is impatience rather
-          // than a failure, so it counts as done.
-          if (!error || error.code === '23505') {
-            setState('done');
-            return;
-          }
-
-          if (wanted === 'phone' && (error.code === '23514' || error.code === '42501')) {
-            const { error: second } = await record('unknown');
-            setState(!second || second.code === '23505' ? 'done' : 'failed');
-            return;
-          }
-
-          setState('failed');
-        });
+        void supabase.functions
+          .invoke('send-link', { body: { email: email.trim().toLowerCase(), platform: wanted } })
+          .then(({ error }) => {
+            /*
+             * Saved and sent are reported separately by the function, and this
+             * only cares about the first. If the address is recorded, the
+             * person has done their part and the mail is our problem: it gets
+             * sent by hand off the back of the log.
+             */
+            setState(error ? 'failed' : 'done');
+          });
       }}
       className="mt-6 border-t border-ink/10 pt-5"
     >
