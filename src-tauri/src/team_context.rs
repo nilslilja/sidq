@@ -298,7 +298,7 @@ pub fn shared_handovers(folder: &Path, who: &str) -> Vec<SharedHandover> {
         })
         .collect();
 
-    out.sort_by(|a, b| b.when.cmp(&a.when));
+    out.sort_by_key(|h| std::cmp::Reverse(h.when));
     out
 }
 

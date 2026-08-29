@@ -3,7 +3,11 @@ name = "sidq"
 version = "0.1.0"
 description = "One clear day, every morning."
 edition = "2021"
-rust-version = "1.77"
+# 1.82 for `Option::is_none_or`, which the transcript readers already used
+# before this line said so. The manifest claimed 1.77 while the code would not
+# build on it, which is the wrong way round for a number whose only job is to
+# tell somebody whether their toolchain is new enough.
+rust-version = "1.82"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
