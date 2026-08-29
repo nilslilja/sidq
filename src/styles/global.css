@@ -369,15 +369,25 @@
   }
 
   /* Fine film grain. Keeps large flat areas from looking synthetic. */
-  .grain::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+  /*
+   * ── The grain is gone, and it was the scroll ───────────────────────────────
+   *
+   * It was `position: fixed; inset: 0; z-index: 1` on the wrapper around the
+   * whole site: a full-viewport noise layer sitting above every piece of
+   * content on the page. That is the classic cause of exactly what this site
+   * had — scrolling being heavy everywhere rather than at one section — because
+   * a fixed layer above scrolling content has to be re-blended over the entire
+   * viewport on every frame, at whatever resolution the display runs at. On a
+   * Retina Mac that is five million pixels re-composited per frame to deliver a
+   * texture at three and a half percent opacity.
+   *
+   * Three rounds of shaving the hero did not touch it, because it was never
+   * only the hero.
+   *
+   * If it is wanted back, it belongs on individual sections rather than fixed
+   * over the document, so the compositor can fold it into a layer it is already
+   * painting instead of blending it over everything else on every frame.
+   */
 
   /*
    * Two verified muted steps, so nobody has to guess an opacity again.
@@ -744,22 +754,50 @@
   aspect-ratio: 1;
   translate: -50% -50%;
   z-index: -2;
+  /*
+   * A comet rather than a band: a long faint tail, a hot near-white core, a
+   * short leading edge. That shape is what reads as light travelling rather
+   * than a coloured stripe going round, and it is what lets the thing be
+   * brighter at its peak without being louder overall.
+   *
+   * Built entirely from gradient stops. The obvious way to make something glow
+   * is `filter: blur()`, and on an element that rotates every frame that is the
+   * single most expensive thing available — it is what made the hero on this
+   * same page unusable. Nothing here is filtered.
+   */
   background: conic-gradient(
     from 0turn,
-    transparent 0 0.58turn,
-    color-mix(in oklab, #6ea8ff 85%, transparent) 0.75turn,
-    transparent 0.92turn 1turn
+    transparent 0 0.34turn,
+    rgba(110, 168, 255, 0.16) 0.5turn,
+    rgba(126, 180, 255, 0.55) 0.66turn,
+    rgba(196, 224, 255, 0.98) 0.74turn,
+    rgba(126, 180, 255, 0.6) 0.8turn,
+    rgba(110, 168, 255, 0.14) 0.88turn,
+    transparent 0.95turn 1turn
   );
   animation: edge-travel 7s linear infinite;
 }
 
-/* The card surface, inset by the hairline the light shows through. */
+/*
+ * The card surface, inset by the rim the light shows through.
+ *
+ * Two and a half pixels rather than one and a half: the light has to be seen
+ * from across a room on a pricing table, and a hairline reads as a rendering
+ * artefact rather than as a decision.
+ *
+ * The inset shadow is the glow proper. A travelling rim alone looks like a
+ * border animation; a faint blue bleeding inward from the whole edge is what
+ * makes the card look lit from behind. It is static and costs one paint.
+ */
 .edge-lit::after {
   content: "";
   position: absolute;
-  inset: 1.5px;
+  inset: 2.5px;
   z-index: -1;
   background: var(--edge-fill, var(--color-paper));
+  box-shadow:
+    inset 0 0 26px -10px rgba(110, 168, 255, 0.75),
+    inset 0 0 3px 0 rgba(150, 195, 255, 0.35);
 }
 
 /*

@@ -325,23 +325,21 @@ function Birds() {
 }
 
 /** left %, top %, px, delay s. Fixed, so the sky does not reshuffle. */
+/*
+ * Sixteen of these, each its own composited layer, all animating at once in a
+ * hero that a real person described as laggy on a real Mac. Every other one is
+ * gone. A sky is not counted, and eight twinkling at staggered delays reads the
+ * same as sixteen while asking the compositor for half as much.
+ */
 const STARS: [number, number, number, number][] = [
   [8, 6, 1.5, 0],
-  [15, 14, 1, 1.8],
   [23, 4, 1, 3.4],
-  [31, 11, 1.5, 0.9],
   [39, 7, 1, 2.6],
-  [47, 16, 1, 4.1],
   [56, 5, 1.5, 1.3],
-  [64, 12, 1, 3.1],
   [71, 8, 1, 0.4],
-  [79, 15, 1.5, 2.2],
   [86, 6, 1, 4.6],
-  [93, 13, 1, 1.1],
   [12, 22, 1, 3.8],
-  [35, 25, 1, 5.2],
   [68, 23, 1, 2.9],
-  [88, 27, 1, 4.4],
 ];
 
 /** left %, top rem, width rem, height rem, opacity, delay s. */

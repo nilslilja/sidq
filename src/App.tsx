@@ -155,7 +155,7 @@ function Shell() {
        */}
       <Analytics />
       <Bloom />
-      <div className="grain relative min-h-[100dvh]">
+      <div className="relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route
