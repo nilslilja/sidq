@@ -26,7 +26,7 @@ export function Pricing() {
     >
       <h2
         id="pricing"
-        className="max-w-[18ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] leading-[0.94] tracking-[-0.04em]"
+        className="scroll-mt-24 max-w-[18ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] leading-[0.94] tracking-[-0.04em]"
       >
         Free until it works.
         <br />

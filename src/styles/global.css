@@ -109,6 +109,12 @@
   html {
     color-scheme: light;
     -webkit-tap-highlight-color: transparent;
+    /*
+     * The header links are anchors into this page rather than routes, so the
+     * jump has to read as travel. Already overridden to `auto` under
+     * prefers-reduced-motion by the block near the bottom of this file.
+     */
+    scroll-behavior: smooth;
   }
 
   /*
@@ -857,4 +863,3 @@
     opacity: 0;
   }
 }
-

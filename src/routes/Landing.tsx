@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { Hero } from "@/components/landing/Hero";
+import { Pricing } from "@/components/landing/Pricing";
+import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 
 /*
@@ -40,18 +42,20 @@ export function Landing() {
            * table of contents for what is below it.
            */}
           <nav className="flex items-center gap-6 sm:gap-7">
-            <Link
-              to="/pricing"
+            {/* Anchors, not routes. Both sections are on this page; the
+                routes stay for anybody sent a direct link. */}
+            <a
+              href="#pricing"
               className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
             >
               Pricing
-            </Link>
-            <Link
-              to="/faq"
+            </a>
+            <a
+              href="#faq"
               className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
             >
               Questions
-            </Link>
+            </a>
             <Link
               to="/signin"
               className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
@@ -63,6 +67,29 @@ export function Landing() {
       </header>
 
       <Hero />
+
+      {/*
+       * Pricing and the questions are on the page again.
+       *
+       * They were moved to their own routes when this became a download page,
+       * and a header link that navigates somewhere else is a worse answer than
+       * one that scrolls: somebody wondering what it costs wants the number in
+       * the same breath, not a page load. The routes still exist, so each is
+       * something you can send to a person on its own, but nobody has to leave
+       * to read either one.
+       *
+       * That is still two sections against the original eight. What did not
+       * come back is the argument: the three feature bands, the stats, the
+       * second download panel. Nobody reads a case for a free Mac app.
+       */}
+      <section className="mx-auto max-w-[76rem] px-6 py-20 lg:py-28">
+        <Pricing />
+      </section>
+
+      <section className="mx-auto max-w-[76rem] px-6 pb-20 lg:pb-28">
+        <Faq limit={4} />
+      </section>
+
       <SiteFooter />
     </div>
   );

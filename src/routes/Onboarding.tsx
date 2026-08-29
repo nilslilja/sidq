@@ -333,20 +333,33 @@ export default function Onboarding() {
       case "handover":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              {/*
-               * A plain inline kbd, not the <Key> component. That one is built
-               * for the shortcut rail — it is a full-width block — and inside
-               * a paragraph it stacked three purple bars down the page.
-               */}
-              Press{" "}
-              <kbd className="rounded-[5px] border border-white/[0.16] bg-white/[0.08] px-1.5 py-0.5 font-mono text-[0.8125rem] text-white/85">
-                &#8984;&#8679;K
-              </kbd>
-              , choose any conversation and press Enter. Sidq writes the whole
-              thing to your Downloads as a Markdown file, with an instruction at
-              both ends telling the next AI to read it and carry on rather than
-              summarise it back at you. Attach that file anywhere.
+            {/*
+             * A sequence, drawn as a sequence.
+             *
+             * This was forty-seven words describing three actions, on a screen
+             * that already plays the whole loop beside it. Three beats with the
+             * keys in them is the same instruction and can be followed without
+             * being read.
+             */}
+            <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] text-white/75">
+              <li>
+                <Kbd>&#8984;&#8679;K</Kbd>
+              </li>
+              <li aria-hidden="true" className="text-white/25">
+                &rarr;
+              </li>
+              <li>pick a conversation</li>
+              <li aria-hidden="true" className="text-white/25">
+                &rarr;
+              </li>
+              <li>
+                <Kbd>&#8629;</Kbd>
+              </li>
+            </ol>
+
+            <p className="mt-5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/55">
+              The whole conversation lands in Downloads, written so the next AI
+              carries on rather than summarising it back at you.
             </p>
 
             <div
@@ -399,12 +412,17 @@ export default function Onboarding() {
       case "notifications":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              Reading an AI that lives in a browser means that browser has to be
-              in front, so the moment Sidq picks a conversation up you are, by
-              definition, looking at something else. It plays a short tone and
-              posts one notification the first time it reads a conversation
-              &mdash; not as it grows, once, when it appears.
+            {/*
+             * Fifty-five words explaining what a notification looks like,
+             * replaced by a notification. This screen is asking for permission
+             * to post one; showing the thing being permitted is a shorter and
+             * more honest answer than describing it.
+             */}
+            <NotificationPreview />
+
+            <p className="mt-5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/55">
+              Sidq reads while you are in another app, so it says so. Once per
+              conversation, when it first appears.
             </p>
 
             <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
@@ -500,11 +518,13 @@ export default function Onboarding() {
              * saying otherwise sends somebody looking for an install that is
              * no longer part of the product.
              */}
-            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              Everything on this Mac is already being read. For the AIs that
-              live in a browser, open one below and use it exactly as you do now
-              — Sidq reads the window with the permission you just gave it, so
-              you are never asked to sign in to anything here.
+            {/*
+             * The buttons are the instruction. A paragraph above them saying
+             * "open one below" is a caption on a door.
+             */}
+            <p className="max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/55">
+              Open one and use it exactly as you do now. Sidq reads the window;
+              it never asks you to sign in here.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -611,6 +631,61 @@ export default function Onboarding() {
  * being read will look for it within about five. Naming the wait is the
  * difference between waiting and giving up.
  */
+/**
+ * What Sidq's notification looks like, drawn.
+ *
+ * The step it sits on is asking permission to post one of these, and it used to
+ * spend fifty-five words describing the circumstances in which it would. A
+ * picture of the thing settles the same question in about a second.
+ *
+ * Deliberately not a pixel replica of the macOS banner: the corner radius and
+ * the type are ours. Drawing an exact copy of a system surface teaches somebody
+ * that a window looking exactly like the OS might have been drawn by an app,
+ * which is the lesson this product least wants to teach.
+ */
+/** One key, drawn, so a shortcut can be shown rather than spelled out mid-sentence. */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd
+      className={cn(
+        "inline-flex min-w-[2.25rem] items-center justify-center rounded-[6px] px-2 py-1",
+        "border border-white/[0.16] bg-white/[0.08] font-mono text-[0.8125rem] text-white/90",
+      )}
+    >
+      {children}
+    </kbd>
+  );
+}
+
+function NotificationPreview() {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "flex max-w-[26rem] items-start gap-3 rounded-[14px] p-3.5",
+        "border border-white/[0.12] bg-white/[0.07]",
+      )}
+    >
+      <img
+        src="/icons/icon.svg"
+        alt=""
+        width={34}
+        height={34}
+        className="mt-0.5 size-[2.125rem] shrink-0 rounded-[8px]"
+      />
+      <div className="min-w-0">
+        <p className="text-[0.8125rem] font-semibold text-white">Sidq</p>
+        <p className="mt-0.5 text-[0.8125rem] leading-snug text-white/70">
+          New chat from ChatGPT saved
+        </p>
+      </div>
+      <span className="ml-auto shrink-0 text-[0.6875rem] text-white/35">
+        now
+      </span>
+    </div>
+  );
+}
+
 function BrowserReads({
   bridge,
 }: {

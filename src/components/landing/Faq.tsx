@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { INVITE, entitlementsFor } from "@/lib/entitlements";
@@ -84,20 +85,30 @@ export const FAQS = [
   },
 ];
 
-export function Faq() {
+/*
+ * `limit` is what keeps the landing page short.
+ *
+ * All ten of these belong on /faq, where somebody has gone looking. On the
+ * landing they were the longest thing on the page by a wide margin — more words
+ * than everything above them put together — for a free Mac app most people
+ * install rather than research. The first few answer the questions that decide
+ * it; the rest are one click away.
+ */
+export function Faq({ limit }: { limit?: number } = {}) {
   const [open, setOpen] = useState<number | null>(0);
+  const shown = limit ? FAQS.slice(0, limit) : FAQS;
 
   return (
     <section className="mx-auto max-w-[64rem] px-6 py-24" aria-labelledby="faq">
       <h2
         id="faq"
-        className="font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
+        className="scroll-mt-24 font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
       >
         The questions people actually ask
       </h2>
 
       <dl className="mt-12 border-t border-ink/12">
-        {FAQS.map((item, i) => {
+        {shown.map((item, i) => {
           const isOpen = open === i;
           return (
             <div key={item.q} className="border-b border-ink/12">
@@ -155,6 +166,17 @@ export function Faq() {
           );
         })}
       </dl>
+
+      {/* Only when some were held back. On /faq this would point at itself. */}
+      {limit && limit < FAQS.length && (
+        <Link
+          to="/faq"
+          className="mt-10 inline-flex items-center gap-1.5 text-[0.9375rem] font-medium transition-opacity duration-150 hover:opacity-60"
+        >
+          The other {FAQS.length - limit} questions
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
+      )}
     </section>
   );
 }
