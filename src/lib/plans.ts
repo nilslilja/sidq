@@ -34,6 +34,15 @@ export interface Plan {
   features: string[];
   cta: string;
   /**
+   * A second reading of the price, for a plan whose headline number misleads.
+   *
+   * Duo is $29.99 against Pro's $19.99, so down a row of cards it reads as the
+   * expensive one. It is the cheapest per person on the page, and that only
+   * becomes true after the reader divides by two, which they will not do. It
+   * belongs beside the number, not four bullets below it.
+   */
+  priceNote?: string;
+  /**
    * Lines that state a ceiling rather than a capability.
    *
    * They belong on the free card and nowhere above it: a paid tier exists

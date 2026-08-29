@@ -136,6 +136,17 @@ function PlanCard({ plan }: { plan: Plan }) {
         )}
       </p>
 
+      {plan.priceNote && (
+        <p
+          className={cn(
+            "mt-1.5 text-[0.8125rem]",
+            plan.featured ? "text-paper/55" : "ink-muted",
+          )}
+        >
+          {plan.priceNote}
+        </p>
+      )}
+
       <PlanCta plan={plan} />
 
       <p

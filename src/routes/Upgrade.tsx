@@ -159,6 +159,11 @@ function PlanCard({
         </p>
       </div>
 
+      {/* Duo's headline price reads as the expensive one until it is divided. */}
+      {plan.priceNote && (
+        <p className="mt-1 text-right text-xs text-muted">{plan.priceNote}</p>
+      )}
+
       <p className="mt-2 text-sm text-muted">{plan.promise}</p>
 
       {/* New lines bright, carried lines muted below. See Pricing.tsx. */}
