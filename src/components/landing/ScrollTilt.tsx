@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from "react";
 
 /*
  * The product shot, lying back and standing up as you scroll to it.
@@ -53,8 +53,13 @@ export const AT_REST: TiltPose = { rotateXDeg: 0, scale: 1, opacity: 1 };
  * as permanently at rest there no matter what the maths does. This is the part
  * worth being sure about, and it is checkable directly.
  */
-export function tiltPose(rectTop: number, rectHeight: number, viewportHeight: number): TiltPose {
-  if (!Number.isFinite(viewportHeight) || viewportHeight < MIN_VIEWPORT_HEIGHT) return AT_REST;
+export function tiltPose(
+  rectTop: number,
+  rectHeight: number,
+  viewportHeight: number,
+): TiltPose {
+  if (!Number.isFinite(viewportHeight) || viewportHeight < MIN_VIEWPORT_HEIGHT)
+    return AT_REST;
 
   /*
    * Progress from "top edge enters the viewport" to "element is centred".
@@ -100,6 +105,17 @@ export function ScrollTilt({
 
     let frame = 0;
 
+    /*
+     * Made once, not per frame.
+     *
+     * `matchMedia` was called inside `apply`, which runs on every animation
+     * frame of every scroll. It parses the query and allocates a new
+     * MediaQueryList each time, for an answer that changes about never. The
+     * list is live, so reading `.matches` off one instance stays correct if the
+     * person changes the setting mid-session.
+     */
+    const motion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+
     const apply = () => {
       frame = 0;
       const rect = host.getBoundingClientRect();
@@ -115,14 +131,15 @@ export function ScrollTilt({
        * setting could not switch it back on. Resting the card is also the
        * correct output for both cases, not merely a safe one.
        */
-      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      const pose = reduced ? AT_REST : tiltPose(rect.top, rect.height, vh);
+      const pose = motion?.matches
+        ? AT_REST
+        : tiltPose(rect.top, rect.height, vh);
 
       // Written straight to the node. Routing this through state would re-render
       // the subtree on every frame of every scroll.
       card.style.transform =
         pose === AT_REST
-          ? 'none'
+          ? "none"
           : `rotateX(${pose.rotateXDeg.toFixed(2)}deg) scale(${pose.scale.toFixed(4)})`;
       card.style.opacity = pose.opacity.toFixed(4);
     };
@@ -134,26 +151,26 @@ export function ScrollTilt({
     };
 
     apply();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
     };
   }, []);
 
   return (
     // Perspective lives on the parent: applied to the rotating element itself it
     // is computed per-element and the card appears to rotate flat.
-    <div ref={outer} className={className} style={{ perspective: '1200px' }}>
+    <div ref={outer} className={className} style={{ perspective: "1200px" }}>
       <div
         ref={inner}
         // No transform here: the layout effect sets the opening pose before the
         // first paint. Leaving the resting state as the markup default is what
         // makes reduced motion and a JS failure both land somewhere correct.
-        style={{ transformOrigin: 'center top', willChange: 'transform' }}
+        style={{ transformOrigin: "center top", willChange: "transform" }}
       >
         <Frame>{children}</Frame>
       </div>
@@ -172,11 +189,11 @@ function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={[
-        'overflow-hidden rounded-[24px] p-2 md:p-3',
-        'bg-white/[0.06] ring-1 ring-inset ring-white/[0.12]',
-        'shadow-[0_2px_8px_rgba(20,18,45,0.10),0_24px_48px_-16px_rgba(20,18,45,0.28),0_64px_120px_-40px_rgba(20,18,45,0.32)]',
-        'backdrop-blur-[2px]',
-      ].join(' ')}
+        "overflow-hidden rounded-[24px] p-2 md:p-3",
+        "bg-white/[0.06] ring-1 ring-inset ring-white/[0.12]",
+        "shadow-[0_2px_8px_rgba(20,18,45,0.10),0_24px_48px_-16px_rgba(20,18,45,0.28),0_64px_120px_-40px_rgba(20,18,45,0.32)]",
+        "backdrop-blur-[2px]",
+      ].join(" ")}
     >
       <div className="overflow-hidden rounded-[16px]">{children}</div>
     </div>

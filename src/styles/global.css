@@ -688,3 +688,145 @@
     opacity: 1;
   }
 }
+
+/*
+ * ── The two paid cards, lit ────────────────────────────────────────────────
+ *
+ * Duo gets a blue light travelling around its rim; Pro gets a slow sheen
+ * crossing its face. Different in kind rather than the same effect in two
+ * colours, because the point is to tell them apart at a glance, and two
+ * identical glows in different hues reads as a theme rather than a hierarchy.
+ *
+ * Both animate `rotate` and `translate` only — the independent transform
+ * properties, which stay on the compositor. Nothing here touches layout, and
+ * neither element is in the flow: they are absolutely positioned inside a card
+ * that already clips them.
+ *
+ * The rim is drawn by putting the sweep behind the card and covering all but a
+ * hairline of it with the card's own surface, so there is no border to animate
+ * and no second box to keep in sync with the first.
+ */
+@property --edge-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes edge-travel {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.edge-lit {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* The travelling light. Square, so rotation sweeps the corners evenly. */
+.edge-lit::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  z-index: -2;
+  background: conic-gradient(
+    from 0turn,
+    transparent 0 0.58turn,
+    color-mix(in oklab, #6ea8ff 85%, transparent) 0.75turn,
+    transparent 0.92turn 1turn
+  );
+  animation: edge-travel 7s linear infinite;
+}
+
+/* The card surface, inset by the hairline the light shows through. */
+.edge-lit::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  z-index: -1;
+  background: var(--edge-fill, var(--color-paper));
+}
+
+/*
+ * Pro: a sheen crossing the face rather than a light going round the edge.
+ *
+ * Wide, shallow and very low contrast — on the ink-filled card it reads as
+ * light moving over a surface. Travels on `translate`, which is why it is a
+ * band far wider than the card rather than a moving background position.
+ */
+@keyframes face-sheen {
+  0% {
+    translate: -60% 0;
+  }
+  55%,
+  100% {
+    translate: 160% 0;
+  }
+}
+
+.face-sheen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.face-sheen::before {
+  content: "";
+  position: absolute;
+  inset-block: -20%;
+  left: 0;
+  width: 42%;
+  z-index: -1;
+  pointer-events: none;
+  rotate: 12deg;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07) 45%,
+    rgba(255, 255, 255, 0.11) 55%,
+    transparent
+  );
+  animation: face-sheen 9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/*
+ * Neither effect carries information, so under prefers-reduced-motion they
+ * simply stop. Duo keeps a still rim rather than losing its edge entirely.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .edge-lit::before {
+    animation: none;
+    rotate: 0.2turn;
+  }
+
+  .face-sheen::before {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/*
+ * ── The atmosphere stops when nobody can see it ────────────────────────────
+ *
+ * The hero holds twenty-three animated elements and ends about 1,600px into a
+ * page many times that long. They all kept animating while somebody read the
+ * pricing table, off screen, costing a composited layer each for nothing.
+ *
+ * Paused, not cancelled: a star holds the position it had rather than snapping
+ * back to the start of its keyframes when the hero scrolls into view again.
+ */
+[data-atmosphere="still"] .sky-twinkle,
+[data-atmosphere="still"] .sky-shoot,
+[data-atmosphere="still"] .sky-cross,
+[data-atmosphere="still"] .sky-cloud,
+[data-atmosphere="still"] .bloom-breathe,
+[data-atmosphere="still"] .drift-a,
+[data-atmosphere="still"] .drift-b,
+[data-atmosphere="still"] .float-soft {
+  animation-play-state: paused;
+}

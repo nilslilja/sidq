@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
+import { atmosphereIsLive, onAtmosphere } from "@/lib/atmosphere";
 
 /*
  * The drifting colour bloom behind everything.
@@ -67,7 +68,11 @@ void main() {
 }
 `;
 
-function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
+function compile(
+  gl: WebGLRenderingContext,
+  type: number,
+  src: string,
+): WebGLShader | null {
   const sh = gl.createShader(type);
   if (!sh) return null;
   gl.shaderSource(sh, src);
@@ -86,12 +91,12 @@ export function Bloom() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext('webgl', {
+    const gl = canvas.getContext("webgl", {
       alpha: false,
       antialias: false,
       depth: false,
       stencil: false,
-      powerPreference: 'low-power',
+      powerPreference: "low-power",
     });
     // No WebGL: the CSS gradient on the wrapper stays visible underneath.
     if (!gl) return;
@@ -110,15 +115,21 @@ export function Bloom() {
 
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'p');
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 3, -1, -1, 3]),
+      gl.STATIC_DRAW,
+    );
+    const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-    const uRes = gl.getUniformLocation(prog, 'u_res');
-    const uTime = gl.getUniformLocation(prog, 'u_time');
+    const uRes = gl.getUniformLocation(prog, "u_res");
+    const uTime = gl.getUniformLocation(prog, "u_time");
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
 
     const resize = () => {
       // Measure the element, not the window. window.innerWidth can still be 0 while
@@ -149,11 +160,11 @@ export function Bloom() {
 
     // Hide until the first real frame, so the fallback gradient underneath shows
     // through instead of a flat unpainted canvas.
-    canvas.style.opacity = '0';
-    canvas.style.transition = 'opacity 400ms ease-out';
+    canvas.style.opacity = "0";
+    canvas.style.transition = "opacity 400ms ease-out";
 
     const reveal = () => {
-      canvas.style.opacity = '1';
+      canvas.style.opacity = "1";
     };
 
     /**
@@ -179,13 +190,21 @@ export function Bloom() {
       // One frame, held. Still atmospheric, no motion at all.
       return () => {
         ro.disconnect();
-        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
       };
     }
 
     let raf = 0;
     let last = 0;
     let painted = false;
+    /*
+     * One flag for two reasons to stop.
+     *
+     * A hidden tab and a hero scrolled out of view both pause this, and without
+     * a single source of truth the two can each schedule a frame and leave the
+     * loop running twice as fast as it should.
+     */
+    let running = false;
     const FRAME_MS = 1000 / 30;
     const start = performance.now();
 
@@ -200,26 +219,46 @@ export function Bloom() {
         reveal();
       }
     };
-    raf = requestAnimationFrame(loop);
-
-    // A backgrounded tab should cost nothing.
-    const onVisibility = () => {
-      if (document.hidden) {
-        cancelAnimationFrame(raf);
-      } else {
-        last = 0;
-        raf = requestAnimationFrame(loop);
-      }
+    const start_loop = () => {
+      if (running) return;
+      running = true;
+      last = 0;
+      raf = requestAnimationFrame(loop);
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('resize', resize);
+
+    const stop_loop = () => {
+      if (!running) return;
+      running = false;
+      cancelAnimationFrame(raf);
+    };
+
+    /*
+     * Paint while the hero is on screen, and hold the last frame after that.
+     *
+     * The canvas is fixed and every section above it is transparent, so the
+     * compositor can never skip this: it was repainting the whole viewport
+     * thirty times a second the entire way down a page many screens long, to
+     * animate a gradient nobody was looking at. Stopping the loop leaves the
+     * pixels exactly where they were, so the page looks identical — the drift
+     * simply pauses while you read, and resumes when you scroll back up.
+     */
+    const settle = () => {
+      if (document.hidden || !atmosphereIsLive()) stop_loop();
+      else start_loop();
+    };
+
+    const offAtmosphere = onAtmosphere(settle);
+    document.addEventListener("visibilitychange", settle);
+    window.addEventListener("resize", resize);
+    settle();
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop_loop();
       ro.disconnect();
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('resize', resize);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      offAtmosphere();
+      document.removeEventListener("visibilitychange", settle);
+      window.removeEventListener("resize", resize);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, []);
 
@@ -230,10 +269,10 @@ export function Bloom() {
       style={{
         // Static fallback for no-WebGL. Approximates the shader's resting state.
         background:
-          'radial-gradient(60% 50% at 22% 22%, #FFD4C2 0%, transparent 60%),' +
-          'radial-gradient(55% 45% at 80% 30%, #B8A6FF 0%, transparent 62%),' +
-          'radial-gradient(45% 40% at 62% 84%, #FF7A5C22 0%, transparent 60%),' +
-          '#F7F6F3',
+          "radial-gradient(60% 50% at 22% 22%, #FFD4C2 0%, transparent 60%)," +
+          "radial-gradient(55% 45% at 80% 30%, #B8A6FF 0%, transparent 62%)," +
+          "radial-gradient(45% 40% at 62% 84%, #FF7A5C22 0%, transparent 60%)," +
+          "#F7F6F3",
       }}
     >
       <canvas ref={canvasRef} className="size-full" />

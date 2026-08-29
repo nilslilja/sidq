@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { watchAtmosphere } from "@/lib/atmosphere";
 import { ProductVideo } from "./ProductVideo";
 import { DownloadButton } from "./DownloadButton";
 import { PoweredByClaude } from "./PoweredByClaude";
@@ -16,8 +18,20 @@ import { ScrollTilt } from "./ScrollTilt";
  */
 
 export function Hero() {
+  const section = useRef<HTMLElement>(null);
+
+  /*
+   * Everything atmospheric on this page belongs to this section, and all of it
+   * used to keep running the whole way down. See lib/atmosphere.
+   */
+  useEffect(() => watchAtmosphere(section.current), []);
+
   return (
-    <section className="relative overflow-hidden" aria-labelledby="hero">
+    <section
+      ref={section}
+      className="relative overflow-hidden"
+      aria-labelledby="hero"
+    >
       {/* ── The sky ──────────────────────────────────────────────────────── */}
       <div
         aria-hidden="true"

@@ -108,7 +108,24 @@ function PlanCard({ plan }: { plan: Plan }) {
         // The featured card carries the ink fill. Scale and weight do the work
         // here rather than a "most popular" ribbon, which everybody discounts.
         plan.featured ? "bg-ink text-paper" : "bg-paper",
+        /*
+         * The two paid cards are lit, and differently.
+         *
+         * Duo has a blue light travelling its rim, Pro a slow sheen crossing
+         * its face. Different in kind rather than the same glow in two hues,
+         * so the row reads as a hierarchy rather than a theme. Free stays
+         * unlit, which is most of what makes the other two look chosen.
+         */
+        plan.featured && "face-sheen",
+        plan.id === "duo" && "edge-lit",
       )}
+      // What the rim's inner fill is painted with. The card is opaque, so this
+      // has to match its own background or the hairline swallows the corner.
+      style={
+        plan.id === "duo"
+          ? { ["--edge-fill" as string]: "var(--color-paper)" }
+          : undefined
+      }
     >
       <h3
         className={cn(
