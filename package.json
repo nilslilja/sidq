@@ -14,7 +14,7 @@
     "desktop": "tauri dev",
     "tauri": "tauri",
     "desktop:build": "tauri build",
-    "build:web": "npm run build && node scripts/copy-web-assets.mjs",
+    "build:web": "npm run build && node scripts/prerender.mjs && node scripts/copy-web-assets.mjs",
     "release": "bash scripts/release.sh"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.5.1",
+    "geist": "^1.7.2",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.8",
     "tsx": "^4.19.4",

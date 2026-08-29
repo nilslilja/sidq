@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Minus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { startCheckout, type BillingInterval } from '@/lib/billing';
-import { getAccessToken } from '@/lib/supabase';
-import { PLANS, inheritedFeatures, type Plan, type PlanId } from '@/lib/plans';
-import { cn } from '@/lib/cn';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Check, Minus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { startCheckout, type BillingInterval } from "@/lib/billing";
+import { getAccessToken } from "@/lib/supabase";
+import { PLANS, inheritedFeatures, type Plan, type PlanId } from "@/lib/plans";
+import { cn } from "@/lib/cn";
 
-type PaidPlanId = Exclude<PlanId, 'free'>;
+type PaidPlanId = Exclude<PlanId, "free">;
 
 /*
  * Pricing, inside the app.
@@ -21,7 +21,7 @@ type PaidPlanId = Exclude<PlanId, 'free'>;
  * the plan they are already on sold back to them.
  */
 
-const PAID = PLANS.filter((p) => p.id !== 'free');
+const PAID = PLANS.filter((p) => p.id !== "free");
 
 export function Upgrade() {
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,7 +52,9 @@ export function Upgrade() {
     try {
       await startCheckout(plan, interval);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Checkout could not start.');
+      setError(
+        err instanceof Error ? err.message : "Checkout could not start.",
+      );
       setBusy(null);
     }
   };
@@ -74,7 +76,8 @@ export function Upgrade() {
       </h1>
 
       <p className="mt-5 max-w-[40ch] text-[1rem] leading-relaxed text-muted">
-        Less than one wasted afternoon re-explaining what you were already doing.
+        Less than one wasted afternoon re-explaining what you were already
+        doing.
       </p>
 
       <div className="mt-10 grid gap-4">
@@ -83,7 +86,7 @@ export function Upgrade() {
             key={plan.id}
             plan={plan}
             busy={busy === `${plan.id}:monthly`}
-            onSubscribe={() => go(plan.id as PaidPlanId, 'monthly')}
+            onSubscribe={() => go(plan.id as PaidPlanId, "monthly")}
           />
         ))}
       </div>
@@ -91,18 +94,21 @@ export function Upgrade() {
       {/* Annual is an option on the main plan, not a fourth card. Turning the
           billing period into its own tier is what makes pricing pages a puzzle. */}
       <button
-        onClick={() => go('pro', 'annual')}
+        onClick={() => go("pro", "annual")}
         disabled={busy !== null}
         className="mt-5 w-fit text-sm text-muted underline underline-offset-4 transition-colors duration-(--duration-fast) hover:text-text disabled:opacity-60"
       >
-        {busy === 'pro:annual' ? 'Opening checkout…' : 'Or pay yearly, $192, two months free'}
+        {busy === "pro:annual"
+          ? "Opening checkout…"
+          : "Or pay yearly, $192, two months free"}
       </button>
 
       {signedIn === false && (
         <div className="mt-8 rounded-(--radius) border border-line bg-accent-soft/60 p-4">
           <p className="text-[0.875rem] leading-relaxed">
-            <strong className="font-medium">Sign in first.</strong> A subscription has to
-            land on an account, or there is nothing to attach it to.
+            <strong className="font-medium">Sign in first.</strong> A
+            subscription has to land on an account, or there is nothing to
+            attach it to.
           </p>
           <Link
             to="/signin"
@@ -120,7 +126,8 @@ export function Upgrade() {
       )}
 
       <p className="mt-8 text-xs leading-relaxed text-muted">
-        Your free plan keeps working either way. Nothing you have made goes away.
+        Your free plan keeps working either way. Nothing you have made goes
+        away.
       </p>
     </div>
   );
@@ -138,14 +145,16 @@ function PlanCard({
   return (
     <section
       className={cn(
-        'rounded-(--radius) p-6',
-        plan.featured ? 'glass border-accent' : 'glass-subtle',
+        "rounded-(--radius) p-6",
+        plan.featured ? "glass border-accent" : "glass-subtle",
       )}
     >
       <div className="flex items-baseline justify-between gap-4">
         <h2 className="text-[0.9375rem] font-medium">{plan.name}</h2>
         <p className="flex items-baseline gap-1">
-          <span className="tabular text-[1.75rem] leading-none">{plan.price}</span>
+          <span className="tabular text-[1.75rem] leading-none">
+            {plan.price}
+          </span>
           <span className="text-xs text-muted">{plan.cadence}</span>
         </p>
       </div>
@@ -155,8 +164,14 @@ function PlanCard({
       {/* New lines bright, carried lines muted below. See Pricing.tsx. */}
       <ul className="mt-5 space-y-2.5">
         {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-3 text-[0.9375rem] leading-snug">
-            <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent" />
+          <li
+            key={feature}
+            className="flex items-start gap-3 text-[0.9375rem] leading-snug"
+          >
+            <Check
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 text-accent"
+            />
             {feature}
           </li>
         ))}
@@ -164,14 +179,19 @@ function PlanCard({
 
       {plan.inherits && (
         <>
-          <p className="mt-5 text-xs font-medium text-muted">Everything in {plan.inherits}</p>
+          <p className="mt-5 text-xs font-medium text-muted">
+            Everything in {plan.inherits}
+          </p>
           <ul className="mt-3 space-y-2.5">
             {inheritedFeatures(plan.id).map((feature) => (
               <li
                 key={feature}
                 className="flex items-start gap-3 text-[0.9375rem] leading-snug text-muted"
               >
-                <Check aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-accent/50" />
+                <Check
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0 text-accent/50"
+                />
                 {feature}
               </li>
             ))}
@@ -187,7 +207,10 @@ function PlanCard({
               key={limit}
               className="flex items-start gap-3 text-[0.9375rem] leading-snug text-muted"
             >
-              <Minus aria-hidden="true" className="mt-0.5 size-4 shrink-0 opacity-50" />
+              <Minus
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 opacity-50"
+              />
               {limit}
             </li>
           ))}
@@ -196,11 +219,11 @@ function PlanCard({
 
       <Button
         className="mt-6 w-full"
-        variant={plan.featured ? 'accent' : 'outline'}
+        variant={plan.featured ? "accent" : "outline"}
         onClick={onSubscribe}
         disabled={busy}
       >
-        {busy ? 'Opening checkout…' : plan.cta}
+        {busy ? "Opening checkout…" : plan.cta}
       </Button>
     </section>
   );

@@ -18,9 +18,9 @@
  * enforcement points read. Nothing is claimed here that is not enforced there.
  */
 
-import { entitlementsFor } from './entitlements';
+import { entitlementsFor } from "./entitlements";
 
-export type PlanId = 'free' | 'pro' | 'duo';
+export type PlanId = "free" | "pro" | "duo";
 
 export interface Plan {
   id: PlanId;
@@ -46,17 +46,17 @@ export interface Plan {
   featured?: boolean;
 }
 
-const free = entitlementsFor('free');
+const free = entitlementsFor("free");
 
 export const PLANS: Plan[] = [
   {
-    id: 'free',
-    name: 'Starter',
-    price: 'Free',
+    id: "free",
+    name: "Starter",
+    price: "Free",
     cadence: null,
-    promise: 'Enough to find out if it works.',
+    promise: "Enough to find out if it works.",
     inherits: null,
-    cta: 'Download for Mac',
+    cta: "Download for Mac",
     /*
      * There is no "assistants connected" line any more.
      *
@@ -73,21 +73,21 @@ export const PLANS: Plan[] = [
       `Search back ${free.historyDays} days`,
     ],
     features: [
-      'Every conversation already on your Mac, from day one',
-      'Full transcripts, never summaries',
-      'Nothing uploaded, ever',
+      "Every conversation already on your Mac, from day one",
+      "Full transcripts, never summaries",
+      "Nothing uploaded, ever",
     ],
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    price: '$19.99',
-    cadence: '/ month',
+    id: "pro",
+    name: "Pro",
+    price: "$19.99",
+    cadence: "/ month",
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
-    promise: 'Every AI you use, holding one memory.',
-    inherits: 'Starter',
-    cta: 'Subscribe',
+    promise: "Every AI you use, holding one memory.",
+    inherits: "Starter",
+    cta: "Subscribe",
     featured: true,
     /*
      * Two lines, because two things are actually different.
@@ -111,18 +111,18 @@ export const PLANS: Plan[] = [
      * Put it back the moment it has a way in.
      */
     features: [
-      'Unlimited handovers, every day',
-      'Search everything you have ever asked, however far back it goes',
+      "Unlimited handovers, every day",
+      "Search everything you have ever asked, however far back it goes",
     ],
   },
   {
-    id: 'duo',
-    name: 'Duo',
-    price: '$29.99',
-    cadence: '/ month',
-    promise: 'Two people, one bill.',
-    inherits: 'Pro',
-    cta: 'Subscribe',
+    id: "duo",
+    name: "Duo",
+    price: "$29.99",
+    cadence: "/ month",
+    promise: "Two people, one bill.",
+    inherits: "Pro",
+    cta: "Subscribe",
     /*
      * The per-person price, said out loud.
      *
@@ -138,9 +138,9 @@ export const PLANS: Plan[] = [
      * them no room to.
      */
     features: [
-      '$15 a person, against $19.99 each',
-      'A second Mac, with the same everything on it',
-      'One bill, one subscription to cancel',
+      "$15 a person, against $19.99 each",
+      "A second Mac, with the same everything on it",
+      "One bill, one subscription to cancel",
     ],
   },
 ];

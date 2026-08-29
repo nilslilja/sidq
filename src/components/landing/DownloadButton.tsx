@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Apple, ArrowDownToLine } from 'lucide-react';
-import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
-import { artifactFor } from '@/lib/releases';
-import { cn } from '@/lib/cn';
+import { useEffect, useState } from "react";
+import { Apple, ArrowDownToLine } from "lucide-react";
+import {
+  ASSUMED_PLATFORM,
+  detectPlatform,
+  refinePlatform,
+  type PlatformInfo,
+} from "@/lib/platform";
+import { artifactFor } from "@/lib/releases";
+import { cn } from "@/lib/cn";
 
 /*
  * The download button.
@@ -21,10 +26,10 @@ import { cn } from '@/lib/cn';
  */
 
 export function DownloadButton({
-  size = 'sm',
+  size = "sm",
   className,
 }: {
-  size?: 'sm' | 'lg';
+  size?: "sm" | "lg";
   className?: string;
 }) {
   const info = usePlatform();
@@ -38,7 +43,7 @@ export function DownloadButton({
    * landing page starts the same download and then explains the next sixty
    * seconds, which is where installs are actually lost.
    */
-  const href = artifact ? '/downloading' : undefined;
+  const href = artifact ? "/downloading" : undefined;
 
   /*
    * There is no browser fallback, deliberately.
@@ -66,19 +71,21 @@ export function DownloadButton({
    * genuinely does not exist yet — and the same section holds their waiting
    * list underneath.
    */
-  if (!artifact && info.platform === 'phone') {
+  if (!artifact && info.platform === "phone") {
     return (
       <a
         href="#waitlist-email"
         className={cn(
-          'inline-flex items-center justify-center gap-2.5 rounded-full',
-          'bg-[#4F46E5] font-medium text-white',
-          'transition-transform duration-150 active:scale-[0.98]',
-          size === 'lg' ? 'min-h-[3.75rem] px-9 text-[1.0625rem]' : 'min-h-11 px-5 text-[0.875rem]',
+          "inline-flex items-center justify-center gap-2.5 rounded-full",
+          "bg-[#4F46E5] font-medium text-white",
+          "transition-transform duration-150 active:scale-[0.98]",
+          size === "lg"
+            ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+            : "min-h-11 px-5 text-[0.875rem]",
           className,
         )}
       >
-        <Apple className={size === 'lg' ? 'size-5' : 'size-4'} />
+        <Apple className={size === "lg" ? "size-5" : "size-4"} />
         {info.label}
       </a>
     );
@@ -88,13 +95,15 @@ export function DownloadButton({
     return (
       <span
         className={cn(
-          'inline-flex items-center justify-center gap-2.5 rounded-full',
-          'border border-white/15 font-medium text-white/50',
-          size === 'lg' ? 'min-h-[3.75rem] px-9 text-[1.0625rem]' : 'min-h-11 px-5 text-[0.875rem]',
+          "inline-flex items-center justify-center gap-2.5 rounded-full",
+          "border border-white/15 font-medium text-white/50",
+          size === "lg"
+            ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+            : "min-h-11 px-5 text-[0.875rem]",
           className,
         )}
       >
-        <Apple className={size === 'lg' ? 'size-5' : 'size-4'} />
+        <Apple className={size === "lg" ? "size-5" : "size-4"} />
         Mac only for now
       </span>
     );
@@ -106,28 +115,45 @@ export function DownloadButton({
       // No download attribute: this is a page now, not the file. The file is
       // fetched from that page, which is what keeps the instructions on screen.
       className={cn(
-        'btn-soft group inline-flex items-center justify-center gap-2.5 rounded-full font-medium',
-        size === 'lg' ? 'min-h-[3.75rem] px-9 text-[1.0625rem]' : 'min-h-11 px-5 text-[0.875rem]',
+        "btn-soft group inline-flex items-center justify-center gap-2.5 rounded-full font-medium",
+        size === "lg"
+          ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+          : "min-h-11 px-5 text-[0.875rem]",
         className,
       )}
     >
-      {info.platform.startsWith('macos') ? (
-        <Apple className={size === 'lg' ? 'size-5' : 'size-4'} />
+      {info.platform.startsWith("macos") ? (
+        <Apple className={size === "lg" ? "size-5" : "size-4"} />
       ) : (
-        <ArrowDownToLine className={size === 'lg' ? 'size-5' : 'size-4'} />
+        <ArrowDownToLine className={size === "lg" ? "size-5" : "size-4"} />
       )}
       {info.label}
     </a>
   );
 }
 
-/** Shared so the button and the download panel never disagree about the machine. */
+/**
+ * Shared so the button and the download panel never disagree about the machine.
+ *
+ * ── Why the first render is always a Mac ──────────────────────────────────
+ *
+ * The page is prerendered to static HTML at build time, where there is no
+ * `navigator` to ask, and React discards the entire prerendered tree if the
+ * first client render disagrees with it. So both sides have to start from the
+ * same answer, and the only honest constant is the one machine Sidq runs on.
+ *
+ * Detection then happens in the effect below, one frame later. A Mac visitor —
+ * everyone who can actually install the thing — sees the correct button in the
+ * static HTML before a line of JavaScript has run. Somebody on Windows sees the
+ * Mac button for that one frame before it becomes the waitlist, which is the
+ * right way round to spend the flicker.
+ */
 export function usePlatform(): PlatformInfo {
-  const [info, setInfo] = useState<PlatformInfo>(() => detectPlatform());
+  const [info, setInfo] = useState<PlatformInfo>(ASSUMED_PLATFORM);
 
   useEffect(() => {
     let cancelled = false;
-    void refinePlatform(info).then((next) => {
+    void refinePlatform(detectPlatform()).then((next) => {
       if (!cancelled) setInfo(next);
     });
     return () => {

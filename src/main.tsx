@@ -1,9 +1,9 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { App } from './App';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { registerServiceWorker } from './lib/pwa';
-import './styles/global.css';
+import { StrictMode } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { App } from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { registerServiceWorker } from "./lib/pwa";
+import "./styles/global.css";
 
 /*
  * Two guards before anything renders.
@@ -23,14 +23,14 @@ import './styles/global.css';
  * cryptographically strong and does not need to be — it identifies one install
  * inside one room.
  */
-if (typeof crypto !== 'undefined' && typeof crypto.randomUUID !== 'function') {
-  Object.defineProperty(crypto, 'randomUUID', {
+if (typeof crypto !== "undefined" && typeof crypto.randomUUID !== "function") {
+  Object.defineProperty(crypto, "randomUUID", {
     configurable: true,
     writable: true,
     value: () =>
-      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+        return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
       }) as `${string}-${string}-${string}-${string}-${string}`,
   });
 }
@@ -41,16 +41,31 @@ if (typeof crypto !== 'undefined' && typeof crypto.randomUUID !== 'function') {
  * Promise rejections and errors in event handlers never reach an error
  * boundary, so without this they are invisible in a packaged build.
  */
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection:', event.reason);
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled rejection:", event.reason);
 });
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById("root")!;
+
+const tree = (
   <StrictMode>
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
-  </StrictMode>,
+  </StrictMode>
 );
+
+/*
+ * Hydrate the website, mount the app.
+ *
+ * The three public pages are rendered to HTML at build time, so on the site
+ * this container already holds the page and React only has to attach to it.
+ * The desktop app is the same bundle inside a Tauri WebView, which loads the
+ * untouched shell with an empty root, so there is nothing to attach to and it
+ * mounts normally. Asking the container which one this is beats threading a
+ * build flag through both.
+ */
+if (container.firstChild) hydrateRoot(container, tree);
+else createRoot(container).render(tree);
 
 registerServiceWorker();

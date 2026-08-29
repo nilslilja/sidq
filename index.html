@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <title>Sidq. The models remember everything except you.</title>
     <meta
       name="description"
@@ -12,12 +15,21 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <!-- No manifest, deliberately: Sidq ships as a signed .dmg, not an installable site. -->
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- One family plus its mono. Weights limited to what the design actually uses. -->
+    <!--
+      Geist is served from this origin, so there is nothing to preconnect to and
+      no third-party stylesheet in the critical path. See src/styles/fonts.css
+      for why it stopped coming from Google.
+
+      Only the sans is preloaded. It sets every heading and every line of body
+      copy, so it is on screen before anything else is; the mono appears in
+      figures and shortcut keys further down and can arrive with the rest.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/geist-sans.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
 
     <!--

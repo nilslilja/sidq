@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
-import { ArrowDownToLine, Command } from 'lucide-react';
-import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
-import { WaitlistForPlatform } from './WaitlistForPlatform';
-import { artifactFor, RELEASE_VERSION } from '@/lib/releases';
-import { GlassStage } from './GlassStage';
-import { cn } from '@/lib/cn';
+import { ArrowDownToLine, Command } from "lucide-react";
+import { usePlatform } from "./DownloadButton";
+import { WaitlistForPlatform } from "./WaitlistForPlatform";
+import { artifactFor, RELEASE_VERSION } from "@/lib/releases";
+import { GlassStage } from "./GlassStage";
+import { cn } from "@/lib/cn";
 
 /*
  * The download.
@@ -14,31 +13,31 @@ import { cn } from '@/lib/cn';
  * ink everywhere else make this section land as an object rather than as another
  * band of content, and it is the only section with a job.
  *
- * Names the visitor's machine so there is no decision to make. The synchronous
- * guess renders immediately and a client-hints upgrade refines Apple Silicon
- * versus Intel afterwards, so the button is never blank and never waits.
+ * Names the visitor's machine so there is no decision to make. The assumed
+ * platform renders immediately and detection refines it a frame later, so the
+ * button is never blank and never waits.
+ *
+ * This used to keep its own copy of that hook — the same useState, the same
+ * refine effect — beside a `usePlatform` whose comment said it existed so the
+ * button and this panel could never disagree. They disagreed the moment the
+ * hook was given a fixed starting answer for the prerender and the copy here
+ * kept calling `detectPlatform()`, which on a build server means "unknown": the
+ * static HTML shipped a waitlist form for a machine nobody was on, and React
+ * threw the whole prerendered page away on arrival.
  */
 
 export function Download() {
-  const [info, setInfo] = useState<PlatformInfo>(() => detectPlatform());
+  const info = usePlatform();
   const artifact = artifactFor(info.platform);
-
-  useEffect(() => {
-    let cancelled = false;
-    void refinePlatform(info).then((next) => {
-      if (!cancelled) setInfo(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     // The scroll anchor id lives on the wrapper in Landing, so the heading takes
     // a different one. Two elements sharing an id makes the #download jump target
     // ambiguous and is invalid markup.
-    <section className="relative overflow-hidden" aria-labelledby="download-heading">
+    <section
+      className="relative overflow-hidden"
+      aria-labelledby="download-heading"
+    >
       <GlassStage />
 
       <div className="relative mx-auto max-w-[76rem] px-6 py-24 lg:py-32">
@@ -59,8 +58,8 @@ export function Download() {
             </h2>
 
             <p className="mt-7 max-w-[40ch] text-[1.0625rem] leading-relaxed ink-muted">
-              A small card, always on top, out of the way. One keystroke brings up
-              what you were last in the middle of, in any AI, and hands the
+              A small card, always on top, out of the way. One keystroke brings
+              up what you were last in the middle of, in any AI, and hands the
               whole conversation to whichever one you are in now.
             </p>
 
@@ -68,13 +67,16 @@ export function Download() {
                 was the least-read part of the page and it fought the calm. */}
             <ul className="mt-9 flex flex-wrap gap-x-7 gap-y-2.5 text-[0.875rem] ink-muted">
               {[
-                'Your history from day one, not from install',
-                'Full transcripts, never summaries',
-                'Nothing leaves your Mac',
-                'Instant, and works offline',
+                "Your history from day one, not from install",
+                "Full transcripts, never summaries",
+                "Nothing leaves your Mac",
+                "Instant, and works offline",
               ].map((claim) => (
                 <li key={claim} className="flex items-center gap-2">
-                  <span aria-hidden="true" className="size-1 rounded-full bg-accent/50" />
+                  <span
+                    aria-hidden="true"
+                    className="size-1 rounded-full bg-accent/50"
+                  />
                   {claim}
                 </li>
               ))}
@@ -89,45 +91,50 @@ export function Download() {
             </div>
 
             {/*
-              * ── Not /signin on a phone ─────────────────────────────────────
-              *
-              * Without a build this fell back to the sign-in page, which is the
-              * wrong end of the funnel: somebody who has not got the app yet
-              * has nothing to sign in to, and it reads as a paywall in front of
-              * a free product.
-              *
-              * On a phone the form directly beneath this button is the answer,
-              * so the button does nothing and gets out of the way rather than
-              * sending them somewhere worse.
-              */}
+             * ── Not /signin on a phone ─────────────────────────────────────
+             *
+             * Without a build this fell back to the sign-in page, which is the
+             * wrong end of the funnel: somebody who has not got the app yet
+             * has nothing to sign in to, and it reads as a paywall in front of
+             * a free product.
+             *
+             * On a phone the form directly beneath this button is the answer,
+             * so the button does nothing and gets out of the way rather than
+             * sending them somewhere worse.
+             */}
             <a
-              href={artifact?.url ?? (info.platform === 'phone' ? '#waitlist-email' : '/signin')}
+              href={
+                artifact?.url ??
+                (info.platform === "phone" ? "#waitlist-email" : "/signin")
+              }
               // Names the saved file. Without it people get Tauri's build name,
               // which has "aarch64" in it and reads as a mistake.
               download={artifact?.filename}
               className={cn(
-                'btn-soft group mt-6 flex min-h-[3.5rem] w-full items-center justify-center gap-3',
-                'rounded-[14px] px-6 text-[1rem] font-medium',
+                "btn-soft group mt-6 flex min-h-[3.5rem] w-full items-center justify-center gap-3",
+                "rounded-[14px] px-6 text-[1rem] font-medium",
               )}
             >
               {info.label}
               <ArrowDownToLine className="size-[1.125rem] transition-transform duration-200 group-hover:translate-y-0.5" />
             </a>
 
-            <p className="mt-3.5 text-center text-[0.8125rem] ink-muted">{info.detail}</p>
+            <p className="mt-3.5 text-center text-[0.8125rem] ink-muted">
+              {info.detail}
+            </p>
 
             {/*
-              * No "other platforms" toggle any more.
-              *
-              * It expanded into a list of builds that did not exist. There is
-              * one artifact, it is for this Mac, and anyone on another machine
-              * is told so above rather than being given a row to click.
-              */}
+             * No "other platforms" toggle any more.
+             *
+             * It expanded into a list of builds that did not exist. There is
+             * one artifact, it is for this Mac, and anyone on another machine
+             * is told so above rather than being given a row to click.
+             */}
             <WaitlistForPlatform platform={info.platform} />
 
             <p className="mt-6 border-t border-ink/10 pt-5 text-[0.75rem] leading-relaxed ink-muted">
-              Free, no card. Signed and notarised by Apple, so it opens with no security
-              warning.
+              Free, no card. Signed and notarised by Apple, so it opens with no
+              security warning.
             </p>
           </div>
         </div>

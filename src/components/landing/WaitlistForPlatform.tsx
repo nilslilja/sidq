@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { getSupabase } from '@/lib/supabase';
-import type { Platform } from '@/lib/platform';
-import { cn } from '@/lib/cn';
+import { useState } from "react";
+import type { Platform } from "@/lib/platform";
+import { cn } from "@/lib/cn";
 
 /*
  * For everyone who is not on a Mac.
@@ -16,16 +15,21 @@ import { cn } from '@/lib/cn';
  * porting is worth several weeks.
  */
 
-type State = 'asking' | 'saving' | 'done' | 'failed';
+type State = "asking" | "saving" | "done" | "failed";
 
 export function WaitlistForPlatform({ platform }: { platform: Platform }) {
-  const [email, setEmail] = useState('');
-  const [state, setState] = useState<State>('asking');
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<State>("asking");
 
   // Mac visitors have a working button; there is nothing to wait for.
-  if (platform.startsWith('macos')) return null;
+  if (platform.startsWith("macos")) return null;
 
-  const name = platform === 'windows' ? 'Windows' : platform === 'linux' ? 'Linux' : 'your machine';
+  const name =
+    platform === "windows"
+      ? "Windows"
+      : platform === "linux"
+        ? "Linux"
+        : "your machine";
 
   /*
    * A phone is waiting for nothing. Sidq exists, on a machine they very likely
@@ -34,13 +38,13 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
    * link so I can do this at my desk", which is the whole conversion path for
    * anybody arriving from a post.
    */
-  const onAPhone = platform === 'phone';
+  const onAPhone = platform === "phone";
 
-  if (state === 'done') {
+  if (state === "done") {
     return (
       <p className="mt-6 border-t border-ink/10 pt-5 text-[0.875rem] leading-relaxed ink-muted">
         {onAPhone
-          ? 'Got it. I send these myself, so it lands within a few hours rather than instantly.'
+          ? "Got it. I send these myself, so it lands within a few hours rather than instantly."
           : `Noted. You get one email, the day the ${name} build exists, and nothing else.`}
       </p>
     );
@@ -50,13 +54,7 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        const supabase = getSupabase();
-        if (!supabase) {
-          setState('failed');
-          return;
-        }
-
-        setState('saving');
+        setState("saving");
 
         /*
          * ── One call that records the address and sends the mail ─────────────
@@ -74,16 +72,33 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
          * that writes to it.
          */
         const wanted =
-          platform === 'linux'
-            ? 'linux'
-            : platform === 'windows'
-              ? 'windows'
-              : platform === 'phone'
-                ? 'phone'
-                : 'unknown';
+          platform === "linux"
+            ? "linux"
+            : platform === "windows"
+              ? "windows"
+              : platform === "phone"
+                ? "phone"
+                : "unknown";
 
-        void supabase.functions
-          .invoke('send-link', { body: { email: email.trim().toLowerCase(), platform: wanted } })
+        /*
+         * The client is fetched here rather than imported at the top.
+         *
+         * `@supabase/supabase-js` is the single largest dependency on the
+         * landing page and this form is the only thing on it that has ever
+         * needed one. Imported statically it was bundled into the entry chunk
+         * and downloaded by every visitor who read the headline and left. It
+         * now arrives when somebody actually types an address, which is after
+         * they have decided to, and the wait is hidden by the saving state
+         * that was already here.
+         */
+        void import("@/lib/supabase")
+          .then(({ getSupabase }) => {
+            const supabase = getSupabase();
+            if (!supabase) throw new Error("no backend configured");
+            return supabase.functions.invoke("send-link", {
+              body: { email: email.trim().toLowerCase(), platform: wanted },
+            });
+          })
           .then(({ error }) => {
             /*
              * Saved and sent are reported separately by the function, and this
@@ -91,21 +106,26 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
              * person has done their part and the mail is our problem: it gets
              * sent by hand off the back of the log.
              */
-            setState(error ? 'failed' : 'done');
-          });
+            setState(error ? "failed" : "done");
+          })
+          .catch(() => setState("failed"));
       }}
       className="mt-6 border-t border-ink/10 pt-5"
     >
-      <label htmlFor="waitlist-email" className="block text-[0.875rem] leading-relaxed">
+      <label
+        htmlFor="waitlist-email"
+        className="block text-[0.875rem] leading-relaxed"
+      >
         {onAPhone ? (
           <>
-            You are on a phone, and Sidq is a Mac app. Leave your email and I will send you
-            the link, so it is waiting when you are back at your Mac.
+            You are on a phone, and Sidq is a Mac app. Leave your email and I
+            will send you the link, so it is waiting when you are back at your
+            Mac.
           </>
         ) : (
           <>
-            Sidq is a Mac app today. The {name} build does not exist yet, and it will not be
-            announced until it does.
+            Sidq is a Mac app today. The {name} build does not exist yet, and it
+            will not be announced until it does.
           </>
         )}
       </label>
@@ -125,7 +145,7 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
             if (!el) return;
             // Arriving by the anchor means they pressed a button that said it
             // would take their email, so the keyboard opens ready for it.
-            if (window.location.hash === '#waitlist-email') {
+            if (window.location.hash === "#waitlist-email") {
               requestAnimationFrame(() => el.focus({ preventScroll: true }));
             }
           }}
@@ -136,23 +156,23 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
           placeholder="you@work.com"
           autoComplete="email"
           className={cn(
-            'min-h-11 min-w-0 flex-1 scroll-mt-32 rounded-full border border-ink/15 bg-transparent px-4',
-            'text-[0.875rem] placeholder:text-ink/30',
-            'focus:border-accent focus:outline-none',
+            "min-h-11 min-w-0 flex-1 scroll-mt-32 rounded-full border border-ink/15 bg-transparent px-4",
+            "text-[0.875rem] placeholder:text-ink/30",
+            "focus:border-accent focus:outline-none",
           )}
         />
         <button
           type="submit"
-          disabled={state === 'saving'}
+          disabled={state === "saving"}
           className={cn(
-            'btn-soft min-h-11 shrink-0 rounded-full px-5 text-[0.875rem] font-medium',
-            'disabled:opacity-50',
+            "btn-soft min-h-11 shrink-0 rounded-full px-5 text-[0.875rem] font-medium",
+            "disabled:opacity-50",
           )}
         >
-          {state === 'saving' ? 'Saving…' : 'Tell me'}
+          {state === "saving" ? "Saving…" : "Tell me"}
         </button>
       </div>
-      {state === 'failed' && (
+      {state === "failed" && (
         // Says what went wrong rather than "something went wrong", because the
         // person can act on one of these and not the other.
         <p className="mt-2.5 text-[0.8125rem] text-red-700">
