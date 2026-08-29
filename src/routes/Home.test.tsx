@@ -4,6 +4,7 @@ import type {
   OnboardingBridge,
   InviteSummary,
   PlanStatus,
+  ProfileFact,
 } from "@/lib/onboarding/bridge";
 
 /*
@@ -391,6 +392,59 @@ describe("what setup asked for", () => {
 
     expect(rows[0]).toMatch(/Claude Code/);
     bridge.recentWork = work;
+  });
+});
+
+describe("how you work", () => {
+  /*
+   * The panel now claims handovers carry these, and says how many.
+   *
+   * That number lives in Rust, in PROFILE_IN_HANDOVER, and the sentence lives
+   * here. Nothing else connects them, so changing the constant would quietly
+   * make the window lie about what the file contains. Read the constant.
+   */
+  test("the number it promises is the number Rust actually carries", async () => {
+    const { readFileSync } = await import("node:fs");
+    const rust = readFileSync("src-tauri/src/main.rs", "utf8");
+    const carried = Number(
+      /const PROFILE_IN_HANDOVER: usize = (\d+);/.exec(rust)?.[1],
+    );
+
+    expect(carried).toBeGreaterThan(0);
+
+    const words = [
+      "zero",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
+      "nine",
+    ];
+    const panel = readFileSync("src/routes/Home.tsx", "utf8");
+
+    expect(panel).toContain(`up to ${words[carried] ?? carried}`);
+  });
+
+  test("and it says they ride along rather than needing pasting", async () => {
+    const original = bridge.memoryProfile;
+    bridge.memoryProfile = vi.fn(
+      async () =>
+        [
+          [{ text: "always show me the diff first", conversations: 4 }],
+          "always show me the diff first",
+        ] as [ProfileFact[], string],
+    );
+
+    await open("How you work");
+
+    expect(
+      screen.getByText(/ride along with every\s+handover/),
+    ).toBeInTheDocument();
+    bridge.memoryProfile = original;
   });
 });
 

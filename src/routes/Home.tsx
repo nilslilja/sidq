@@ -1329,9 +1329,24 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     <div>
       {heading}
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
+        {/*
+         * That these already ride along was the best-kept secret in the app.
+         *
+         * This said "paste it at the top of a new conversation", which
+         * describes a copy-paste tool and is the smaller half of what happens:
+         * every handover already carries the repeated ones, under a heading
+         * telling the receiving model to apply them. Somebody watching a demo
+         * suggested building the thing it has done since it shipped, which is
+         * what an invisible feature looks like from outside.
+         *
+         * The count on each row is what decides it, so the rule is stated
+         * against the thing that shows it rather than in a tooltip.
+         */}
         <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-          Taken word for word from your own messages, across every AI. Paste it
-          at the top of a new conversation and skip explaining yourself again.
+          Taken word for word from your own messages, across every AI. The ones
+          you have repeated in more than one conversation ride along with every
+          handover, up to eight, so the next AI has them before it reads a line.
+          Copy them when you are starting somewhere by hand.
         </p>
         <button
           onClick={() => {
