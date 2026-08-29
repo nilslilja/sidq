@@ -40,7 +40,7 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
     return (
       <p className="mt-6 border-t border-ink/10 pt-5 text-[0.875rem] leading-relaxed ink-muted">
         {onAPhone
-          ? 'Sent. Open it on your Mac and you are about a minute from having it.'
+          ? 'Got it. I send these myself, so it lands within a few hours rather than instantly.'
           : `Noted. You get one email, the day the ${name} build exists, and nothing else.`}
       </p>
     );
@@ -112,8 +112,8 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
       <label htmlFor="waitlist-email" className="block text-[0.875rem] leading-relaxed">
         {onAPhone ? (
           <>
-            You are on a phone, and Sidq is a Mac app. Leave your email and the link is
-            waiting for you at your desk.
+            You are on a phone, and Sidq is a Mac app. Leave your email and I will send you
+            the link, so it is waiting when you are back at your Mac.
           </>
         ) : (
           <>

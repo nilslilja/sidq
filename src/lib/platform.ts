@@ -109,8 +109,8 @@ function describe(platform: Platform): PlatformInfo {
     case 'phone':
       return {
         platform,
-        label: 'Send me the link',
-        detail: 'Sidq is a Mac app. Get the link on the machine you use it on.',
+        label: 'Email me the link',
+        detail: 'Sidq is a Mac app. Leave your address and I will send it over.',
         supported: false,
       };
     default:
