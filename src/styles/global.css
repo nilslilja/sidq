@@ -1,6 +1,6 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import './fonts.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./fonts.css";
 
 /*
  * Sidq design system: Daylight Glass.
@@ -49,8 +49,9 @@
   --color-lilac: #b8a6ff;
   --color-peach: #ffd4c2;
 
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-sans:
+    "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-sm: 0.625rem;
   --radius: 1rem;
@@ -225,7 +226,8 @@
       0 1px 0 0 rgba(255, 255, 255, 0.4) inset,
       0 0 0 1px color-mix(in oklab, var(--color-accent) 70%, black),
       0 2px 6px -1px rgba(18, 18, 26, 0.24),
-      0 18px 38px -12px color-mix(in oklab, var(--color-accent) 38%, transparent);
+      0 18px 38px -12px
+        color-mix(in oklab, var(--color-accent) 38%, transparent);
     transition:
       transform 220ms var(--ease-out-expo),
       box-shadow 260ms var(--ease-out-expo);
@@ -236,7 +238,8 @@
       0 1px 0 0 rgba(255, 255, 255, 0.5) inset,
       0 0 0 1px color-mix(in oklab, var(--color-accent) 70%, black),
       0 4px 10px -2px rgba(18, 18, 26, 0.22),
-      0 30px 60px -14px color-mix(in oklab, var(--color-accent) 52%, transparent);
+      0 30px 60px -14px
+        color-mix(in oklab, var(--color-accent) 52%, transparent);
   }
   /* Settles rather than shrinking. A scale-down on press reads as a bug at this size. */
   .btn-soft:active {
@@ -338,7 +341,7 @@
     isolation: isolate;
   }
   .sheen::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background: linear-gradient(
@@ -357,7 +360,7 @@
 
   /* Fine film grain. Keeps large flat areas from looking synthetic. */
   .grain::before {
-    content: '';
+    content: "";
     position: fixed;
     inset: 0;
     z-index: 1;
@@ -619,5 +622,69 @@
     .sky-shoot {
       opacity: 0;
     }
+  }
+}
+
+/*
+ * ── How far one read reaches, on the onboarding "reading" step ─────────────
+ *
+ * The frame is what the browser has actually loaded. It starts over the tail of
+ * the conversation, which is all a site hands you before you touch anything,
+ * and climbs; rows brighten as it passes them. That is the scroll rule, drawn
+ * rather than written, on a screen that used to be two hundred and fifty words.
+ *
+ * Transform and opacity only. The frame moves with translate3d rather than
+ * changing `bottom`, so nothing here touches layout.
+ */
+@keyframes reach-frame {
+  0%,
+  12% {
+    transform: translate3d(0, 0, 0);
+  }
+  62%,
+  84% {
+    transform: translate3d(0, -54px, 0);
+  }
+  96%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes reach-row {
+  0%,
+  10% {
+    opacity: 0.18;
+  }
+  38%,
+  86% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0.18;
+  }
+}
+
+.reach-frame {
+  animation: reach-frame 7s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.reach-row {
+  opacity: 0.18;
+  animation: reach-row 7s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Asked for less motion: show the state that explains the most, which is the
+   whole conversation read and the frame at the top of it. */
+@media (prefers-reduced-motion: reduce) {
+  .reach-frame {
+    animation: none;
+    transform: translate3d(0, -54px, 0);
+  }
+
+  .reach-row {
+    animation: none;
+    opacity: 1;
   }
 }

@@ -42,30 +42,35 @@
  * a developer-mode install per browser; opening the assistants inside Sidq's
  * own window breaks passkeys and every password manager. One switch beats both.
  */
-export const PHASES = ['Get started', 'Connect', 'Set up', 'Learn', 'Start'] as const;
+/*
+ * "Set up" is gone from the rail because nothing is in it any more.
+ *
+ * It held two steps: a name we already have from the account, and a question
+ * about which AIs you use that the index answers better. Leaving the segment
+ * behind would draw a phase of setup that can never light.
+ */
+export const PHASES = ["Get started", "Connect", "Learn", "Start"] as const;
 export type Phase = (typeof PHASES)[number];
 
 export type StepId =
-  | 'welcome'
-  | 'discover'
-  | 'signin'
-  | 'sources'
-  | 'reading'
-  | 'intake'
-  | 'name'
-  | 'pill'
-  | 'handover'
-  | 'notifications'
-  | 'browse'
-  | 'walkthrough';
+  | "welcome"
+  | "signin"
+  | "sources"
+  | "reading"
+  | "pill"
+  | "handover"
+  | "notifications"
+  | "browse"
+  | "walkthrough"
+  | "discover";
 
 /** How a step is allowed to advance. */
 export type Gate =
-  | { kind: 'button'; label: string }
+  | { kind: "button"; label: string }
   /** Advances only when the shortcut is actually pressed. */
-  | { kind: 'shortcut'; hint: string; skippable: boolean }
+  | { kind: "shortcut"; hint: string; skippable: boolean }
   /** Advances when some external condition flips, e.g. a permission is granted. */
-  | { kind: 'condition'; waiting: string };
+  | { kind: "condition"; waiting: string };
 
 export interface Step {
   id: StepId;
@@ -81,38 +86,31 @@ export interface Step {
 
 export const STEPS: Step[] = [
   {
-    id: 'welcome',
-    phase: 'Get started',
-    title: 'Welcome to Sidq',
+    id: "welcome",
+    phase: "Get started",
+    title: "Welcome to Sidq",
     /*
      * The pitch, because this is the first sentence anyone reads inside the
      * product and the one they are most likely to repeat to somebody else.
      * It is the same line that sits over the download button on the site, so
      * the sentence that got them here is the sentence that greets them.
      */
-    subtitle: 'Stop introducing yourself to robots. This takes about a minute.',
-    gate: { kind: 'button', label: 'Continue' },
+    subtitle: "Stop introducing yourself to robots. This takes about a minute.",
+    gate: { kind: "button", label: "Continue" },
   },
   {
-    id: 'discover',
-    phase: 'Get started',
-    title: 'How did you find Sidq?',
-    subtitle: 'One tap, and it tells us where to show up more.',
-    gate: { kind: 'button', label: 'Continue' },
+    id: "signin",
+    phase: "Get started",
+    title: "Sign in to keep your history",
+    subtitle: "Opens in your browser, then comes straight back here.",
+    gate: { kind: "condition", waiting: "Waiting for the browser" },
   },
   {
-    id: 'signin',
-    phase: 'Get started',
-    title: 'Sign in to keep your history',
-    subtitle: 'Opens in your browser, then comes straight back here.',
-    gate: { kind: 'condition', waiting: 'Waiting for the browser' },
-  },
-  {
-    id: 'sources',
-    phase: 'Connect',
-    title: 'Connect your AIs',
-    subtitle: 'The ones on this Mac are already done. The rest take one click.',
-    gate: { kind: 'button', label: 'Continue' },
+    id: "sources",
+    phase: "Connect",
+    title: "Connect your AIs",
+    subtitle: "The ones on this Mac are already done. The rest take one click.",
+    gate: { kind: "button", label: "Continue" },
   },
   /*
    * The one thing about Sidq that surprises people, said before it can.
@@ -126,34 +124,11 @@ export const STEPS: Step[] = [
    * status panel — which is where prose goes to not be read.
    */
   {
-    id: 'reading',
-    phase: 'Connect',
-    title: 'How Sidq reads your AIs',
-    subtitle: 'Two kinds, and only one of them needs anything from you.',
-    gate: { kind: 'button', label: 'Got it' },
-  },
-  {
-    id: 'intake',
-    phase: 'Set up',
-    title: 'Which do you use most?',
-    /*
-     * This said "it tells us which to support next", which was a way of saying
-     * the answer went nowhere. It ordered nothing and changed nothing; it was
-     * written to localStorage and read by no code in the app.
-     *
-     * It now orders the Sources panel, so the AIs somebody actually uses are at
-     * the top of the list they will look at most.
-     */
-    subtitle: 'They go to the top of your Sources list.',
-    gate: { kind: 'button', label: 'Continue' },
-  },
-  {
-    id: 'name',
-    phase: 'Set up',
-    title: 'What should Sidq call you?',
-    subtitle: 'Only used to greet you. It never leaves this Mac.',
-    gate: { kind: 'button', label: 'Continue' },
-    optional: true,
+    id: "reading",
+    phase: "Connect",
+    title: "How Sidq reads your AIs",
+    subtitle: "Two kinds, and only one of them needs anything from you.",
+    gate: { kind: "button", label: "Got it" },
   },
   /*
    * The only thing anybody has to learn.
@@ -168,11 +143,11 @@ export const STEPS: Step[] = [
    * seen the product. Skippable so a keyboard conflict cannot trap anyone.
    */
   {
-    id: 'pill',
-    phase: 'Learn',
-    title: 'Press ⌘⇧K',
-    subtitle: 'From inside anything. Everything you were working on, ranked.',
-    gate: { kind: 'shortcut', hint: 'Press ⌘⇧K to continue', skippable: true },
+    id: "pill",
+    phase: "Learn",
+    title: "Press ⌘⇧K",
+    subtitle: "From inside anything. Everything you were working on, ranked.",
+    gate: { kind: "shortcut", hint: "Press ⌘⇧K to continue", skippable: true },
   },
   /*
    * Setup used to stop here, on a keyboard shortcut.
@@ -195,11 +170,11 @@ export const STEPS: Step[] = [
    * left on their own with it.
    */
   {
-    id: 'handover',
-    phase: 'Learn',
-    title: 'Carry one into another AI',
-    subtitle: 'Pick any conversation and press Enter. It writes a file.',
-    gate: { kind: 'condition', waiting: 'Waiting for the first one' },
+    id: "handover",
+    phase: "Learn",
+    title: "Carry one into another AI",
+    subtitle: "Pick any conversation and press Enter. It writes a file.",
+    gate: { kind: "condition", waiting: "Waiting for the first one" },
   },
   /*
    * ── Notifications, placed after the first handover ───────────────────────
@@ -216,19 +191,19 @@ export const STEPS: Step[] = [
    * requested up front for reasons they cannot yet judge.
    */
   {
-    id: 'notifications',
-    phase: 'Learn',
-    title: 'Know when it finds something',
-    subtitle: 'Sidq reads while you are in another app, so it should say so.',
-    gate: { kind: 'button', label: 'Continue' },
+    id: "notifications",
+    phase: "Learn",
+    title: "Know when it finds something",
+    subtitle: "Sidq reads while you are in another app, so it should say so.",
+    gate: { kind: "button", label: "Continue" },
     optional: true,
   },
   {
-    id: 'browse',
-    phase: 'Start',
-    title: 'Open one and carry on',
-    subtitle: 'Anything you open from now on is read as you use it.',
-    gate: { kind: 'button', label: 'Continue' },
+    id: "browse",
+    phase: "Start",
+    title: "Open one and carry on",
+    subtitle: "Anything you open from now on is read as you use it.",
+    gate: { kind: "button", label: "Continue" },
   },
   /*
    * ── The whole loop, last, before the window opens ────────────────────────
@@ -244,11 +219,33 @@ export const STEPS: Step[] = [
    * done once, and this is the join.
    */
   {
-    id: 'walkthrough',
-    phase: 'Start',
-    title: 'That is the whole thing',
-    subtitle: 'Five steps, every time. Watch it once and you have the product.',
-    gate: { kind: 'button', label: 'Start using Sidq' },
+    id: "walkthrough",
+    phase: "Start",
+    title: "That is the whole thing",
+    subtitle: "Five steps, every time. Watch it once and you have the product.",
+    gate: { kind: "button", label: "Continue" },
+  },
+  /*
+   * ── The one question we ask for our own benefit, asked last ──────────────
+   *
+   * It used to be the second screen, before sign-in, before anything had been
+   * connected and long before anything had worked. That is a tap taken from
+   * every single person who installs Sidq, in exchange for nothing they can
+   * see, at the exact moment they are deciding whether this was worth
+   * downloading.
+   *
+   * Here it costs nothing. They have carried a conversation into another AI
+   * and watched the file appear, and the button under it is the one that opens
+   * the app. Fewer people will answer than answered at screen two, and the
+   * ones who do will have actually used the thing.
+   */
+  {
+    id: "discover",
+    phase: "Start",
+    title: "Last thing: how did you find Sidq?",
+    subtitle: "One tap. It decides where I spend time telling people about it.",
+    gate: { kind: "button", label: "Start using Sidq" },
+    optional: true,
   },
 ];
 
@@ -281,14 +278,14 @@ export interface IntakeOption {
  * question here whose value is entirely ours rather than theirs.
  */
 export const DISCOVERY: IntakeOption[] = [
-  { id: 'x', label: 'X / Twitter' },
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'reddit', label: 'Reddit' },
-  { id: 'hn', label: 'Hacker News' },
-  { id: 'friend', label: 'A friend told me' },
-  { id: 'search', label: 'Search' },
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'elsewhere', label: 'Somewhere else' },
+  { id: "x", label: "X / Twitter" },
+  { id: "linkedin", label: "LinkedIn" },
+  { id: "reddit", label: "Reddit" },
+  { id: "hn", label: "Hacker News" },
+  { id: "friend", label: "A friend told me" },
+  { id: "search", label: "Search" },
+  { id: "youtube", label: "YouTube" },
+  { id: "elsewhere", label: "Somewhere else" },
 ];
 
 /*
@@ -298,26 +295,3 @@ export const DISCOVERY: IntakeOption[] = [
  * the product does today. An option nobody can deliver is a promise made during
  * setup and broken on day one.
  */
-/*
- * Which assistants they actually use.
- *
- * This asked what someone wanted Sidq to do for them, and four of the six
- * answers were features that no longer exist: decide my day, catch me when I
- * drift, show me where my time goes, save days that go wrong. Someone reading
- * that in setup is being told about a different product in the same breath as
- * installing this one.
- *
- * The replacement is the one question whose answer changes what gets built
- * next. It also teaches, in the moment they answer it, what Sidq is actually
- * for: these are the things it moves work between.
- */
-export const INTENTS: IntakeOption[] = [
-  { id: 'claude-code', label: 'Claude Code' },
-  { id: 'claude', label: 'Claude' },
-  { id: 'chatgpt', label: 'ChatGPT' },
-  { id: 'cursor', label: 'Cursor' },
-  { id: 'gemini', label: 'Gemini' },
-  { id: 'copilot', label: 'GitHub Copilot' },
-  { id: 'other', label: 'Something else' },
-];
-

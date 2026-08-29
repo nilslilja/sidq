@@ -1,25 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Shell, Instruction, PrimaryAction, Key } from '@/components/onboarding/Shell';
-import { PillPreview } from '@/components/landing/PillPreview';
-import { ConnectModels, ConnectModelsPreview } from '@/components/onboarding/ConnectModels';
-import { HowItGoes } from '@/components/onboarding/HowItGoes';
-import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
-import { useShortcutGate } from '@/lib/onboarding/use-shortcut-gate';
-import { GrantAccess } from '@/components/companion/GrantAccess';
-import { sourceLabel } from '@/lib/companion/sources';
-import type { WorkSession } from '@/lib/companion/work-history';
-import { STEPS, stepIndex, nextStep, DISCOVERY, INTENTS, type StepId } from '@/lib/onboarding/steps';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Shell,
+  Instruction,
+  PrimaryAction,
+  Key,
+} from "@/components/onboarding/Shell";
+import { PillPreview } from "@/components/landing/PillPreview";
+import {
+  ConnectModels,
+  ConnectModelsPreview,
+} from "@/components/onboarding/ConnectModels";
+import { HowItGoes } from "@/components/onboarding/HowItGoes";
+import { PoweredByClaude } from "@/components/landing/PoweredByClaude";
+import { useShortcutGate } from "@/lib/onboarding/use-shortcut-gate";
+import { GrantAccess } from "@/components/companion/GrantAccess";
+import { sourceLabel } from "@/lib/companion/sources";
+import type { WorkSession } from "@/lib/companion/work-history";
+import {
+  STEPS,
+  stepIndex,
+  nextStep,
+  DISCOVERY,
+  type StepId,
+} from "@/lib/onboarding/steps";
 
 /** The assistants that live in a browser, offered at the end of setup. */
 const BROWSER_ASSISTANTS: { id: string; label: string }[] = [
-  { id: 'chatgpt', label: 'ChatGPT' },
-  { id: 'claude.ai', label: 'Claude' },
-  { id: 'gemini', label: 'Gemini' },
+  { id: "chatgpt", label: "ChatGPT" },
+  { id: "claude.ai", label: "Claude" },
+  { id: "gemini", label: "Gemini" },
 ];
-import { desktopBridge } from '@/lib/onboarding/bridge';
-import { adoptSession } from '@/lib/supabase';
-import { cn } from '@/lib/cn';
+import { desktopBridge } from "@/lib/onboarding/bridge";
+import { HowReadingWorks } from "@/components/onboarding/HowReadingWorks";
+import { adoptSession, rememberDisplayName } from "@/lib/supabase";
+import { cn } from "@/lib/cn";
 
 /*
  * First run.
@@ -34,18 +49,15 @@ import { cn } from '@/lib/cn';
  * building the Rust shell every time would mean it never gets polished.
  */
 
-
 export default function Onboarding() {
   const navigate = useNavigate();
   const bridge = useMemo(desktopBridge, []);
 
-  const [step, setStep] = useState<StepId>('welcome');
+  const [step, setStep] = useState<StepId>("welcome");
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [shortcutStuck, setShortcutStuck] = useState(false);
   const [discovery, setDiscovery] = useState<string | null>(null);
-  const [intents, setIntents] = useState<string[]>([]);
-  const [name, setName] = useState('');
   /*
    * Handovers made, polled while the handover step is up. The step advances
    * when this goes above zero, so it is gated on the thing actually happening
@@ -70,9 +82,10 @@ export default function Onboarding() {
    * silently the way an event can.
    */
   useEffect(() => {
-    if (!bridge || step !== 'handover') return;
+    if (!bridge || step !== "handover") return;
 
-    const look = () => void bridge.recentHandovers().then((rows) => setHandovers(rows.length));
+    const look = () =>
+      void bridge.recentHandovers().then((rows) => setHandovers(rows.length));
     look();
     const timer = setInterval(look, 1500);
     return () => clearInterval(timer);
@@ -97,7 +110,7 @@ export default function Onboarding() {
     // End of the flow. On the desktop this closes this window and brings the
     // card up; in a browser tab there is no window to close, so it just routes.
     if (bridge) void bridge.finish();
-    else navigate('/today');
+    else navigate("/today");
   }, [step, navigate, bridge]);
 
   const back = index > 0 ? () => setStep(STEPS[index - 1].id) : undefined;
@@ -105,8 +118,8 @@ export default function Onboarding() {
   // Shortcut gates. Only armed on their own step, so the listeners are never
   // sitting on the window swallowing keys during the rest of the flow.
   const pillGate = useShortcutGate({
-    armed: step === 'pill',
-    combo: { meta: true, shift: true, code: 'KeyK' },
+    armed: step === "pill",
+    combo: { meta: true, shift: true, code: "KeyK" },
     onComplete: advance,
   });
 
@@ -119,7 +132,7 @@ export default function Onboarding() {
    * seconds of nothing happening, an escape appears.
    */
   useEffect(() => {
-    if (step !== 'pill') {
+    if (step !== "pill") {
       setShortcutStuck(false);
       return;
     }
@@ -139,7 +152,7 @@ export default function Onboarding() {
    */
   useEffect(() => {
     if (!bridge) return;
-    const wanted = step === 'pill' ? 'shortcut-pill' : null;
+    const wanted = step === "pill" ? "shortcut-pill" : null;
     if (!wanted) return;
 
     let unlisten: (() => void) | undefined;
@@ -164,16 +177,25 @@ export default function Onboarding() {
    * only on that step, so a stray deep link later in the flow cannot skip ahead.
    */
   useEffect(() => {
-    if (step !== 'signin' || !bridge) return;
+    if (step !== "signin" || !bridge) return;
 
     let unlisten: (() => void) | undefined;
     let cancelled = false;
 
-    void bridge.onSignedIn((urls) => void adoptSession(urls).then(advance)).then((fn) => {
-      // The step may have been left before listen() resolved.
-      if (cancelled) fn();
-      else unlisten = fn;
-    });
+    void bridge
+      .onSignedIn(
+        (urls) =>
+          void adoptSession(urls).then(() => {
+            // The account already knows their name; setup no longer asks for it.
+            rememberDisplayName();
+            advance();
+          }),
+      )
+      .then((fn) => {
+        // The step may have been left before listen() resolved.
+        if (cancelled) fn();
+        else unlisten = fn;
+      });
 
     return () => {
       cancelled = true;
@@ -181,38 +203,25 @@ export default function Onboarding() {
     };
   }, [step, bridge, advance]);
 
-
-
   /**
-   * Save the answers and generate the real first day.
+   * Keep the one answer setup asks for our benefit rather than the person's.
    *
-   * Advances to the reveal immediately and generates behind it, so the wait
-   * happens on a screen that explains itself rather than under a dead button.
+   * It used to be saved by the step *after* the question, so anybody who
+   * answered "how did you find Sidq?" and then closed the window had their
+   * answer dropped on the floor — which made asking it dishonest. It is saved
+   * by the button under the question now.
+   *
+   * Local storage only. It does not belong on a server and it is not worth
+   * failing setup over, so a browser that refuses to store it is ignored.
    */
-  /*
-   * Keep the two setup answers, then move on.
-   *
-   * This used to call a model to generate a first day. The planner is gone, but
-   * the answers are not pointless: they are the only two questions setup asks
-   * for our benefit rather than the person's, and dropping them on the floor
-   * would make asking them dishonest.
-   *
-   * Local storage only. Neither answer belongs on a server and neither is worth
-   * failing setup over, so a browser that refuses to store them is ignored.
-   */
-  const saveIntake = useCallback(() => {
+  const saveDiscovery = useCallback(() => {
     try {
-      if (discovery) localStorage.setItem('sidq.discovery', discovery);
-      if (intents.length) localStorage.setItem('sidq.intents', JSON.stringify(intents));
-      if (name.trim()) localStorage.setItem('sidq.name', name.trim());
+      if (discovery) localStorage.setItem("sidq.discovery", discovery);
     } catch {
       /* private mode; losing an analytics answer is not worth a dead end */
     }
     advance();
-  }, [discovery, intents, advance]);
-
-
-
+  }, [discovery, advance]);
 
   return (
     <Shell
@@ -226,7 +235,7 @@ export default function Onboarding() {
 
   function renderLeft() {
     switch (step) {
-      case 'welcome':
+      case "welcome":
         return (
           <Instruction
             title={
@@ -239,8 +248,8 @@ export default function Onboarding() {
             subtitle={current.subtitle}
             footer={
               <p className="text-[0.75rem] leading-relaxed text-white/30">
-                By continuing you agree to the Terms and the Privacy Policy. Nothing about
-                what is on your screen ever leaves this machine.
+                By continuing you agree to the Terms and the Privacy Policy.
+                Nothing about what is on your screen ever leaves this machine.
               </p>
             }
           >
@@ -255,24 +264,29 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      case 'discover':
+      case "discover":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <Chips options={DISCOVERY} selected={discovery ? [discovery] : []} onToggle={setDiscovery} />
+            <Chips
+              options={DISCOVERY}
+              selected={discovery ? [discovery] : []}
+              onToggle={setDiscovery}
+            />
             <div className="mt-7">
-              <PrimaryAction label="Continue" onClick={advance} />
+              <PrimaryAction label="Start using Sidq" onClick={saveDiscovery} />
             </div>
             <p className="mt-4 text-[0.75rem] leading-relaxed text-white/30">
-              Only the answer is stored, never anything about you. Skip it if you would rather not.
+              Only the answer is stored, never anything about you. Skip it if
+              you would rather not.
             </p>
           </Instruction>
         );
 
-      case 'signin':
+      case "signin":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <PrimaryAction
-              label={signingIn ? 'Waiting for the browser' : 'Sign in'}
+              label={signingIn ? "Waiting for the browser" : "Sign in"}
               waiting={signingIn}
               onClick={() => {
                 setSigningIn(true);
@@ -283,14 +297,19 @@ export default function Onboarding() {
                 void bridge?.openSignIn().catch((err: unknown) => {
                   setSigningIn(false);
                   setSignInError(
-                    err instanceof Error ? err.message : String(err ?? 'Could not open sign-in.'),
+                    err instanceof Error
+                      ? err.message
+                      : String(err ?? "Could not open sign-in."),
                   );
                 });
               }}
             />
 
             {signInError && (
-              <p role="alert" className="mt-4 text-[0.8125rem] leading-relaxed text-[#FFB4A2]">
+              <p
+                role="alert"
+                className="mt-4 text-[0.8125rem] leading-relaxed text-[#FFB4A2]"
+              >
                 {signInError}
               </p>
             )}
@@ -304,10 +323,197 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      case 'sources':
+      case "sources":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <ConnectModels found={claudeSessions} onContinue={advance} />
+          </Instruction>
+        );
+
+      case "handover":
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
+              {/*
+               * A plain inline kbd, not the <Key> component. That one is built
+               * for the shortcut rail — it is a full-width block — and inside
+               * a paragraph it stacked three purple bars down the page.
+               */}
+              Press{" "}
+              <kbd className="rounded-[5px] border border-white/[0.16] bg-white/[0.08] px-1.5 py-0.5 font-mono text-[0.8125rem] text-white/85">
+                &#8984;&#8679;K
+              </kbd>
+              , choose any conversation and press Enter. Sidq writes the whole
+              thing to your Downloads as a Markdown file, with an instruction at
+              both ends telling the next AI to read it and carry on rather than
+              summarise it back at you. Attach that file anywhere.
+            </p>
+
+            <div
+              className={cn(
+                "mt-6 max-w-[46ch] rounded-[12px] border p-4",
+                handovers > 0
+                  ? "border-[#B8A6FF]/45 bg-[#B8A6FF]/[0.08]"
+                  : "border-white/[0.10] bg-white/[0.03]",
+              )}
+            >
+              {handovers > 0 ? (
+                <>
+                  <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
+                    <span
+                      aria-hidden="true"
+                      className="size-1.5 rounded-full bg-[#B8A6FF]"
+                    />
+                    That is one, in your Downloads folder
+                  </p>
+                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+                    Every one you make from now on lands there too, so nothing
+                    is lost to a misclick the way a clipboard is.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[0.875rem] text-white/60">
+                  Waiting for your first one&hellip;
+                </p>
+              )}
+            </div>
+
+            <div className="mt-7">
+              {handovers > 0 ? (
+                <PrimaryAction label="Continue" onClick={advance} />
+              ) : (
+                <button
+                  onClick={advance}
+                  className={cn(
+                    "text-[0.8125rem] text-white/40 underline-offset-4",
+                    "cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline",
+                  )}
+                >
+                  Skip for now
+                </button>
+              )}
+            </div>
+          </Instruction>
+        );
+
+      case "walkthrough":
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <ol className="max-w-[46ch] space-y-3 text-[0.9375rem] leading-relaxed text-white/55">
+              {[
+                [
+                  "Open the conversation you want.",
+                  "The specific one, not a new chat.",
+                ],
+                [
+                  "If it is long, flick to the top once.",
+                  "A browser only loads the most recent part of a conversation until you scroll. Sidq can only read what is loaded, and it picks up the rest within seconds of it appearing.",
+                ],
+                [
+                  "Stay on it for a few seconds.",
+                  "That is all. Nothing to click, and it never asks you to sign in to anything.",
+                ],
+                [
+                  "Wait for the sound.",
+                  "A notification names the conversation. You do not need to click it — it is only telling you.",
+                ],
+                [
+                  "Press ⌘⇧K and choose it.",
+                  "The bar opens over whatever you are in. Narrow it by which AI it came from, then pick the conversation.",
+                ],
+                [
+                  "Drop the file into another AI.",
+                  "It is in your Downloads as one Markdown file. Attach it, and that AI carries on where you stopped.",
+                ],
+              ].map(([head, tail], i) => (
+                <li key={head} className="flex gap-3">
+                  <span className="mt-px shrink-0 text-[0.8125rem] tabular-nums text-white/25">
+                    {i + 1}
+                  </span>
+                  <span>
+                    <span className="text-white">{head}</span>{" "}
+                    <span className="text-white/45">{tail}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-8">
+              <PrimaryAction
+                label={
+                  current.gate.kind === "button"
+                    ? current.gate.label
+                    : "Continue"
+                }
+                onClick={advance}
+              />
+            </div>
+          </Instruction>
+        );
+
+      case "notifications":
+        return (
+          <Instruction title={current.title} subtitle={current.subtitle}>
+            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
+              Reading an AI that lives in a browser means that browser has to be
+              in front, so the moment Sidq picks a conversation up you are, by
+              definition, looking at something else. It plays a short tone and
+              posts one notification the first time it reads a conversation
+              &mdash; not as it grows, once, when it appears.
+            </p>
+
+            <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
+              <p className="text-[0.875rem] font-medium text-white">
+                {notified
+                  ? "Sent. Check the top-right of your screen"
+                  : "Send one now"}
+              </p>
+              <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
+                {notified
+                  ? "If nothing appeared, macOS is holding them back for Sidq and the button below opens the setting."
+                  : "macOS asks the first time an app posts one, so this is the ask and the test at the same time."}
+              </p>
+
+              <div className="mt-4 flex items-center gap-4">
+                <button
+                  onClick={() => {
+                    setNotified(true);
+                    void bridge?.notifySample();
+                  }}
+                  className={cn(
+                    "rounded-lg bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-[#0B0B10]",
+                    "cursor-pointer transition-opacity duration-150 hover:opacity-90",
+                  )}
+                >
+                  {notified ? "Send another" : "Send a test notification"}
+                </button>
+
+                {notified && (
+                  <button
+                    onClick={() => void bridge?.openNotificationSettings()}
+                    className={cn(
+                      "text-[0.8125rem] text-white/45 underline-offset-4",
+                      "cursor-pointer transition-colors duration-150 hover:text-white/75 hover:underline",
+                    )}
+                  >
+                    Open Notification settings
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/*
+             * Never gated on the notification having been allowed.
+             *
+             * There is no honest way to check. The plugin's permission call is
+             * a stub on desktop that always answers granted, so a gate here
+             * would either trap somebody who declined or wave through somebody
+             * who has them switched off. Sound and notifications are a
+             * courtesy on top of work that happens either way.
+             */}
+            <div className="mt-7">
+              <PrimaryAction label="Continue" onClick={advance} />
+            </div>
           </Instruction>
         );
 
@@ -319,191 +525,7 @@ export default function Onboarding() {
        * escape below appears after twelve seconds so a shortcut collision
        * cannot trap anybody here.
        */
-      case 'name':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') advance();
-              }}
-              placeholder="Your first name"
-              spellCheck={false}
-              className={cn(
-                'w-full max-w-[22rem] rounded-[12px] border border-white/[0.12] bg-white/[0.04]',
-                'px-4 py-3 text-[1rem] text-white placeholder:text-white/30',
-                'outline-none transition-colors duration-150 focus:border-[#B8A6FF]/60',
-              )}
-            />
-            <div className="mt-7">
-              <PrimaryAction
-                label={name.trim() ? 'Continue' : 'Skip'}
-                onClick={advance}
-              />
-            </div>
-          </Instruction>
-        );
-
-      case 'handover':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              {/*
-                * A plain inline kbd, not the <Key> component. That one is built
-                * for the shortcut rail — it is a full-width block — and inside
-                * a paragraph it stacked three purple bars down the page.
-                */}
-              Press{' '}
-              <kbd className="rounded-[5px] border border-white/[0.16] bg-white/[0.08] px-1.5 py-0.5 font-mono text-[0.8125rem] text-white/85">
-                &#8984;&#8679;K
-              </kbd>
-              , choose any conversation and press Enter. Sidq writes the whole thing to your
-              Downloads as a Markdown file, with an instruction at both ends telling the next AI
-              to read it and carry on rather than summarise it back at you. Attach that file
-              anywhere.
-            </p>
-
-            <div
-              className={cn(
-                'mt-6 max-w-[46ch] rounded-[12px] border p-4',
-                handovers > 0
-                  ? 'border-[#B8A6FF]/45 bg-[#B8A6FF]/[0.08]'
-                  : 'border-white/[0.10] bg-white/[0.03]',
-              )}
-            >
-              {handovers > 0 ? (
-                <>
-                  <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
-                    <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
-                    That is one, in your Downloads folder
-                  </p>
-                  <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-                    Every one you make from now on lands there too, so nothing is lost to a
-                    misclick the way a clipboard is.
-                  </p>
-                </>
-              ) : (
-                <p className="text-[0.875rem] text-white/60">Waiting for your first one&hellip;</p>
-              )}
-            </div>
-
-            <div className="mt-7">
-              {handovers > 0 ? (
-                <PrimaryAction label="Continue" onClick={advance} />
-              ) : (
-                <button
-                  onClick={advance}
-                  className={cn(
-                    'text-[0.8125rem] text-white/40 underline-offset-4',
-                    'cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline',
-                  )}
-                >
-                  Skip for now
-                </button>
-              )}
-            </div>
-          </Instruction>
-        );
-
-      case 'walkthrough':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <ol className="max-w-[46ch] space-y-3 text-[0.9375rem] leading-relaxed text-white/55">
-              {[
-                ['Open the conversation you want.', 'The specific one, not a new chat.'],
-                ['If it is long, flick to the top once.', 'A browser only loads the most recent part of a conversation until you scroll. Sidq can only read what is loaded, and it picks up the rest within seconds of it appearing.'],
-                ['Stay on it for a few seconds.', 'That is all. Nothing to click, and it never asks you to sign in to anything.'],
-                ['Wait for the sound.', 'A notification names the conversation. You do not need to click it — it is only telling you.'],
-                ['Press ⌘⇧K and choose it.', 'The bar opens over whatever you are in. Narrow it by which AI it came from, then pick the conversation.'],
-                ['Drop the file into another AI.', 'It is in your Downloads as one Markdown file. Attach it, and that AI carries on where you stopped.'],
-              ].map(([head, tail], i) => (
-                <li key={head} className="flex gap-3">
-                  <span className="mt-px shrink-0 text-[0.8125rem] tabular-nums text-white/25">
-                    {i + 1}
-                  </span>
-                  <span>
-                    <span className="text-white">{head}</span>{' '}
-                    <span className="text-white/45">{tail}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-
-            <div className="mt-8">
-              <PrimaryAction
-                label={current.gate.kind === 'button' ? current.gate.label : 'Continue'}
-                onClick={advance}
-              />
-            </div>
-          </Instruction>
-        );
-
-      case 'notifications':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              Reading an AI that lives in a browser means that browser has to be in front, so
-              the moment Sidq picks a conversation up you are, by definition, looking at
-              something else. It plays a short tone and posts one notification the first time
-              it reads a conversation &mdash; not as it grows, once, when it appears.
-            </p>
-
-            <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
-              <p className="text-[0.875rem] font-medium text-white">
-                {notified ? 'Sent. Check the top-right of your screen' : 'Send one now'}
-              </p>
-              <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-                {notified
-                  ? 'If nothing appeared, macOS is holding them back for Sidq and the button below opens the setting.'
-                  : 'macOS asks the first time an app posts one, so this is the ask and the test at the same time.'}
-              </p>
-
-              <div className="mt-4 flex items-center gap-4">
-                <button
-                  onClick={() => {
-                    setNotified(true);
-                    void bridge?.notifySample();
-                  }}
-                  className={cn(
-                    'rounded-lg bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-[#0B0B10]',
-                    'cursor-pointer transition-opacity duration-150 hover:opacity-90',
-                  )}
-                >
-                  {notified ? 'Send another' : 'Send a test notification'}
-                </button>
-
-                {notified && (
-                  <button
-                    onClick={() => void bridge?.openNotificationSettings()}
-                    className={cn(
-                      'text-[0.8125rem] text-white/45 underline-offset-4',
-                      'cursor-pointer transition-colors duration-150 hover:text-white/75 hover:underline',
-                    )}
-                  >
-                    Open Notification settings
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/*
-              * Never gated on the notification having been allowed.
-              *
-              * There is no honest way to check. The plugin's permission call is
-              * a stub on desktop that always answers granted, so a gate here
-              * would either trap somebody who declined or wave through somebody
-              * who has them switched off. Sound and notifications are a
-              * courtesy on top of work that happens either way.
-              */}
-            <div className="mt-7">
-              <PrimaryAction label="Continue" onClick={advance} />
-            </div>
-          </Instruction>
-        );
-
-      case 'pill':
+      case "pill":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <div className="flex items-center gap-2">
@@ -514,11 +536,13 @@ export default function Onboarding() {
             <div className="mt-7">
               <PrimaryAction label="Press ⌘⇧K to continue" waiting />
             </div>
-            {shortcutStuck && <ShortcutEscape onSkip={advance} reason="collision" />}
+            {shortcutStuck && (
+              <ShortcutEscape onSkip={advance} reason="collision" />
+            )}
           </Instruction>
         );
 
-      case 'browse':
+      case "browse":
         // Same six the Sources panel offers, named here rather than fetched:
         // this screen must render instantly on a machine where the app has
         // only just started, and a spinner in the last step of setup is worse
@@ -526,16 +550,16 @@ export default function Onboarding() {
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             {/*
-              * This credited the extension, which stopped being how it works.
-              * The permission granted two steps ago is what reads these, and
-              * saying otherwise sends somebody looking for an install that is
-              * no longer part of the product.
-              */}
+             * This credited the extension, which stopped being how it works.
+             * The permission granted two steps ago is what reads these, and
+             * saying otherwise sends somebody looking for an install that is
+             * no longer part of the product.
+             */}
             <p className="max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/55">
-              Everything on this Mac is already being read. For the AIs that live in a
-              browser, open one below and use it exactly as you do now — Sidq reads the
-              window with the permission you just gave it, so you are never asked to sign
-              in to anything here.
+              Everything on this Mac is already being read. For the AIs that
+              live in a browser, open one below and use it exactly as you do now
+              — Sidq reads the window with the permission you just gave it, so
+              you are never asked to sign in to anything here.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-2">
@@ -544,10 +568,10 @@ export default function Onboarding() {
                   key={a.id}
                   onClick={() => void bridge?.openAssistantInBrowser(a.id)}
                   className={cn(
-                    'rounded-full px-4 py-2 text-[0.875rem] font-medium',
-                    'bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10',
-                    'cursor-pointer transition-colors duration-150',
-                    'hover:bg-white/[0.12] hover:text-white',
+                    "rounded-full px-4 py-2 text-[0.875rem] font-medium",
+                    "bg-white/[0.07] text-white/80 ring-1 ring-inset ring-white/10",
+                    "cursor-pointer transition-colors duration-150",
+                    "hover:bg-white/[0.12] hover:text-white",
                   )}
                 >
                   {a.label}
@@ -569,140 +593,16 @@ export default function Onboarding() {
           </Instruction>
         );
 
-      case 'reading':
+      /*
+       * Shown, not explained. See HowReadingWorks for why this stopped being
+       * two hundred and fifty words of correct prose that nobody read.
+       */
+      case "reading":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <div className="space-y-3">
-              {/*
-                * Two blocks, because there are exactly two cases and the whole
-                * confusion is that people assume there is one. The first is
-                * already done and needs saying so; the second is the one with a
-                * rule attached.
-                */}
-              <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.07] p-4">
-                <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
-                  <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
-                  Already yours
-                </p>
-                <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
-                  Claude Code, Cowork, Cursor and the other editors write their conversations
-                  straight to this Mac.{' '}
-                  {claudeSessions > 0 ? (
-                    <>
-                      Sidq has read{' '}
-                      <span className="text-white">all {claudeSessions} of them</span> already.
-                    </>
-                  ) : (
-                    <>Sidq reads all of them with nothing to set up.</>
-                  )}
-                </p>
-              </div>
-
-              <div className="rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
-                <p className="text-[0.875rem] font-medium text-white">
-                  As you open them
-                </p>
-                <p className="mt-1.5 max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/55">
-                  ChatGPT, Gemini, Claude.ai, Grok and DeepSeek keep nothing readable on your
-                  Mac, so Sidq reads the conversation you have open. Ten seconds and it is
-                  yours.
-                </p>
-                {/*
-                  * The one limit of reading a page rather than a file, said
-                  * here rather than discovered later.
-                  *
-                  * Sidq sees what the page has loaded. A long conversation is
-                  * not all there when you open it — sites fetch the recent part
-                  * and fetch the rest as you scroll up — so a handover made
-                  * without scrolling can be the tail of it. Sidq re-reads every
-                  * few seconds, which means scrolling is genuinely the fix
-                  * rather than an apology for a limitation.
-                  */}
-                {/*
-                  * ── Three depths, not one limitation ──────────────────────
-                  *
-                  * A browser loads the recent part of a long conversation and
-                  * fetches the rest on scroll, so Sidq reads what is loaded.
-                  * Written as an apology that reads as a product that only
-                  * half works; written as three levels it reads as what it is,
-                  * which is a choice about how much effort you feel like.
-                  *
-                  * The floor matters more than the ceiling here. Even the
-                  * option that asks nothing at all is every word of the recent
-                  * part, which is already more than "summarise this in detail"
-                  * can give: a summary is the model's account of what happened,
-                  * and every one of these is the thing that actually happened.
-                  */}
-                <div className="mt-4 space-y-2.5 border-t border-white/[0.08] pt-4">
-                  <p className="text-[0.75rem] uppercase tracking-[0.16em] text-white/35">
-                    How much of it you get
-                  </p>
-                  {[
-                    ['Do nothing', 'every word the page has open'],
-                    ['Scroll to the top once', 'the whole conversation, however long'],
-                    ['Drop in an export', 'everything you have ever said to that AI'],
-                  ].map(([head, tail]) => (
-                    <p key={head} className="max-w-[46ch] text-[0.8125rem] leading-relaxed text-white/45">
-                      <span className="text-white/85">{head}</span> &mdash; {tail}
-                    </p>
-                  ))}
-                  <p className="max-w-[46ch] pt-1 text-[0.8125rem] leading-relaxed text-white/40">
-                    Even the first one is the conversation itself. Asking an AI to summarise a
-                    chat gives you its account of what happened. These give the next one what
-                    happened.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/*
-              * The consequence, said plainly rather than left to be worked out.
-              * This is the sentence somebody needs a week later when they wonder
-              * why an old chat is not in the picker.
-              */}
-            <p className="mt-5 max-w-[46ch] text-[0.875rem] leading-relaxed text-white/70">
-              So the browser conversations you had <em className="not-italic text-white">before</em>{' '}
-              today are not in Sidq yet. They arrive as you go back to them, and a week of
-              ordinary use covers most of it.
-            </p>
-
+            <HowReadingWorks read={claudeSessions} />
             <div className="mt-7">
               <PrimaryAction label="Got it" onClick={advance} />
-            </div>
-          </Instruction>
-        );
-
-      case 'intake':
-        return (
-          <Instruction title={current.title} subtitle={current.subtitle}>
-            <div className="mb-7">
-              <p className="text-[0.625rem] uppercase tracking-[0.2em] text-white/35">
-                Where your conversations happen
-              </p>
-              <div className="mt-3">
-                <Chips
-                  options={INTENTS}
-                  selected={intents}
-                  onToggle={(id) =>
-                    setIntents((prev) =>
-                      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            {/*
-             * The focus, blocker and rhythm chips are gone with the planner
-             * they fed. They asked what someone struggles with in a day, which
-             * this product no longer has an opinion about.
-             */}
-            <div className="mt-7">
-              <PrimaryAction
-                label={intents.length === 0 ? 'Pick at least one' : 'Continue'}
-                waiting={intents.length === 0}
-                onClick={saveIntake}
-              />
             </div>
           </Instruction>
         );
@@ -716,13 +616,13 @@ export default function Onboarding() {
     switch (step) {
       // The genuine macOS pane, not a drawn imitation of one. Building a replica
       // of a system security dialog is impersonation, whatever the intent.
-      case 'sources':
+      case "sources":
         return <ConnectModelsPreview found={claudeSessions} />;
 
       // The one step whose subject is not a single screen. It crosses an
       // assistant, a bar over everything, and a file — so it is played rather
       // than described, and the description sits beside it.
-      case 'walkthrough':
+      case "walkthrough":
         return <HowItGoes />;
 
       /*
@@ -737,9 +637,12 @@ export default function Onboarding() {
         return (
           <PillPreview
             rows={[
-              { title: 'Pricing page copy', meta: '5h session · Sidq' },
-              { title: 'Onboarding email sequence', meta: '95 exchanges · Verdict' },
-              { title: 'Refund policy wording', meta: '40m · Sidq' },
+              { title: "Pricing page copy", meta: "5h session · Sidq" },
+              {
+                title: "Onboarding email sequence",
+                meta: "95 exchanges · Verdict",
+              },
+              { title: "Refund policy wording", meta: "40m · Sidq" },
             ]}
             className="w-full max-w-[26rem]"
           />
@@ -772,7 +675,11 @@ export default function Onboarding() {
  * being read will look for it within about five. Naming the wait is the
  * difference between waiting and giving up.
  */
-function BrowserReads({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+function BrowserReads({
+  bridge,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+}) {
   const [read, setRead] = useState<string[]>([]);
 
   useEffect(() => {
@@ -781,7 +688,7 @@ function BrowserReads({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) 
     const look = () =>
       void bridge.recentWork(200).then((rows) => {
         const sources = (rows as WorkSession[])
-          .map((r) => r.source ?? '')
+          .map((r) => r.source ?? "")
           .filter((id) => BROWSER_ASSISTANTS.some((a) => a.id === id));
         setRead([...new Set(sources)].map((id) => sourceLabel(id)));
       });
@@ -796,24 +703,30 @@ function BrowserReads({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) 
       {read.length > 0 ? (
         <>
           <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-[#B8A6FF]" />
-            Read from your browser: {read.join(', ')}
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full bg-[#B8A6FF]"
+            />
+            Read from your browser: {read.join(", ")}
           </p>
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-            Searchable now, and ready to hand to another AI. It keeps up as you talk.
+            Searchable now, and ready to hand to another AI. It keeps up as you
+            talk.
           </p>
         </>
       ) : (
         <>
-          <p className="text-[0.875rem] font-medium text-white">Nothing read from a browser yet</p>
+          <p className="text-[0.875rem] font-medium text-white">
+            Nothing read from a browser yet
+          </p>
           {/*
-            * Both of the honest reasons, because the fix is different for each
-            * and neither is visible from here.
-            */}
+           * Both of the honest reasons, because the fix is different for each
+           * and neither is visible from here.
+           */}
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-            Open a conversation you have already had rather than a new chat — an empty one
-            has nothing in it to read. Sidq checks every 90 seconds, so give it a moment
-            after you do.
+            Open a conversation you have already had rather than a new chat — an
+            empty one has nothing in it to read. Sidq checks every 90 seconds,
+            so give it a moment after you do.
           </p>
         </>
       )}
@@ -841,10 +754,10 @@ function Chips({
             onClick={() => onToggle(option.id)}
             aria-pressed={on}
             className={cn(
-              'min-h-10 rounded-full px-3.5 text-[0.8125rem] transition-all duration-150',
+              "min-h-10 rounded-full px-3.5 text-[0.8125rem] transition-all duration-150",
               on
-                ? 'bg-[#B8A6FF] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]'
-                : 'bg-white/[0.06] text-white/65 hover:bg-white/[0.11] hover:text-white',
+                ? "bg-[#B8A6FF] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]"
+                : "bg-white/[0.06] text-white/65 hover:bg-white/[0.11] hover:text-white",
             )}
           >
             {option.label}
@@ -860,14 +773,14 @@ function ShortcutEscape({
   reason,
 }: {
   onSkip: () => void;
-  reason: 'collision' | 'browser';
+  reason: "collision" | "browser";
 }) {
   return (
     <div className="mt-5">
       <p className="text-[0.75rem] leading-relaxed text-white/35">
-        {reason === 'collision'
-          ? 'Nothing happening? Another app probably owns this shortcut. You can change it later in settings.'
-          : 'Global shortcuts only work in the desktop app.'}
+        {reason === "collision"
+          ? "Nothing happening? Another app probably owns this shortcut. You can change it later in settings."
+          : "Global shortcuts only work in the desktop app."}
       </p>
       <button
         onClick={onSkip}
@@ -878,4 +791,3 @@ function ShortcutEscape({
     </div>
   );
 }
-

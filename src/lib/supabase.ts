@@ -1,6 +1,6 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { env, isBackendConfigured } from './env';
-import { desktopBridge } from './onboarding/bridge';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { env, isBackendConfigured } from "./env";
+import { desktopBridge } from "./onboarding/bridge";
 
 let client: SupabaseClient | null = null;
 
@@ -9,7 +9,11 @@ export function getSupabase(): SupabaseClient | null {
   if (!isBackendConfigured) return null;
   if (!client) {
     client = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
     });
   }
   return client;
@@ -39,6 +43,39 @@ export async function shareSessionWithDesktop(): Promise<void> {
 }
 
 /**
+ * Keep the first name the account already knows, for the greeting.
+ *
+ * Setup used to ask for this on a screen of its own — "What should Sidq call
+ * you?", one input, one Continue — immediately after a sign-in that had just
+ * handed us the answer. Google and GitHub both send a name with the identity,
+ * so the question was asking somebody to type something we were holding.
+ *
+ * Best effort by design. Apple's private relay gives no name at all, and a
+ * greeting is not worth a dead end, so a miss simply means the window says
+ * "Good morning" without one.
+ */
+export function rememberDisplayName(): void {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  void supabase.auth.getUser().then(({ data }) => {
+    const meta = data.user?.user_metadata ?? {};
+    const full = [meta.full_name, meta.name, meta.preferred_username]
+      .find((v): v is string => typeof v === "string" && v.trim().length > 0)
+      ?.trim();
+    if (!full) return;
+
+    // First name only. "Good morning, Nils Lilja" reads like a summons.
+    const first = full.split(/\s+/)[0];
+    try {
+      localStorage.setItem("sidq.name", first);
+    } catch {
+      /* private mode; a greeting is not worth failing sign-in over */
+    }
+  });
+}
+
+/**
  * Take the session the browser handed back.
  *
  * The tokens arrive in the URL fragment, which is where the browser put them so
@@ -53,15 +90,18 @@ export async function adoptSession(urls: string[]): Promise<void> {
   if (!supabase) return;
 
   for (const url of urls) {
-    const fragment = url.split('#')[1];
+    const fragment = url.split("#")[1];
     if (!fragment) continue;
 
     const params = new URLSearchParams(fragment);
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
     if (!access_token || !refresh_token) continue;
 
-    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+    const { error } = await supabase.auth.setSession({
+      access_token,
+      refresh_token,
+    });
     if (!error) {
       // Rust needs it too, to confirm the plan against billing rather than
       // taking this page's word for which tier the account is on.
@@ -70,4 +110,3 @@ export async function adoptSession(urls: string[]): Promise<void> {
     }
   }
 }
-

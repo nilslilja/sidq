@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   desktopBridge,
   type HandoverRecord,
@@ -6,13 +6,13 @@ import {
   type InviteSummary,
   type ProfileFact,
   type SearchHit,
-} from '@/lib/onboarding/bridge';
-import type { WorkSession } from '@/lib/companion/work-history';
-import { adoptSession, shareSessionWithDesktop } from '@/lib/supabase';
-import { ConnectExtension } from '@/components/companion/ConnectExtension';
-import { GrantAccess } from '@/components/companion/GrantAccess';
-import { SOURCES, sourceLabel, type Source } from '@/lib/companion/sources';
-import { cn } from '@/lib/cn';
+} from "@/lib/onboarding/bridge";
+import type { WorkSession } from "@/lib/companion/work-history";
+import { adoptSession, shareSessionWithDesktop } from "@/lib/supabase";
+import { ConnectExtension } from "@/components/companion/ConnectExtension";
+import { GrantAccess } from "@/components/companion/GrantAccess";
+import { SOURCES, sourceLabel, type Source } from "@/lib/companion/sources";
+import { cn } from "@/lib/cn";
 
 /*
  * The window behind the pill.
@@ -37,7 +37,7 @@ import { cn } from '@/lib/cn';
  * than that. Every row in the sidebar leads somewhere that works.
  */
 
-type Tab = 'overview' | 'search' | 'sources' | 'profile' | 'plan' | 'invite';
+type Tab = "overview" | "search" | "sources" | "profile" | "plan" | "invite";
 
 type IconName = Tab;
 
@@ -49,12 +49,12 @@ type IconName = Tab;
  * same — every one of them opens a panel that renders something real.
  */
 const TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] = [
-  { id: 'overview', label: 'Overview', icon: 'overview' },
-  { id: 'search', label: 'Search', icon: 'search' },
-  { id: 'sources', label: 'Sources', icon: 'sources' },
-  { id: 'profile', label: 'How you work', icon: 'profile' },
-  { id: 'plan', label: 'Plan', icon: 'plan', secondary: true },
-  { id: 'invite', label: 'Invite a friend', icon: 'invite', secondary: true },
+  { id: "overview", label: "Overview", icon: "overview" },
+  { id: "search", label: "Search", icon: "search" },
+  { id: "sources", label: "Sources", icon: "sources" },
+  { id: "profile", label: "How you work", icon: "profile" },
+  { id: "plan", label: "Plan", icon: "plan", secondary: true },
+  { id: "invite", label: "Invite a friend", icon: "invite", secondary: true },
 ];
 
 const DAY_MS = 86_400_000;
@@ -64,7 +64,7 @@ const COPIED_FOR_MS = 1600;
 
 export function Home() {
   const bridge = useMemo(() => desktopBridge(), []);
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>("overview");
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
 
@@ -93,7 +93,9 @@ export function Home() {
    */
   const refresh = useCallback(() => {
     if (!bridge) return;
-    void bridge.recentWork(200).then((rows) => setSessions(rows as WorkSession[]));
+    void bridge
+      .recentWork(200)
+      .then((rows) => setSessions(rows as WorkSession[]));
     void bridge.indexStats().then(setStats);
     void bridge.planStatus().then(setPlan);
   }, [bridge]);
@@ -136,7 +138,10 @@ export function Home() {
    */
   useEffect(() => {
     if (!bridge) return;
-    const timer = setInterval(() => void shareSessionWithDesktop().catch(() => {}), SESSION_REFRESH_MS);
+    const timer = setInterval(
+      () => void shareSessionWithDesktop().catch(() => {}),
+      SESSION_REFRESH_MS,
+    );
     return () => clearInterval(timer);
   }, [bridge]);
 
@@ -158,7 +163,7 @@ export function Home() {
     if (!bridge) return;
 
     const onFocus = () => refresh();
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
 
     let cancelled = false;
     let unlisten: (() => void) | undefined;
@@ -171,7 +176,7 @@ export function Home() {
     return () => {
       cancelled = true;
       unlisten?.();
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("focus", onFocus);
     };
   }, [bridge, refresh]);
 
@@ -209,7 +214,10 @@ export function Home() {
 
   // Real working time, summed from what the readers measured. Not an estimate.
   const hoursRead = useMemo(
-    () => Math.round(sessions.reduce((sum, s) => sum + (s.activeMinutes ?? 0), 0) / 60),
+    () =>
+      Math.round(
+        sessions.reduce((sum, s) => sum + (s.activeMinutes ?? 0), 0) / 60,
+      ),
     [sessions],
   );
 
@@ -235,7 +243,7 @@ export function Home() {
      */
     <div
       className={cn(
-        'grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[#16141C]',
+        "grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[#16141C]",
         /*
          * ── Warmth, and where it comes from ──────────────────────────────────
          *
@@ -248,19 +256,19 @@ export function Home() {
          * Fixed, not animated, and behind everything. Decoration that moves
          * costs a frame budget on a window somebody keeps open all day.
          */
-        'bg-[#F1EFF7]',
-        'bg-[radial-gradient(120%_90%_at_0%_0%,rgba(139,110,255,0.16),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(255,175,130,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(106,75,234,0.07),transparent_60%)]',
+        "bg-[#F1EFF7]",
+        "bg-[radial-gradient(120%_90%_at_0%_0%,rgba(139,110,255,0.16),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(255,175,130,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(106,75,234,0.07),transparent_60%)]",
       )}
     >
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside className="flex min-h-0 flex-col px-3 pb-4 pt-3">
         {/*
-          * Room for the traffic lights, which float on the surface now.
-          *
-          * Also the drag handle: with the titlebar gone there is nothing else
-          * to move the window by, and a window you cannot move is worse than
-          * a titlebar that clashes.
-          */}
+         * Room for the traffic lights, which float on the surface now.
+         *
+         * Also the drag handle: with the titlebar gone there is nothing else
+         * to move the window by, and a window you cannot move is worse than
+         * a titlebar that clashes.
+         */}
         <div data-tauri-drag-region className="h-8 shrink-0" />
 
         <div className="flex items-center gap-2 px-3 pb-1 pt-2">
@@ -272,25 +280,30 @@ export function Home() {
 
         <nav className="mt-6 flex flex-col gap-0.5">
           {TABS.filter((t) => !t.secondary).map((t) => (
-            <NavRow key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
+            <NavRow
+              key={t.id}
+              tab={t}
+              active={tab === t.id}
+              onClick={() => setTab(t.id)}
+            />
           ))}
         </nav>
 
         {/*
-          * The allowance, in the one place it belongs.
-          *
-          * It was three separate readings of the same number: a card down here,
-          * a figure in the header strip and a bar on the overview. A limit is
-          * something you glance at, and glancing at it in three places is how
-          * you stop reading any of them.
-          */}
+         * The allowance, in the one place it belongs.
+         *
+         * It was three separate readings of the same number: a card down here,
+         * a figure in the header strip and a bar on the overview. A limit is
+         * something you glance at, and glancing at it in three places is how
+         * you stop reading any of them.
+         */}
         <div className="mt-auto pt-6">
           {plan && (
             <div
               className={cn(
-                'rounded-[14px] border border-[#B8A6FF]/45 px-4 py-3.5',
-                'bg-gradient-to-b from-white to-[#F3EEFF]',
-                'shadow-[0_1px_2px_rgba(20,18,28,0.04)]',
+                "rounded-[14px] border border-[#B8A6FF]/45 px-4 py-3.5",
+                "bg-gradient-to-b from-white to-[#F3EEFF]",
+                "shadow-[0_1px_2px_rgba(20,18,28,0.04)]",
               )}
             >
               {plan.handoversCap == null ? (
@@ -307,22 +320,22 @@ export function Home() {
                   <p className="text-[0.875rem] font-medium text-[#16141C]">
                     <span className="text-[#6A4BEA]">
                       {Math.max(0, plan.handoversCap - plan.handoversUsed)}
-                    </span>{' '}
+                    </span>{" "}
                     handovers left
                   </p>
                   <p className="mt-1 text-[0.8125rem] leading-relaxed text-[#57516A]">
-                    You get {plan.handoversCap} a week on {plan.plan}. Invite a friend, or
-                    upgrade for unlimited.
+                    You get {plan.handoversCap} a week on {plan.plan}. Invite a
+                    friend, or upgrade for unlimited.
                   </p>
                   <button
                     onClick={() => void bridge?.openUpgrade()}
                     className={cn(
-                      'mt-3 w-full rounded-[10px] px-3 py-2',
-                      'bg-gradient-to-b from-[#6A4BEA] to-[#5436C9]',
-                      'text-[0.8125rem] font-medium text-white',
-                      'shadow-[0_1px_2px_rgba(20,18,28,0.18),0_6px_16px_-8px_rgba(106,75,234,0.6)]',
-                      'cursor-pointer transition-[transform,box-shadow] duration-150',
-                      'hover:-translate-y-px hover:shadow-[0_2px_4px_rgba(20,18,28,0.2),0_10px_22px_-10px_rgba(106,75,234,0.7)]',
+                      "mt-3 w-full rounded-[10px] px-3 py-2",
+                      "bg-gradient-to-b from-[#6A4BEA] to-[#5436C9]",
+                      "text-[0.8125rem] font-medium text-white",
+                      "shadow-[0_1px_2px_rgba(20,18,28,0.18),0_6px_16px_-8px_rgba(106,75,234,0.6)]",
+                      "cursor-pointer transition-[transform,box-shadow] duration-150",
+                      "hover:-translate-y-px hover:shadow-[0_2px_4px_rgba(20,18,28,0.2),0_10px_22px_-10px_rgba(106,75,234,0.7)]",
                     )}
                   >
                     Upgrade to Pro
@@ -334,7 +347,12 @@ export function Home() {
 
           <div className="mt-3 flex flex-col gap-0.5 border-t border-black/[0.07] pt-3">
             {TABS.filter((t) => t.secondary).map((t) => (
-              <NavRow key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
+              <NavRow
+                key={t.id}
+                tab={t}
+                active={tab === t.id}
+                onClick={() => setTab(t.id)}
+              />
             ))}
           </div>
         </div>
@@ -342,43 +360,52 @@ export function Home() {
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
       {/*
-        * `min-h-0` is load-bearing, and its absence is a real bug rather than a
-        * tidiness one.
-        *
-        * A grid row is `auto`, which means it grows to its content and will not
-        * shrink below it — even inside a container with a fixed height. So the
-        * card stretched to the full height of whatever was inside it, its
-        * `overflow-y-auto` never had anything to scroll, and everything past
-        * the window was simply cut off with no way to reach it. Measured on the
-        * Sources panel: viewport 900, this element 1256.
-        *
-        * `min-h-0` lets the row shrink to the viewport, which is what hands the
-        * overflow to the card.
-        */}
+       * `min-h-0` is load-bearing, and its absence is a real bug rather than a
+       * tidiness one.
+       *
+       * A grid row is `auto`, which means it grows to its content and will not
+       * shrink below it — even inside a container with a fixed height. So the
+       * card stretched to the full height of whatever was inside it, its
+       * `overflow-y-auto` never had anything to scroll, and everything past
+       * the window was simply cut off with no way to reach it. Measured on the
+       * Sources panel: viewport 900, this element 1256.
+       *
+       * `min-h-0` lets the row shrink to the viewport, which is what hands the
+       * overflow to the card.
+       */}
       <main className="min-h-0 min-w-0 py-3 pl-0 pr-3">
         <div
           className={cn(
-            'h-full min-h-0 overflow-y-auto rounded-[18px]',
+            "h-full min-h-0 overflow-y-auto rounded-[18px]",
             // Not flat white. A hair of the ground shows through the top of the
             // card, which is what stops it reading as a sheet of paper.
-            'bg-gradient-to-b from-[#FBFAFE] to-white',
-            'ring-1 ring-black/[0.06]',
-            'shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]',
+            "bg-gradient-to-b from-[#FBFAFE] to-white",
+            "ring-1 ring-black/[0.06]",
+            "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]",
           )}
         >
           <div data-tauri-drag-region className="h-3" />
           {/* Keyed on the tab so switching panels replays the entrance. */}
           <div key={tab} className="animate-rise px-9 pb-12 pt-5">
-            {tab === 'overview' && (
-              <Overview bridge={bridge} plan={plan} stats={stats} hoursRead={hoursRead} />
+            {tab === "overview" && (
+              <Overview
+                bridge={bridge}
+                plan={plan}
+                stats={stats}
+                hoursRead={hoursRead}
+              />
             )}
-            {tab === 'search' && (
+            {tab === "search" && (
               <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />
             )}
-            {tab === 'sources' && <Sources sessions={sessions} bridge={bridge} />}
-            {tab === 'profile' && <Profile bridge={bridge} />}
-            {tab === 'plan' && <Plan bridge={bridge} plan={plan} />}
-            {tab === 'invite' && <Invite bridge={bridge} signedInAt={signedInAt} />}
+            {tab === "sources" && (
+              <Sources sessions={sessions} bridge={bridge} />
+            )}
+            {tab === "profile" && <Profile bridge={bridge} />}
+            {tab === "plan" && <Plan bridge={bridge} plan={plan} />}
+            {tab === "invite" && (
+              <Invite bridge={bridge} signedInAt={signedInAt} />
+            )}
           </div>
         </div>
       </main>
@@ -409,14 +436,17 @@ function NavRow({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left',
-        'text-[0.875rem] transition-colors duration-150',
+        "flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left",
+        "text-[0.875rem] transition-colors duration-150",
         active
-          ? 'bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]'
-          : 'text-[#57516A] hover:bg-white/60 hover:text-[#16141C]',
+          ? "bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
+          : "text-[#57516A] hover:bg-white/60 hover:text-[#16141C]",
       )}
     >
-      <Icon name={tab.icon} className={active ? 'text-[#6A4BEA]' : 'text-[#8E8899]'} />
+      <Icon
+        name={tab.icon}
+        className={active ? "text-[#6A4BEA]" : "text-[#8E8899]"}
+      />
       <span className="min-w-0 truncate">{tab.label}</span>
     </button>
   );
@@ -518,13 +548,12 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={cn('shrink-0 transition-colors duration-150', className)}
+      className={cn("shrink-0 transition-colors duration-150", className)}
     >
       {paths[name]}
     </svg>
   );
 }
-
 
 /**
  * Today, written the way a person would say it.
@@ -534,9 +563,9 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
  */
 function today(): string {
   return new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: "long",
+    day: "numeric",
+    month: "long",
   });
 }
 
@@ -549,7 +578,8 @@ function today(): string {
  */
 function greeting(): string {
   const hour = new Date().getHours();
-  const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const part =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   /*
    * The name setup asked for, and the reason it is worth asking.
@@ -561,10 +591,10 @@ function greeting(): string {
    */
   const name = (() => {
     try {
-      return localStorage.getItem('sidq.name')?.trim() ?? '';
+      return localStorage.getItem("sidq.name")?.trim() ?? "";
     } catch {
       // A browser refusing storage is not worth failing a greeting over.
-      return '';
+      return "";
     }
   })();
 
@@ -588,7 +618,7 @@ const SESSION_REFRESH_MS = 30 * 60 * 1000;
  * back to telling somebody to try again at something that cannot work.
  */
 function isAStaleSession(problem: string): boolean {
-  return problem.includes('sign-in needs refreshing');
+  return problem.includes("sign-in needs refreshing");
 }
 
 /* ── Panel headings ───────────────────────────────────────────────────────── */
@@ -626,19 +656,23 @@ function PanelHead({
   return (
     <header>
       {eyebrow && (
-        <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">{eyebrow.toUpperCase()}</p>
+        <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">
+          {eyebrow.toUpperCase()}
+        </p>
       )}
       <h1
         className={cn(
-          'font-display text-[1.75rem] leading-[1.1] tracking-[-0.04em]',
+          "font-display text-[1.75rem] leading-[1.1] tracking-[-0.04em]",
           // Only pulled down when there is an eyebrow to be pulled down from.
-          eyebrow && 'mt-1.5',
+          eyebrow && "mt-1.5",
         )}
       >
         {title}
       </h1>
       {lead && (
-        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[#57516A]">{lead}</p>
+        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[#57516A]">
+          {lead}
+        </p>
       )}
     </header>
   );
@@ -685,51 +719,62 @@ function Overview({
     void bridge.recentHandovers().then(setRows);
     void bridge.recentWork(500).then((found) => {
       const sessions = found as WorkSession[];
-      const ends = sessions.map((s) => s.endedAt).filter((n): n is number => typeof n === 'number');
+      const ends = sessions
+        .map((s) => s.endedAt)
+        .filter((n): n is number => typeof n === "number");
       setReach(ends.length > 0 ? [Math.min(...ends), Math.max(...ends)] : null);
-      setReading(new Set(sessions.map((s) => s.source ?? 'claude-code')).size);
+      setReading(new Set(sessions.map((s) => s.source ?? "claude-code")).size);
     });
   }, [bridge]);
 
   return (
     <>
       {/*
-        * ── A greeting with something in it ──────────────────────────────────
-        *
-        * "Welcome back" alone is a label. The date and the time of day are the
-        * two things a person can check against reality the moment the window
-        * opens, which is what makes a greeting read as the app being awake
-        * rather than as decoration.
-        */}
-      <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">{today().toUpperCase()}</p>
+       * ── A greeting with something in it ──────────────────────────────────
+       *
+       * "Welcome back" alone is a label. The date and the time of day are the
+       * two things a person can check against reality the moment the window
+       * opens, which is what makes a greeting read as the app being awake
+       * rather than as decoration.
+       */}
+      <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">
+        {today().toUpperCase()}
+      </p>
       <h1 className="mt-1.5 font-display text-[2rem] leading-[1.1] tracking-[-0.04em]">
         {greeting()}
       </h1>
       <p className="mt-2 max-w-[52ch] text-[0.9375rem] leading-relaxed text-[#57516A]">
         {reading > 0 ? (
           <>
-            Sidq is reading <span className="text-[#16141C]">{reading}</span>{' '}
-            {reading === 1 ? 'AI' : 'AIs'} on this Mac. Press <Keys>&#8984;&#8679;K</Keys> to
-            carry any conversation into another one.
+            Sidq is reading <span className="text-[#16141C]">{reading}</span>{" "}
+            {reading === 1 ? "AI" : "AIs"} on this Mac. Press{" "}
+            <Keys>&#8984;&#8679;K</Keys> to carry any conversation into another
+            one.
           </>
         ) : (
           <>
-            Press <Keys>&#8984;&#8679;K</Keys> to carry a conversation into another AI.
+            Press <Keys>&#8984;&#8679;K</Keys> to carry a conversation into
+            another AI.
           </>
         )}
       </p>
 
       <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">HANDOVERS</h2>
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">
+            HANDOVERS
+          </h2>
 
           {rows !== null && rows.length === 0 && (
             <div className="mt-3 rounded-[14px] border border-dashed border-black/[0.12] px-5 py-6">
-              <p className="text-[0.875rem] font-medium text-[#16141C]">Nothing handed over yet</p>
+              <p className="text-[0.875rem] font-medium text-[#16141C]">
+                Nothing handed over yet
+              </p>
               <p className="mt-1.5 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-                Press <Keys>&#8984;&#8679;K</Keys>, pick a conversation, press Enter. Each one is
-                also written to your Downloads folder as a Markdown file, so nothing is lost to a
-                misclick the way a clipboard is.
+                Press <Keys>&#8984;&#8679;K</Keys>, pick a conversation, press
+                Enter. Each one is also written to your Downloads folder as a
+                Markdown file, so nothing is lost to a misclick the way a
+                clipboard is.
               </p>
             </div>
           )}
@@ -740,14 +785,14 @@ function Overview({
                 <li
                   key={`${row.sessionId}-${row.madeAt}`}
                   className={cn(
-                    'flex items-baseline gap-4 rounded-[10px] px-3 py-3',
-                    'transition-[transform,background-color,box-shadow] duration-150',
-                    'hover:-translate-y-px hover:bg-[#F8F6FD] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]',
+                    "flex items-baseline gap-4 rounded-[10px] px-3 py-3",
+                    "transition-[transform,background-color,box-shadow] duration-150",
+                    "hover:-translate-y-px hover:bg-[#F8F6FD] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]",
                   )}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.875rem] text-[#16141C]">
-                      {row.title || 'Untitled conversation'}
+                      {row.title || "Untitled conversation"}
                     </span>
                     <span className="block truncate text-[0.75rem] text-[#8E8899]">
                       {sourceLabel(row.source)}
@@ -767,8 +812,8 @@ function Overview({
             small stack of numbers that never moves, next to a list that does. */}
         <aside
           className={cn(
-            'rounded-[14px] px-5 py-4 ring-1 ring-[#B8A6FF]/30',
-            'bg-gradient-to-b from-[#F6F2FF] to-[#FBFAFE]',
+            "rounded-[14px] px-5 py-4 ring-1 ring-[#B8A6FF]/30",
+            "bg-gradient-to-b from-[#F6F2FF] to-[#FBFAFE]",
           )}
         >
           <Stat value={stats[0].toLocaleString()} label="conversations" />
@@ -780,7 +825,7 @@ function Overview({
           />
           {reach && (
             <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
-              Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{' '}
+              Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{" "}
               {whenLabel(reach[1])}.
             </p>
           )}
@@ -789,7 +834,6 @@ function Overview({
     </>
   );
 }
-
 
 /** A keystroke, set in the mono face so it reads as something you press. */
 function Keys({ children }: { children: React.ReactNode }) {
@@ -825,13 +869,17 @@ function Plan({
       <>
         <PanelHead
           title="Plan"
-          lead={bridge ? 'Checking your plan…' : 'Your plan lives in the Sidq app. Open it there.'}
+          lead={
+            bridge
+              ? "Checking your plan…"
+              : "Your plan lives in the Sidq app. Open it there."
+          }
         />
       </>
     );
   }
 
-  const free = plan.plan === 'free';
+  const free = plan.plan === "free";
 
   return (
     <>
@@ -849,15 +897,20 @@ function Plan({
           term="Handovers a week"
           detail={
             plan.handoversCap == null
-              ? 'Unlimited'
+              ? "Unlimited"
               : `${plan.handoversUsed} of ${plan.handoversCap} used`
           }
         />
         <Row
           term="Search reaches back"
-          detail={plan.historyDays == null ? 'Everything' : `${plan.historyDays} days`}
+          detail={
+            plan.historyDays == null ? "Everything" : `${plan.historyDays} days`
+          }
         />
-        <Row term="Conversations kept" detail="On this Mac, always. Nothing is uploaded." />
+        <Row
+          term="Conversations kept"
+          detail="On this Mac, always. Nothing is uploaded."
+        />
       </dl>
 
       {free ? (
@@ -865,22 +918,23 @@ function Plan({
           <button
             onClick={() => void bridge?.openUpgrade()}
             className={cn(
-              'rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
-              'bg-[#16141C] text-white transition-opacity duration-150',
-              'cursor-pointer hover:opacity-90',
+              "rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
+              "bg-[#16141C] text-white transition-opacity duration-150",
+              "cursor-pointer hover:opacity-90",
             )}
           >
             See the plans
           </button>
           <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
-            Or raise the free limit without paying: every friend who joins with your code adds
-            handovers to both of your weeks. That is the Invite tab.
+            Or raise the free limit without paying: every friend who joins with
+            your code adds handovers to both of your weeks. That is the Invite
+            tab.
           </p>
         </div>
       ) : (
         <p className="mt-8 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
-          Billing is handled by Stripe. The receipt in your email has the link to change or
-          cancel it.
+          Billing is handled by Stripe. The receipt in your email has the link
+          to change or cancel it.
         </p>
       )}
     </>
@@ -918,12 +972,12 @@ function needsAccount(problem: string): boolean {
  * same as expiring now and must not read as a date.
  */
 function lapses(expires: string): string {
-  if (!expires) return '';
+  if (!expires) return "";
 
   const days = Math.ceil((new Date(expires).getTime() - Date.now()) / DAY_MS);
-  if (Number.isNaN(days)) return '';
-  if (days <= 0) return ', lapsing today';
-  if (days === 1) return ', until tomorrow';
+  if (Number.isNaN(days)) return "";
+  if (days <= 0) return ", lapsing today";
+  if (days === 1) return ", until tomorrow";
   return `, for ${days} more days`;
 }
 
@@ -952,9 +1006,9 @@ function Invite({
 }) {
   const [summary, setSummary] = useState<InviteSummary | null>(null);
   const [copied, setCopied] = useState(false);
-  const [entry, setEntry] = useState('');
+  const [entry, setEntry] = useState("");
   const [redeeming, setRedeeming] = useState(false);
-  const [failure, setFailure] = useState('');
+  const [failure, setFailure] = useState("");
   const [opening, setOpening] = useState(false);
 
   /*
@@ -968,7 +1022,7 @@ function Invite({
   const load = useCallback(() => {
     if (!bridge) {
       setSummary({
-        code: '',
+        code: "",
         invited: 0,
         bonus: 0,
         redeemed: false,
@@ -976,8 +1030,8 @@ function Invite({
         most: 0,
         thisWeek: 0,
         perWeek: 0,
-        expires: '',
-        problem: 'Invites live in the Sidq app. Open it there.',
+        expires: "",
+        problem: "Invites live in the Sidq app. Open it there.",
       });
       return;
     }
@@ -1010,7 +1064,11 @@ function Invite({
   useEffect(load, [load, signedInAt]);
 
   if (summary === null) {
-    return <p className="text-[0.875rem] text-[#7A7489]">Reading your invites&hellip;</p>;
+    return (
+      <p className="text-[0.875rem] text-[#7A7489]">
+        Reading your invites&hellip;
+      </p>
+    );
   }
 
   if (summary.problem) {
@@ -1019,12 +1077,12 @@ function Invite({
         <PanelHead title="Invite a friend" lead={summary.problem} />
 
         {/*
-          * "Sign in to get your invite code", and then only a Try again button,
-          * which asks the same question and gets the same answer. Sign-in used
-          * to live entirely in setup, so an account that skipped it had nowhere
-          * in the app to make one. Saying what is wrong without offering the
-          * one action that fixes it is worse than not saying it.
-          */}
+         * "Sign in to get your invite code", and then only a Try again button,
+         * which asks the same question and gets the same answer. Sign-in used
+         * to live entirely in setup, so an account that skipped it had nowhere
+         * in the app to make one. Saying what is wrong without offering the
+         * one action that fixes it is worse than not saying it.
+         */}
         <div className="mt-5 flex items-center gap-2.5">
           {needsAccount(summary.problem) && (
             <button
@@ -1039,20 +1097,20 @@ function Invite({
                 });
               }}
               className={cn(
-                'rounded-lg bg-[#16141C] px-3.5 py-2 text-[0.8125rem] font-medium text-white',
-                'cursor-pointer transition-opacity duration-150 hover:opacity-85',
-                opening && 'pointer-events-none opacity-60',
+                "rounded-lg bg-[#16141C] px-3.5 py-2 text-[0.8125rem] font-medium text-white",
+                "cursor-pointer transition-opacity duration-150 hover:opacity-85",
+                opening && "pointer-events-none opacity-60",
               )}
             >
-              {opening ? 'Waiting for the browser…' : 'Sign in'}
+              {opening ? "Waiting for the browser…" : "Sign in"}
             </button>
           )}
           <button
             onClick={load}
             className={cn(
-              'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-              'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
-              'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5]',
+              "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+              "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
+              "cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5]",
             )}
           >
             Try again
@@ -1069,19 +1127,19 @@ function Invite({
         title="Invite a friend"
       />
       {/*
-        * The offer, and the fact that it runs out, in the same breath.
-        *
-        * It used to say "permanently", which paid once and kept paying: invite
-        * five friends in your first week and you are on a better free plan for
-        * the life of the account, with no reason to invite anybody again or to
-        * ever pay. It is a rolling week now, so keeping the lift means bringing
-        * somebody new — and the number of numbers here is the reason this is
-        * one sentence rather than a table.
-        */}
+       * The offer, and the fact that it runs out, in the same breath.
+       *
+       * It used to say "permanently", which paid once and kept paying: invite
+       * five friends in your first week and you are on a better free plan for
+       * the life of the account, with no reason to invite anybody again or to
+       * ever pay. It is a rolling week now, so keeping the lift means bringing
+       * somebody new — and the number of numbers here is the reason this is
+       * one sentence rather than a table.
+       */}
       <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-        Anyone who signs up with your code adds {summary.each} handovers a week to your
-        account and {summary.each} to theirs, for the next seven days. Up to{' '}
-        {summary.perWeek} friends a week.
+        Anyone who signs up with your code adds {summary.each} handovers a week
+        to your account and {summary.each} to theirs, for the next seven days.
+        Up to {summary.perWeek} friends a week.
       </p>
 
       {/* The code, at the size of the thing you are meant to read off a screen
@@ -1089,8 +1147,8 @@ function Invite({
       <div className="mt-8 flex max-w-[34rem] items-center gap-3">
         <span
           className={cn(
-            'flex-1 rounded-[10px] border border-black/[0.11] px-4 py-3',
-            'font-display text-[1.5rem] tracking-[0.18em] text-[#16141C]',
+            "flex-1 rounded-[10px] border border-black/[0.11] px-4 py-3",
+            "font-display text-[1.5rem] tracking-[0.18em] text-[#16141C]",
           )}
         >
           {summary.code}
@@ -1103,19 +1161,21 @@ function Invite({
             });
           }}
           className={cn(
-            'shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
-            'bg-[#16141C] text-white transition-opacity duration-150',
-            'cursor-pointer hover:opacity-90',
+            "shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
+            "bg-[#16141C] text-white transition-opacity duration-150",
+            "cursor-pointer hover:opacity-90",
           )}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? "Copied" : "Copy"}
         </button>
       </div>
 
       <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
         <Row
           term="People who used it"
-          detail={summary.invited === 0 ? 'Nobody yet' : String(summary.invited)}
+          detail={
+            summary.invited === 0 ? "Nobody yet" : String(summary.invited)
+          }
         />
         <Row
           term="This week"
@@ -1128,7 +1188,9 @@ function Invite({
         <Row
           term="Extra handovers a week"
           detail={
-            summary.bonus === 0 ? 'None right now' : `+${summary.bonus}${lapses(summary.expires)}`
+            summary.bonus === 0
+              ? "None right now"
+              : `+${summary.bonus}${lapses(summary.expires)}`
           }
         />
       </dl>
@@ -1146,11 +1208,11 @@ function Invite({
               e.preventDefault();
               if (!bridge || entry.trim().length === 0) return;
               setRedeeming(true);
-              setFailure('');
+              setFailure("");
               void bridge
                 .redeemInvite(entry.trim().toUpperCase())
                 .then(() => {
-                  setEntry('');
+                  setEntry("");
                   load();
                 })
                 // Rust hands back the sentence the database wrote, which names
@@ -1168,28 +1230,30 @@ function Invite({
               autoCapitalize="characters"
               placeholder="Their code"
               className={cn(
-                'min-w-0 flex-1 rounded-[10px] border border-black/[0.11] bg-transparent',
-                'px-4 py-2.5 text-[0.9375rem] tracking-[0.14em] text-[#16141C]',
-                'placeholder:tracking-normal placeholder:text-[#A29CB0]',
-                'outline-none transition-colors duration-150 focus:border-[#6A4BEA]/60',
+                "min-w-0 flex-1 rounded-[10px] border border-black/[0.11] bg-transparent",
+                "px-4 py-2.5 text-[0.9375rem] tracking-[0.14em] text-[#16141C]",
+                "placeholder:tracking-normal placeholder:text-[#A29CB0]",
+                "outline-none transition-colors duration-150 focus:border-[#6A4BEA]/60",
               )}
             />
             <button
               type="submit"
               disabled={redeeming || entry.trim().length === 0}
               className={cn(
-                'shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
-                'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
-                'transition-colors duration-150',
+                "shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
+                "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
+                "transition-colors duration-150",
                 redeeming || entry.trim().length === 0
-                  ? 'cursor-default opacity-40'
-                  : 'cursor-pointer hover:bg-[#E6E1F5] hover:text-[#16141C]',
+                  ? "cursor-default opacity-40"
+                  : "cursor-pointer hover:bg-[#E6E1F5] hover:text-[#16141C]",
               )}
             >
-              {redeeming ? 'Checking\u2026' : 'Use it'}
+              {redeeming ? "Checking\u2026" : "Use it"}
             </button>
           </form>
-          {failure && <p className="mt-2.5 text-[0.8125rem] text-[#B23B32]">{failure}</p>}
+          {failure && (
+            <p className="mt-2.5 text-[0.8125rem] text-[#B23B32]">{failure}</p>
+          )}
         </div>
       )}
     </>
@@ -1208,7 +1272,7 @@ function Invite({
  */
 function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [facts, setFacts] = useState<ProfileFact[] | null>(null);
-  const [preamble, setPreamble] = useState('');
+  const [preamble, setPreamble] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -1221,7 +1285,11 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
 
   const heading = (
     <PanelHead
-      eyebrow={facts && facts.length > 0 ? `${facts.length} taken from your own messages` : undefined}
+      eyebrow={
+        facts && facts.length > 0
+          ? `${facts.length} taken from your own messages`
+          : undefined
+      }
       title="How you work"
     />
   );
@@ -1230,7 +1298,9 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-        <p className="mt-4 text-[0.875rem] text-[#7A7489]">Reading your conversations&hellip;</p>
+        <p className="mt-4 text-[0.875rem] text-[#7A7489]">
+          Reading your conversations&hellip;
+        </p>
       </>
     );
   }
@@ -1245,11 +1315,12 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-      <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
-        Empty, and it should be. This builds itself out of the rules you repeat and
-        the stack you keep re-explaining, counting only sentences you actually
-        typed. Have a few real conversations and it will have something to say.
-      </p>
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+          Empty, and it should be. This builds itself out of the rules you
+          repeat and the stack you keep re-explaining, counting only sentences
+          you actually typed. Have a few real conversations and it will have
+          something to say.
+        </p>
       </>
     );
   }
@@ -1259,8 +1330,8 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       {heading}
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
         <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-          Taken word for word from your own messages, across every AI. Paste
-          it at the top of a new conversation and skip explaining yourself again.
+          Taken word for word from your own messages, across every AI. Paste it
+          at the top of a new conversation and skip explaining yourself again.
         </p>
         <button
           onClick={() => {
@@ -1270,12 +1341,12 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             });
           }}
           className={cn(
-            'shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#16141C] text-white transition-opacity duration-150',
-            'cursor-pointer hover:opacity-90',
+            "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+            "bg-[#16141C] text-white transition-opacity duration-150",
+            "cursor-pointer hover:opacity-90",
           )}
         >
-          {copied ? 'Copied' : 'Copy as a preamble'}
+          {copied ? "Copied" : "Copy as a preamble"}
         </button>
       </div>
 
@@ -1284,23 +1355,23 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           <li
             key={fact.text}
             className={cn(
-              'flex items-baseline gap-4 rounded-[10px] px-3 py-2.5',
-              'transition-[transform,background-color] duration-150',
-              'hover:-translate-y-px hover:bg-[#F4F2FB]',
+              "flex items-baseline gap-4 rounded-[10px] px-3 py-2.5",
+              "transition-[transform,background-color] duration-150",
+              "hover:-translate-y-px hover:bg-[#F4F2FB]",
             )}
           >
             <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-[#16141C]">
               {fact.text}
             </span>
             {/*
-              * The count, not a badge saying "important".
-              *
-              * Said in six conversations is a fact about the transcripts and
-              * can be checked. Any label we invented on top of it could not.
-              */}
+             * The count, not a badge saying "important".
+             *
+             * Said in six conversations is a fact about the transcripts and
+             * can be checked. Any label we invented on top of it could not.
+             */}
             <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
               {fact.conversations === 1
-                ? 'once'
+                ? "once"
                 : `${fact.conversations} conversations`}
             </span>
           </li>
@@ -1320,7 +1391,7 @@ function Search({
   /** How far back the plan reaches, or null for everything. */
   historyDays: number | null;
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [withheld, setWithheld] = useState(0);
   const [searched, setSearched] = useState(false);
@@ -1363,14 +1434,17 @@ function Search({
       <PanelHead
         eyebrow={
           historyDays == null
-            ? 'Everything on this Mac'
-            : `Reaching back ${historyDays} ${historyDays === 1 ? 'day' : 'days'}`
+            ? "Everything on this Mac"
+            : `Reaching back ${historyDays} ${historyDays === 1 ? "day" : "days"}`
         }
         title="Search"
       />
 
       <div className="relative mt-5">
-        <span aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8899]">
+        <span
+          aria-hidden="true"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8899]"
+        >
           <Icon name="search" />
         </span>
         <input
@@ -1380,10 +1454,10 @@ function Search({
           placeholder="Search everything you have ever asked"
           spellCheck={false}
           className={cn(
-            'w-full rounded-[12px] bg-[#F5F3FB] py-3.5 pl-11 pr-4',
-            'text-[1rem] text-[#16141C] placeholder:text-[#8E8899]',
-            'ring-1 ring-inset ring-black/[0.07] transition-shadow duration-150',
-            'focus:outline-none focus:ring-[#6A4BEA]/40',
+            "w-full rounded-[12px] bg-[#F5F3FB] py-3.5 pl-11 pr-4",
+            "text-[1rem] text-[#16141C] placeholder:text-[#8E8899]",
+            "ring-1 ring-inset ring-black/[0.07] transition-shadow duration-150",
+            "focus:outline-none focus:ring-[#6A4BEA]/40",
           )}
         />
       </div>
@@ -1391,8 +1465,8 @@ function Search({
       {searched && (
         <p className="mt-4 text-[0.8125rem] text-[#7A7489]">
           {hits.length === 0
-            ? 'Nothing matched that one.'
-            : `${hits.length} ${hits.length === 1 ? 'result' : 'results'}`}
+            ? "Nothing matched that one."
+            : `${hits.length} ${hits.length === 1 ? "result" : "results"}`}
         </p>
       )}
 
@@ -1413,13 +1487,13 @@ function Search({
       {withheld > 0 && historyDays !== null && (
         <div className="mt-5 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
           <p className="text-[0.875rem] text-[#16141C]">
-            <span className="font-medium text-[#16141C]">{withheld} more</span>{' '}
-            {withheld === 1 ? 'conversation matches' : 'conversations match'}, older than{' '}
-            {historyDays} days
+            <span className="font-medium text-[#16141C]">{withheld} more</span>{" "}
+            {withheld === 1 ? "conversation matches" : "conversations match"},
+            older than {historyDays} days
           </p>
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-[#7A7489]">
-            Free search reaches back {historyDays} days. Pro reaches everything you have ever
-            asked, in any AI.
+            Free search reaches back {historyDays} days. Pro reaches everything
+            you have ever asked, in any AI.
           </p>
         </div>
       )}
@@ -1427,8 +1501,8 @@ function Search({
       {!searched && (
         <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
           Every conversation on this Mac, plus every AI you have opened in Sidq,
-          searched together. No AI can read another one&rsquo;s history, so this is
-          the only place yours sits in one pile.
+          searched together. No AI can read another one&rsquo;s history, so this
+          is the only place yours sits in one pile.
         </p>
       )}
     </>
@@ -1440,7 +1514,7 @@ function Hit({ hit }: { hit: SearchHit }) {
     <article className="rounded-[12px] bg-[#F8F6FD] p-4 ring-1 ring-inset ring-black/[0.06]">
       <div className="flex items-baseline gap-2">
         <span className="truncate text-[0.875rem] font-medium text-[#16141C]/90">
-          {hit.title || 'Untitled'}
+          {hit.title || "Untitled"}
         </span>
         <span className="shrink-0 text-[0.6875rem] text-[#8E8899]">
           {sourceLabel(hit.source)}
@@ -1453,7 +1527,10 @@ function Hit({ hit }: { hit: SearchHit }) {
             this result is here rather than on the surrounding sentence. */}
         {hit.snippet.split(/[«»]/).map((part, i) =>
           i % 2 === 1 ? (
-            <mark key={i} className="rounded bg-[#E9E2FF] px-0.5 text-[#16141C]">
+            <mark
+              key={i}
+              className="rounded bg-[#E9E2FF] px-0.5 text-[#16141C]"
+            >
               {part}
             </mark>
           ) : (
@@ -1468,8 +1545,8 @@ function Hit({ hit }: { hit: SearchHit }) {
 /** Rust stores seconds; everything in the browser is milliseconds. */
 function whenHandedOver(seconds: number): string {
   const days = Math.floor((Date.now() - seconds * 1000) / DAY_MS);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
   if (days < 30) return `${days} days ago`;
   return new Date(seconds * 1000).toLocaleDateString();
 }
@@ -1510,7 +1587,11 @@ function whenHandedOver(seconds: number): string {
  * signs in with an email and a password hits none of the above and it saves
  * them an install.
  */
-function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+function OpenAssistants({
+  bridge,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+}) {
   const [rows, setRows] = useState<{ id: string; label: string }[]>([]);
   const [inSidq, setInSidq] = useState(false);
 
@@ -1525,8 +1606,8 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
     <div className="mt-8">
       <p className="text-[0.875rem] font-medium text-[#16141C]">Open one</p>
       <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
-        In your own browser, where you are already signed in and your passkeys and password
-        manager work. Sidq never asks you to log in to anything.
+        In your own browser, where you are already signed in and your passkeys
+        and password manager work. Sidq never asks you to log in to anything.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {rows.map((row) => (
@@ -1538,9 +1619,9 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
                 : bridge?.openAssistantInBrowser(row.id))
             }
             className={cn(
-              'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-              'bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]',
-              'cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]',
+              "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+              "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
+              "cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]",
             )}
           >
             {row.label}
@@ -1552,16 +1633,22 @@ function OpenAssistants({ bridge }: { bridge: ReturnType<typeof desktopBridge> }
         className="mt-3 text-[0.75rem] text-[#8E8899] transition-colors duration-150 hover:text-[#3A3547]"
       >
         {inSidq
-          ? 'Opening inside Sidq. Passkeys and autofill will not work here. Use my browser instead'
-          : 'Or open them inside Sidq, if you sign in with an email and password'}
+          ? "Opening inside Sidq. Passkeys and autofill will not work here. Use my browser instead"
+          : "Or open them inside Sidq, if you sign in with an email and password"}
       </button>
     </div>
   );
 }
 
-function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
-  const [state, setState] = useState<'idle' | 'reading' | 'done' | 'failed'>('idle');
-  const [message, setMessage] = useState('');
+function ImportHistory({
+  bridge,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+}) {
+  const [state, setState] = useState<"idle" | "reading" | "done" | "failed">(
+    "idle",
+  );
+  const [message, setMessage] = useState("");
 
   return (
     <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
@@ -1569,34 +1656,35 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
         Already have an export file?
       </p>
       {/*
-        * Deliberately the last thing on this panel, and phrased as an
-        * afterthought.
-        *
-        * It used to be the headline. Requesting an export from Claude or
-        * ChatGPT is emailed to you and can take days to arrive, so putting it
-        * in front of somebody who has just installed Sidq means their first
-        * experience of the product is waiting. Opening an assistant here works
-        * in one click, so that is the offer; this is for the people who
-        * happen to have a file already.
-        */}
+       * Deliberately the last thing on this panel, and phrased as an
+       * afterthought.
+       *
+       * It used to be the headline. Requesting an export from Claude or
+       * ChatGPT is emailed to you and can take days to arrive, so putting it
+       * in front of somebody who has just installed Sidq means their first
+       * experience of the product is waiting. Opening an assistant here works
+       * in one click, so that is the offer; this is for the people who
+       * happen to have a file already.
+       */}
       <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
-        This is the one route that needs no scrolling: an export holds every conversation
-        in full, however old, whether or not you ever open it again. Worth requesting now
-        even though it takes a day or two to arrive. Claude and ChatGPT
-        both call it <code className="text-[#3A3547]">conversations.json</code>; Google
-        Takeout calls it <code className="text-[#3A3547]">MyActivity.json</code>. Sidq works
-        out which is which.
+        This is the one route that needs no scrolling: an export holds every
+        conversation in full, however old, whether or not you ever open it
+        again. Worth requesting now even though it takes a day or two to arrive.
+        Claude and ChatGPT both call it{" "}
+        <code className="text-[#3A3547]">conversations.json</code>; Google
+        Takeout calls it <code className="text-[#3A3547]">MyActivity.json</code>
+        . Sidq works out which is which.
       </p>
 
       <label
         className={cn(
-          'mt-3 inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5',
-          'bg-[#16141C] text-[0.8125rem] font-medium text-white',
-          'transition-opacity duration-150 hover:opacity-90',
-          state === 'reading' && 'pointer-events-none opacity-50',
+          "mt-3 inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5",
+          "bg-[#16141C] text-[0.8125rem] font-medium text-white",
+          "transition-opacity duration-150 hover:opacity-90",
+          state === "reading" && "pointer-events-none opacity-50",
         )}
       >
-        {state === 'reading' ? 'Importing…' : 'Choose an export file'}
+        {state === "reading" ? "Importing…" : "Choose an export file"}
         <input
           type="file"
           accept="application/json,.json"
@@ -1605,33 +1693,33 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
             const file = e.target.files?.[0];
             if (!file || !bridge) return;
 
-            setState('reading');
+            setState("reading");
             void file
               .text()
               .then((json) => bridge.importExport(json))
               .then((count) => {
-                setState('done');
+                setState("done");
                 setMessage(
-                  `${count} conversation${count === 1 ? '' : 's'} imported. They are searchable now.`,
+                  `${count} conversation${count === 1 ? "" : "s"} imported. They are searchable now.`,
                 );
               })
               .catch((err: unknown) => {
-                setState('failed');
+                setState("failed");
                 // Rust says what is actually wrong with the file. Replacing that
                 // with "something went wrong" throws away the only useful part.
                 setMessage(err instanceof Error ? err.message : String(err));
               });
             // Let the same file be chosen twice, after a failed first attempt.
-            e.target.value = '';
+            e.target.value = "";
           }}
         />
       </label>
 
-      {state !== 'idle' && state !== 'reading' && (
+      {state !== "idle" && state !== "reading" && (
         <p
           className={cn(
-            'mt-2.5 text-[0.8125rem]',
-            state === 'done' ? 'text-[#57516A]' : 'text-[#B23B32]',
+            "mt-2.5 text-[0.8125rem]",
+            state === "done" ? "text-[#57516A]" : "text-[#B23B32]",
           )}
         >
           {message}
@@ -1642,30 +1730,30 @@ function ImportHistory({ bridge }: { bridge: ReturnType<typeof desktopBridge> })
 }
 
 /**
- * The sources, with the ones somebody said they use at the top.
+ * The sources, most-used first, measured rather than asked.
  *
- * Setup asks "which do you use most?" and the answer used to go to localStorage
- * and be read by nothing. It orders this list now, so the panel opens on the
- * AIs that matter to the person looking at it rather than on a fixed order.
+ * Setup used to have a screen for this — "Which do you use most?", a row of
+ * chips, a Continue — and ordered the list from the answer. Sidq has read the
+ * index by the time anybody sees this panel, so it already knows, and knows
+ * better: what somebody taps during setup is what they think they use, and
+ * this is what they actually opened. It also stays true as that changes, which
+ * a one-time answer cannot.
+ *
+ * Ties keep the fixed order, so the list does not reshuffle for no reason.
  */
-function orderedSources(): readonly Source[] {
-  let picked: string[] = [];
-  try {
-    picked = JSON.parse(localStorage.getItem('sidq.intents') ?? '[]') as string[];
-  } catch {
-    picked = [];
-  }
-  if (picked.length === 0) return SOURCES;
-
-  // Stable within each group: the fixed order still decides ties, so the list
-  // does not reshuffle itself for no reason.
-  return [
-    ...SOURCES.filter((s) => picked.includes(s.id)),
-    ...SOURCES.filter((s) => !picked.includes(s.id)),
-  ];
+function orderedSources(counts: Map<string, number>): readonly Source[] {
+  return [...SOURCES].sort(
+    (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0),
+  );
 }
 
-function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: ReturnType<typeof desktopBridge> }) {
+function Sources({
+  sessions,
+  bridge,
+}: {
+  sessions: WorkSession[];
+  bridge: ReturnType<typeof desktopBridge>;
+}) {
   const [stale, setStale] = useState<string[]>([]);
   const [accessible, setAccessible] = useState<boolean | null>(null);
 
@@ -1684,7 +1772,7 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of sessions) {
-      const key = s.source ?? 'claude-code';
+      const key = s.source ?? "claude-code";
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return map;
@@ -1693,21 +1781,23 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
   return (
     <>
       {/*
-        * This credited the extension, and so did every row below it. The
-        * extension stopped being how any of this works when the Accessibility
-        * permission replaced it, and telling somebody their AIs are read "via
-        * extension" sends them looking for an install that is not part of the
-        * product any more — while the thing that actually reads them sits
-        * further down the same screen.
-        */}
+       * This credited the extension, and so did every row below it. The
+       * extension stopped being how any of this works when the Accessibility
+       * permission replaced it, and telling somebody their AIs are read "via
+       * extension" sends them looking for an install that is not part of the
+       * product any more — while the thing that actually reads them sits
+       * further down the same screen.
+       */}
       <PanelHead
-        eyebrow={sessions.length > 0 ? `${sessions.length} being read` : undefined}
+        eyebrow={
+          sessions.length > 0 ? `${sessions.length} being read` : undefined
+        }
         title="Sources"
         lead="Sidq is not tied to any one AI. The ones that write conversations to this Mac are read with nothing to set up. The ones that run in a browser keep nothing readable here, so Sidq reads them from the window instead, in whichever browser you already use. Sidq never asks you to log in to anything."
       />
 
       <ul className="mt-6 space-y-1.5">
-        {orderedSources().map((source) => {
+        {orderedSources(counts).map((source) => {
           const found = counts.get(source.id) ?? 0;
           return (
             <li
@@ -1717,26 +1807,28 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
               <span
                 aria-hidden="true"
                 className={cn(
-                  'size-1.5 shrink-0 rounded-full',
-                  found > 0 ? 'bg-[#6A4BEA]' : 'bg-[#D6D1E4]',
+                  "size-1.5 shrink-0 rounded-full",
+                  found > 0 ? "bg-[#6A4BEA]" : "bg-[#D6D1E4]",
                 )}
               />
-              <span className="flex-1 text-[0.875rem] text-[#16141C]">{source.label}</span>
+              <span className="flex-1 text-[0.875rem] text-[#16141C]">
+                {source.label}
+              </span>
               <span className="text-[0.75rem] text-[#7A7489]">
                 {/*
-                  * What a row with nothing in it is waiting for, which is a
-                  * different thing for the two kinds of source. A local one has
-                  * simply never been used. A browser one is read the moment you
-                  * open it, unless the permission is off, in which case that is
-                  * the only thing standing in the way and the row should say so.
-                  */}
+                 * What a row with nothing in it is waiting for, which is a
+                 * different thing for the two kinds of source. A local one has
+                 * simply never been used. A browser one is read the moment you
+                 * open it, unless the permission is off, in which case that is
+                 * the only thing standing in the way and the row should say so.
+                 */}
                 {found > 0
-                  ? `${found} ${found === 1 ? 'conversation' : 'conversations'}`
+                  ? `${found} ${found === 1 ? "conversation" : "conversations"}`
                   : source.local
-                    ? 'none found'
+                    ? "none found"
                     : accessible === false
-                      ? 'needs permission'
-                      : 'when you open it'}
+                      ? "needs permission"
+                      : "when you open it"}
               </span>
             </li>
           );
@@ -1744,17 +1836,19 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       </ul>
       {stale.length > 0 && (
         /*
-          * Said out loud, because the alternative is a source sitting at zero
-          * that looks identical to one nobody has used. These sites redesign
-          * without notice and the extension reads nothing when they do.
-          */
+         * Said out loud, because the alternative is a source sitting at zero
+         * that looks identical to one nobody has used. These sites redesign
+         * without notice and the extension reads nothing when they do.
+         */
         <div className="mt-6 rounded-[12px] border border-amber-500/30 bg-amber-50 p-4">
           <p className="text-[0.875rem] font-medium text-[#16141C]">
-            {stale.join(' and ')} changed, and Sidq stopped reading {stale.length === 1 ? 'it' : 'them'}
+            {stale.join(" and ")} changed, and Sidq stopped reading{" "}
+            {stale.length === 1 ? "it" : "them"}
           </p>
           <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
-            The page moved out from under the extension. This is fixed from our side without
-            you updating anything, usually the same day. Everything already captured is safe.
+            The page moved out from under the extension. This is fixed from our
+            side without you updating anything, usually the same day. Everything
+            already captured is safe.
           </p>
         </div>
       )}
@@ -1764,12 +1858,12 @@ function Sources({ sessions, bridge }: { sessions: WorkSession[]; bridge: Return
       </div>
 
       {/*
-        * The extension only when the permission has been declined.
-        *
-        * It is a real fallback and a worse one: a store listing, a review queue
-        * and a developer-mode install per browser. Offering both at once asks
-        * somebody to choose between two setups when one switch would have done.
-        */}
+       * The extension only when the permission has been declined.
+       *
+       * It is a real fallback and a worse one: a store listing, a review queue
+       * and a developer-mode install per browser. Offering both at once asks
+       * somebody to choose between two setups when one switch would have done.
+       */}
       {accessible === false && (
         <div className="mt-4">
           <ConnectExtension />
@@ -1796,15 +1890,17 @@ function Stat({ value, label }: { value: string; label: string }) {
       <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[#2A1B57]">
         {value}
       </span>
-      <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">{label}</span>
+      <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">
+        {label}
+      </span>
     </p>
   );
 }
 
 function whenLabel(endedAt: number): string {
   const days = Math.floor((Date.now() - endedAt) / DAY_MS);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'yesterday';
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
   if (days < 30) return `${days}d ago`;
   return `${Math.round(days / 30)}mo ago`;
 }
