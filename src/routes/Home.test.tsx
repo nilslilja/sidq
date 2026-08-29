@@ -7,6 +7,7 @@ import type {
   ProfileFact,
   TeamSettings,
 } from "@/lib/onboarding/bridge";
+import { NO_TEAM } from "@/lib/onboarding/bridge";
 
 /*
  * The window behind the pill, tab by tab.
@@ -94,6 +95,18 @@ const bridge: Partial<OnboardingBridge> = {
   onSignedIn: vi.fn(async () => () => {}),
   onChanged: vi.fn(async () => () => {}),
   inviteSummary: vi.fn(async () => invite),
+  /*
+   * No team folder by default, which is every account that has not set one up.
+   * The Overview asks too, so this has to exist on the base bridge rather than
+   * only inside the team tests.
+   */
+  teamSettings: vi.fn(async () => NO_TEAM),
+  teamFolderOptions: vi.fn(async () => [] as [string, string][]),
+  teamHandovers: vi.fn(async () => []),
+  readTeamHandover: vi.fn(async () => null),
+  shareHandover: vi.fn(async () => false),
+  setTeamFolder: vi.fn(async () => true),
+  setTeamName: vi.fn(async () => true),
   redeemInvite: vi.fn((code: string) => redeem(code)),
 };
 
@@ -130,6 +143,10 @@ async function open(tab: string) {
 beforeEach(() => {
   invite = { ...INVITE };
   redeem = async () => 15;
+  // The team tests swap these out; put the no-folder answers back each time.
+  bridge.teamSettings = vi.fn(async () => NO_TEAM);
+  bridge.teamHandovers = vi.fn(async () => []);
+  bridge.teamFolderOptions = vi.fn(async () => []);
   vi.clearAllMocks();
   /*
    * `clearAllMocks` clears recorded calls. It does not undo an implementation
@@ -475,7 +492,9 @@ describe("your team", () => {
     withTeam({ allowed: false });
     await open("Your team");
 
-    expect(screen.getByText(/standing instructions on your/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/standing instructions on your/i),
+    ).toBeInTheDocument();
     expect(screen.queryByText("iCloud Drive")).not.toBeInTheDocument();
   });
 
@@ -515,17 +534,64 @@ describe("your team", () => {
    * leaves this Mac is one thing, it has a name, and you can go and read it.
    */
   test("it names the one file that leaves the Mac", async () => {
-    withTeam({ allowed: true, folder: "/Users/x/iCloud/Sidq Team", sharing: 4 });
+    withTeam({
+      allowed: true,
+      folder: "/Users/x/iCloud/Sidq Team",
+      sharing: 4,
+    });
     await open("Your team");
 
-    expect(screen.getAllByText("nils.sidq-context.md").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("nils.sidq-context.md").length).toBeGreaterThan(
+      0,
+    );
   });
 
   test("an empty folder says what to do, not that something is missing", async () => {
-    withTeam({ allowed: true, folder: "/Users/x/iCloud/Sidq Team", sharing: 4 });
+    withTeam({
+      allowed: true,
+      folder: "/Users/x/iCloud/Sidq Team",
+      sharing: 4,
+    });
     await open("Your team");
 
     expect(screen.getByText(/point their Sidq at it/i)).toBeInTheDocument();
+  });
+
+  /*
+   * Sharing a whole conversation is a different size of decision from
+   * publishing a rule file, so it only ever happens because somebody pressed
+   * this on that conversation. The button is not drawn at all without a folder
+   * to share into, so it never advertises a plan on a row about finished work.
+   */
+  test("no folder means no share button on a handover", async () => {
+    await open("Overview");
+
+    expect(
+      screen.queryByRole("button", { name: /Share with team/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  test("a shared conversation can be copied back by whoever needs it", async () => {
+    withTeam({
+      allowed: true,
+      folder: "/Users/x/iCloud/Sidq Team",
+      sharing: 4,
+      members: [["Sam", 3]],
+    });
+    bridge.teamHandovers = vi.fn(async () => [
+      {
+        who: "Sam",
+        title: "Refund policy wording",
+        when: 1,
+        path: "/f/h/sam--x.md",
+        mine: false,
+      },
+    ]);
+
+    await open("Your team");
+
+    expect(screen.getByText("Refund policy wording")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
   });
 
   test("and teammates are listed with what each of them contributes", async () => {

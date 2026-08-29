@@ -6,6 +6,7 @@ import {
   type InviteSummary,
   type ProfileFact,
   type SearchHit,
+  type SharedHandover,
   type TeamSettings,
 } from "@/lib/onboarding/bridge";
 import type { WorkSession } from "@/lib/companion/work-history";
@@ -718,6 +719,17 @@ function Overview({
   const [reach, setReach] = useState<[number, number] | null>(null);
 
   /*
+   * Whether there is a team folder to share into at all.
+   *
+   * Asked once here rather than per row, and used only to decide whether the
+   * button is worth drawing. Rust refuses the call regardless of what this
+   * says, so a wrong answer costs a button that does nothing rather than a
+   * conversation somewhere it should not be.
+   */
+  const [sharesWithTeam, setSharesWithTeam] = useState(false);
+  const [shared, setShared] = useState<string | null>(null);
+
+  /*
    * How many distinct AIs are actually in the index.
    *
    * Counted from the sessions rather than from the list of AIs Sidq supports,
@@ -729,6 +741,9 @@ function Overview({
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentHandovers().then(setRows);
+    void bridge
+      .teamSettings()
+      .then((t) => setSharesWithTeam(t.allowed && t.folder !== null));
     void bridge.recentWork(500).then((found) => {
       const sessions = found as WorkSession[];
       const ends = sessions
@@ -814,6 +829,34 @@ function Overview({
                   <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
                     {whenHandedOver(row.madeAt)}
                   </span>
+                  {/*
+                   * Shown only to a team that has somewhere to share into, so
+                   * it is not a button advertising a plan on a row about work
+                   * somebody already did. Rust refuses it either way.
+                   */}
+                  {sharesWithTeam && (
+                    <button
+                      onClick={() => {
+                        void bridge
+                          ?.shareHandover({
+                            sessionId: row.sessionId,
+                            title: row.title || "Untitled conversation",
+                            source: row.source,
+                            resumePoint: "",
+                            when: whenHandedOver(row.madeAt),
+                            project: row.project,
+                          })
+                          .then((ok) => ok && setShared(row.sessionId));
+                      }}
+                      className={cn(
+                        "shrink-0 rounded-md px-2 py-1 text-[0.75rem] font-medium",
+                        "cursor-pointer text-[#57516A] transition-colors duration-150",
+                        "hover:bg-[#16141C] hover:text-white",
+                      )}
+                    >
+                      {shared === row.sessionId ? "Shared" : "Share with team"}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1438,8 +1481,10 @@ function accountName(): string {
 function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [settings, setSettings] = useState<TeamSettings | null>(null);
   const [options, setOptions] = useState<[string, string][]>([]);
+  const [shared, setShared] = useState<SharedHandover[]>([]);
   const [typed, setTyped] = useState("");
   const [name, setName] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!bridge) return;
@@ -1449,6 +1494,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       // and it is the one their co-founder would recognise.
       setName(next.name || accountName());
     });
+    void bridge.teamHandovers().then(setShared);
   }, [bridge]);
 
   useEffect(() => {
@@ -1673,6 +1719,62 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           with, and have them point their Sidq at it on the same tab. They will
           appear the next time either of you makes a handover.
         </p>
+      )}
+
+      {/*
+       * ── Whole conversations, when somebody chose to hand one over ──────────
+       *
+       * The rules above are published for you. These are not: each one is here
+       * because a person pressed Share on that conversation. Its own section
+       * for the same reason it is its own command in Rust — the two are
+       * different sizes of decision and should not look alike.
+       */}
+      <p className="mt-8 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+        Conversations shared with the team
+      </p>
+
+      {shared.length === 0 ? (
+        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+          None yet. Press <strong>Share with team</strong> on any handover and
+          it lands here for everyone pointed at this folder.
+        </p>
+      ) : (
+        <ul className="mt-3 space-y-px">
+          {shared.map((item) => (
+            <li
+              key={item.path}
+              className={cn(
+                "flex items-baseline gap-4 rounded-[10px] px-3 py-2.5",
+                "transition-colors duration-150 hover:bg-[#F4F2FB]",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate text-[0.875rem] text-[#16141C]">
+                {item.title}
+              </span>
+              <span className="shrink-0 text-[0.75rem] text-[#8E8899]">
+                {item.mine ? "you" : item.who}
+              </span>
+              <button
+                onClick={() => {
+                  void bridge?.readTeamHandover(item.path).then((text) => {
+                    if (!text) return;
+                    void navigator.clipboard.writeText(text).then(() => {
+                      setCopied(item.path);
+                      setTimeout(() => setCopied(null), COPIED_FOR_MS);
+                    });
+                  });
+                }}
+                className={cn(
+                  "shrink-0 rounded-md px-2 py-1 text-[0.75rem] font-medium",
+                  "cursor-pointer text-[#57516A] transition-colors duration-150",
+                  "hover:bg-[#16141C] hover:text-white",
+                )}
+              >
+                {copied === item.path ? "Copied" : "Copy"}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

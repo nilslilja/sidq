@@ -201,6 +201,123 @@ pub fn members(folder: &Path, mine: &str) -> Vec<(String, usize)> {
     out
 }
 
+/* ── Whole conversations, when somebody chooses to hand one over ─────────── */
+
+/// Where shared handovers live inside the folder. Kept apart from the rule files.
+pub const HANDOVERS_DIR: &str = "handovers";
+
+/// A conversation somebody on the team put in the folder.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedHandover {
+    /// Who shared it, from the filename.
+    pub who: String,
+    /// What the conversation was called.
+    pub title: String,
+    /// Unix milliseconds, from the file's modification time.
+    pub when: i64,
+    /// Full path, for reading it back.
+    pub path: String,
+    /// Whether this Mac is the one that shared it.
+    pub mine: bool,
+}
+
+/**
+ * Put one conversation in the folder for the rest of the team.
+ *
+ * ── Why this is a different act from sharing rules ────────────────────────
+ *
+ * The rule file is a handful of sentences and is published automatically. This
+ * is an entire conversation, and it only ever happens because somebody pressed
+ * a button on that specific conversation. Nothing here runs on a timer and
+ * nothing is shared because a folder was once configured.
+ *
+ * It is also not a new category of exposure, which is worth being clear about
+ * rather than nervous about: a handover's whole purpose is to be pasted into
+ * another company's assistant. The conversation leaves this Mac either way. All
+ * this decides is whether a colleague sees it before OpenAI does.
+ */
+pub fn share_handover(folder: &Path, who: &str, title: &str, text: &str) -> Option<PathBuf> {
+    let dir = folder.join(HANDOVERS_DIR);
+    fs::create_dir_all(&dir).ok()?;
+
+    let stem: String = title
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { '-' })
+        .collect::<String>()
+        .trim()
+        .replace(' ', "-");
+    let stem = if stem.is_empty() { "conversation".into() } else { stem };
+    let stem = &stem[..stem.len().min(60)];
+
+    // Who first, so a directory listing groups by person without needing Sidq.
+    let path = dir.join(format!("{}--{stem}.md", file_stem_for(who)));
+    fs::write(&path, text).ok()?;
+    Some(path)
+}
+
+/// The name part of a filename, without the context-file suffix.
+fn file_stem_for(name: &str) -> String {
+    file_name_for(name).trim_end_matches(SUFFIX).to_string()
+}
+
+/**
+ * Every conversation in the folder, newest first.
+ *
+ * `mine` is this person's stem, so the list can say which ones they put there
+ * themselves rather than presenting somebody their own conversation as though a
+ * colleague had shared it.
+ */
+pub fn shared_handovers(folder: &Path, who: &str) -> Vec<SharedHandover> {
+    let dir = folder.join(HANDOVERS_DIR);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+
+    let mine = file_stem_for(who);
+    let mut out: Vec<SharedHandover> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let name = path.file_name()?.to_str()?.strip_suffix(".md")?;
+            let (stem, title) = name.split_once("--")?;
+
+            Some(SharedHandover {
+                who: stem.replace('-', " "),
+                title: title.replace('-', " "),
+                when: entry
+                    .metadata()
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(0),
+                mine: stem == mine,
+                path: path.to_string_lossy().to_string(),
+            })
+        })
+        .collect();
+
+    out.sort_by(|a, b| b.when.cmp(&a.when));
+    out
+}
+
+/**
+ * Read one back, to put on the clipboard.
+ *
+ * The path has to be inside the folder's handovers directory. It arrives from
+ * the window, and a window is allowed to be wrong; without this, a bug there
+ * would turn "copy a shared handover" into "read any file on this Mac".
+ */
+pub fn read_shared(folder: &Path, path: &str) -> Option<String> {
+    let dir = folder.join(HANDOVERS_DIR).canonicalize().ok()?;
+    let wanted = PathBuf::from(path).canonicalize().ok()?;
+    if !wanted.starts_with(&dir) {
+        return None;
+    }
+    fs::read_to_string(wanted).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,6 +475,72 @@ mod tests {
 
         assert!(out.contains("- no em dashes in the copy"), "their own rules still ride along");
         assert!(out.contains("- Sam: always TypeScript, never JS"), "and Sam's, with his name on");
+    }
+
+    #[test]
+    fn a_shared_conversation_is_named_after_who_shared_it() {
+        let dir = scratch("share");
+        let path = share_handover(&dir, "Nils", "Pricing page copy", "the whole thing").unwrap();
+
+        assert!(path.starts_with(dir.join(HANDOVERS_DIR)));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "the whole thing");
+
+        let found = shared_handovers(&dir, "Sam");
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].who, "nils");
+        assert_eq!(found[0].title, "Pricing page copy");
+        assert!(!found[0].mine, "Sam did not share this one");
+    }
+
+    #[test]
+    fn your_own_shares_are_marked_as_yours() {
+        let dir = scratch("shareself");
+        share_handover(&dir, "Nils", "Pricing page copy", "x");
+
+        assert!(shared_handovers(&dir, "Nils")[0].mine);
+    }
+
+    #[test]
+    fn shared_conversations_come_back_newest_first() {
+        let dir = scratch("shareorder");
+        share_handover(&dir, "Nils", "First", "a");
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        share_handover(&dir, "Sam", "Second", "b");
+
+        let found = shared_handovers(&dir, "Nils");
+        assert_eq!(found[0].title, "Second");
+    }
+
+    /*
+     * The path comes from the window, and a window is allowed to be wrong. A
+     * bug there must not turn "copy a shared handover" into "read any file on
+     * this Mac".
+     */
+    #[test]
+    fn nothing_outside_the_folder_can_be_read_back() {
+        let dir = scratch("escape");
+        let path = share_handover(&dir, "Nils", "Real", "the real one").unwrap();
+        assert_eq!(read_shared(&dir, &path.to_string_lossy()).unwrap(), "the real one");
+
+        let outside = dir.join("..").join("..").join("etc").join("hosts");
+        assert!(read_shared(&dir, &outside.to_string_lossy()).is_none());
+        assert!(read_shared(&dir, "/etc/hosts").is_none());
+    }
+
+    #[test]
+    fn a_title_full_of_punctuation_still_makes_a_filename() {
+        let dir = scratch("sharetitle");
+        let path = share_handover(&dir, "Nils", "What/now: \"really\"?", "x").unwrap();
+
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        assert!(!name.contains('/'));
+        assert!(name.starts_with("nils--"));
+    }
+
+    #[test]
+    fn a_folder_with_nothing_shared_is_empty_rather_than_an_error() {
+        let dir = scratch("shareempty");
+        assert!(shared_handovers(&dir, "Nils").is_empty());
     }
 
     #[test]

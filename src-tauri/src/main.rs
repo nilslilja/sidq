@@ -1063,6 +1063,65 @@ async fn set_team_name(name: String) -> bool {
     .unwrap_or(false)
 }
 
+/// The folder, but only for an account that is paying for the tier it belongs to.
+fn duo_folder() -> Option<std::path::PathBuf> {
+    let folder = team_folder()?;
+    let conn = index_store::open()?;
+    (entitlement::current(&conn) == entitlement::Plan::Duo).then_some(folder)
+}
+
+/**
+ * Put one conversation in the team folder.
+ *
+ * Deliberately its own command rather than a flag on `write_handover`: sharing a
+ * whole conversation with a colleague is a decision about that conversation, and
+ * it should be impossible to make it by accident while doing something else.
+ */
+#[tauri::command]
+async fn share_handover(
+    session_id: String,
+    title: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(folder) = duo_folder() else { return false };
+        let Some(text) = build_handover(&session_id, &source, &resume_point, &when, &project)
+        else {
+            return false;
+        };
+
+        team_context::share_handover(&folder, &team_name(), &title, &text).is_some()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Every conversation anybody on the team has put in the folder, newest first.
+#[tauri::command]
+async fn team_handovers() -> Vec<team_context::SharedHandover> {
+    tauri::async_runtime::spawn_blocking(|| {
+        duo_folder()
+            .map(|folder| team_context::shared_handovers(&folder, &team_name()))
+            .unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Read one back so the window can put it on the clipboard.
+#[tauri::command]
+async fn read_team_handover(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        team_context::read_shared(&duo_folder()?, &path)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /**
  * How many standing instructions ride along with a handover.
  *
@@ -1522,6 +1581,9 @@ fn main() {
             team_folder_options,
             set_team_folder,
             set_team_name,
+            share_handover,
+            team_handovers,
+            read_team_handover,
             recent_handovers,
             invite_summary,
             redeem_invite,

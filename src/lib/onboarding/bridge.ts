@@ -122,6 +122,20 @@ export interface TeamSettings {
   allowed: boolean;
 }
 
+/** A conversation somebody on the team put in the shared folder. */
+export interface SharedHandover {
+  /** Who shared it. */
+  who: string;
+  /** What the conversation was called. */
+  title: string;
+  /** Unix milliseconds. */
+  when: number;
+  /** Full path, which is what reads it back. */
+  path: string;
+  /** Whether this Mac is the one that shared it. */
+  mine: boolean;
+}
+
 /** What the panel shows when the desktop app is not there to ask. */
 export const NO_TEAM: TeamSettings = {
   folder: null,
@@ -239,6 +253,25 @@ export interface OnboardingBridge {
   setTeamFolder: (path: string | null) => Promise<boolean>;
   /** What teammates see this person called. */
   setTeamName: (name: string) => Promise<boolean>;
+  /**
+   * Put one conversation in the team folder.
+   *
+   * Its own call rather than a flag on `saveTranscript`: sharing a whole
+   * conversation with a colleague is a decision about that conversation, and it
+   * should not be possible to make it by accident while doing something else.
+   */
+  shareHandover: (args: {
+    sessionId: string;
+    title: string;
+    source: string;
+    resumePoint: string;
+    when: string;
+    project: string;
+  }) => Promise<boolean>;
+  /** Everything anybody on the team has shared, newest first. */
+  teamHandovers: () => Promise<SharedHandover[]>;
+  /** Read one back, to put on the clipboard. */
+  readTeamHandover: (path: string) => Promise<string | null>;
   /** What you have handed over, newest first. Read from the index, not invented. */
   recentHandovers: () => Promise<HandoverRecord[]>;
   /**
@@ -434,6 +467,16 @@ export function desktopBridge(): OnboardingBridge | null {
       (await invoke("set_team_folder", { path })) === true,
     setTeamName: async (name) =>
       (await invoke("set_team_name", { name })) === true,
+    shareHandover: async (args) =>
+      (await invoke("share_handover", args)) === true,
+    teamHandovers: async () => {
+      const out = await invoke("team_handovers");
+      return Array.isArray(out) ? (out as SharedHandover[]) : [];
+    },
+    readTeamHandover: async (path) => {
+      const text = await invoke("read_team_handover", { path });
+      return typeof text === "string" ? text : null;
+    },
     recentHandovers: async () => {
       const out = await invoke("recent_handovers");
       return Array.isArray(out) ? (out as HandoverRecord[]) : [];
