@@ -38,7 +38,6 @@ pub const RIGHT_OPTION: u64 = 0x0000_0040;
 /// Offered rather than used: see the note at the top of this file. Anybody who
 /// has set "Press 🌐 to" to "Do Nothing" can be given this instead, and
 /// `resolve` already treats it like any other watched mask.
-#[allow(dead_code)]
 pub const FUNCTION: u64 = 1 << 23;
 
 /**
@@ -50,13 +49,27 @@ pub const FUNCTION: u64 = 1 << 23;
  */
 const WINDOW: Duration = Duration::from_millis(450);
 
-/// Every modifier that must be absent, so a chord never reads as a tap.
-const OTHER_MODIFIERS: u64 = 0x0000_0001 // left shift
+/**
+ * Every modifier a person can hold down.
+ *
+ * A tap only counts when nothing else is held, so this is subtracted from the
+ * watched mask rather than listed as exceptions — an allowlist of "other"
+ * modifiers is a list somebody forgets to add to. It already went wrong once:
+ * fn was missing, and this Mac runs Wispr Flow, which holds fn for push to
+ * talk. Dictating and tapping right ⌘ would have grabbed a conversation.
+ *
+ * Caps lock is deliberately absent. It is a latched state rather than a key
+ * being held, and somebody typing in capitals should still be able to grab.
+ */
+const ALL_HELD: u64 = 0x0000_0001 // left shift
     | 0x0000_0004 // right shift
     | 0x0000_0002 // left control
     | 0x0000_2000 // right control
     | 0x0000_0020 // left option
-    | 0x0000_0008; // left command
+    | 0x0000_0040 // right option
+    | 0x0000_0008 // left command
+    | 0x0000_0010 // right command
+    | FUNCTION;
 
 static MONITOR: AtomicUsize = AtomicUsize::new(0);
 static LAST_TAP_MS: AtomicU64 = AtomicU64::new(0);
@@ -87,7 +100,9 @@ pub fn resolve(
     // A modifier that went down, on its own, with nothing else held.
     for &mask in watched {
         let went_down = previous & mask == 0 && current & mask != 0;
-        if went_down && current & OTHER_MODIFIERS == 0 {
+        // Everything except the key that just went down must be up.
+        let alone = current & (ALL_HELD & !mask) == 0;
+        if went_down && alone {
             let soon = since_last.is_some_and(|d| d < WINDOW);
             if soon && last_mask == mask {
                 return Tap::Double(mask);
@@ -104,7 +119,7 @@ pub fn resolve(
      * were doing. Continuing to count would fire the shortcut on the next
      * unrelated tap.
      */
-    if current & OTHER_MODIFIERS != 0 {
+    if current & ALL_HELD != 0 {
         return Tap::Cancel;
     }
 
@@ -250,6 +265,18 @@ mod tests {
     fn the_left_hand_twin_is_a_different_key() {
         let left_command = 0x0000_0008;
         assert_eq!(resolve(0, left_command, &WATCHED, 0, None), Tap::Cancel);
+    }
+
+    /*
+     * Concretely relevant: this Mac runs Wispr Flow, which holds fn for push to
+     * talk. Reaching for right ⌘ mid-sentence must not grab a conversation.
+     */
+    #[test]
+    fn a_tap_while_fn_is_held_is_not_a_tap() {
+        assert_eq!(
+            resolve(FUNCTION, FUNCTION | RIGHT_COMMAND, &WATCHED, 0, None),
+            Tap::Cancel
+        );
     }
 
     #[test]
