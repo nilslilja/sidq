@@ -13,6 +13,21 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "splash",
+        "url": "/splash",
+        "width": 264,
+        "height": 320,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "visible": true
+      },
+      {
         "label": "home",
         "url": "/home",
         "title": "Sidq",

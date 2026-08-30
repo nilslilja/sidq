@@ -2179,11 +2179,48 @@ fn main() {
                 });
             });
 
-            // On by default, and the card says so on first run.
+            /*
+             * On by default, and the card says so on first run.
+             *
+             * Never from a mounted disk image, though. The launcher registers
+             * whatever path is running, so opening Sidq straight out of the DMG
+             * wrote a login item pointing at /Volumes/Sidq — which then either
+             * failed silently once the image was ejected, or launched the disk
+             * image copy, whose Accessibility grant belongs to a different path
+             * than the one in Applications. That is the whole reason capture
+             * was intermittent on the machine this was written on.
+             *
+             * The tray toggle already refused this case. The automatic enable
+             * on launch did not, which is where the bad entry came from.
+             */
             let launcher = app.autolaunch();
-            if !launcher.is_enabled().unwrap_or(false) {
+            if !running_from_a_mounted_image() && !launcher.is_enabled().unwrap_or(false) {
                 let _ = launcher.enable();
             }
+
+            /*
+             * ── Take the launch card away ────────────────────────────────────
+             *
+             * Setup has finished by the time this runs, so the app is ready and
+             * the card could close immediately. It waits anyway: a splash that
+             * appears and vanishes inside a couple of frames reads as a glitch,
+             * and on a fast machine that is exactly what would happen. Just
+             * over a second is long enough to be a deliberate thing somebody
+             * saw and short enough that nobody waits for it.
+             *
+             * Its own thread rather than blocking setup, because everything
+             * after this — the tray, the shortcut, the pill — has to be live
+             * before the card goes, or there is a moment where Sidq has
+             * announced itself and cannot do anything.
+             */
+            let closing = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(1100));
+                if let Some(splash) = closing.get_webview_window("splash") {
+                    let _ = splash.close();
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/react";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Landing } from "@/routes/Landing";
+import { Splash } from "@/routes/Splash";
 
 // The app proper is a separate chunk. The landing page ships React, the router,
 // the shader and the hero stroke. Nothing else.
@@ -47,6 +48,10 @@ const DesktopSignIn = lazy(() =>
  */
 // Opened straight out of setup, so it is public and outside AppShell for the
 // same reason the legal pages are: it must not demand a session first.
+/*
+ * Not lazy. It is the first thing on screen at launch, and a chunk that has to
+ * be fetched before the launch card can draw defeats the point of having one.
+ */
 const Backdrop = lazy(() =>
   import("@/routes/Backdrop").then((m) => ({ default: m.Backdrop })),
 );
@@ -124,6 +129,10 @@ export function AppRoutes() {
           </Suspense>
         }
       />
+      {/* The launch card. Eagerly imported: a lazy chunk would have to be
+          fetched before the thing that says "loading" could appear. */}
+      <Route path="/splash" element={<Splash />} />
+
       {/* Only ever opened by the recording script, so it is never a chunk a
             visitor should be made to download. */}
       <Route

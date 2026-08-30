@@ -819,5 +819,25 @@
     animation: none;
     --edge-angle: 0.2turn;
   }
+}
 
+/*
+ * The launch spinner. One element, one property, off under reduced motion —
+ * where the ring simply sits still rather than vanishing, because it is the
+ * only thing on that card saying the app is doing something.
+ */
+@keyframes splash-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.splash-spin {
+  animation: splash-spin 800ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-spin {
+    animation: none;
+  }
 }
