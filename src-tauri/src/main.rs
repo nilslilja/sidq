@@ -1799,6 +1799,17 @@ fn main() {
             // Listens on 127.0.0.1 for the browser extension. Failure to bind is
             // not fatal: the shortcut still works and the extension says so.
             /*
+             * Which modifier does what, read once.
+             *
+             * Both the tray labels and the watcher need the answer, and they
+             * must agree: a menu that names a key the app is not listening for
+             * is worse than no menu.
+             */
+            let (grab_key, drop_key) = index_store::open()
+                .map(|conn| double_tap::chosen(&conn))
+                .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::RIGHT_CONTROL));
+
+            /*
              * A menu bar item, so quitting is deliberate.
              *
              * Sidq has no dock window most of the time: the pill is summoned and
@@ -1829,14 +1840,20 @@ fn main() {
                 let grab_hint = MenuItem::with_id(
                     app,
                     "grab_hint",
-                    "Grab this conversation   ·   double-tap right ⌘",
+                    &format!(
+                        "Grab this conversation   ·   double-tap {}",
+                        double_tap::label_for(grab_key)
+                    ),
                     false,
                     None::<&str>,
                 )?;
                 let drop_hint = MenuItem::with_id(
                     app,
                     "drop_hint",
-                    "Put the last one back   ·   double-tap right ⌥",
+                    &format!(
+                        "Put the last one back   ·   double-tap {}",
+                        double_tap::label_for(drop_key)
+                    ),
                     false,
                     None::<&str>,
                 )?;
@@ -2069,14 +2086,16 @@ fn main() {
              * claiming one quietly breaks that combination in the person's
              * editor and browser for a feature they use a few times a day.
              *
-             * Right ⌘ grabs, right ⌥ puts the last grab back. See double_tap
-             * for why not fn, which was the first choice: macOS binds its own
-             * action to that key, so a double tap fires that twice as well.
+             * Right ⌘ grabs, right ⌃ puts the last grab back, and both are
+             * settings. See double_tap for the two that were ruled out by what
+             * people actually run: fn is Wispr Flow's push to talk, and right ⌥
+             * opens Claude for Desktop's overlay. Neither was discoverable from
+             * a config file — the second turned up the first time somebody
+             * pressed it, which is the argument for this being changeable
+             * without a release.
              */
             let taps = app.handle().clone();
-            double_tap::watch(
-                vec![double_tap::RIGHT_COMMAND, double_tap::RIGHT_OPTION],
-                move |mask| {
+            double_tap::watch(vec![grab_key, drop_key], move |mask| {
                     let app = taps.clone();
                     /*
                      * Off the event thread. This block runs inside AppKit's own
@@ -2084,15 +2103,14 @@ fn main() {
                      * a transcript and writes a file — doing that here freezes
                      * the keyboard for the length of it.
                      */
-                    std::thread::spawn(move || {
-                        if mask == double_tap::RIGHT_COMMAND {
-                            grab_and_announce(&app);
-                        } else {
-                            drop_last(&app);
-                        }
-                    });
-                },
-            );
+                std::thread::spawn(move || {
+                    if mask == grab_key {
+                        grab_and_announce(&app);
+                    } else {
+                        drop_last(&app);
+                    }
+                });
+            });
 
             // On by default, and the card says so on first run.
             let launcher = app.autolaunch();

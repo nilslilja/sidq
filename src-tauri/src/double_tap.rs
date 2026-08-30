@@ -15,15 +15,26 @@ what several editors do with shift.
 
 ── Which modifier ────────────────────────────────────────────────────────────
 
-The right-hand ⌘ and ⌥, distinguished from their left twins by the device
-specific bits macOS puts in `modifierFlags`. Nobody presses the right-hand ones
-on their own by accident, and they are on every Mac keyboard.
+Right ⌘ and right ⌃, distinguished from their left twins by the device specific
+bits macOS puts in `modifierFlags`. Nobody presses the right-hand ones on their
+own by accident, and they are on every Mac keyboard.
 
-Not fn, which was the first choice and is the wrong one by default: macOS binds
-its own action to that key — emoji, dictation or input switching, depending on
-the setting — so a double tap fires that twice as well. It is a good trigger for
-somebody who has set "Press 🌐 to" to "Do Nothing", and a bad one to ship
-switched on, so it is offered rather than assumed.
+Two were ruled out by what people actually run, and neither could have been
+found in a config file:
+
+  fn        Wispr Flow holds it for push to talk, and macOS binds its own
+            action to it besides — emoji, dictation or input switching. Fine for
+            somebody who has set "Press 🌐 to" to "Do Nothing" and does not
+            dictate; wrong to ship switched on.
+
+  right ⌥   Claude for Desktop opens its overlay on a double tap of option.
+            This one was shipped and had to be moved, because there is nowhere
+            to read it from: it turned up the first time somebody pressed it.
+
+Which is the argument for the whole thing being a setting rather than a
+constant. The keyboard is crowded and what is free depends on what somebody has
+installed, so `chosen` reads the pair from the index and falls back to the
+defaults. Changing them is a settings write, not a release.
 */
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -32,7 +43,15 @@ use std::time::Duration;
 /// Right ⌘. `NX_DEVICERCMDKEYMASK`.
 pub const RIGHT_COMMAND: u64 = 0x0000_0010;
 /// Right ⌥. `NX_DEVICERALTKEYMASK`.
+///
+/// Not used by default: Claude for Desktop opens its overlay on a double tap of
+/// option, which is not in any config file this could have been read from — it
+/// turned up the first time somebody pressed it. Left here because it is the
+/// right choice on a Mac without Claude installed.
 pub const RIGHT_OPTION: u64 = 0x0000_0040;
+
+/// Right ⌃. `NX_DEVICERCTLKEYMASK`. Nobody taps this one on purpose.
+pub const RIGHT_CONTROL: u64 = 0x0000_2000;
 /// fn / 🌐. `NSEventModifierFlagFunction`.
 ///
 /// Offered rather than used: see the note at the top of this file. Anybody who
@@ -284,6 +303,50 @@ mod tests {
         assert_eq!(resolve(RIGHT_COMMAND, 0, &WATCHED, RIGHT_COMMAND, None), Tap::None);
     }
 
+    /*
+     * Both actions on one key makes the second unreachable, and settings are a
+     * file a person can edit.
+     */
+    #[test]
+    fn the_two_keys_can_never_be_the_same_one() {
+        let conn = crate::index_store::tests::memory();
+        crate::index_store::put_setting(&conn, GRAB_KEY, "right-command");
+        crate::index_store::put_setting(&conn, DROP_KEY, "right-command");
+
+        let (grab, drop) = chosen(&conn);
+        assert_eq!(grab, RIGHT_COMMAND);
+        assert_ne!(drop, grab);
+    }
+
+    #[test]
+    fn the_defaults_avoid_what_other_apps_already_own() {
+        let conn = crate::index_store::tests::memory();
+        // fn is Wispr Flow's push to talk; right ⌥ opens Claude's overlay.
+        let (grab, drop) = chosen(&conn);
+        assert_eq!((grab, drop), (RIGHT_COMMAND, RIGHT_CONTROL));
+    }
+
+    #[test]
+    fn a_stored_choice_wins_over_the_default() {
+        let conn = crate::index_store::tests::memory();
+        crate::index_store::put_setting(&conn, DROP_KEY, "right-option");
+
+        assert_eq!(chosen(&conn).1, RIGHT_OPTION);
+    }
+
+    #[test]
+    fn every_choice_round_trips_through_its_name() {
+        for (name, mask) in CHOICES {
+            assert_eq!(mask_for(name), Some(mask));
+            assert_ne!(label_for(mask), "a modifier");
+        }
+    }
+
+    #[test]
+    fn an_unknown_name_is_not_a_modifier() {
+        assert_eq!(mask_for("right-meta"), None);
+    }
+
     #[test]
     fn fn_can_be_watched_for_anybody_who_wants_it() {
         let soon = Some(Duration::from_millis(120));
@@ -292,4 +355,60 @@ mod tests {
             Tap::Double(FUNCTION)
         );
     }
+}
+
+/* ── Which modifier does what, as a setting ──────────────────────────────── */
+
+/// Setting keys. Values are the names below.
+pub const GRAB_KEY: &str = "tap.grab";
+pub const DROP_KEY: &str = "tap.drop";
+
+/// Every modifier that can be tapped, by the name a setting stores.
+pub const CHOICES: [(&str, u64); 4] = [
+    ("right-command", RIGHT_COMMAND),
+    ("right-control", RIGHT_CONTROL),
+    ("right-option", RIGHT_OPTION),
+    ("fn", FUNCTION),
+];
+
+/// The mask a stored name refers to, if it is one this knows.
+pub fn mask_for(name: &str) -> Option<u64> {
+    CHOICES.iter().find(|(n, _)| *n == name).map(|(_, m)| *m)
+}
+
+/// How a mask reads in a menu.
+pub fn label_for(mask: u64) -> &'static str {
+    match mask {
+        RIGHT_COMMAND => "right ⌘",
+        RIGHT_CONTROL => "right ⌃",
+        RIGHT_OPTION => "right ⌥",
+        FUNCTION => "fn",
+        _ => "a modifier",
+    }
+}
+
+/**
+ * The pair in force: what is stored, or the defaults.
+ *
+ * Right ⌥ was the original second key and Claude for Desktop already owns a
+ * double tap of option, so the default moved to right ⌃ — which nobody taps on
+ * purpose. A stored value always wins, including one that picks ⌥ back up on a
+ * Mac without Claude on it.
+ */
+pub fn chosen(conn: &rusqlite::Connection) -> (u64, u64) {
+    let read = |key: &str, fallback: u64| {
+        crate::index_store::setting(conn, key)
+            .and_then(|name| mask_for(&name))
+            .unwrap_or(fallback)
+    };
+
+    let grab = read(GRAB_KEY, RIGHT_COMMAND);
+    let drop = read(DROP_KEY, RIGHT_CONTROL);
+
+    // Both on one key would make the second unreachable, and a person editing
+    // settings by hand can do that. The stored grab wins; drop goes back home.
+    if grab == drop {
+        return (grab, if grab == RIGHT_CONTROL { RIGHT_COMMAND } else { RIGHT_CONTROL });
+    }
+    (grab, drop)
 }
