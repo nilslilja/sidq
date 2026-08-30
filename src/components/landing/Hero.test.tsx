@@ -86,3 +86,53 @@ describe("the sub-line", () => {
     );
   });
 });
+
+describe("the hero on a narrow screen", () => {
+  /*
+   * The bug this exists for, because nothing about it looked wrong on a laptop.
+   *
+   * PoweredByClaude is a `@container` that sizes itself from its parent — a
+   * container sized by its own contents cannot constrain them. The hero lays
+   * its children out in a flex column with `items-center`, where every child
+   * shrinks to fit, so the badge's wrapper measured about a word wide and the
+   * container query resolved at its smallest breakpoint. On a phone it rendered
+   * one word per line, top to bottom.
+   *
+   * The fix is one class, which is exactly why it needs pinning: `w-full` on a
+   * wrapper reads like decoration and deletes cleanly.
+   */
+  test("the badge fills the column instead of shrinking to its own text", () => {
+    const { container } = render(<Hero />);
+    const column = container.querySelector(".flex-col");
+    const badge = container.querySelector('[class*="@container"]');
+    expect(column).not.toBeNull();
+    expect(badge).not.toBeNull();
+
+    // Whatever holds the container has to have a width of its own to give it.
+    const wrapper = [...column!.children].find((c) => c.contains(badge!));
+    expect(wrapper?.className).toMatch(/\bw-full\b/);
+  });
+
+  test("and so does every line of copy that has to wrap", () => {
+    const { container } = render(<Hero />);
+    for (const el of container.querySelectorAll("h1, h1 ~ p")) {
+      expect(el.className).toMatch(/\bw-full\b/);
+    }
+  });
+
+  /*
+   * The sky was three layers each pinned to a fixed 56rem while the content
+   * box was sized separately. They agreed at one window height and nowhere
+   * else. Everything decorative is tied to the section now.
+   */
+  test("nothing in the sky is pinned to a fixed height", () => {
+    const { container } = render(<Hero />);
+    for (const el of container.querySelectorAll('[aria-hidden="true"]')) {
+      // A `min-h` floor is fine; a fixed `h` is the thing that stops agreeing
+      // with the content beside it at every window size but one.
+      expect(el.getAttribute("class") ?? "").not.toMatch(
+        /(?<!min-)(?<!max-)\bh-\[\d+rem\]/,
+      );
+    }
+  });
+});

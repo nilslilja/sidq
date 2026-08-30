@@ -33,10 +33,24 @@ export function Pricing() {
         <span className="ink-quiet">Then twenty.</span>
       </h2>
 
-      <div className="mt-14 grid gap-px border border-ink/15 bg-ink/15 lg:grid-cols-3">
-        {PLANS.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} />
-        ))}
+      {/*
+       * Rounded and lifted rather than a hard hairline box.
+       *
+       * Three square cells butted together inside a 15% ink border is an
+       * editorial table — correct, and the least soft thing on a page that is
+       * otherwise a sunrise. Same structure, gentler edges: the hairlines
+       * between cards stay, because they are what makes the three read as one
+       * object rather than three floating boxes.
+       *
+       * `overflow-hidden` also clips the Duo card's travelling light to the
+       * rounded corner instead of letting it square one off.
+       */}
+      <div className="mt-14 overflow-hidden rounded-[22px] bg-ink/10 shadow-[0_1px_2px_rgba(18,18,26,0.04),0_18px_44px_-28px_rgba(18,18,26,0.28)] ring-1 ring-ink/10 lg:grid lg:grid-cols-3 lg:gap-px">
+        <div className="grid gap-px lg:contents">
+          {PLANS.map((plan) => (
+            <PlanCard key={plan.id} plan={plan} />
+          ))}
+        </div>
       </div>
 
       <p className="mt-8 max-w-[46ch] text-[0.875rem] leading-relaxed ink-muted">

@@ -25,7 +25,7 @@ export function Landing() {
   return (
     <div className="bg-paper">
       <header className="absolute inset-x-0 top-0 z-20">
-        <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
+        <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-6">
           <Link
             to="/"
             className={cn(
@@ -41,7 +41,7 @@ export function Landing() {
            * A header on a one-screen page is navigation to elsewhere, not a
            * table of contents for what is below it.
            */}
-          <nav className="flex items-center gap-6 sm:gap-7">
+          <nav className="flex items-center gap-4 sm:gap-7">
             {/* Anchors, not routes. Both sections are on this page; the
                 routes stay for anybody sent a direct link. */}
             <a
@@ -82,11 +82,11 @@ export function Landing() {
        * come back is the argument: the three feature bands, the stats, the
        * second download panel. Nobody reads a case for a free Mac app.
        */}
-      <section className="mx-auto max-w-[76rem] px-6 py-20 lg:py-28">
+      <section className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28">
         <Pricing />
       </section>
 
-      <section className="mx-auto max-w-[76rem] px-6 pb-20 lg:pb-28">
+      <section className="mx-auto max-w-[76rem] px-5 pb-16 sm:px-6 sm:pb-20 lg:pb-28">
         <Faq limit={4} />
       </section>
 

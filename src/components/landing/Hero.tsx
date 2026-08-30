@@ -35,7 +35,7 @@ export function Hero() {
        */}
       <div
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[56rem] bg-[linear-gradient(180deg,#33325F_0%,#3E3C70_22%,#514E86_42%,#7D739F_54%,#B08FA0_65%,#D9A88E_76%,#F3D3B0_88%,#F7F6F3_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(180deg,#3A3968_0%,#46437B_20%,#5B5793_40%,#8A7FA8_56%,#BE9AA6_68%,#E3B597_79%,#F6DCBC_90%,#F7F6F3_100%)]"
       />
 
       {/*
@@ -45,7 +45,7 @@ export function Hero() {
        */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[56rem] opacity-[0.035] mix-blend-overlay"
+        className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
         style={{
           backgroundImage:
             "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E\")",
@@ -61,7 +61,7 @@ export function Hero() {
        */}
       <div
         aria-hidden="true"
-        className="bloom-breathe absolute left-[72%] top-[33rem] size-[34rem] -translate-x-1/2 rounded-full"
+        className="bloom-breathe absolute left-[72%] top-[58%] aspect-square w-[110%] max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full sm:w-[80%]"
         style={{
           background:
             "radial-gradient(closest-side, rgba(255,233,196,0.85) 0%, rgba(255,226,178,0.42) 38%, rgba(255,220,170,0) 72%)",
@@ -74,7 +74,7 @@ export function Hero() {
         aria-hidden="true"
         viewBox="0 0 1440 220"
         preserveAspectRatio="none"
-        className="absolute inset-x-0 top-[39rem] h-[14rem] w-full"
+        className="absolute inset-x-0 bottom-0 h-[22%] min-h-[7rem] w-full"
       >
         <path
           d="M0 172 L140 138 L280 158 L430 118 L580 152 L730 128 L880 160 L1030 122 L1180 154 L1330 130 L1440 148 L1440 220 L0 220 Z"
@@ -90,21 +90,30 @@ export function Hero() {
         />
       </svg>
 
-      <div className="relative mx-auto flex min-h-[46rem] max-w-[52rem] flex-col items-center px-6 pb-28 pt-28 lg:pt-32">
-        <div className="animate-rise mb-9">
+      <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[26vh] pt-32 sm:pb-[22vh] lg:pt-36">
+        {/*
+         * `w-full`, and it is load-bearing.
+         *
+         * PoweredByClaude is a `@container` that sizes itself from its parent —
+         * a container sized by its own contents cannot constrain them. In a
+         * flex column with `items-center` every child shrinks to fit, so this
+         * wrapper measured about a word wide and the badge wrapped one word per
+         * line on a phone. Nothing about it looked wrong on a desktop.
+         */}
+        <div className="animate-rise mb-9 w-full">
           <PoweredByClaude />
         </div>
 
         <h1
           id="hero"
-          className="animate-rise text-balance text-center font-display text-[clamp(2.5rem,7vw,4.75rem)] leading-[0.95] tracking-[-0.045em] text-white"
+          className="animate-rise w-full text-balance text-center font-display text-[clamp(2.125rem,7vw,4.75rem)] leading-[0.95] tracking-[-0.045em] text-white"
           style={{ animationDelay: "80ms" }}
         >
           The models remember everything except&nbsp;you
         </h1>
 
         <p
-          className="animate-rise mt-7 max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.375rem)] leading-snug text-white/60"
+          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.375rem)] leading-snug text-white/60"
           style={{ animationDelay: "160ms" }}
         >
           Sidq is the one that remembers. Every conversation you have ever had,
@@ -113,7 +122,7 @@ export function Hero() {
 
         {/* The line somebody repeats, directly over the button. */}
         <p
-          className="animate-rise mt-10 text-center font-display text-[clamp(1.25rem,2.4vw,1.75rem)] tracking-[-0.03em] text-white"
+          className="animate-rise mt-10 w-full text-center font-display text-[clamp(1.125rem,2.4vw,1.75rem)] tracking-[-0.03em] text-white"
           style={{ animationDelay: "240ms" }}
         >
           Stop introducing yourself to robots.
@@ -126,7 +135,7 @@ export function Hero() {
           <DownloadButton size="lg" />
         </div>
 
-        <p className="mt-5 text-center text-[0.8125rem] text-white/55">
+        <p className="mt-5 w-full text-center text-[0.8125rem] text-white/55">
           Free. No card. Mac app, about a minute to set up.
         </p>
 
@@ -152,10 +161,7 @@ export function Hero() {
  */
 function Sky() {
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 h-[56rem]"
-    >
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
       {/* Stars, only in the band that stays dark. Lower down the sky is already
           warming and a star there reads as a speck of dust. */}
       {STARS.map(([left, top, size, delay], i) => (
@@ -210,7 +216,7 @@ function Sky() {
           className="sky-cloud absolute rounded-full"
           style={{
             left: `${left}%`,
-            top: `${top}rem`,
+            top: `${top}%`,
             width: `${w}rem`,
             height: `${h}rem`,
             opacity,
@@ -261,10 +267,11 @@ const STARS: [number, number, number, number][] = [
 ];
 
 /** left %, top rem, width rem, height rem, opacity, delay s. */
+/** left %, top %, width rem, height rem, opacity, delay s. */
 const CLOUDS: [number, number, number, number, number, number][] = [
-  [6, 30, 24, 5, 0.2, 0],
-  [58, 27, 30, 5.5, 0.15, -30],
-  [30, 35, 36, 6, 0.13, -60],
+  [4, 62, 22, 4.5, 0.22, 0],
+  [54, 55, 28, 5, 0.17, -30],
+  [26, 71, 32, 5.5, 0.14, -60],
 ];
 
 // One download button on this site, identical everywhere: a primary action that
