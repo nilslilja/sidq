@@ -362,6 +362,26 @@ export default function Onboarding() {
               carries on rather than summarising it back at you.
             </p>
 
+            {/*
+             * The faster route, taught next to the slower one.
+             *
+             * Two taps skips every step above: no window, no list, no Downloads
+             * folder. It is also invisible — there is no chord to stumble on and
+             * nothing on screen to click — so if it is not said here the only
+             * other place it exists is the tray menu.
+             */}
+            <div className="mt-7 rounded-[12px] border border-[#B8A6FF]/30 bg-[#B8A6FF]/[0.07] p-4">
+              <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[0.9375rem] text-white/85">
+                <span>Or, without opening anything:</span>
+                <Kbd>right ⌘</Kbd>
+                <span className="text-white/45">twice</span>
+              </p>
+              <p className="mt-2 max-w-[40ch] text-[0.875rem] leading-relaxed text-white/55">
+                Grabs whatever you were just in and puts it on your clipboard.
+                Paste it straight into the next AI.
+              </p>
+            </div>
+
             <div
               className={cn(
                 "mt-6 max-w-[46ch] rounded-[12px] border p-4",

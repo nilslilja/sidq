@@ -18,10 +18,12 @@ mod indexer;
 mod invites;
 mod pill_window;
 mod profile;
+mod quick_grab;
 mod team_context;
 mod capture;
 mod imports;
 mod compiler;
+mod double_tap;
 mod cursor_history;
 mod screen_reader;
 mod work_history;
@@ -1122,6 +1124,161 @@ async fn read_team_handover(path: String) -> Option<String> {
     .flatten()
 }
 
+/* ── Grab: one key, and the conversation is on the clipboard ─────────────── */
+
+/**
+ * The last thing grabbed, kept so `drop` can put it back without re-reading.
+ *
+ * In memory only and gone on quit. It is a whole conversation, and a whole
+ * conversation belongs in the index and on the clipboard the person asked for,
+ * not in a third place on disk that nobody knows exists.
+ */
+static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/**
+ * Read what is open, take the conversation last touched, compile it, and put it
+ * on the clipboard.
+ *
+ * The sweep first is the point. Browser conversations reach the index every
+ * ninety seconds, so without it the thing somebody is looking at right now is
+ * routinely the one thing this cannot grab — which is the exact case the
+ * shortcut exists for.
+ */
+fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
+    if let Some(conn) = index_store::open() {
+        for found in screen_reader::sweep_into(&conn) {
+            announce_found(app, &found);
+        }
+    }
+
+    let session = quick_grab::most_recent()?;
+    let title = quick_grab::name_of(&session);
+
+    let text = build_handover(
+        &session.session_id,
+        session.source,
+        &session.last_prompt,
+        "just now",
+        &session.project_name,
+    )?;
+
+    if !quick_grab::put_on_clipboard(&text) {
+        return None;
+    }
+    if let Ok(mut last) = LAST_GRAB.lock() {
+        *last = Some(text.clone());
+    }
+
+    /*
+     * The file is written too, and it is not redundant.
+     *
+     * Pasting is right for a chat box. Attaching is right for anything with
+     * retrieval, because the text then goes to a search index instead of into
+     * the context window of every following turn — and a path can be attached
+     * where a clipboard cannot.
+     */
+    let path = write_handover(
+        session.session_id.clone(),
+        title.clone(),
+        session.source.to_string(),
+        session.last_prompt.clone(),
+        "just now".to_string(),
+        session.project_name.clone(),
+    );
+
+    Some(quick_grab::Grabbed {
+        title,
+        source: label_for(session.source).to_string(),
+        saved: path.is_some(),
+    })
+}
+
+/// The assistant's name as a person writes it.
+fn label_for(source: &str) -> &str {
+    match source {
+        "chatgpt" => "ChatGPT",
+        "claude.ai" => "Claude",
+        "claude-code" => "Claude Code",
+        "cowork" => "Cowork",
+        "gemini" => "Gemini",
+        "grok" => "Grok",
+        "deepseek" => "DeepSeek",
+        "cursor" => "Cursor",
+        other => other,
+    }
+}
+
+/**
+ * Grab, and say so.
+ *
+ * The notification is the whole interface for this feature. Nothing opens, so
+ * without it the only evidence a key did anything is a clipboard somebody has
+ * not pasted yet — and a shortcut that might have silently failed is a shortcut
+ * nobody trusts twice.
+ *
+ * It says where to put it rather than what happened, because "grabbed" is not
+ * an instruction and the next move is the part worth knowing.
+ */
+fn grab_and_announce(app: &AppHandle) {
+    let Some(grabbed) = grab_now(app) else {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Nothing to grab yet")
+            .body("Open a conversation with any AI and press it again.")
+            .show();
+        return;
+    };
+
+    let _ = app.emit("sidq:grabbed", &grabbed.title);
+    let _ = app
+        .notification()
+        .builder()
+            .title(format!("{} is on your clipboard", grabbed.source))
+            /*
+             * Both routes, because they suit different destinations: pasting
+             * is right for a chat box, attaching is right for anything with
+             * retrieval. Saying only one hides the better half.
+             */
+            .body(if grabbed.saved {
+                format!("{} — paste it anywhere, or attach it from Downloads.", grabbed.title)
+            } else {
+                format!("{} — paste it into any other AI.", grabbed.title)
+            })
+        .show();
+}
+
+/**
+ * Put the last grab back on the clipboard.
+ *
+ * A separate key because the clipboard is shared: between grabbing a
+ * conversation and reaching the place it is going, most people copy something
+ * else at least once. Without this, arriving with the wrong thing on the
+ * clipboard means going back and doing the whole grab again.
+ */
+fn drop_last(app: &AppHandle) {
+    let text = LAST_GRAB.lock().ok().and_then(|t| t.clone());
+
+    let Some(text) = text else {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Nothing grabbed yet")
+            .body("Grab a conversation first, then this puts it back on your clipboard.")
+            .show();
+        return;
+    };
+
+    if quick_grab::put_on_clipboard(&text) {
+        let _ = app
+            .notification()
+            .builder()
+            .title("Back on your clipboard")
+            .body("Paste it wherever you are.")
+            .show();
+    }
+}
+
 /**
  * How many standing instructions ride along with a handover.
  *
@@ -1658,6 +1815,33 @@ fn main() {
                 let pick = MenuItem::with_id(app, "pick", "Pick up a conversation", true, Some("Cmd+Shift+K"))?;
 
                 /*
+                 * The two taps, written down.
+                 *
+                 * A shortcut nobody can see is a shortcut nobody uses, and
+                 * these are worse than most: there is no chord to stumble on
+                 * and nothing on screen to click. The menu is where somebody
+                 * looks when they half remember that an app could do this.
+                 *
+                 * Disabled, because they are labels rather than commands —
+                 * clicking "double-tap right ⌘" should not grab, or the label
+                 * becomes a button that teaches the wrong gesture.
+                 */
+                let grab_hint = MenuItem::with_id(
+                    app,
+                    "grab_hint",
+                    "Grab this conversation   ·   double-tap right ⌘",
+                    false,
+                    None::<&str>,
+                )?;
+                let drop_hint = MenuItem::with_id(
+                    app,
+                    "drop_hint",
+                    "Put the last one back   ·   double-tap right ⌥",
+                    false,
+                    None::<&str>,
+                )?;
+
+                /*
                  * A way to turn off the thing setup switched on.
                  *
                  * Sidq enables its login item on first run and there was no
@@ -1677,7 +1861,10 @@ fn main() {
                 )?;
 
                 let quit = MenuItem::with_id(app, "quit", "Quit Sidq", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&open, &pick, &at_login, &quit])?;
+                let menu = Menu::with_items(
+                    app,
+                    &[&open, &pick, &grab_hint, &drop_hint, &at_login, &quit],
+                )?;
                 let _ = TrayIconBuilder::with_id("sidq")
                     .icon(app.default_window_icon().unwrap().clone())
                     .menu(&menu)
@@ -1873,6 +2060,39 @@ fn main() {
                 }
             })?;
 
+
+            /*
+             * ── Grab and drop, on two taps ───────────────────────────────────
+             *
+             * Not a chord. Every reasonable ⌘⇧-something is taken by something,
+             * and a global shortcut wins against every application at once, so
+             * claiming one quietly breaks that combination in the person's
+             * editor and browser for a feature they use a few times a day.
+             *
+             * Right ⌘ grabs, right ⌥ puts the last grab back. See double_tap
+             * for why not fn, which was the first choice: macOS binds its own
+             * action to that key, so a double tap fires that twice as well.
+             */
+            let taps = app.handle().clone();
+            double_tap::watch(
+                vec![double_tap::RIGHT_COMMAND, double_tap::RIGHT_OPTION],
+                move |mask| {
+                    let app = taps.clone();
+                    /*
+                     * Off the event thread. This block runs inside AppKit's own
+                     * dispatch, and a grab reads every open assistant, compiles
+                     * a transcript and writes a file — doing that here freezes
+                     * the keyboard for the length of it.
+                     */
+                    std::thread::spawn(move || {
+                        if mask == double_tap::RIGHT_COMMAND {
+                            grab_and_announce(&app);
+                        } else {
+                            drop_last(&app);
+                        }
+                    });
+                },
+            );
 
             // On by default, and the card says so on first run.
             let launcher = app.autolaunch();
