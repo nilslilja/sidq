@@ -1866,6 +1866,19 @@ fn main() {
             // Listens on 127.0.0.1 for the browser extension. Failure to bind is
             // not fatal: the shortcut still works and the extension says so.
             /*
+             * Measure the housing before the pill can be placed.
+             *
+             * On the main thread, which the setup closure is and a Tauri
+             * command is not. Without this the first placement of a session
+             * runs unmeasured, takes the cautious branch that keeps clear of a
+             * notch it cannot rule out, and sits a centimetre low until the
+             * next placement moves it up. See pill_window::measure_from_setup.
+             */
+            if let Some(pill) = app.get_webview_window("pill") {
+                pill_window::measure_from_setup(&pill);
+            }
+
+            /*
              * Which modifier does what, read once.
              *
              * Both the tray labels and the watcher need the answer, and they

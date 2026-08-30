@@ -83,10 +83,25 @@ static NOTCH_HEIGHT: AtomicU64 = AtomicU64::new(0);
 static NOTCH_MEASURED: AtomicBool = AtomicBool::new(false);
 
 fn measure_notch(ns_window: *mut objc::runtime::Object) {
-    // SAFETY: main thread, and `ns_window` is a live NSWindow. `screen` returns
-    // nil when the window is off-screen, which `mainScreen` covers.
+    // SAFETY: `ns_window` is a live NSWindow, the thread is checked below, and
+    // `screen` returns nil when the window is off-screen, which `mainScreen`
+    // covers.
     unsafe {
         use objc::{class, msg_send, sel, sel_impl};
+
+        /*
+         * AppKit, from anywhere else, is undefined behaviour.
+         *
+         * `place` is reached from `hide_pill` and `expand_pill`, which are
+         * Tauri commands and therefore run on a worker thread. Tauri marshals
+         * its own window calls; a raw `msg_send` to NSScreen is not marshalled
+         * by anybody. Refusing here is safe because the value is already
+         * measured by then: see `measure_from_setup`.
+         */
+        let main: bool = msg_send![class!(NSThread), isMainThread];
+        if !main {
+            return;
+        }
 
         let mut screen: *mut objc::runtime::Object = msg_send![ns_window, screen];
         if screen.is_null() {
@@ -151,6 +166,29 @@ fn notch_height() -> f64 {
  * what it means.
  */
 const UNMEASURED_NOTCH: f64 = 32.0;
+
+/**
+ * Measure the housing before anything can be positioned.
+ *
+ * ── The jump this removes ────────────────────────────────────────────────────
+ *
+ * The inset used to be measured as a side effect of raising the window, which
+ * happens after the first `place`. So the first placement of a session ran with
+ * nothing measured, took the deliberately cautious branch in `top_edge` — the
+ * one that keeps the bar clear of a housing it cannot rule out — and sat about
+ * a centimetre below the top. The next placement had the measurement and
+ * snapped it up.
+ *
+ * That jump was the whole bug. Not a wrong position: a position that was only
+ * right the second time.
+ *
+ * Called from setup, on the main thread, before the pill is ever shown.
+ */
+pub fn measure_from_setup(w: &WebviewWindow) {
+    if let Ok(handle) = w.ns_window() {
+        measure_notch(handle as *mut objc::runtime::Object);
+    }
+}
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
 const EXPANDED: (f64, f64) = (560.0, 380.0);
@@ -694,6 +732,53 @@ mod tests {
      * Coordinates here are Tauri's: y grows downward, so the top of the screen
      * is the smaller number.
      */
+    /*
+     * ── The position must not depend on when you ask ─────────────────────────
+     *
+     * The reported symptom was the bar appearing about a centimetre below the
+     * top and then jumping up. Both positions came from this function; the
+     * difference was only whether the housing had been measured yet, because
+     * the measurement used to happen after the first placement.
+     *
+     * These pin the property that was actually violated: for one screen, the
+     * answer does not change between the first call and the second.
+     */
+    #[test]
+    fn the_same_screen_gives_the_same_answer_every_time() {
+        for notch in [0.0, NOTCH] {
+            for collapsed in [true, false] {
+                let first = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, collapsed, notch);
+                let again = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, collapsed, notch);
+                assert_eq!(first, again);
+            }
+        }
+    }
+
+    /*
+     * The jump, described exactly. An unmeasured screen with no housing is
+     * placed low, and the same screen once measured is placed at the top. That
+     * gap is what somebody sees move, which is why nothing may be positioned
+     * before the measurement is in.
+     */
+    #[test]
+    fn unmeasured_and_measured_disagree_on_a_notchless_mac() {
+        let unmeasured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, UNMEASURED_NOTCH);
+        let measured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0);
+
+        assert!(
+            unmeasured > measured,
+            "the cautious branch must sit lower, or it is not cautious"
+        );
+        assert_eq!(measured, SCREEN_TOP, "measured and notchless means the very top");
+    }
+
+    /// And on a Mac with a housing, the top is never where it goes.
+    #[test]
+    fn a_housing_always_pushes_the_bar_clear_of_it() {
+        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH);
+        assert!(y >= WORK_TOP_NOTCHED - 0.01, "the bar would be behind the camera");
+    }
+
     const SCREEN_TOP: f64 = 0.0;
     const WORK_TOP_PLAIN: f64 = 30.0;
     const WORK_TOP_NOTCHED: f64 = 38.0;
