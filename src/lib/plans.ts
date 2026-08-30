@@ -97,7 +97,6 @@ export const PLANS: Plan[] = [
     promise: "Every AI you use, holding one memory.",
     inherits: "Starter",
     cta: "Subscribe",
-    featured: true,
     /*
      * Two lines, because two things are actually different.
      *
@@ -150,6 +149,20 @@ export const PLANS: Plan[] = [
     priceNote: "$15 each",
     inherits: "Pro",
     cta: "Subscribe",
+    /*
+     * The ink fill moved here from Pro.
+     *
+     * A pricing row points at whichever card is filled, and it was pointing at
+     * the middle one out of habit — the SaaS convention of featuring the
+     * second of three. Duo is the plan worth pointing at: it is the most
+     * expensive, it is the only one with a reason to exist beyond capacity, and
+     * it is the one two independent people asked for before it was built.
+     *
+     * It carries the travelling rim light as well, which is the other half of
+     * the same decision. Both effects were written for a dark surface and there
+     * is now exactly one.
+     */
+    featured: true,
     features: [
       "$15 a person, against $19.99 each",
       "Your standing instructions, shared: every handover knows how the team works",

@@ -123,21 +123,27 @@ function PlanCard({ plan }: { plan: Plan }) {
         // here rather than a "most popular" ribbon, which everybody discounts.
         plan.featured ? "bg-ink text-paper" : "bg-paper",
         /*
-         * The two paid cards are lit, and differently.
+         * One lit card, and it is the one worth pointing at.
          *
-         * Duo has a blue light travelling its rim, Pro a slow sheen crossing
-         * its face. Different in kind rather than the same glow in two hues,
-         * so the row reads as a hierarchy rather than a theme. Free stays
-         * unlit, which is most of what makes the other two look chosen.
+         * The ink fill and the travelling rim light used to be on different
+         * cards — Pro filled, Duo lit — which split the row's emphasis between
+         * two plans and pointed hardest at the middle one out of convention.
+         * Both are on Duo now: the most expensive plan, the only one whose
+         * reason to exist is not capacity, and the one people asked for
+         * unprompted. Starter and Pro are unlit, which is most of what makes
+         * Duo look chosen.
+         *
+         * The sheen rides with it because both effects were written for a dark
+         * surface and there is now exactly one.
          */
-        plan.featured && "face-sheen",
-        plan.id === "duo" && "edge-lit",
+        plan.featured && "face-sheen edge-lit",
       )}
       // What the rim's inner fill is painted with. The card is opaque, so this
-      // has to match its own background or the hairline swallows the corner.
+      // has to match its own background or the hairline swallows the corner —
+      // and the lit card is the dark one now.
       style={
-        plan.id === "duo"
-          ? { ["--edge-fill" as string]: "var(--color-paper)" }
+        plan.featured
+          ? { ["--edge-fill" as string]: "var(--color-ink)" }
           : undefined
       }
     >
