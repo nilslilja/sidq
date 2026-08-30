@@ -209,6 +209,58 @@ fn running_from_a_mounted_image() -> bool {
         .unwrap_or(false)
 }
 
+/**
+ * Refuse to run from the disk image.
+ *
+ * ── Why this is worth an early exit ──────────────────────────────────────────
+ *
+ * Opening Sidq straight out of the mounted DMG produces an app that looks
+ * completely fine and is quietly broken in the one way that is hardest to
+ * report. macOS grants Accessibility to a path, and the copy in Applications is
+ * a different path from the copy on the disk image. So the pill still works —
+ * clicking it needs no permission — while everything that needs a global event
+ * monitor silently receives nothing: the grab gesture does nothing at all, and
+ * browser capture is intermittent depending on which copy was granted.
+ *
+ * It happened five separate times to the person this was written for, across
+ * five releases, each time diagnosed from scratch as a different bug. Telling
+ * somebody to eject the image does not work, because nothing about the running
+ * app suggests they are the one making the mistake.
+ *
+ * So: if the installed copy exists, hand over to it and quit. If it does not,
+ * say what to do and quit. Either way this process does not continue, because
+ * a half-working Sidq is worse than one that is honestly not running.
+ */
+fn hand_over_to_the_installed_copy() -> bool {
+    if !running_from_a_mounted_image() {
+        return false;
+    }
+
+    let installed = std::path::Path::new("/Applications/Sidq.app");
+
+    if installed.is_dir() {
+        // `open` returns as soon as the other copy is launching, and this
+        // process exits behind it. Two Sidqs briefly overlap, which the pill
+        // tolerates: the second one takes the window and the shortcut.
+        let _ = std::process::Command::new("/usr/bin/open").arg(installed).spawn();
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .arg("-e")
+            .arg(
+                "display notification \"Opening the installed copy instead. The one on the disk image cannot use your shortcuts.\" with title \"Sidq\"",
+            )
+            .status();
+    } else {
+        let _ = std::process::Command::new("/usr/bin/osascript")
+            .arg("-e")
+            .arg(
+                "display dialog \"Drag Sidq into your Applications folder and open it from there.\n\nRun from the disk image it cannot use the keyboard shortcuts, because macOS grants permission to a location and this is not the one you granted.\" with title \"Move Sidq to Applications\" buttons {\"OK\"} default button 1 with icon caution",
+            )
+            .status();
+    }
+
+    true
+}
+
 fn announce(app: &AppHandle) {
     let _ = app.emit("sidq:changed", ());
 }
@@ -1865,6 +1917,16 @@ fn main() {
              */
             // Listens on 127.0.0.1 for the browser extension. Failure to bind is
             // not fatal: the shortcut still works and the extension says so.
+            /*
+             * Before anything else. A Sidq running off the disk image cannot
+             * use its own shortcuts, and every minute it stays up is a minute
+             * somebody spends concluding the feature is broken.
+             */
+            if hand_over_to_the_installed_copy() {
+                app.handle().exit(0);
+                return Ok(());
+            }
+
             /*
              * Measure the housing before the pill can be placed.
              *
