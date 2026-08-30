@@ -88,4 +88,19 @@ fi
 
 echo "Sidq is not fully working:"
 printf '  - %s\n' "${problems[@]}"
+
+# ── Say it where it will be seen ─────────────────────────────────────────────
+#
+# Run from launchd, stdout goes to a log file nobody opens. The whole point of
+# checking every morning is being told, so a failure raises the same kind of
+# notification the app itself does. Only ever on failure: see the note at the
+# top about checks that speak when nothing is wrong.
+if [ "${1:-}" = "--notify" ]; then
+  first=${problems[0]}
+  count=${#problems[@]}
+  body=$first
+  [ "$count" -gt 1 ] && body="$first (and $((count - 1)) more)"
+  osascript -e "display notification \"$body\" with title \"Sidq is not fully working\"" >/dev/null 2>&1
+fi
+
 exit 1
