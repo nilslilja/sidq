@@ -841,3 +841,92 @@
     animation: none;
   }
 }
+
+/*
+ * ── The main window's palette ──────────────────────────────────────────────
+ *
+ * Only this window. The pill is a transparent card over other people's
+ * applications and has its own dark treatment already; the website is a
+ * marketing page with one deliberate look. Neither wants a theme switch, and
+ * scoping to `[data-app-theme]` means neither gets one.
+ *
+ * These replace two dozen hex values that were written inline throughout
+ * Home.tsx. A few near-identical ones were folded together — three whites
+ * within two percent of each other were three whites — because a palette with
+ * twenty-four entries cannot be reasoned about in a second theme.
+ *
+ * `--w-invert` is the one worth explaining. `#16141C` was both the primary
+ * text colour and the fill of every solid button, and those two go opposite
+ * ways in the dark: the text becomes light, the button stays a contrasting
+ * block. They are separate tokens for that reason, and `--w-on-invert` is
+ * whatever is legible on top.
+ */
+[data-app-theme="light"] {
+  --w-bg: #f1eff7;
+  --w-surface: #fbfafe;
+  --w-raised: #f4f2fb;
+  --w-tint: #f5f1ff;
+  --w-line: #e3dff1;
+  --w-line-accent: #e9e2ff;
+
+  --w-text: #16141c;
+  --w-text-2: #3a3547;
+  --w-text-3: #57516a;
+  --w-text-4: #7a7489;
+  --w-text-5: #8e8899;
+  --w-text-6: #a29cb0;
+
+  --w-accent: #6a4bea;
+  --w-accent-deep: #5436c9;
+  --w-accent-ink: #2a1b57;
+  --w-accent-soft: #b8a6ff;
+  --w-mark: #4f46e5;
+  --w-danger: #b23b32;
+
+  --w-invert: #16141c;
+  --w-on-invert: #ffffff;
+  --w-on-accent: #ffffff;
+}
+
+/*
+ * Dark blue rather than grey, and lifted rather than black.
+ *
+ * Every surface is a step in one hue so nothing has to be told apart by
+ * brightness alone, and the darkest thing on screen is the window rather than
+ * a panel inside it — a panel darker than its own background reads as a hole.
+ *
+ * The accent moves. #6A4BEA is a good indigo on white and close to unreadable
+ * on navy, so the dark side takes a lighter one at the same hue. The mark goes
+ * white, which is what an app icon does on a dark surface.
+ */
+[data-app-theme="dark"] {
+  --w-bg: #0e1322;
+  --w-surface: #161d31;
+  --w-raised: #1c2440;
+  --w-tint: #1b2247;
+  --w-line: #29314c;
+  --w-line-accent: #38407a;
+
+  --w-text: #eef1f8;
+  --w-text-2: #d2d8e8;
+  --w-text-3: #aeb7ce;
+  --w-text-4: #949db6;
+  --w-text-5: #7f889f;
+  --w-text-6: #6e7791;
+
+  --w-accent: #8fa0ff;
+  --w-accent-deep: #a9b6ff;
+  --w-accent-ink: #cdd5ff;
+  --w-accent-soft: #b8a6ff;
+  --w-mark: #ffffff;
+  --w-danger: #ff9a8f;
+
+  --w-invert: #e9edf7;
+  --w-on-invert: #0e1322;
+  /*
+   * The upgrade button is a gradient of the accent, and the accent got lighter
+   * so it would read on navy. White on it was the one place in the dark theme
+   * where text nearly disappeared into its own button.
+   */
+  --w-on-accent: #131a33;
+}

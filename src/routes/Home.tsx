@@ -67,8 +67,44 @@ const DAY_MS = 86_400_000;
 /** Long enough to read "Copied", short enough that it never feels stuck. */
 const COPIED_FOR_MS = 1600;
 
+/** Light or dark, for this window only. */
+type Theme = "light" | "dark";
+
+/*
+ * Remembered, and it starts as whatever the Mac is set to.
+ *
+ * A window that opens light on a machine in dark mode is the thing people
+ * notice, so the first run follows the system. After that the choice is the
+ * person's: they picked it on purpose and it should not be overridden the next
+ * time macOS changes at sunset.
+ */
+function firstTheme(): Theme {
+  try {
+    const saved = localStorage.getItem("sidq.theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    /* private mode; fall through to the system */
+  }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 export function Home() {
   const bridge = useMemo(() => desktopBridge(), []);
+  const [theme, setTheme] = useState<Theme>(firstTheme);
+
+  /*
+   * On the window's own root rather than <html>. The pill and the setup window
+   * share this document in the packaged app, and neither of them has a theme.
+   */
+  useEffect(() => {
+    try {
+      localStorage.setItem("sidq.theme", theme);
+    } catch {
+      /* a remembered preference is not worth failing a render over */
+    }
+  }, [theme]);
   const [tab, setTab] = useState<Tab>("overview");
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
@@ -242,13 +278,14 @@ export function Home() {
      * for four levels of hierarchy, and the result read as one dim sheet.
      *
      * The lavender is the product's colour and it cannot carry a dark screen —
-     * at #B8A6FF it is either invisible or shouting. On a light ground it has
+     * at var(--w-accent-soft) it is either invisible or shouting. On a light ground it has
      * somewhere to go: a tint for surfaces, a darker sibling for text, and ink
      * for the one button that matters.
      */
     <div
+      data-app-theme={theme}
       className={cn(
-        "grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[#16141C]",
+        "grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[var(--w-text)]",
         /*
          * ── Warmth, and where it comes from ──────────────────────────────────
          *
@@ -261,7 +298,7 @@ export function Home() {
          * Fixed, not animated, and behind everything. Decoration that moves
          * costs a frame budget on a window somebody keeps open all day.
          */
-        "bg-[#F1EFF7]",
+        "bg-[var(--w-bg)]",
         "bg-[radial-gradient(120%_90%_at_0%_0%,rgba(139,110,255,0.16),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(255,175,130,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(106,75,234,0.07),transparent_60%)]",
       )}
     >
@@ -281,6 +318,26 @@ export function Home() {
           <span className="font-display text-[1.125rem] leading-none tracking-[-0.045em]">
             Sidq
           </span>
+
+          {/*
+           * Beside the wordmark, at the top of the sidebar.
+           *
+           * It shows the theme it would switch to rather than the one you are
+           * in, which is the convention every Mac app follows: the control is
+           * the destination, not a status light.
+           */}
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
+            title={theme === "dark" ? "Light" : "Dark"}
+            className={cn(
+              "ml-auto grid size-7 place-items-center rounded-lg",
+              "text-[var(--w-text-5)] transition-colors duration-150",
+              "cursor-pointer hover:bg-[var(--w-raised)] hover:text-[var(--w-text-3)]",
+            )}
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
         </div>
 
         <nav className="mt-6 flex flex-col gap-0.5">
@@ -306,29 +363,29 @@ export function Home() {
           {plan && (
             <div
               className={cn(
-                "rounded-[14px] border border-[#B8A6FF]/45 px-4 py-3.5",
-                "bg-gradient-to-b from-white to-[#F3EEFF]",
+                "rounded-[14px] border border-[var(--w-accent-soft)]/45 px-4 py-3.5",
+                "bg-gradient-to-b from-white to-[var(--w-tint)]",
                 "shadow-[0_1px_2px_rgba(20,18,28,0.04)]",
               )}
             >
               {plan.handoversCap == null ? (
                 <>
-                  <p className="text-[0.875rem] font-medium capitalize text-[#16141C]">
+                  <p className="text-[0.875rem] font-medium capitalize text-[var(--w-text)]">
                     {plan.plan}
                   </p>
-                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[#57516A]">
+                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
                     Unlimited handovers, and search across everything.
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-[0.875rem] font-medium text-[#16141C]">
-                    <span className="text-[#6A4BEA]">
+                  <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+                    <span className="text-[var(--w-accent)]">
                       {Math.max(0, plan.handoversCap - plan.handoversUsed)}
                     </span>{" "}
                     handovers left
                   </p>
-                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[#57516A]">
+                  <p className="mt-1 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
                     You get {plan.handoversCap} a week on {plan.plan}. Invite a
                     friend, or upgrade for unlimited.
                   </p>
@@ -336,8 +393,8 @@ export function Home() {
                     onClick={() => void bridge?.openUpgrade()}
                     className={cn(
                       "mt-3 w-full rounded-[10px] px-3 py-2",
-                      "bg-gradient-to-b from-[#6A4BEA] to-[#5436C9]",
-                      "text-[0.8125rem] font-medium text-white",
+                      "bg-gradient-to-b from-[var(--w-accent)] to-[var(--w-accent-deep)]",
+                      "text-[0.8125rem] font-medium text-[var(--w-on-accent)]",
                       "shadow-[0_1px_2px_rgba(20,18,28,0.18),0_6px_16px_-8px_rgba(106,75,234,0.6)]",
                       "cursor-pointer transition-[transform,box-shadow] duration-150",
                       "hover:-translate-y-px hover:shadow-[0_2px_4px_rgba(20,18,28,0.2),0_10px_22px_-10px_rgba(106,75,234,0.7)]",
@@ -350,7 +407,7 @@ export function Home() {
             </div>
           )}
 
-          <div className="mt-3 flex flex-col gap-0.5 border-t border-black/[0.07] pt-3">
+          <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--w-line)] pt-3">
             {TABS.filter((t) => t.secondary).map((t) => (
               <NavRow
                 key={t.id}
@@ -384,7 +441,7 @@ export function Home() {
             "h-full min-h-0 overflow-y-auto rounded-[18px]",
             // Not flat white. A hair of the ground shows through the top of the
             // card, which is what stops it reading as a sheet of paper.
-            "bg-gradient-to-b from-[#FBFAFE] to-white",
+            "bg-gradient-to-b from-[var(--w-surface)] to-white",
             "ring-1 ring-black/[0.06]",
             "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]",
           )}
@@ -445,13 +502,13 @@ function NavRow({
         "flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left",
         "text-[0.875rem] transition-colors duration-150",
         active
-          ? "bg-white text-[#16141C] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
-          : "text-[#57516A] hover:bg-white/60 hover:text-[#16141C]",
+          ? "bg-[var(--w-surface)] text-[var(--w-text)] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
+          : "text-[var(--w-text-3)] hover:bg-[var(--w-surface)]/60 hover:text-[var(--w-text)]",
       )}
     >
       <Icon
         name={tab.icon}
-        className={active ? "text-[#6A4BEA]" : "text-[#8E8899]"}
+        className={active ? "text-[var(--w-accent)]" : "text-[var(--w-text-5)]"}
       />
       <span className="min-w-0 truncate">{tab.label}</span>
     </button>
@@ -480,7 +537,7 @@ function Mark() {
       width="30"
       height="16"
       fill="none"
-      stroke="#4F46E5"
+      stroke="var(--w-mark)"
       strokeWidth="24"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -489,7 +546,7 @@ function Mark() {
     >
       <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
       <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-      <circle cx="416" cy="256" r="30" fill="#4F46E5" stroke="none" />
+      <circle cx="416" cy="256" r="30" fill="var(--w-mark)" stroke="none" />
     </svg>
   );
 }
@@ -670,7 +727,7 @@ function PanelHead({
   return (
     <header>
       {eyebrow && (
-        <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">
+        <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-5)]">
           {eyebrow.toUpperCase()}
         </p>
       )}
@@ -684,7 +741,7 @@ function PanelHead({
         {title}
       </h1>
       {lead && (
-        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[#57516A]">
+        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
           {lead}
         </p>
       )}
@@ -767,16 +824,17 @@ function Overview({
        * opens, which is what makes a greeting read as the app being awake
        * rather than as decoration.
        */}
-      <p className="text-[0.75rem] tracking-[0.08em] text-[#8E8899]">
+      <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-5)]">
         {today().toUpperCase()}
       </p>
       <h1 className="mt-1.5 font-display text-[2rem] leading-[1.1] tracking-[-0.04em]">
         {greeting()}
       </h1>
-      <p className="mt-2 max-w-[52ch] text-[0.9375rem] leading-relaxed text-[#57516A]">
+      <p className="mt-2 max-w-[52ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
         {reading > 0 ? (
           <>
-            Sidq is reading <span className="text-[#16141C]">{reading}</span>{" "}
+            Sidq is reading{" "}
+            <span className="text-[var(--w-text)]">{reading}</span>{" "}
             {reading === 1 ? "AI" : "AIs"} on this Mac. Press{" "}
             <Keys>&#8984;&#8679;K</Keys> to carry any conversation into another
             one.
@@ -791,16 +849,16 @@ function Overview({
 
       <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-5)]">
             HANDOVERS
           </h2>
 
           {rows !== null && rows.length === 0 && (
-            <div className="mt-3 rounded-[14px] border border-dashed border-black/[0.12] px-5 py-6">
-              <p className="text-[0.875rem] font-medium text-[#16141C]">
+            <div className="mt-3 rounded-[14px] border border-dashed border-[var(--w-line)] px-5 py-6">
+              <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
                 Nothing handed over yet
               </p>
-              <p className="mt-1.5 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+              <p className="mt-1.5 max-w-[52ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
                 Press <Keys>&#8984;&#8679;K</Keys>, pick a conversation, press
                 Enter. Each one is also written to your Downloads folder as a
                 Markdown file, so nothing is lost to a misclick the way a
@@ -810,26 +868,26 @@ function Overview({
           )}
 
           {rows !== null && rows.length > 0 && (
-            <ul className="mt-3 divide-y divide-black/[0.06] border-y border-black/[0.06]">
+            <ul className="mt-3 divide-y divide-black/[0.06] border-y border-[var(--w-line)]">
               {rows.map((row) => (
                 <li
                   key={`${row.sessionId}-${row.madeAt}`}
                   className={cn(
                     "flex items-baseline gap-4 rounded-[10px] px-3 py-3",
                     "transition-[transform,background-color,box-shadow] duration-150",
-                    "hover:-translate-y-px hover:bg-[#F8F6FD] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]",
+                    "hover:-translate-y-px hover:bg-[var(--w-raised)] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]",
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.875rem] text-[#16141C]">
+                    <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
                       {row.title || "Untitled conversation"}
                     </span>
-                    <span className="block truncate text-[0.75rem] text-[#8E8899]">
+                    <span className="block truncate text-[0.75rem] text-[var(--w-text-5)]">
                       {sourceLabel(row.source)}
                       {row.project && ` · ${row.project}`}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+                  <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
                     {whenHandedOver(row.madeAt)}
                   </span>
                   {/*
@@ -853,8 +911,8 @@ function Overview({
                       }}
                       className={cn(
                         "shrink-0 rounded-md px-2 py-1 text-[0.75rem] font-medium",
-                        "cursor-pointer text-[#57516A] transition-colors duration-150",
-                        "hover:bg-[#16141C] hover:text-white",
+                        "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
+                        "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
                       )}
                     >
                       {shared === row.sessionId ? "Shared" : "Share with team"}
@@ -870,8 +928,8 @@ function Overview({
             small stack of numbers that never moves, next to a list that does. */}
         <aside
           className={cn(
-            "rounded-[14px] px-5 py-4 ring-1 ring-[#B8A6FF]/30",
-            "bg-gradient-to-b from-[#F6F2FF] to-[#FBFAFE]",
+            "rounded-[14px] px-5 py-4 ring-1 ring-[var(--w-accent-soft)]/30",
+            "bg-gradient-to-b from-[var(--w-tint)] to-[var(--w-surface)]",
           )}
         >
           <Stat value={stats[0].toLocaleString()} label="conversations" />
@@ -882,7 +940,7 @@ function Overview({
             label="handovers, 7 days"
           />
           {reach && (
-            <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
+            <p className="mt-4 border-t border-[var(--w-line)] pt-3 text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
               Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{" "}
               {whenLabel(reach[1])}.
             </p>
@@ -900,7 +958,7 @@ function Overview({
            * setting, and a hard-coded one starts lying the moment it changes.
            */}
           {taps && (
-            <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
+            <p className="mt-4 border-t border-[var(--w-line)] pt-3 text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
               Double-tap <Chip>{taps[0]}</Chip> to grab the conversation you
               were just in. <Chip>{taps[1]}</Chip> puts the last one back.
             </p>
@@ -914,7 +972,7 @@ function Overview({
 /** A keystroke, set in the mono face so it reads as something you press. */
 function Keys({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded-[5px] border border-black/[0.12] bg-[#F5F3FB] px-1.5 py-0.5 font-mono text-[0.75rem] text-[#3A3547]">
+    <kbd className="rounded-[5px] border border-[var(--w-line)] bg-[var(--w-surface)] px-1.5 py-0.5 font-mono text-[0.75rem] text-[var(--w-text-2)]">
       {children}
     </kbd>
   );
@@ -968,7 +1026,7 @@ function Plan({
         title={<span className="capitalize">{plan.plan}</span>}
       />
 
-      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
+      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-[var(--w-line)]">
         <Row
           term="Handovers a week"
           detail={
@@ -995,20 +1053,20 @@ function Plan({
             onClick={() => void bridge?.openUpgrade()}
             className={cn(
               "rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
-              "bg-[#16141C] text-white transition-opacity duration-150",
+              "bg-[var(--w-invert)] text-[var(--w-on-invert)] transition-opacity duration-150",
               "cursor-pointer hover:opacity-90",
             )}
           >
             See the plans
           </button>
-          <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
+          <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
             Or raise the free limit without paying: every friend who joins with
             your code adds handovers to both of your weeks. That is the Invite
             tab.
           </p>
         </div>
       ) : (
-        <p className="mt-8 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-8 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
           Billing is handled by Stripe. The receipt in your email has the link
           to change or cancel it.
         </p>
@@ -1021,8 +1079,10 @@ function Plan({
 function Row({ term, detail }: { term: string; detail: string }) {
   return (
     <div className="flex items-baseline justify-between gap-6 py-3">
-      <dt className="text-[0.875rem] text-[#57516A]">{term}</dt>
-      <dd className="text-right text-[0.875rem] text-[#16141C]">{detail}</dd>
+      <dt className="text-[0.875rem] text-[var(--w-text-3)]">{term}</dt>
+      <dd className="text-right text-[0.875rem] text-[var(--w-text)]">
+        {detail}
+      </dd>
     </div>
   );
 }
@@ -1141,7 +1201,7 @@ function Invite({
 
   if (summary === null) {
     return (
-      <p className="text-[0.875rem] text-[#7A7489]">
+      <p className="text-[0.875rem] text-[var(--w-text-4)]">
         Reading your invites&hellip;
       </p>
     );
@@ -1173,7 +1233,7 @@ function Invite({
                 });
               }}
               className={cn(
-                "rounded-lg bg-[#16141C] px-3.5 py-2 text-[0.8125rem] font-medium text-white",
+                "rounded-lg bg-[var(--w-invert)] px-3.5 py-2 text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
                 "cursor-pointer transition-opacity duration-150 hover:opacity-85",
                 opening && "pointer-events-none opacity-60",
               )}
@@ -1185,8 +1245,8 @@ function Invite({
             onClick={load}
             className={cn(
               "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-              "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
-              "cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5]",
+              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
+              "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)]",
             )}
           >
             Try again
@@ -1212,7 +1272,7 @@ function Invite({
        * somebody new — and the number of numbers here is the reason this is
        * one sentence rather than a table.
        */}
-      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+      <p className="mt-3 max-w-[54ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
         Anyone who signs up with your code adds {summary.each} handovers a week
         to your account and {summary.each} to theirs, for the next seven days.
         Up to {summary.perWeek} friends a week.
@@ -1223,8 +1283,8 @@ function Invite({
       <div className="mt-8 flex max-w-[34rem] items-center gap-3">
         <span
           className={cn(
-            "flex-1 rounded-[10px] border border-black/[0.11] px-4 py-3",
-            "font-display text-[1.5rem] tracking-[0.18em] text-[#16141C]",
+            "flex-1 rounded-[10px] border border-[var(--w-line)] px-4 py-3",
+            "font-display text-[1.5rem] tracking-[0.18em] text-[var(--w-text)]",
           )}
         >
           {summary.code}
@@ -1238,7 +1298,7 @@ function Invite({
           }}
           className={cn(
             "shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
-            "bg-[#16141C] text-white transition-opacity duration-150",
+            "bg-[var(--w-invert)] text-[var(--w-on-invert)] transition-opacity duration-150",
             "cursor-pointer hover:opacity-90",
           )}
         >
@@ -1246,7 +1306,7 @@ function Invite({
         </button>
       </div>
 
-      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-black/[0.07]">
+      <dl className="mt-8 max-w-[34rem] divide-y divide-black/[0.07] border-y border-[var(--w-line)]">
         <Row
           term="People who used it"
           detail={
@@ -1275,7 +1335,7 @@ function Invite({
           once: the invitee is the primary key of the referrals table. */}
       {!summary.redeemed && (
         <div className="mt-10 max-w-[34rem]">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[#8E8899]">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-5)]">
             SOMEBODY GAVE YOU A CODE?
           </h2>
           <form
@@ -1306,10 +1366,10 @@ function Invite({
               autoCapitalize="characters"
               placeholder="Their code"
               className={cn(
-                "min-w-0 flex-1 rounded-[10px] border border-black/[0.11] bg-transparent",
-                "px-4 py-2.5 text-[0.9375rem] tracking-[0.14em] text-[#16141C]",
-                "placeholder:tracking-normal placeholder:text-[#A29CB0]",
-                "outline-none transition-colors duration-150 focus:border-[#6A4BEA]/60",
+                "min-w-0 flex-1 rounded-[10px] border border-[var(--w-line)] bg-transparent",
+                "px-4 py-2.5 text-[0.9375rem] tracking-[0.14em] text-[var(--w-text)]",
+                "placeholder:tracking-normal placeholder:text-[var(--w-text-6)]",
+                "outline-none transition-colors duration-150 focus:border-[var(--w-accent)]/60",
               )}
             />
             <button
@@ -1317,18 +1377,20 @@ function Invite({
               disabled={redeeming || entry.trim().length === 0}
               className={cn(
                 "shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
-                "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
+                "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
                 "transition-colors duration-150",
                 redeeming || entry.trim().length === 0
                   ? "cursor-default opacity-40"
-                  : "cursor-pointer hover:bg-[#E6E1F5] hover:text-[#16141C]",
+                  : "cursor-pointer hover:bg-[var(--w-line)] hover:text-[var(--w-text)]",
               )}
             >
               {redeeming ? "Checking\u2026" : "Use it"}
             </button>
           </form>
           {failure && (
-            <p className="mt-2.5 text-[0.8125rem] text-[#B23B32]">{failure}</p>
+            <p className="mt-2.5 text-[0.8125rem] text-[var(--w-danger)]">
+              {failure}
+            </p>
           )}
         </div>
       )}
@@ -1374,7 +1436,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-        <p className="mt-4 text-[0.875rem] text-[#7A7489]">
+        <p className="mt-4 text-[0.875rem] text-[var(--w-text-4)]">
           Reading your conversations&hellip;
         </p>
       </>
@@ -1391,7 +1453,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           Empty, and it should be. This builds itself out of the rules you
           repeat and the stack you keep re-explaining, counting only sentences
           you actually typed. Have a few real conversations and it will have
@@ -1418,7 +1480,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
          * The count on each row is what decides it, so the rule is stated
          * against the thing that shows it rather than in a tooltip.
          */}
-        <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+        <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
           Taken word for word from your own messages, across every AI. The ones
           you have repeated in more than one conversation ride along with every
           handover, up to eight, so the next AI has them before it reads a line.
@@ -1433,7 +1495,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           }}
           className={cn(
             "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-            "bg-[#16141C] text-white transition-opacity duration-150",
+            "bg-[var(--w-invert)] text-[var(--w-on-invert)] transition-opacity duration-150",
             "cursor-pointer hover:opacity-90",
           )}
         >
@@ -1448,10 +1510,10 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             className={cn(
               "flex items-baseline gap-4 rounded-[10px] px-3 py-2.5",
               "transition-[transform,background-color] duration-150",
-              "hover:-translate-y-px hover:bg-[#F4F2FB]",
+              "hover:-translate-y-px hover:bg-[var(--w-raised)]",
             )}
           >
-            <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-[#16141C]">
+            <span className="min-w-0 flex-1 text-[0.875rem] leading-relaxed text-[var(--w-text)]">
               {fact.text}
             </span>
             {/*
@@ -1460,7 +1522,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
              * Said in six conversations is a fact about the transcripts and
              * can be checked. Any label we invented on top of it could not.
              */}
-            <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+            <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
               {fact.conversations === 1
                 ? "once"
                 : `${fact.conversations} conversations`}
@@ -1472,10 +1534,48 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   );
 }
 
+/** Switch to light. A disc with eight strokes, at the size the sidebar wants. */
+function SunIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="3.4" />
+      <path d="M9 1.6v1.6M9 14.8v1.6M1.6 9h1.6M14.8 9h1.6M3.8 3.8l1.1 1.1M13.1 13.1l1.1 1.1M14.2 3.8l-1.1 1.1M4.9 13.1l-1.1 1.1" />
+    </svg>
+  );
+}
+
+/** Switch to dark. One path: a disc with a bite out of it. */
+function MoonIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 10.6A6.4 6.4 0 0 1 7.4 3a6.6 6.6 0 1 0 7.6 7.6Z" />
+    </svg>
+  );
+}
+
 /** A key, inline in a sentence. Small enough not to shout in a stats column. */
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded-[5px] border border-black/[0.10] bg-white px-1.5 py-0.5 font-mono text-[0.6875rem] text-[#16141C]">
+    <kbd className="rounded-[5px] border border-[var(--w-line)] bg-[var(--w-surface)] px-1.5 py-0.5 font-mono text-[0.6875rem] text-[var(--w-text)]">
       {children}
     </kbd>
   );
@@ -1540,7 +1640,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-        <p className="mt-4 text-[0.875rem] text-[#7A7489]">Checking&hellip;</p>
+        <p className="mt-4 text-[0.875rem] text-[var(--w-text-4)]">
+          Checking&hellip;
+        </p>
       </>
     );
   }
@@ -1555,13 +1657,13 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     return (
       <>
         {heading}
-        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
           On Duo, the standing instructions on your{" "}
           <strong>How you work</strong> tab are shared with the people you work
           with, and theirs with you. Every handover any of you makes then
           arrives already knowing how the team works, not just how you do.
         </p>
-        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           It goes through a folder you already sync, so nothing is uploaded to
           us and it still works with the wifi off.
         </p>
@@ -1606,7 +1708,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
 
         {nearby.length > 0 ? (
           <>
-            <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+            <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
               Already set up. Join and your standing instructions travel with
               theirs, in every handover either of you makes.
             </p>
@@ -1619,19 +1721,19 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                     disabled={!name.trim()}
                     className={cn(
                       "flex w-full items-center justify-between gap-4 rounded-[12px] px-4 py-3 text-left",
-                      "border border-[#E3DFF1] bg-white transition-colors duration-150",
-                      "cursor-pointer hover:border-[#B8A6FF] disabled:cursor-default disabled:opacity-40",
+                      "border border-[var(--w-line)] bg-[var(--w-surface)] transition-colors duration-150",
+                      "cursor-pointer hover:border-[var(--w-accent-soft)] disabled:cursor-default disabled:opacity-40",
                     )}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-[0.9375rem] text-[#16141C]">
+                      <span className="block truncate text-[0.9375rem] text-[var(--w-text)]">
                         {team.members.join(", ")}
                       </span>
-                      <span className="block truncate text-[0.75rem] text-[#8E8899]">
+                      <span className="block truncate text-[0.75rem] text-[var(--w-text-5)]">
                         in {team.inside}
                       </span>
                     </span>
-                    <span className="shrink-0 text-[0.8125rem] font-medium text-[#57516A]">
+                    <span className="shrink-0 text-[0.8125rem] font-medium text-[var(--w-text-3)]">
                       Join
                     </span>
                   </button>
@@ -1640,16 +1742,18 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             </ul>
           </>
         ) : (
-          <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+          <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
             Pick somewhere that syncs. Sidq writes one small file there,{" "}
-            <span className="tabular text-[#16141C]">{settings.file}</span>, and
-            reads the ones your teammates write. Then share that folder with
-            them and their Sidq will find it on its own.
+            <span className="tabular text-[var(--w-text)]">
+              {settings.file}
+            </span>
+            , and reads the ones your teammates write. Then share that folder
+            with them and their Sidq will find it on its own.
           </p>
         )}
 
         <label className="mt-5 block text-[0.8125rem]">
-          <span className="block text-[#7A7489]">
+          <span className="block text-[var(--w-text-4)]">
             What your team sees you called
           </span>
           <input
@@ -1659,13 +1763,13 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             placeholder="Your first name"
             spellCheck={false}
             className={cn(
-              "mt-1.5 w-full max-w-[18rem] rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
-              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+              "mt-1.5 w-full max-w-[18rem] rounded-lg border border-[var(--w-line)] bg-[var(--w-surface)] px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[var(--w-accent-soft)]",
             )}
           />
         </label>
 
-        <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+        <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
           {nearby.length > 0 ? "Or start a new one" : "Start sharing in"}
         </p>
 
@@ -1676,9 +1780,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
               disabled={!name.trim()}
               onClick={() => choose(path)}
               className={cn(
-                "rounded-lg border border-[#E3DFF1] bg-white px-3 py-2 text-[0.8125rem]",
-                "cursor-pointer transition-colors duration-150 hover:border-[#B8A6FF]",
-                "disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#E3DFF1]",
+                "rounded-lg border border-[var(--w-line)] bg-[var(--w-surface)] px-3 py-2 text-[0.8125rem]",
+                "cursor-pointer transition-colors duration-150 hover:border-[var(--w-accent-soft)]",
+                "disabled:cursor-default disabled:opacity-40 disabled:hover:border-[var(--w-line)]",
               )}
             >
               {label}
@@ -1699,15 +1803,15 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             placeholder="Or a path of your own, including a git repo"
             spellCheck={false}
             className={cn(
-              "min-w-0 flex-1 rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
-              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+              "min-w-0 flex-1 rounded-lg border border-[var(--w-line)] bg-[var(--w-surface)] px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[var(--w-accent-soft)]",
             )}
           />
           <button
             disabled={!typed.trim() || !name.trim()}
             onClick={() => choose(typed.trim())}
             className={cn(
-              "shrink-0 rounded-lg bg-[#16141C] px-3 py-2 text-[0.8125rem] font-medium text-white",
+              "shrink-0 rounded-lg bg-[var(--w-invert)] px-3 py-2 text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
               "cursor-pointer transition-opacity duration-150 hover:opacity-90",
               "disabled:cursor-default disabled:opacity-35",
             )}
@@ -1723,17 +1827,18 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     <div>
       {heading}
 
-      <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+      <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
         Sharing through{" "}
-        <span className="tabular text-[#16141C]">{settings.folder}</span>. Sidq
-        writes <span className="tabular text-[#16141C]">{settings.file}</span>{" "}
+        <span className="tabular text-[var(--w-text)]">{settings.folder}</span>.
+        Sidq writes{" "}
+        <span className="tabular text-[var(--w-text)]">{settings.file}</span>{" "}
         there and reads whatever your teammates put beside it. You can open that
         file and read every word of it.
       </p>
 
       <div className="mt-6 flex flex-wrap items-end gap-3">
         <label className="text-[0.8125rem]">
-          <span className="block text-[#7A7489]">
+          <span className="block text-[var(--w-text-4)]">
             What your team sees you called
           </span>
           <input
@@ -1745,8 +1850,8 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             }
             spellCheck={false}
             className={cn(
-              "mt-1.5 rounded-lg border border-[#E3DFF1] bg-white px-3 py-2",
-              "text-[0.8125rem] outline-none focus:border-[#B8A6FF]",
+              "mt-1.5 rounded-lg border border-[var(--w-line)] bg-[var(--w-surface)] px-3 py-2",
+              "text-[0.8125rem] outline-none focus:border-[var(--w-accent-soft)]",
             )}
           />
         </label>
@@ -1761,7 +1866,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           <button
             onClick={() => void bridge?.revealTeamFolder()}
             className={cn(
-              "rounded-lg bg-[#16141C] px-3 py-2 text-[0.8125rem] font-medium text-white",
+              "rounded-lg bg-[var(--w-invert)] px-3 py-2 text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
               "cursor-pointer transition-opacity duration-150 hover:opacity-90",
             )}
           >
@@ -1772,24 +1877,25 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         <button
           onClick={() => choose(null)}
           className={cn(
-            "rounded-lg border border-[#E3DFF1] px-3 py-2 text-[0.8125rem]",
-            "cursor-pointer transition-colors duration-150 hover:border-[#16141C]",
+            "rounded-lg border border-[var(--w-line)] px-3 py-2 text-[0.8125rem]",
+            "cursor-pointer transition-colors duration-150 hover:border-[var(--w-text)]",
           )}
         >
           Stop sharing
         </button>
       </div>
 
-      <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+      <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
         In this folder
       </p>
 
       <ul className="mt-3 space-y-px">
-        <li className="flex items-baseline gap-4 rounded-[10px] bg-[#F4F2FB] px-3 py-2.5">
-          <span className="min-w-0 flex-1 text-[0.875rem] text-[#16141C]">
-            {settings.name} <span className="text-[#8E8899]">(you)</span>
+        <li className="flex items-baseline gap-4 rounded-[10px] bg-[var(--w-raised)] px-3 py-2.5">
+          <span className="min-w-0 flex-1 text-[0.875rem] text-[var(--w-text)]">
+            {settings.name}{" "}
+            <span className="text-[var(--w-text-5)]">(you)</span>
           </span>
-          <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+          <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
             {settings.sharing === 1 ? "1 rule" : `${settings.sharing} rules`}
           </span>
         </li>
@@ -1798,10 +1904,10 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             key={who}
             className="flex items-baseline gap-4 rounded-[10px] px-3 py-2.5"
           >
-            <span className="min-w-0 flex-1 text-[0.875rem] text-[#16141C]">
+            <span className="min-w-0 flex-1 text-[0.875rem] text-[var(--w-text)]">
               {who}
             </span>
-            <span className="shrink-0 text-[0.75rem] tabular-nums text-[#8E8899]">
+            <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
               {count === 1 ? "1 rule" : `${count} rules`}
             </span>
           </li>
@@ -1815,7 +1921,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
        * Sidq at the same folder.
        */}
       {settings.members.length === 0 && (
-        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           Nobody else is in here yet. Share this folder with whoever you work
           with — their Sidq finds it on its own and offers to join, so there is
           nothing for them to configure.
@@ -1830,12 +1936,12 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
        * for the same reason it is its own command in Rust — the two are
        * different sizes of decision and should not look alike.
        */}
-      <p className="mt-8 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+      <p className="mt-8 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
         Conversations shared with the team
       </p>
 
       {shared.length === 0 ? (
-        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-3 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           None yet. Press <strong>Share with team</strong> on any handover and
           it lands here for everyone pointed at this folder.
         </p>
@@ -1846,13 +1952,13 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
               key={item.path}
               className={cn(
                 "flex items-baseline gap-4 rounded-[10px] px-3 py-2.5",
-                "transition-colors duration-150 hover:bg-[#F4F2FB]",
+                "transition-colors duration-150 hover:bg-[var(--w-raised)]",
               )}
             >
-              <span className="min-w-0 flex-1 truncate text-[0.875rem] text-[#16141C]">
+              <span className="min-w-0 flex-1 truncate text-[0.875rem] text-[var(--w-text)]">
                 {item.title}
               </span>
-              <span className="shrink-0 text-[0.75rem] text-[#8E8899]">
+              <span className="shrink-0 text-[0.75rem] text-[var(--w-text-5)]">
                 {item.mine ? "you" : item.who}
               </span>
               <button
@@ -1867,8 +1973,8 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                 }}
                 className={cn(
                   "shrink-0 rounded-md px-2 py-1 text-[0.75rem] font-medium",
-                  "cursor-pointer text-[#57516A] transition-colors duration-150",
-                  "hover:bg-[#16141C] hover:text-white",
+                  "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
+                  "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
                 )}
               >
                 {copied === item.path ? "Copied" : "Copy"}
@@ -1943,7 +2049,7 @@ function Search({
       <div className="relative mt-5">
         <span
           aria-hidden="true"
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8E8899]"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--w-text-5)]"
         >
           <Icon name="search" />
         </span>
@@ -1954,16 +2060,16 @@ function Search({
           placeholder="Search everything you have ever asked"
           spellCheck={false}
           className={cn(
-            "w-full rounded-[12px] bg-[#F5F3FB] py-3.5 pl-11 pr-4",
-            "text-[1rem] text-[#16141C] placeholder:text-[#8E8899]",
+            "w-full rounded-[12px] bg-[var(--w-surface)] py-3.5 pl-11 pr-4",
+            "text-[1rem] text-[var(--w-text)] placeholder:text-[var(--w-text-5)]",
             "ring-1 ring-inset ring-black/[0.07] transition-shadow duration-150",
-            "focus:outline-none focus:ring-[#6A4BEA]/40",
+            "focus:outline-none focus:ring-[var(--w-accent)]/40",
           )}
         />
       </div>
 
       {searched && (
-        <p className="mt-4 text-[0.8125rem] text-[#7A7489]">
+        <p className="mt-4 text-[0.8125rem] text-[var(--w-text-4)]">
           {hits.length === 0
             ? "Nothing matched that one."
             : `${hits.length} ${hits.length === 1 ? "result" : "results"}`}
@@ -1985,13 +2091,15 @@ function Search({
        * idea there is anything there.
        */}
       {withheld > 0 && historyDays !== null && (
-        <div className="mt-5 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
-          <p className="text-[0.875rem] text-[#16141C]">
-            <span className="font-medium text-[#16141C]">{withheld} more</span>{" "}
+        <div className="mt-5 rounded-[12px] border border-[var(--w-accent-soft)]/45 bg-[var(--w-tint)] p-4">
+          <p className="text-[0.875rem] text-[var(--w-text)]">
+            <span className="font-medium text-[var(--w-text)]">
+              {withheld} more
+            </span>{" "}
             {withheld === 1 ? "conversation matches" : "conversations match"},
             older than {historyDays} days
           </p>
-          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-[#7A7489]">
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
             Free search reaches back {historyDays} days. Pro reaches everything
             you have ever asked, in any AI.
           </p>
@@ -1999,7 +2107,7 @@ function Search({
       )}
 
       {!searched && (
-        <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
+        <p className="mt-8 max-w-[52ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           Every conversation on this Mac, plus every AI you have opened in Sidq,
           searched together. No AI can read another one&rsquo;s history, so this
           is the only place yours sits in one pile.
@@ -2011,25 +2119,25 @@ function Search({
 
 function Hit({ hit }: { hit: SearchHit }) {
   return (
-    <article className="rounded-[12px] bg-[#F8F6FD] p-4 ring-1 ring-inset ring-black/[0.06]">
+    <article className="rounded-[12px] bg-[var(--w-raised)] p-4 ring-1 ring-inset ring-black/[0.06]">
       <div className="flex items-baseline gap-2">
-        <span className="truncate text-[0.875rem] font-medium text-[#16141C]/90">
+        <span className="truncate text-[0.875rem] font-medium text-[var(--w-text)]/90">
           {hit.title || "Untitled"}
         </span>
-        <span className="shrink-0 text-[0.6875rem] text-[#8E8899]">
+        <span className="shrink-0 text-[0.6875rem] text-[var(--w-text-5)]">
           {sourceLabel(hit.source)}
           {hit.project && ` · ${hit.project}`}
           {hit.endedAt > 0 && ` · ${whenLabel(hit.endedAt)}`}
         </span>
       </div>
-      <p className="mt-2 text-[0.8125rem] leading-relaxed text-[#57516A]">
+      <p className="mt-2 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
         {/* FTS5 wraps matches in « ». Rendered as marks so the eye lands on why
             this result is here rather than on the surrounding sentence. */}
         {hit.snippet.split(/[«»]/).map((part, i) =>
           i % 2 === 1 ? (
             <mark
               key={i}
-              className="rounded bg-[#E9E2FF] px-0.5 text-[#16141C]"
+              className="rounded bg-[var(--w-line-accent)] px-0.5 text-[var(--w-text)]"
             >
               {part}
             </mark>
@@ -2104,8 +2212,10 @@ function OpenAssistants({
 
   return (
     <div className="mt-8">
-      <p className="text-[0.875rem] font-medium text-[#16141C]">Open one</p>
-      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
+      <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+        Open one
+      </p>
+      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
         In your own browser, where you are already signed in and your passkeys
         and password manager work. Sidq never asks you to log in to anything.
       </p>
@@ -2120,8 +2230,8 @@ function OpenAssistants({
             }
             className={cn(
               "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-              "bg-[#EDEAF7] text-[#16141C] ring-1 ring-inset ring-black/[0.08]",
-              "cursor-pointer transition-colors duration-150 hover:bg-[#E6E1F5] hover:text-[#16141C]",
+              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
+              "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)] hover:text-[var(--w-text)]",
             )}
           >
             {row.label}
@@ -2130,7 +2240,7 @@ function OpenAssistants({
       </div>
       <button
         onClick={() => setInSidq((v) => !v)}
-        className="mt-3 text-[0.75rem] text-[#8E8899] transition-colors duration-150 hover:text-[#3A3547]"
+        className="mt-3 text-[0.75rem] text-[var(--w-text-5)] transition-colors duration-150 hover:text-[var(--w-text-2)]"
       >
         {inSidq
           ? "Opening inside Sidq. Passkeys and autofill will not work here. Use my browser instead"
@@ -2151,8 +2261,8 @@ function ImportHistory({
   const [message, setMessage] = useState("");
 
   return (
-    <div className="mt-8 rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4">
-      <p className="text-[0.875rem] font-medium text-[#16141C]">
+    <div className="mt-8 rounded-[12px] border border-[var(--w-accent-soft)]/45 bg-[var(--w-tint)] p-4">
+      <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
         Already have an export file?
       </p>
       {/*
@@ -2166,20 +2276,21 @@ function ImportHistory({
        * in one click, so that is the offer; this is for the people who
        * happen to have a file already.
        */}
-      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
+      <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
         This is the one route that needs no scrolling: an export holds every
         conversation in full, however old, whether or not you ever open it
         again. Worth requesting now even though it takes a day or two to arrive.
         Claude and ChatGPT both call it{" "}
-        <code className="text-[#3A3547]">conversations.json</code>; Google
-        Takeout calls it <code className="text-[#3A3547]">MyActivity.json</code>
-        . Sidq works out which is which.
+        <code className="text-[var(--w-text-2)]">conversations.json</code>;
+        Google Takeout calls it{" "}
+        <code className="text-[var(--w-text-2)]">MyActivity.json</code>. Sidq
+        works out which is which.
       </p>
 
       <label
         className={cn(
           "mt-3 inline-flex cursor-pointer items-center rounded-lg px-3 py-1.5",
-          "bg-[#16141C] text-[0.8125rem] font-medium text-white",
+          "bg-[var(--w-invert)] text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
           "transition-opacity duration-150 hover:opacity-90",
           state === "reading" && "pointer-events-none opacity-50",
         )}
@@ -2219,7 +2330,9 @@ function ImportHistory({
         <p
           className={cn(
             "mt-2.5 text-[0.8125rem]",
-            state === "done" ? "text-[#57516A]" : "text-[#B23B32]",
+            state === "done"
+              ? "text-[var(--w-text-3)]"
+              : "text-[var(--w-danger)]",
           )}
         >
           {message}
@@ -2302,19 +2415,19 @@ function Sources({
           return (
             <li
               key={source.id}
-              className="flex items-center gap-3 rounded-[10px] bg-[#F8F6FD] px-4 py-2.5"
+              className="flex items-center gap-3 rounded-[10px] bg-[var(--w-raised)] px-4 py-2.5"
             >
               <span
                 aria-hidden="true"
                 className={cn(
                   "size-1.5 shrink-0 rounded-full",
-                  found > 0 ? "bg-[#6A4BEA]" : "bg-[#D6D1E4]",
+                  found > 0 ? "bg-[var(--w-accent)]" : "bg-[var(--w-line)]",
                 )}
               />
-              <span className="flex-1 text-[0.875rem] text-[#16141C]">
+              <span className="flex-1 text-[0.875rem] text-[var(--w-text)]">
                 {source.label}
               </span>
-              <span className="text-[0.75rem] text-[#7A7489]">
+              <span className="text-[0.75rem] text-[var(--w-text-4)]">
                 {/*
                  * What a row with nothing in it is waiting for, which is a
                  * different thing for the two kinds of source. A local one has
@@ -2341,11 +2454,11 @@ function Sources({
          * without notice and the extension reads nothing when they do.
          */
         <div className="mt-6 rounded-[12px] border border-amber-500/30 bg-amber-50 p-4">
-          <p className="text-[0.875rem] font-medium text-[#16141C]">
+          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
             {stale.join(" and ")} changed, and Sidq stopped reading{" "}
             {stale.length === 1 ? "it" : "them"}
           </p>
-          <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
+          <p className="mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
             The page moved out from under the extension. This is fixed from our
             side without you updating anything, usually the same day. Everything
             already captured is safe.
@@ -2387,10 +2500,10 @@ function Sources({
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <p className="flex items-baseline gap-2 py-1">
-      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[#2A1B57]">
+      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[var(--w-accent-ink)]">
         {value}
       </span>
-      <span className="min-w-0 truncate text-[0.75rem] text-[#57516A]">
+      <span className="min-w-0 truncate text-[0.75rem] text-[var(--w-text-3)]">
         {label}
       </span>
     </p>

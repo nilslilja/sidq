@@ -909,3 +909,59 @@ describe("the invite panel", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("dark mode", () => {
+  /*
+   * The main window only. The pill is a transparent card over other people's
+   * applications and has its own treatment; the website is a marketing page
+   * with one deliberate look. Scoping the palette to this attribute is what
+   * keeps a theme switch out of both.
+   */
+  test("the theme lives on this window, not the document", async () => {
+    await open("Overview");
+
+    expect(document.documentElement).not.toHaveAttribute("data-app-theme");
+    expect(document.querySelector("[data-app-theme]")).toBeInTheDocument();
+  });
+
+  test("the toggle offers the theme you are not in", async () => {
+    localStorage.setItem("sidq.theme", "light");
+    await open("Overview");
+
+    expect(
+      screen.getByRole("button", { name: "Switch to dark" }),
+    ).toBeInTheDocument();
+  });
+
+  test("and switching sticks, so sunset does not undo a decision", async () => {
+    localStorage.setItem("sidq.theme", "light");
+    await open("Overview");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Switch to dark" }));
+    });
+
+    expect(document.querySelector("[data-app-theme]")).toHaveAttribute(
+      "data-app-theme",
+      "dark",
+    );
+    expect(localStorage.getItem("sidq.theme")).toBe("dark");
+    expect(
+      screen.getByRole("button", { name: "Switch to light" }),
+    ).toBeInTheDocument();
+  });
+
+  /*
+   * Two dozen hex values were written inline through this file. Any that
+   * survive are invisible in one theme or the other, which is the whole failure
+   * mode this replaces: white panels on navy, black hairlines on navy, white
+   * label on a button that went pale.
+   */
+  test("no colour in this window is hard-coded any more", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("src/routes/Home.tsx", "utf8");
+
+    expect(source).not.toMatch(/#[0-9A-Fa-f]{6}/);
+    expect(source).not.toMatch(/\b(bg|text|border)-(white|black)\b/);
+  });
+});
