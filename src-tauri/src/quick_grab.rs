@@ -37,31 +37,67 @@ pub struct Grabbed {
     pub title: String,
     /// Which assistant it came from.
     pub source: String,
-    /// Whether a file was written beside the clipboard copy.
-    pub saved: bool,
+    /// Whether the markdown file is on the clipboard too, ready to attach.
+    pub as_file: bool,
 }
 
 /**
- * Put text on the clipboard.
+ * Put the handover on the clipboard, as a file and as text at the same time.
  *
- * Straight to NSPasteboard rather than through a window. The whole point is
- * that this works with no Sidq window open and nothing focused, so there is no
- * webview to route a string through.
+ * ── Why both, and why the file first ──────────────────────────────────────
  *
- * `clearContents` first is required, not tidiness: a pasteboard keeps whatever
- * types were written last, and writing a string over an image leaves the image
- * for any app that prefers it.
+ * The markdown file is the artifact. It has been since the beginning: it is
+ * what gets attached, what survives being closed, and what goes to an
+ * assistant's retrieval instead of into the context window of every following
+ * turn. An earlier pass at this put only the text on the clipboard, which
+ * quietly turned a file into a paste and lost all of that.
+ *
+ * A pasteboard can hold one thing in several representations at once, and the
+ * receiving application picks the one it understands. So this writes the file
+ * URL and the text together:
+ *
+ *   ChatGPT, Claude, Slack, Mail   take the file — ⌘V attaches sidq.md
+ *   a plain text box, an editor    takes the text
+ *
+ * One gesture, and the destination decides. Nothing to choose in advance and
+ * nothing to go to Downloads for.
+ *
+ * `clearContents` first is required rather than tidy: a pasteboard keeps
+ * whatever types were written last, so a string written over an image leaves
+ * the image for anything that prefers it.
  */
-pub fn put_on_clipboard(text: &str) -> bool {
-    use objc2_app_kit::NSPasteboard;
-    use objc2_foundation::NSString;
+pub fn put_on_clipboard(text: &str, file: Option<&std::path::Path>) -> bool {
+    use objc2_app_kit::{
+        NSPasteboard, NSPasteboardItem, NSPasteboardTypeFileURL, NSPasteboardTypeString,
+    };
+    use objc2::runtime::ProtocolObject;
+    use objc2_foundation::{NSArray, NSString, NSURL};
 
-    // Safety: the general pasteboard is a process-wide singleton and both calls
-    // are the documented way to replace its contents from any thread.
+    // Safety: the general pasteboard is a process-wide singleton, and an item
+    // is an ordinary object we own until it is written.
     unsafe {
+        let item = NSPasteboardItem::new();
+
+        if !item.setString_forType(&NSString::from_str(text), NSPasteboardTypeString) {
+            return false;
+        }
+
+        /*
+         * The file is best effort. A grab whose file could not be written is
+         * still worth pasting as text, and failing the whole thing over the
+         * better half of it would be the wrong trade.
+         */
+        if let Some(path) = file {
+            let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+            if let Some(absolute) = url.absoluteString() {
+                item.setString_forType(&absolute, NSPasteboardTypeFileURL);
+            }
+        }
+
+        let writable = ProtocolObject::from_retained(item);
         let pb = NSPasteboard::generalPasteboard();
         pb.clearContents();
-        pb.setString_forType(&NSString::from_str(text), objc2_app_kit::NSPasteboardTypeString)
+        pb.writeObjects(&NSArray::from_retained_slice(&[writable]))
     }
 }
 

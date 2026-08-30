@@ -1133,7 +1133,8 @@ async fn read_team_handover(path: String) -> Option<String> {
  * conversation belongs in the index and on the clipboard the person asked for,
  * not in a third place on disk that nobody knows exists.
  */
-static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+static LAST_GRAB: std::sync::Mutex<Option<(String, Option<String>)>> =
+    std::sync::Mutex::new(None);
 
 /**
  * Read what is open, take the conversation last touched, compile it, and put it
@@ -1154,28 +1155,14 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
     let session = quick_grab::most_recent()?;
     let title = quick_grab::name_of(&session);
 
-    let text = build_handover(
-        &session.session_id,
-        session.source,
-        &session.last_prompt,
-        "just now",
-        &session.project_name,
-    )?;
-
-    if !quick_grab::put_on_clipboard(&text) {
-        return None;
-    }
-    if let Ok(mut last) = LAST_GRAB.lock() {
-        *last = Some(text.clone());
-    }
-
     /*
-     * The file is written too, and it is not redundant.
+     * The file first, because the file is the artifact.
      *
-     * Pasting is right for a chat box. Attaching is right for anything with
-     * retrieval, because the text then goes to a search index instead of into
-     * the context window of every following turn — and a path can be attached
-     * where a clipboard cannot.
+     * It is what gets attached, what survives the window closing, and what goes
+     * to an assistant's retrieval rather than into the context window of every
+     * following turn. The clipboard then carries it *and* its text, so the
+     * destination decides which it wants — attach in ChatGPT, paste in a
+     * terminal — off one gesture.
      */
     let path = write_handover(
         session.session_id.clone(),
@@ -1186,10 +1173,25 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
         session.project_name.clone(),
     );
 
+    let text = build_handover(
+        &session.session_id,
+        session.source,
+        &session.last_prompt,
+        "just now",
+        &session.project_name,
+    )?;
+
+    if !quick_grab::put_on_clipboard(&text, path.as_ref().map(std::path::Path::new)) {
+        return None;
+    }
+    if let Ok(mut last) = LAST_GRAB.lock() {
+        *last = Some((text, path.clone()));
+    }
+
     Some(quick_grab::Grabbed {
         title,
         source: label_for(session.source).to_string(),
-        saved: path.is_some(),
+        as_file: path.is_some(),
     })
 }
 
@@ -1240,8 +1242,14 @@ fn grab_and_announce(app: &AppHandle) {
              * is right for a chat box, attaching is right for anything with
              * retrieval. Saying only one hides the better half.
              */
-            .body(if grabbed.saved {
-                format!("{} — paste it anywhere, or attach it from Downloads.", grabbed.title)
+            /*
+             * "Attach or paste" rather than one of them, because the clipboard
+             * genuinely holds both and which one lands depends on where it goes.
+             * Saying only "paste" is what made an earlier version of this feel
+             * like it had thrown the file away.
+             */
+            .body(if grabbed.as_file {
+                format!("{} — attach it or paste it into any other AI.", grabbed.title)
             } else {
                 format!("{} — paste it into any other AI.", grabbed.title)
             })
@@ -1257,9 +1265,9 @@ fn grab_and_announce(app: &AppHandle) {
  * clipboard means going back and doing the whole grab again.
  */
 fn drop_last(app: &AppHandle) {
-    let text = LAST_GRAB.lock().ok().and_then(|t| t.clone());
+    let last = LAST_GRAB.lock().ok().and_then(|t| t.clone());
 
-    let Some(text) = text else {
+    let Some((text, path)) = last else {
         let _ = app
             .notification()
             .builder()
@@ -1269,12 +1277,13 @@ fn drop_last(app: &AppHandle) {
         return;
     };
 
-    if quick_grab::put_on_clipboard(&text) {
+    // The same pair the grab put there: the file to attach, the text to paste.
+    if quick_grab::put_on_clipboard(&text, path.as_deref().map(std::path::Path::new)) {
         let _ = app
             .notification()
             .builder()
             .title("Back on your clipboard")
-            .body("Paste it wherever you are.")
+            .body("Attach it or paste it wherever you are.")
             .show();
     }
 }

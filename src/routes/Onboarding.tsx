@@ -377,8 +377,9 @@ export default function Onboarding() {
                 <span className="text-white/45">twice</span>
               </p>
               <p className="mt-2 max-w-[40ch] text-[0.875rem] leading-relaxed text-white/55">
-                Grabs whatever you were just in and puts it on your clipboard.
-                Paste it straight into the next AI.
+                Writes the same file and puts it on your clipboard, as a file
+                and as text at once. Attach it in ChatGPT, paste it in a
+                terminal — whatever you press ⌘V in decides which it takes.
               </p>
             </div>
 
