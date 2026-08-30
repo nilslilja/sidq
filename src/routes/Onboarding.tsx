@@ -57,6 +57,12 @@ export default function Onboarding() {
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [shortcutStuck, setShortcutStuck] = useState(false);
+  /*
+   * The modifiers actually bound, asked rather than written down. Which key
+   * does what is a setting, and copy that names one by hand starts teaching
+   * the wrong key the moment somebody changes it.
+   */
+  const [taps, setTaps] = useState<[string, string]>(["right ⌘", "left ⌃"]);
   const [discovery, setDiscovery] = useState<string | null>(null);
   /*
    * Handovers made, polled while the handover step is up. The step advances
@@ -176,6 +182,10 @@ export default function Onboarding() {
    * and then nothing on this side is listening for the sidq:// callback. Armed
    * only on that step, so a stray deep link later in the flow cannot skip ahead.
    */
+  useEffect(() => {
+    void bridge?.tapKeys().then(setTaps);
+  }, [bridge]);
+
   useEffect(() => {
     if (step !== "signin" || !bridge) return;
 
@@ -341,7 +351,36 @@ export default function Onboarding() {
              * keys in them is the same instruction and can be followed without
              * being read.
              */}
-            <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] text-white/75">
+            {/*
+             * The fast route first.
+             *
+             * It was underneath, in a box, after four lines about the picker —
+             * which is where a better way to do something goes to be skipped.
+             * Two taps is how most people will use Sidq once they know it
+             * exists, so it is the instruction and the picker is the fallback.
+             */}
+            <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.09] p-4">
+              <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[1rem] text-white">
+                <span>Double-tap</span>
+                <Kbd>{taps[0]}</Kbd>
+              </p>
+              <p className="mt-2.5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/65">
+                Grabs whatever you were just in, writes the file, and puts it on
+                your clipboard as a file and as text at once. Attach it in
+                ChatGPT, paste it in a terminal — wherever you press ⌘V decides
+                which it takes.
+              </p>
+              <p className="mt-2 max-w-[42ch] text-[0.875rem] leading-relaxed text-white/40">
+                Double-tap <span className="text-white/70">{taps[1]}</span> puts
+                the last one back, for when you have copied something since.
+              </p>
+            </div>
+
+            <p className="mt-7 text-[0.8125rem] uppercase tracking-[0.14em] text-white/35">
+              Or pick a different one
+            </p>
+
+            <ol className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] text-white/75">
               <li>
                 <Kbd>&#8984;&#8679;K</Kbd>
               </li>
@@ -356,32 +395,6 @@ export default function Onboarding() {
                 <Kbd>&#8629;</Kbd>
               </li>
             </ol>
-
-            <p className="mt-5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/55">
-              The whole conversation lands in Downloads, written so the next AI
-              carries on rather than summarising it back at you.
-            </p>
-
-            {/*
-             * The faster route, taught next to the slower one.
-             *
-             * Two taps skips every step above: no window, no list, no Downloads
-             * folder. It is also invisible — there is no chord to stumble on and
-             * nothing on screen to click — so if it is not said here the only
-             * other place it exists is the tray menu.
-             */}
-            <div className="mt-7 rounded-[12px] border border-[#B8A6FF]/30 bg-[#B8A6FF]/[0.07] p-4">
-              <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[0.9375rem] text-white/85">
-                <span>Or, without opening anything:</span>
-                <Kbd>right ⌘</Kbd>
-                <span className="text-white/45">twice</span>
-              </p>
-              <p className="mt-2 max-w-[40ch] text-[0.875rem] leading-relaxed text-white/55">
-                Writes the same file and puts it on your clipboard, as a file
-                and as text at once. Attach it in ChatGPT, paste it in a
-                terminal — whatever you press ⌘V in decides which it takes.
-              </p>
-            </div>
 
             <div
               className={cn(

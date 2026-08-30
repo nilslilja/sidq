@@ -727,6 +727,7 @@ function Overview({
    * conversation somewhere it should not be.
    */
   const [sharesWithTeam, setSharesWithTeam] = useState(false);
+  const [taps, setTaps] = useState<[string, string] | null>(null);
   const [shared, setShared] = useState<string | null>(null);
 
   /*
@@ -741,6 +742,7 @@ function Overview({
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentHandovers().then(setRows);
+    void bridge.tapKeys().then(setTaps);
     void bridge
       .teamSettings()
       .then((t) => setSharesWithTeam(t.allowed && t.folder !== null));
@@ -882,6 +884,24 @@ function Overview({
             <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
               Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{" "}
               {whenLabel(reach[1])}.
+            </p>
+          )}
+
+          {/*
+           * The gesture, where somebody who already finished setup can find it.
+           *
+           * It is taught on one screen during setup, which every existing user
+           * has already been through — so for all of them it does not exist.
+           * The tray menu was the only other place, and nobody opens a tray
+           * menu to discover a feature.
+           *
+           * Read from Rust rather than written here: which key does what is a
+           * setting, and a hard-coded one starts lying the moment it changes.
+           */}
+          {taps && (
+            <p className="mt-4 border-t border-black/[0.06] pt-3 text-[0.75rem] leading-relaxed text-[#57516A]">
+              Double-tap <Chip>{taps[0]}</Chip> to grab the conversation you
+              were just in. <Chip>{taps[1]}</Chip> puts the last one back.
             </p>
           )}
         </aside>
@@ -1448,6 +1468,15 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** A key, inline in a sentence. Small enough not to shout in a stats column. */
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded-[5px] border border-black/[0.10] bg-white px-1.5 py-0.5 font-mono text-[0.6875rem] text-[#16141C]">
+      {children}
+    </kbd>
   );
 }
 

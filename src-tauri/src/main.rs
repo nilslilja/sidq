@@ -1124,6 +1124,29 @@ async fn read_team_handover(path: String) -> Option<String> {
     .flatten()
 }
 
+/**
+ * Which modifiers are bound, for anything that has to name them on screen.
+ *
+ * The window used to write "right ⌘" into the setup copy by hand while Rust
+ * read the real pair from settings. Two places holding the same fact, one of
+ * which cannot see the other: change the setting and the onboarding starts
+ * teaching a key the app is not listening for.
+ */
+#[tauri::command]
+async fn tap_keys() -> (String, String) {
+    tauri::async_runtime::spawn_blocking(|| {
+        let (grab, drop) = index_store::open()
+            .map(|conn| double_tap::chosen(&conn))
+            .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::LEFT_CONTROL));
+        (
+            double_tap::label_for(grab).to_string(),
+            double_tap::label_for(drop).to_string(),
+        )
+    })
+    .await
+    .unwrap_or_else(|_| ("right ⌘".into(), "left ⌃".into()))
+}
+
 /* ── Grab: one key, and the conversation is on the clipboard ─────────────── */
 
 /**
@@ -1743,6 +1766,7 @@ fn main() {
             expand_pill,
             plan_status,
             memory_profile,
+            tap_keys,
             team_settings,
             team_folder_options,
             set_team_folder,

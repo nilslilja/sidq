@@ -254,6 +254,14 @@ export interface OnboardingBridge {
   /** What teammates see this person called. */
   setTeamName: (name: string) => Promise<boolean>;
   /**
+   * The two modifiers currently bound, as [grab, drop], ready to print.
+   *
+   * Asked rather than written down: which key does what is a setting, and copy
+   * that names a key by hand starts teaching the wrong one the moment somebody
+   * changes it.
+   */
+  tapKeys: () => Promise<[string, string]>;
+  /**
    * Put one conversation in the team folder.
    *
    * Its own call rather than a flag on `saveTranscript`: sharing a whole
@@ -467,6 +475,10 @@ export function desktopBridge(): OnboardingBridge | null {
       (await invoke("set_team_folder", { path })) === true,
     setTeamName: async (name) =>
       (await invoke("set_team_name", { name })) === true,
+    tapKeys: async () => {
+      const out = await invoke("tap_keys");
+      return Array.isArray(out) ? (out as [string, string]) : ["right ⌘", "left ⌃"];
+    },
     shareHandover: async (args) =>
       (await invoke("share_handover", args)) === true,
     teamHandovers: async () => {

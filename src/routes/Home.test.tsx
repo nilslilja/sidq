@@ -101,6 +101,7 @@ const bridge: Partial<OnboardingBridge> = {
    * only inside the team tests.
    */
   teamSettings: vi.fn(async () => NO_TEAM),
+  tapKeys: vi.fn(async () => ["right ⌘", "left ⌃"] as [string, string]),
   teamFolderOptions: vi.fn(async () => [] as [string, string][]),
   teamHandovers: vi.fn(async () => []),
   readTeamHandover: vi.fn(async () => null),
@@ -410,6 +411,35 @@ describe("what setup asked for", () => {
 
     expect(rows[0]).toMatch(/Claude Code/);
     bridge.recentWork = work;
+  });
+});
+
+describe("the grab gesture", () => {
+  /*
+   * It is taught on one screen during setup, which every existing user has
+   * already been through — so for all of them the feature does not exist. The
+   * tray menu was the only other place it appeared, and nobody opens a tray
+   * menu to discover something.
+   */
+  test("the window says how to grab, for anybody who onboarded before it existed", async () => {
+    await open("Overview");
+
+    expect(screen.getByText(/grab the conversation you were/i)).toBeInTheDocument();
+    expect(screen.getByText("right ⌘")).toBeInTheDocument();
+  });
+
+  /*
+   * Which modifier does what is a setting. Copy that names one by hand starts
+   * teaching the wrong key the moment somebody changes it, and this window and
+   * Rust are the two places that would then disagree.
+   */
+  test("and names whichever keys are actually bound", async () => {
+    bridge.tapKeys = vi.fn(async () => ["fn", "right ⌥"] as [string, string]);
+    await open("Overview");
+
+    expect(screen.getByText("fn")).toBeInTheDocument();
+    expect(screen.getByText("right ⌥")).toBeInTheDocument();
+    expect(screen.queryByText("right ⌘")).not.toBeInTheDocument();
   });
 });
 
