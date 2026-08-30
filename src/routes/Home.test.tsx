@@ -963,5 +963,16 @@ describe("dark mode", () => {
 
     expect(source).not.toMatch(/#[0-9A-Fa-f]{6}/);
     expect(source).not.toMatch(/\b(bg|text|border)-(white|black)\b/);
+
+    /*
+     * Gradient stops and rings, which the first sweep missed because none of
+     * them is spelled `bg-white`. They are how the main card ended up fading
+     * from navy to paper, the plan card ended up a bright block with light text
+     * on it, and a full-strength white hairline ended up across the top of the
+     * window sitting over the greeting.
+     */
+    expect(source).not.toMatch(/\b(from|via|to)-(white|black)\b/);
+    expect(source).not.toMatch(/ring-black|ring-white/);
+    expect(source).not.toMatch(/rgba\(255, ?255, ?255/);
   });
 });

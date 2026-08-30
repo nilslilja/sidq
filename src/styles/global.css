@@ -140,6 +140,12 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
+    /*
+     * Horizontally too. A trackpad swipe sideways in the app window bounced the
+     * document and revealed the page ground beside the card, which reads as the
+     * app coming loose from its own window.
+     */
+    overscroll-behavior-x: none;
   }
 
   :focus-visible {
@@ -886,6 +892,15 @@
   --w-invert: #16141c;
   --w-on-invert: #ffffff;
   --w-on-accent: #ffffff;
+
+  /* The main card: a hair of the ground at the top, paper at the bottom. */
+  --w-panel-from: #fbfafe;
+  --w-panel-to: #ffffff;
+  /* Light catching the card's top lip. Bright on paper, barely there on navy. */
+  --w-sheen: rgba(255, 255, 255, 0.9);
+  /* The plan card, lifted off the sidebar. */
+  --w-card-from: #ffffff;
+  --w-card-to: #f5f1ff;
 }
 
 /*
@@ -929,4 +944,22 @@
    * where text nearly disappeared into its own button.
    */
   --w-on-accent: #131a33;
+
+  /*
+   * The card gets darker downward rather than lighter.
+   *
+   * These were `to-white` and `from-white` written straight into the class
+   * list, which `bg-white` did not match, so the main panel faded from navy to
+   * paper and the plan card was a bright block with light text on it.
+   */
+  --w-panel-from: #182034;
+  --w-panel-to: #131a2b;
+  /*
+   * The sheen was rgba(255,255,255,0.9): a full-strength white hairline across
+   * the top of the card. Right on paper, and on navy it is the white bar
+   * sitting over the greeting.
+   */
+  --w-sheen: rgba(255, 255, 255, 0.06);
+  --w-card-from: #1f2947;
+  --w-card-to: #182034;
 }

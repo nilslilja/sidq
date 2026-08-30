@@ -364,7 +364,7 @@ export function Home() {
             <div
               className={cn(
                 "rounded-[14px] border border-[var(--w-accent-soft)]/45 px-4 py-3.5",
-                "bg-gradient-to-b from-white to-[var(--w-tint)]",
+                "bg-gradient-to-b from-[var(--w-card-from)] to-[var(--w-card-to)]",
                 "shadow-[0_1px_2px_rgba(20,18,28,0.04)]",
               )}
             >
@@ -438,12 +438,20 @@ export function Home() {
       <main className="min-h-0 min-w-0 py-3 pl-0 pr-3">
         <div
           className={cn(
-            "h-full min-h-0 overflow-y-auto rounded-[18px]",
+            /*
+             * `overscroll-contain` stops the rubber band.
+             *
+             * Scrolling past either end of this card bounced it and showed the
+             * window behind, which on a dark theme is a flash of whatever is
+             * under the app rather than a soft edge. Contained, the bounce ends
+             * at the card and no chain reaches the window.
+             */
+            "h-full min-h-0 overflow-y-auto overscroll-contain rounded-[18px]",
             // Not flat white. A hair of the ground shows through the top of the
             // card, which is what stops it reading as a sheet of paper.
-            "bg-gradient-to-b from-[var(--w-surface)] to-white",
-            "ring-1 ring-black/[0.06]",
-            "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]",
+            "bg-gradient-to-b from-[var(--w-panel-from)] to-[var(--w-panel-to)]",
+            "ring-1 ring-[var(--w-line)]",
+            "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]",
           )}
         >
           <div data-tauri-drag-region className="h-3" />
@@ -1245,7 +1253,7 @@ function Invite({
             onClick={load}
             className={cn(
               "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
+              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
               "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)]",
             )}
           >
@@ -1377,7 +1385,7 @@ function Invite({
               disabled={redeeming || entry.trim().length === 0}
               className={cn(
                 "shrink-0 rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium",
-                "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
+                "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
                 "transition-colors duration-150",
                 redeeming || entry.trim().length === 0
                   ? "cursor-default opacity-40"
@@ -2062,7 +2070,7 @@ function Search({
           className={cn(
             "w-full rounded-[12px] bg-[var(--w-surface)] py-3.5 pl-11 pr-4",
             "text-[1rem] text-[var(--w-text)] placeholder:text-[var(--w-text-5)]",
-            "ring-1 ring-inset ring-black/[0.07] transition-shadow duration-150",
+            "ring-1 ring-inset ring-[var(--w-line)] transition-shadow duration-150",
             "focus:outline-none focus:ring-[var(--w-accent)]/40",
           )}
         />
@@ -2119,7 +2127,7 @@ function Search({
 
 function Hit({ hit }: { hit: SearchHit }) {
   return (
-    <article className="rounded-[12px] bg-[var(--w-raised)] p-4 ring-1 ring-inset ring-black/[0.06]">
+    <article className="rounded-[12px] bg-[var(--w-raised)] p-4 ring-1 ring-inset ring-[var(--w-line)]">
       <div className="flex items-baseline gap-2">
         <span className="truncate text-[0.875rem] font-medium text-[var(--w-text)]/90">
           {hit.title || "Untitled"}
@@ -2230,7 +2238,7 @@ function OpenAssistants({
             }
             className={cn(
               "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-black/[0.08]",
+              "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
               "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)] hover:text-[var(--w-text)]",
             )}
           >
