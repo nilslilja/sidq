@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { track } from '@vercel/analytics';
 import { Link } from 'react-router-dom';
 import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
-import { artifactFor } from '@/lib/releases';
+import { artifactFor, RELEASE_VERSION } from '@/lib/releases';
 import { PillPreview } from '@/components/landing/PillPreview';
 import { PoweredByClaude } from '@/components/landing/PoweredByClaude';
 import { cn } from '@/lib/cn';
@@ -51,7 +52,22 @@ export function Downloading() {
     anchor.click();
     anchor.remove();
     setStarted(true);
-  }, [artifact, started]);
+
+    /*
+     * Count the download here, at the only place every one of them passes.
+     *
+     * The button that leads here is not the event worth counting. It fires for
+     * platforms with no build, it fires twice when someone double-clicks, and
+     * it fires for people who never reach a file. This effect runs once per
+     * page, after the anchor has actually been clicked, which makes it the one
+     * honest definition of "a download started".
+     *
+     * Which architecture matters more than the raw total. Intel and Apple
+     * Silicon are two different binaries with two different failure modes, and
+     * the split is the only way to know whether an Intel bug is worth a day.
+     */
+    track('download', { arch: info.platform, version: RELEASE_VERSION });
+  }, [artifact, started, info.platform]);
 
   return (
     <div className="grid min-h-[100dvh] grid-cols-1 bg-[#0B0B10] text-white lg:grid-cols-[minmax(0,46%)_1fr]">
