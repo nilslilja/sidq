@@ -1807,7 +1807,7 @@ fn main() {
              */
             let (grab_key, drop_key) = index_store::open()
                 .map(|conn| double_tap::chosen(&conn))
-                .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::RIGHT_CONTROL));
+                .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::LEFT_CONTROL));
 
             /*
              * A menu bar item, so quitting is deliberate.
@@ -2086,13 +2086,13 @@ fn main() {
              * claiming one quietly breaks that combination in the person's
              * editor and browser for a feature they use a few times a day.
              *
-             * Right ⌘ grabs, right ⌃ puts the last grab back, and both are
+             * Right ⌘ grabs, left ⌃ puts the last grab back, and both are
              * settings. See double_tap for the two that were ruled out by what
              * people actually run: fn is Wispr Flow's push to talk, and right ⌥
-             * opens Claude for Desktop's overlay. Neither was discoverable from
-             * a config file — the second turned up the first time somebody
-             * pressed it, which is the argument for this being changeable
-             * without a release.
+             * opens Claude for Desktop's overlay, and right ⌃ is not a key
+             * Apple has ever put on a keyboard. None of the three was
+             * discoverable by reasoning about it, which is the argument for
+             * this being changeable without a release.
              */
             let taps = app.handle().clone();
             double_tap::watch(vec![grab_key, drop_key], move |mask| {

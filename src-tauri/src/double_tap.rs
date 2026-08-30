@@ -15,12 +15,12 @@ what several editors do with shift.
 
 ── Which modifier ────────────────────────────────────────────────────────────
 
-Right ⌘ and right ⌃, distinguished from their left twins by the device specific
-bits macOS puts in `modifierFlags`. Nobody presses the right-hand ones on their
-own by accident, and they are on every Mac keyboard.
+Right ⌘ to grab, left ⌃ to drop. They are told apart from their twins on the
+other side by the device specific bits macOS puts in `modifierFlags`, and
+neither is pressed on its own by accident — control is almost always chorded,
+and chords are excluded below.
 
-Two were ruled out by what people actually run, and neither could have been
-found in a config file:
+Three candidates were ruled out, and not one of them by reasoning about it:
 
   fn        Wispr Flow holds it for push to talk, and macOS binds its own
             action to it besides — emoji, dictation or input switching. Fine for
@@ -28,8 +28,13 @@ found in a config file:
             dictate; wrong to ship switched on.
 
   right ⌥   Claude for Desktop opens its overlay on a double tap of option.
-            This one was shipped and had to be moved, because there is nowhere
-            to read it from: it turned up the first time somebody pressed it.
+            Shipped, then moved: there is nowhere to read that binding from, so
+            it turned up the first time somebody pressed it.
+
+  right ⌃   Does not exist. Apple keyboards have control on the left only —
+            laptop and Magic Keyboard, every layout. Shipped as the default for
+            exactly one release, to somebody on a Swedish MacBook who pointed
+            out they had no such key.
 
 Which is the argument for the whole thing being a setting rather than a
 constant. The keyboard is crowded and what is free depends on what somebody has
@@ -50,8 +55,20 @@ pub const RIGHT_COMMAND: u64 = 0x0000_0010;
 /// right choice on a Mac without Claude installed.
 pub const RIGHT_OPTION: u64 = 0x0000_0040;
 
-/// Right ⌃. `NX_DEVICERCTLKEYMASK`. Nobody taps this one on purpose.
+/**
+ * Right ⌃. `NX_DEVICERCTLKEYMASK`.
+ *
+ * Not a default, because on an Apple keyboard it does not exist. The bottom row
+ * is fn ⌃ ⌥ ⌘ space ⌘ ⌥ and then the arrows — control is on the left only, on
+ * every layout, laptop and Magic Keyboard alike. This was shipped as the
+ * default for one release and the person it shipped to had no such key.
+ *
+ * Kept as a choice for anybody on a full-size third-party keyboard.
+ */
 pub const RIGHT_CONTROL: u64 = 0x0000_2000;
+
+/// Left ⌃. `NX_DEVICELCTLKEYMASK`. On every Mac keyboard ever made.
+pub const LEFT_CONTROL: u64 = 0x0000_0002;
 /// fn / 🌐. `NSEventModifierFlagFunction`.
 ///
 /// Offered rather than used: see the note at the top of this file. Anybody who
@@ -307,6 +324,18 @@ mod tests {
      * Both actions on one key makes the second unreachable, and settings are a
      * file a person can edit.
      */
+    /*
+     * The bottom row of an Apple keyboard is fn ⌃ ⌥ ⌘ space ⌘ ⌥ and the arrows.
+     * A default has to be a key the person owns.
+     */
+    #[test]
+    fn neither_default_is_a_key_apple_keyboards_lack() {
+        let conn = crate::index_store::tests::memory();
+        let (grab, drop) = chosen(&conn);
+        assert_ne!(grab, RIGHT_CONTROL);
+        assert_ne!(drop, RIGHT_CONTROL);
+    }
+
     #[test]
     fn the_two_keys_can_never_be_the_same_one() {
         let conn = crate::index_store::tests::memory();
@@ -321,9 +350,10 @@ mod tests {
     #[test]
     fn the_defaults_avoid_what_other_apps_already_own() {
         let conn = crate::index_store::tests::memory();
-        // fn is Wispr Flow's push to talk; right ⌥ opens Claude's overlay.
+        // fn is Wispr Flow's push to talk, right ⌥ opens Claude's overlay, and
+        // right ⌃ is not a key Apple has ever shipped.
         let (grab, drop) = chosen(&conn);
-        assert_eq!((grab, drop), (RIGHT_COMMAND, RIGHT_CONTROL));
+        assert_eq!((grab, drop), (RIGHT_COMMAND, LEFT_CONTROL));
     }
 
     #[test]
@@ -364,8 +394,9 @@ pub const GRAB_KEY: &str = "tap.grab";
 pub const DROP_KEY: &str = "tap.drop";
 
 /// Every modifier that can be tapped, by the name a setting stores.
-pub const CHOICES: [(&str, u64); 4] = [
+pub const CHOICES: [(&str, u64); 5] = [
     ("right-command", RIGHT_COMMAND),
+    ("left-control", LEFT_CONTROL),
     ("right-control", RIGHT_CONTROL),
     ("right-option", RIGHT_OPTION),
     ("fn", FUNCTION),
@@ -380,6 +411,7 @@ pub fn mask_for(name: &str) -> Option<u64> {
 pub fn label_for(mask: u64) -> &'static str {
     match mask {
         RIGHT_COMMAND => "right ⌘",
+        LEFT_CONTROL => "left ⌃",
         RIGHT_CONTROL => "right ⌃",
         RIGHT_OPTION => "right ⌥",
         FUNCTION => "fn",
@@ -390,10 +422,10 @@ pub fn label_for(mask: u64) -> &'static str {
 /**
  * The pair in force: what is stored, or the defaults.
  *
- * Right ⌥ was the original second key and Claude for Desktop already owns a
- * double tap of option, so the default moved to right ⌃ — which nobody taps on
- * purpose. A stored value always wins, including one that picks ⌥ back up on a
- * Mac without Claude on it.
+ * The second key has moved twice: right ⌥ opens Claude for Desktop's overlay,
+ * and right ⌃ is not a key that exists on an Apple keyboard. Left ⌃ is, on every
+ * one of them, and is almost always chorded rather than tapped. A stored value
+ * always wins, including one that picks ⌥ back up on a Mac without Claude.
  */
 pub fn chosen(conn: &rusqlite::Connection) -> (u64, u64) {
     let read = |key: &str, fallback: u64| {
@@ -403,12 +435,12 @@ pub fn chosen(conn: &rusqlite::Connection) -> (u64, u64) {
     };
 
     let grab = read(GRAB_KEY, RIGHT_COMMAND);
-    let drop = read(DROP_KEY, RIGHT_CONTROL);
+    let drop = read(DROP_KEY, LEFT_CONTROL);
 
     // Both on one key would make the second unreachable, and a person editing
     // settings by hand can do that. The stored grab wins; drop goes back home.
     if grab == drop {
-        return (grab, if grab == RIGHT_CONTROL { RIGHT_COMMAND } else { RIGHT_CONTROL });
+        return (grab, if grab == LEFT_CONTROL { RIGHT_COMMAND } else { LEFT_CONTROL });
     }
     (grab, drop)
 }
