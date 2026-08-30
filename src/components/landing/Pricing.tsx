@@ -133,10 +133,14 @@ function PlanCard({ plan }: { plan: Plan }) {
          * unprompted. Starter and Pro are unlit, which is most of what makes
          * Duo look chosen.
          *
-         * The sheen rides with it because both effects were written for a dark
-         * surface and there is now exactly one.
+         * Only the rim, and that is not a preference. An element has one
+         * ::before, and both effects are drawn with one — putting the two
+         * classes on the same card had them fighting over it, the sheen won on
+         * source order, and the blue light asked for by name silently stopped
+         * rendering at all. The sheen was Pro's when Pro was the dark card;
+         * Pro is paper now and it has nowhere left to live.
          */
-        plan.featured && "face-sheen edge-lit",
+        plan.featured && "edge-lit",
       )}
       // What the rim's inner fill is painted with. The card is opaque, so this
       // has to match its own background or the hairline swallows the corner —
