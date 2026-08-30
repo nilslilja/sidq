@@ -365,10 +365,9 @@ export default function Onboarding() {
                 <Kbd>{taps[0]}</Kbd>
               </p>
               <p className="mt-2.5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/65">
-                Grabs whatever you were just in, writes the file, and puts it on
-                your clipboard as a file and as text at once. Attach it in
-                ChatGPT, paste it in a terminal — wherever you press ⌘V decides
-                which it takes.
+                Grabs whatever you were just in and puts the file on your
+                clipboard. Press ⌘V in ChatGPT, Claude or anywhere that takes an
+                attachment and the whole conversation goes with it.
               </p>
               <p className="mt-2 max-w-[42ch] text-[0.875rem] leading-relaxed text-white/40">
                 Double-tap <span className="text-white/70">{taps[1]}</span> puts

@@ -1156,8 +1156,7 @@ async fn tap_keys() -> (String, String) {
  * conversation belongs in the index and on the clipboard the person asked for,
  * not in a third place on disk that nobody knows exists.
  */
-static LAST_GRAB: std::sync::Mutex<Option<(String, Option<String>)>> =
-    std::sync::Mutex::new(None);
+static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 /**
  * Read what is open, take the conversation last touched, compile it, and put it
@@ -1187,6 +1186,14 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
      * destination decides which it wants — attach in ChatGPT, paste in a
      * terminal — off one gesture.
      */
+    /*
+     * The file is the whole output now.
+     *
+     * Without one there is nothing to put on the clipboard and nothing to
+     * attach, so a grab that cannot write it has failed rather than half
+     * succeeded — and the notification says so instead of claiming a success
+     * whose paste would do nothing.
+     */
     let path = write_handover(
         session.session_id.clone(),
         title.clone(),
@@ -1194,28 +1201,16 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
         session.last_prompt.clone(),
         "just now".to_string(),
         session.project_name.clone(),
-    );
-
-    let text = build_handover(
-        &session.session_id,
-        session.source,
-        &session.last_prompt,
-        "just now",
-        &session.project_name,
     )?;
 
-    if !quick_grab::put_on_clipboard(&text, path.as_ref().map(std::path::Path::new)) {
+    if !quick_grab::put_on_clipboard(std::path::Path::new(&path)) {
         return None;
     }
     if let Ok(mut last) = LAST_GRAB.lock() {
-        *last = Some((text, path.clone()));
+        *last = Some(path.clone());
     }
 
-    Some(quick_grab::Grabbed {
-        title,
-        source: label_for(session.source).to_string(),
-        as_file: path.is_some(),
-    })
+    Some(quick_grab::Grabbed { title, source: label_for(session.source).to_string() })
 }
 
 /// The assistant's name as a person writes it.
@@ -1266,16 +1261,12 @@ fn grab_and_announce(app: &AppHandle) {
              * retrieval. Saying only one hides the better half.
              */
             /*
-             * "Attach or paste" rather than one of them, because the clipboard
-             * genuinely holds both and which one lands depends on where it goes.
-             * Saying only "paste" is what made an earlier version of this feel
-             * like it had thrown the file away.
+             * "Attach", singular, because that is now the only thing on the
+             * clipboard. It said "attach or paste" while both were on there and
+             * the paste is what actually happened, every time — an application
+             * offered text alongside a file takes the text.
              */
-            .body(if grabbed.as_file {
-                format!("{} — attach it or paste it into any other AI.", grabbed.title)
-            } else {
-                format!("{} — paste it into any other AI.", grabbed.title)
-            })
+            .body(format!("{} — press ⌘V to attach it anywhere.", grabbed.title))
         .show();
 }
 
@@ -1290,7 +1281,7 @@ fn grab_and_announce(app: &AppHandle) {
 fn drop_last(app: &AppHandle) {
     let last = LAST_GRAB.lock().ok().and_then(|t| t.clone());
 
-    let Some((text, path)) = last else {
+    let Some(path) = last else {
         let _ = app
             .notification()
             .builder()
@@ -1300,13 +1291,13 @@ fn drop_last(app: &AppHandle) {
         return;
     };
 
-    // The same pair the grab put there: the file to attach, the text to paste.
-    if quick_grab::put_on_clipboard(&text, path.as_deref().map(std::path::Path::new)) {
+    // The same file the grab put there.
+    if quick_grab::put_on_clipboard(std::path::Path::new(&path)) {
         let _ = app
             .notification()
             .builder()
             .title("Back on your clipboard")
-            .body("Attach it or paste it wherever you are.")
+            .body("Press ⌘V to attach it wherever you are.")
             .show();
     }
 }

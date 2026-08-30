@@ -37,68 +37,43 @@ pub struct Grabbed {
     pub title: String,
     /// Which assistant it came from.
     pub source: String,
-    /// Whether the markdown file is on the clipboard too, ready to attach.
-    pub as_file: bool,
+
 }
 
 /**
- * Put the handover on the clipboard, as a file and as text at the same time.
+ * Put the markdown file on the clipboard, the way Finder does.
  *
- * ── Why both, and why the file first ──────────────────────────────────────
+ * ── Only the file ─────────────────────────────────────────────────────────
  *
- * The markdown file is the artifact. It has been since the beginning: it is
- * what gets attached, what survives being closed, and what goes to an
- * assistant's retrieval instead of into the context window of every following
- * turn. An earlier pass at this put only the text on the clipboard, which
- * quietly turned a file into a paste and lost all of that.
+ * This wrote the file URL and the text together, on the theory that the
+ * destination could pick whichever it understood. It cannot, or rather it
+ * picks wrong: an application offered `public.utf8-plain-text` alongside a
+ * file treats the paste as text and never looks at the file, so attaching in
+ * ChatGPT quietly pasted fifty thousand words into the message box instead.
  *
- * A pasteboard can hold one thing in several representations at once, and the
- * receiving application picks the one it understands. So this writes the file
- * URL and the text together:
+ * One flavour, and it is the file. That is also the thing worth having — it
+ * goes to an assistant's retrieval rather than into the context window of
+ * every following turn, and it survives the window closing.
  *
- *   ChatGPT, Claude, Slack, Mail   take the file — ⌘V attaches sidq.md
- *   a plain text box, an editor    takes the text
- *
- * One gesture, and the destination decides. Nothing to choose in advance and
- * nothing to go to Downloads for.
- *
- * `clearContents` first is required rather than tidy: a pasteboard keeps
- * whatever types were written last, so a string written over an image leaves
- * the image for anything that prefers it.
+ * Written as an NSURL object rather than by setting the `public.file-url`
+ * string on a generic item. NSURL conforms to NSPasteboardWriting and produces
+ * the whole family of flavours an application looks for when deciding whether
+ * something is a file. The bare string is the same thing on paper and is not
+ * what Finder puts there.
  */
-pub fn put_on_clipboard(text: &str, file: Option<&std::path::Path>) -> bool {
-    use objc2_app_kit::{
-        NSPasteboard, NSPasteboardItem, NSPasteboardTypeFileURL, NSPasteboardTypeString,
-    };
+pub fn put_on_clipboard(file: &std::path::Path) -> bool {
     use objc2::runtime::ProtocolObject;
+    use objc2_app_kit::NSPasteboard;
     use objc2_foundation::{NSArray, NSString, NSURL};
 
-    // Safety: the general pasteboard is a process-wide singleton, and an item
-    // is an ordinary object we own until it is written.
-    unsafe {
-        let item = NSPasteboardItem::new();
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&file.to_string_lossy()));
+    let writable = ProtocolObject::from_retained(url);
 
-        if !item.setString_forType(&NSString::from_str(text), NSPasteboardTypeString) {
-            return false;
-        }
-
-        /*
-         * The file is best effort. A grab whose file could not be written is
-         * still worth pasting as text, and failing the whole thing over the
-         * better half of it would be the wrong trade.
-         */
-        if let Some(path) = file {
-            let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
-            if let Some(absolute) = url.absoluteString() {
-                item.setString_forType(&absolute, NSPasteboardTypeFileURL);
-            }
-        }
-
-        let writable = ProtocolObject::from_retained(item);
-        let pb = NSPasteboard::generalPasteboard();
-        pb.clearContents();
-        pb.writeObjects(&NSArray::from_retained_slice(&[writable]))
-    }
+    // The general pasteboard is a process-wide singleton; clearing before
+    // writing is required rather than tidy, or the previous flavours survive.
+    let pb = NSPasteboard::generalPasteboard();
+    pb.clearContents();
+    pb.writeObjects(&NSArray::from_retained_slice(&[writable]))
 }
 
 /**
