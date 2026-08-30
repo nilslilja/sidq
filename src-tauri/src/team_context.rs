@@ -318,6 +318,96 @@ pub fn read_shared(folder: &Path, path: &str) -> Option<String> {
     fs::read_to_string(wanted).ok()
 }
 
+/* ── Finding a team that already exists ──────────────────────────────────── */
+
+/// A folder somebody is already sharing in, and who is in it.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundTeam {
+    /// Full path, to hand straight to `set_team_folder`.
+    pub folder: String,
+    /// Where it is, as a person would say it. "Dropbox", "iCloud Drive".
+    pub inside: String,
+    /// Who is publishing there already.
+    pub members: Vec<String>,
+}
+
+/**
+ * Look for a team folder somebody has already set up.
+ *
+ * ── The friction this removes ─────────────────────────────────────────────
+ *
+ * Setting this up was symmetrical and that was the problem: both people had to
+ * independently find and choose the same folder, having agreed on it somewhere
+ * else first. Two people, four steps, and a way to get it wrong that produces
+ * no error — point at different folders and it simply never works, with both
+ * windows saying everything is fine.
+ *
+ * But the first person's file is already sitting in a folder the second person
+ * can see, because that is the entire point of the folder being shared. So the
+ * second person does not have to be asked anything. Their Sidq finds the file,
+ * says who is in there, and offers one button.
+ *
+ * Deliberately shallow: every sync root and one level inside it. A full walk of
+ * somebody's Dropbox is the kind of thing that takes a minute and reads ten
+ * thousand files to answer a question about one.
+ */
+pub fn discover(roots: &[(String, PathBuf)]) -> Vec<FoundTeam> {
+    let mut found = Vec::new();
+
+    for (label, root) in roots {
+        let mut candidates = vec![root.clone()];
+        if let Ok(entries) = fs::read_dir(root) {
+            candidates.extend(
+                entries
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir())
+                    .take(40),
+            );
+        }
+
+        for dir in candidates {
+            let members = members_in(&dir);
+            if members.is_empty() {
+                continue;
+            }
+            found.push(FoundTeam {
+                folder: dir.to_string_lossy().to_string(),
+                inside: label.clone(),
+                members,
+            });
+        }
+    }
+
+    found.sort_by_key(|t| std::cmp::Reverse(t.members.len()));
+    found.truncate(4);
+    found
+}
+
+/// Everybody publishing into one folder, by the name in their file.
+fn members_in(dir: &Path) -> Vec<String> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+
+    let mut who: Vec<String> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(SUFFIX))
+        })
+        .filter_map(|p| {
+            let text = fs::read_to_string(&p).ok()?;
+            Some(parse(&text, &p).into_iter().next()?.who)
+        })
+        .collect();
+
+    who.sort();
+    who.dedup();
+    who
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -543,6 +633,60 @@ mod tests {
         assert!(shared_handovers(&dir, "Nils").is_empty());
     }
 
+    /*
+     * The second person should not be asked anything. The first person's file
+     * is already in a folder they can see, because that is what shared means.
+     */
+    #[test]
+    fn a_team_somebody_already_set_up_is_found() {
+        let root = scratch("discover");
+        let shared = root.join("Sidq Team");
+        fs::create_dir_all(&shared).unwrap();
+        publish(&shared, "Sam", &["always TypeScript".into()]);
+
+        let found = discover(&[("Dropbox".into(), root.clone())]);
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].members, vec!["Sam".to_string()]);
+        assert_eq!(found[0].inside, "Dropbox");
+        assert!(found[0].folder.ends_with("Sidq Team"));
+    }
+
+    #[test]
+    fn a_team_at_the_top_of_the_drive_is_found_too() {
+        let root = scratch("discover-root");
+        publish(&root, "Sam", &["always TypeScript".into()]);
+
+        assert_eq!(discover(&[("iCloud Drive".into(), root)]).len(), 1);
+    }
+
+    #[test]
+    fn an_empty_drive_offers_nothing_rather_than_a_wrong_guess() {
+        let root = scratch("discover-empty");
+        fs::create_dir_all(root.join("Screenshots")).unwrap();
+        fs::write(root.join("notes.md"), "not ours").unwrap();
+
+        assert!(discover(&[("Dropbox".into(), root)]).is_empty());
+    }
+
+    /*
+     * Sorted by how many people are in it, so the real team wins over a folder
+     * somebody set up once and abandoned.
+     */
+    #[test]
+    fn the_busiest_folder_is_offered_first() {
+        let root = scratch("discover-order");
+        let quiet = root.join("Old");
+        let busy = root.join("Sidq Team");
+        fs::create_dir_all(&quiet).unwrap();
+        fs::create_dir_all(&busy).unwrap();
+        publish(&quiet, "Sam", &["a".into()]);
+        publish(&busy, "Sam", &["a".into()]);
+        publish(&busy, "Jo", &["b".into()]);
+
+        assert_eq!(discover(&[("Dropbox".into(), root)])[0].members.len(), 2);
+    }
+
     #[test]
     fn members_says_who_is_in_the_folder() {
         let dir = scratch("members");
@@ -553,5 +697,64 @@ mod tests {
         who.sort();
 
         assert_eq!(who, vec![("Jo".to_string(), 1), ("Sam".to_string(), 2)]);
+    }
+}
+
+#[cfg(test)]
+mod demonstration {
+    /*
+     * What the folder actually contains, printed.
+     *
+     * Ignored, like the other diagnostics in this project: it exists to answer
+     * "how does it share" by showing the artifacts rather than describing them.
+     *
+     *   cargo test --package sidq demonstration -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn show_me_the_folder() {
+        let dir = std::env::temp_dir().join("sidq-duo-demo");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Two Macs, two people, one synced folder.
+        super::publish(&dir, "Nils", &["no em dashes in anything I post".into()]);
+        super::publish(&dir, "Sam", &["always TypeScript, never JS".into()]);
+        super::share_handover(&dir, "Sam", "Refund policy wording", "…the whole conversation…");
+
+        println!("\n=== the folder, as your Drive syncs it ===");
+        for entry in walk(&dir) {
+            println!("  {}", entry.strip_prefix(&dir).unwrap().display());
+        }
+
+        println!("\n=== nils.sidq-context.md, written by your Mac ===");
+        println!("{}", std::fs::read_to_string(dir.join("nils.sidq-context.md")).unwrap());
+
+        println!("=== what your Mac reads back (everyone but you) ===");
+        for rule in super::read_others(&dir, &super::file_name_for("Nils")) {
+            println!("  {}: {}", rule.who, rule.text);
+        }
+
+        println!("\n=== and what lands in your next handover ===");
+        println!("  HOW THIS TEAM WORKS");
+        for rule in super::read_others(&dir, &super::file_name_for("Nils")) {
+            println!("  - {}: {}", rule.who, rule.text);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                out.push(p.clone());
+                out.extend(walk(&p));
+            } else {
+                out.push(p);
+            }
+        }
+        out.sort();
+        out
     }
 }

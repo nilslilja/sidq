@@ -103,6 +103,8 @@ const bridge: Partial<OnboardingBridge> = {
   teamSettings: vi.fn(async () => NO_TEAM),
   tapKeys: vi.fn(async () => ["right ⌘", "left ⌃"] as [string, string]),
   teamFolderOptions: vi.fn(async () => [] as [string, string][]),
+  teamNearby: vi.fn(async () => []),
+  revealTeamFolder: vi.fn(async () => true),
   teamHandovers: vi.fn(async () => []),
   readTeamHandover: vi.fn(async () => null),
   shareHandover: vi.fn(async () => false),
@@ -148,6 +150,7 @@ beforeEach(() => {
   bridge.teamSettings = vi.fn(async () => NO_TEAM);
   bridge.teamHandovers = vi.fn(async () => []);
   bridge.teamFolderOptions = vi.fn(async () => []);
+  bridge.teamNearby = vi.fn(async () => []);
   vi.clearAllMocks();
   /*
    * `clearAllMocks` clears recorded calls. It does not undo an implementation
@@ -424,7 +427,9 @@ describe("the grab gesture", () => {
   test("the window says how to grab, for anybody who onboarded before it existed", async () => {
     await open("Overview");
 
-    expect(screen.getByText(/grab the conversation you were/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/grab the conversation you were/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("right ⌘")).toBeInTheDocument();
   });
 
@@ -511,6 +516,7 @@ describe("your team", () => {
     bridge.teamFolderOptions = vi.fn(async () => [
       ["iCloud Drive", "/Users/x/iCloud/Sidq Team"] as [string, string],
     ]);
+    bridge.teamNearby = vi.fn(async () => []);
   }
 
   /*
@@ -576,17 +582,6 @@ describe("your team", () => {
     );
   });
 
-  test("an empty folder says what to do, not that something is missing", async () => {
-    withTeam({
-      allowed: true,
-      folder: "/Users/x/iCloud/Sidq Team",
-      sharing: 4,
-    });
-    await open("Your team");
-
-    expect(screen.getByText(/point their Sidq at it/i)).toBeInTheDocument();
-  });
-
   /*
    * Sharing a whole conversation is a different size of decision from
    * publishing a rule file, so it only ever happens because somebody pressed
@@ -622,6 +617,51 @@ describe("your team", () => {
 
     expect(screen.getByText("Refund policy wording")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+  });
+
+  /*
+   * Nobody else yet is the normal first state. What to do next is the only part
+   * that is not obvious, and it is one action rather than a briefing now: share
+   * the folder, and the other Sidq finds it by itself.
+   */
+  test("an empty folder gives one action, not instructions", async () => {
+    withTeam({
+      allowed: true,
+      folder: "/Users/x/iCloud/Sidq Team",
+      sharing: 4,
+    });
+    await open("Your team");
+
+    expect(screen.getByText(/finds it on its own/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Show it in Finder/i }),
+    ).toBeInTheDocument();
+  });
+
+  /*
+   * The whole point of the discovery pass. Setting this up used to be
+   * symmetrical — both people picking the same folder from a list, having
+   * agreed on it somewhere else — with a failure mode that produces no error:
+   * point at different folders and it never works while both windows say
+   * everything is fine. The second person is not asked anything now.
+   */
+  test("a team somebody already set up is offered as one button", async () => {
+    withTeam({ allowed: true, name: "Nils" });
+    bridge.teamNearby = vi.fn(async () => [
+      {
+        folder: "/Users/x/Dropbox/Sidq Team",
+        inside: "Dropbox",
+        members: ["Sam"],
+      },
+    ]);
+
+    await open("Your team");
+
+    expect(screen.getByText("Sam")).toBeInTheDocument();
+    expect(screen.getByText("in Dropbox")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Sam.*Dropbox.*Join/s }),
+    ).toBeEnabled();
   });
 
   test("and teammates are listed with what each of them contributes", async () => {

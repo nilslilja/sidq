@@ -122,6 +122,16 @@ export interface TeamSettings {
   allowed: boolean;
 }
 
+/** A team somebody has already set up, in a folder this Mac can see. */
+export interface FoundTeam {
+  /** Full path, ready to hand straight to setTeamFolder. */
+  folder: string;
+  /** Where it is, as a person would say it. "Dropbox", "iCloud Drive". */
+  inside: string;
+  /** Who is already publishing there. */
+  members: string[];
+}
+
 /** A conversation somebody on the team put in the shared folder. */
 export interface SharedHandover {
   /** Who shared it. */
@@ -247,6 +257,16 @@ export interface OnboardingBridge {
   memoryProfile: () => Promise<[ProfileFact[], string]>;
   /** How this Mac is set up to share standing instructions with a team. */
   teamSettings: () => Promise<TeamSettings>;
+  /**
+   * Teams already set up in a folder this Mac can see.
+   *
+   * The second person to join should not have to be told which folder: the
+   * first person's file is already sitting in one they can see, because that is
+   * what shared means.
+   */
+  teamNearby: () => Promise<FoundTeam[]>;
+  /** Show the team folder in Finder, so it can be shared with somebody. */
+  revealTeamFolder: () => Promise<boolean>;
   /** Folders on this Mac that already sync somewhere, as [label, path]. */
   teamFolderOptions: () => Promise<[string, string][]>;
   /** Point Sidq at a folder, or pass null to stop sharing and withdraw the file. */
@@ -467,6 +487,11 @@ export function desktopBridge(): OnboardingBridge | null {
       const out = (await invoke("team_settings")) as TeamSettings | null;
       return out ?? NO_TEAM;
     },
+    teamNearby: async () => {
+      const out = await invoke("team_nearby");
+      return Array.isArray(out) ? (out as FoundTeam[]) : [];
+    },
+    revealTeamFolder: async () => (await invoke("reveal_team_folder")) === true,
     teamFolderOptions: async () => {
       const out = await invoke("team_folder_options");
       return Array.isArray(out) ? (out as [string, string][]) : [];
@@ -477,7 +502,9 @@ export function desktopBridge(): OnboardingBridge | null {
       (await invoke("set_team_name", { name })) === true,
     tapKeys: async () => {
       const out = await invoke("tap_keys");
-      return Array.isArray(out) ? (out as [string, string]) : ["right ⌘", "left ⌃"];
+      return Array.isArray(out)
+        ? (out as [string, string])
+        : ["right ⌘", "left ⌃"];
     },
     shareHandover: async (args) =>
       (await invoke("share_handover", args)) === true,

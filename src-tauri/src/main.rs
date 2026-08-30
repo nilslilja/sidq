@@ -928,26 +928,21 @@ struct TeamSettings {
  * Documents and then wonder why their co-founder never appears. These are the
  * places that will actually work, detected rather than explained.
  */
-#[tauri::command]
-fn team_folder_options() -> Vec<(String, String)> {
+fn sync_roots() -> Vec<(String, std::path::PathBuf)> {
     let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
         return Vec::new();
     };
 
-    let mut out: Vec<(String, String)> = Vec::new();
+    let mut out: Vec<(String, std::path::PathBuf)> = Vec::new();
     let mut offer = |label: &str, path: std::path::PathBuf| {
         if path.is_dir() {
-            out.push((label.to_string(), path.join("Sidq Team").to_string_lossy().to_string()));
+            out.push((label.to_string(), path));
         }
     };
 
     offer("iCloud Drive", home.join("Library/Mobile Documents/com~apple~CloudDocs"));
     offer("Dropbox", home.join("Dropbox"));
 
-    /*
-     * Google Drive and OneDrive both mount under CloudStorage with the account
-     * name in the directory, so they cannot be named ahead of time.
-     */
     if let Ok(entries) = std::fs::read_dir(home.join("Library/CloudStorage")) {
         for entry in entries.flatten().take(6) {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -957,6 +952,52 @@ fn team_folder_options() -> Vec<(String, String)> {
     }
 
     out
+}
+
+/**
+ * A team somebody has already set up, in a folder this Mac can see.
+ *
+ * The second person to join used to have to be told which folder, find it, and
+ * pick it — the same four steps as the first person, with a way to get it wrong
+ * that produces no error at all. Pointing at different folders simply never
+ * works, and both windows say everything is fine.
+ */
+#[tauri::command]
+async fn team_nearby() -> Vec<team_context::FoundTeam> {
+    tauri::async_runtime::spawn_blocking(|| team_context::discover(&sync_roots()))
+        .await
+        .unwrap_or_default()
+}
+
+/**
+ * Show the team folder in Finder.
+ *
+ * The one step Sidq cannot do for the first person: a folder has to be shared
+ * with somebody, and sharing is macOS's own sheet on the folder itself. Opening
+ * Finder with it selected puts them one right-click from Share.
+ */
+#[tauri::command]
+async fn reveal_team_folder() -> bool {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(dir) = team_folder() else { return false };
+        std::process::Command::new("/usr/bin/open")
+            .arg("-R")
+            .arg(dir)
+            .status()
+            .is_ok()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[tauri::command]
+fn team_folder_options() -> Vec<(String, String)> {
+    sync_roots()
+        .into_iter()
+        .map(|(label, path)| {
+            (label, path.join("Sidq Team").to_string_lossy().to_string())
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -1760,6 +1801,8 @@ fn main() {
             tap_keys,
             team_settings,
             team_folder_options,
+            team_nearby,
+            reveal_team_folder,
             set_team_folder,
             set_team_name,
             share_handover,

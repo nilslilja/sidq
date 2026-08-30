@@ -6,6 +6,7 @@ import {
   type InviteSummary,
   type ProfileFact,
   type SearchHit,
+  type FoundTeam,
   type SharedHandover,
   type TeamSettings,
 } from "@/lib/onboarding/bridge";
@@ -1510,6 +1511,7 @@ function accountName(): string {
 function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [settings, setSettings] = useState<TeamSettings | null>(null);
   const [options, setOptions] = useState<[string, string][]>([]);
+  const [nearby, setNearby] = useState<FoundTeam[]>([]);
   const [shared, setShared] = useState<SharedHandover[]>([]);
   const [typed, setTyped] = useState("");
   const [name, setName] = useState("");
@@ -1529,6 +1531,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   useEffect(() => {
     load();
     void bridge?.teamFolderOptions().then(setOptions);
+    void bridge?.teamNearby().then(setNearby);
   }, [bridge, load]);
 
   const heading = <PanelHead eyebrow="Duo" title="Your team" />;
@@ -1584,24 +1587,67 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   };
 
   if (!settings.folder) {
+    /*
+     * ── Joining is one button, and starting is one button ──────────────────
+     *
+     * This used to be symmetrical: both people picked a folder from a list,
+     * having agreed on which one somewhere else first. Four steps each, and a
+     * way to get it wrong that produces no error — point at different folders
+     * and it simply never works, with both windows saying everything is fine.
+     *
+     * The first person's file is already sitting in a folder the second person
+     * can see, because that is what shared means. So the second person is not
+     * asked anything: their Sidq finds it, says who is in there, and offers to
+     * join. The list of drives is the fallback for the person who is first.
+     */
     return (
       <>
         {heading}
-        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
-          Pick somewhere that syncs. Sidq writes one small file there,{" "}
-          <span className="tabular text-[#16141C]">{settings.file}</span>, and
-          reads the ones your teammates&rsquo; copies write. Nothing is uploaded
-          to us; your drive does the syncing you already trust it with.
-        </p>
 
-        {/*
-         * Named before anything is written, not after.
-         *
-         * Everybody's fallback name is the same, so two people setting this up
-         * without one would publish the same filename into the same folder and
-         * overwrite each other. Asking first costs a field; finding out later
-         * costs somebody their rules.
-         */}
+        {nearby.length > 0 ? (
+          <>
+            <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+              Already set up. Join and your standing instructions travel with
+              theirs, in every handover either of you makes.
+            </p>
+
+            <ul className="mt-5 space-y-2">
+              {nearby.map((team) => (
+                <li key={team.folder}>
+                  <button
+                    onClick={() => choose(team.folder)}
+                    disabled={!name.trim()}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-4 rounded-[12px] px-4 py-3 text-left",
+                      "border border-[#E3DFF1] bg-white transition-colors duration-150",
+                      "cursor-pointer hover:border-[#B8A6FF] disabled:cursor-default disabled:opacity-40",
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[0.9375rem] text-[#16141C]">
+                        {team.members.join(", ")}
+                      </span>
+                      <span className="block truncate text-[0.75rem] text-[#8E8899]">
+                        in {team.inside}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[0.8125rem] font-medium text-[#57516A]">
+                      Join
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#57516A]">
+            Pick somewhere that syncs. Sidq writes one small file there,{" "}
+            <span className="tabular text-[#16141C]">{settings.file}</span>, and
+            reads the ones your teammates write. Then share that folder with
+            them and their Sidq will find it on its own.
+          </p>
+        )}
+
         <label className="mt-5 block text-[0.8125rem]">
           <span className="block text-[#7A7489]">
             What your team sees you called
@@ -1619,7 +1665,11 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           />
         </label>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[#8E8899]">
+          {nearby.length > 0 ? "Or start a new one" : "Start sharing in"}
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
           {options.map(([label, path]) => (
             <button
               key={path}
@@ -1641,7 +1691,10 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) =>
-              e.key === "Enter" && typed.trim() && choose(typed.trim())
+              e.key === "Enter" &&
+              typed.trim() &&
+              name.trim() &&
+              choose(typed.trim())
             }
             placeholder="Or a path of your own, including a git repo"
             spellCheck={false}
@@ -1697,6 +1750,25 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             )}
           />
         </label>
+        {/*
+         * The one step Sidq cannot do: a folder has to be shared with a
+         * person, and sharing is macOS's own sheet on the folder itself.
+         * Opening Finder with it selected puts them one right-click away,
+         * which is the difference between a clear next move and a path they
+         * have to go and find.
+         */}
+        {settings.members.length === 0 && (
+          <button
+            onClick={() => void bridge?.revealTeamFolder()}
+            className={cn(
+              "rounded-lg bg-[#16141C] px-3 py-2 text-[0.8125rem] font-medium text-white",
+              "cursor-pointer transition-opacity duration-150 hover:opacity-90",
+            )}
+          >
+            Show it in Finder to share it
+          </button>
+        )}
+
         <button
           onClick={() => choose(null)}
           className={cn(
@@ -1744,9 +1816,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
        */}
       {settings.members.length === 0 && (
         <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[#7A7489]">
-          Nobody else is in here yet. Share the folder with whoever you work
-          with, and have them point their Sidq at it on the same tab. They will
-          appear the next time either of you makes a handover.
+          Nobody else is in here yet. Share this folder with whoever you work
+          with — their Sidq finds it on its own and offers to join, so there is
+          nothing for them to configure.
         </p>
       )}
 
