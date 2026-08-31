@@ -23,6 +23,7 @@
 import { DownloadButton, usePlatform } from "./DownloadButton";
 import { PoweredByClaude } from "./PoweredByClaude";
 import { WaitlistForPlatform } from "./WaitlistForPlatform";
+import { HeroStats } from "./HeroStats";
 
 export function Hero() {
   const { platform } = usePlatform();
@@ -90,7 +91,7 @@ export function Hero() {
         />
       </svg>
 
-      <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[26vh] pt-32 sm:pb-[22vh] lg:pt-36">
+      <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[8vh] pt-28 sm:pb-[7vh] lg:pt-32">
         {/*
          * `w-full`, and it is load-bearing.
          *
@@ -112,8 +113,21 @@ export function Hero() {
           The models remember everything except&nbsp;you
         </h1>
 
+        {/*
+         * white/85 and a 1.5rem ceiling, both for contrast rather than taste.
+         *
+         * white/60 measured 2.89:1 against the sky here, which fails AA
+         * outright. Raising the ink to 85% is most of the fix, but not all of
+         * it: at the old 22px ceiling the line sat just under the 24px
+         * large-text threshold and still owed the full 4.5:1, and even solid
+         * white only reaches 4.67:1 at that point in the gradient. Taking the
+         * ceiling to 24px puts it in large-text territory, where the bar is
+         * 3:1 and it clears comfortably. At the small end it renders at 17px
+         * higher in the darker sky and measures 5.04:1, which clears 4.5:1
+         * on its own.
+         */}
         <p
-          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.375rem)] leading-snug text-white/60"
+          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white/85"
           style={{ animationDelay: "160ms" }}
         >
           Sidq is the one that remembers. Every conversation you have ever had,
@@ -135,9 +149,19 @@ export function Hero() {
           <DownloadButton size="lg" />
         </div>
 
-        <p className="mt-5 w-full text-center text-[0.8125rem] text-white/55">
+        {/*
+         * Ink, for the same reason the stat band below is ink: this line has
+         * crossed into the warm half of the sky. Measured where it now sits,
+         * white/55 comes to 1.52:1 against rgb(213,171,157), which is not a
+         * faint line, it is an invisible one. It was already failing before
+         * the numbers were added; they only made it obvious by putting legible
+         * text directly underneath it.
+         */}
+        <p className="mt-5 w-full text-center text-[0.8125rem] text-ink/80">
           Free. No card. Mac app, about a minute to set up.
         </p>
+
+
 
         {/* Has to stay on the page the button is on: the button points a phone
             at `#waitlist-email`, and without the form that is a dead link. */}
@@ -146,6 +170,28 @@ export function Hero() {
             <WaitlistForPlatform platform={platform} />
           </div>
         )}
+      </div>
+
+      {/*
+       * The numbers sit at the base of the sky, outside the copy column, and
+       * the placement is a contrast requirement rather than a layout taste.
+       *
+       * Inside the column they floated: their position within the gradient
+       * moved with the viewport, measured anywhere from 60% to 94% down, and
+       * the colour behind them moved with it. No fixed ink value passes AA
+       * across that whole range — 80% ink measured 4.85:1 at 320px and 4.44:1
+       * at 1440px, failing at the wide end. Anchored here they are always in
+       * the last tenth, where the sky has resolved to cream, and the figure is
+       * stable.
+       *
+       * Below the button on purpose too. Somebody who arrived ready to install
+       * should reach the button without reading four statistics first.
+       */}
+      <div
+        className="animate-rise relative mx-auto w-full px-6 pb-[7vh]"
+        style={{ animationDelay: "400ms" }}
+      >
+        <HeroStats />
       </div>
     </section>
   );
