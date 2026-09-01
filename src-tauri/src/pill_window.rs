@@ -246,8 +246,7 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
         let usable = area.size.to_logical::<f64>(scale);
         let screen = monitor.position().to_logical::<f64>(scale);
 
-        let collapsed = size.1 <= COLLAPSED.1;
-        let y = top_edge(screen.y, origin.y, collapsed, notch_height());
+        let y = top_edge(screen.y, origin.y, notch_height());
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
@@ -275,11 +274,25 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
  * bar moved up into the menu bar in the first place. It is worse than being
  * covered by exactly nothing, which is the alternative.
  *
- * Expanded, always below the menu bar. The picker is 380 points tall and
- * belongs over the page, not over the application's own controls.
+ * ── The top edge does not depend on whether it is open ──────────────────────
+ *
+ * It used to. Collapsed returned the screen top and expanded returned the work
+ * area, which on a Mac without a housing are different numbers — so opening the
+ * picker dropped it by the height of the menu bar, every single time, and the
+ * one thing an overlay anchored to the top of the screen must never do is move
+ * when you touch it.
+ *
+ * Now the edge is a property of the screen and nothing else. Collapsed and
+ * expanded hang from the same line, and opening is the card growing downward
+ * from a fixed point rather than a jump followed by a resize. On a machine with
+ * a housing both still clear it, because both take the work area.
+ *
+ * The cost is that the open picker covers the menu bar on a notchless Mac. It
+ * is a transient panel that closes on Escape or a click elsewhere, and being
+ * briefly over the menu bar is a smaller problem than lurching on open.
  */
-fn top_edge(screen_top: f64, work_top: f64, collapsed: bool, notch: f64) -> f64 {
-    if collapsed && notch <= 0.0 {
+fn top_edge(screen_top: f64, work_top: f64, notch: f64) -> f64 {
+    if notch <= 0.0 {
         screen_top
     } else {
         work_top
@@ -746,11 +759,33 @@ mod tests {
     #[test]
     fn the_same_screen_gives_the_same_answer_every_time() {
         for notch in [0.0, NOTCH] {
-            for collapsed in [true, false] {
-                let first = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, collapsed, notch);
-                let again = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, collapsed, notch);
-                assert_eq!(first, again);
-            }
+            let first = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, notch);
+            let again = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, notch);
+            assert_eq!(first, again);
+        }
+    }
+
+    /*
+     * ── Opening it must not move it ──────────────────────────────────────────
+     *
+     * The reported symptom, in the user's words: "I dont want to see it glitch
+     * down from the very top 1 more time."
+     *
+     * Collapsed used to take the screen top and expanded the work area, so on
+     * any Mac without a housing every open dropped the window by the height of
+     * the menu bar. The size changes on expand; the top edge must not. There is
+     * no longer a parameter that could reintroduce this, and this test is what
+     * fails if somebody adds one back.
+     */
+    #[test]
+    fn opening_the_picker_does_not_move_the_top_edge() {
+        for (work_top, notch) in [(WORK_TOP_PLAIN, 0.0), (WORK_TOP_NOTCHED, NOTCH)] {
+            let edge = top_edge(SCREEN_TOP, work_top, notch);
+            assert_eq!(
+                edge,
+                top_edge(SCREEN_TOP, work_top, notch),
+                "the edge is a property of the screen, not of the window's state"
+            );
         }
     }
 
@@ -762,8 +797,8 @@ mod tests {
      */
     #[test]
     fn unmeasured_and_measured_disagree_on_a_notchless_mac() {
-        let unmeasured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, UNMEASURED_NOTCH);
-        let measured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0);
+        let unmeasured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, UNMEASURED_NOTCH);
+        let measured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0);
 
         assert!(
             unmeasured > measured,
@@ -775,7 +810,7 @@ mod tests {
     /// And on a Mac with a housing, the top is never where it goes.
     #[test]
     fn a_housing_always_pushes_the_bar_clear_of_it() {
-        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH);
+        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH);
         assert!(y >= WORK_TOP_NOTCHED - 0.01, "the bar would be behind the camera");
     }
 
@@ -786,45 +821,48 @@ mod tests {
 
     #[test]
     fn the_bar_sits_in_the_menu_bar_when_there_is_no_housing() {
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
     }
 
     #[test]
     fn the_bar_drops_below_the_menu_bar_when_there_is_one() {
         // The whole point: at SCREEN_TOP it would be behind the camera.
         assert_eq!(
-            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH),
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH),
             WORK_TOP_NOTCHED
         );
     }
 
     #[test]
     fn the_bar_clears_the_housing_by_its_full_height() {
-        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, NOTCH);
+        let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH);
         assert!(
             y >= SCREEN_TOP + NOTCH,
             "the bar starts at {y}, inside a {NOTCH} point housing"
         );
     }
 
+    /*
+     * This test used to assert the opposite, and the thing it asserted was the
+     * bug: that the open picker hangs below the menu bar "either way", which on
+     * a notchless Mac is thirty points lower than the closed bar it grew out of.
+     * That difference was the visible drop on every open.
+     *
+     * A housing still pushes it clear, because there the closed bar is already
+     * at the work area and nothing moves.
+     */
     #[test]
-    fn the_picker_hangs_below_the_menu_bar_either_way() {
-        assert_eq!(
-            top_edge(SCREEN_TOP, WORK_TOP_PLAIN, false, 0.0),
-            WORK_TOP_PLAIN
-        );
-        assert_eq!(
-            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, false, NOTCH),
-            WORK_TOP_NOTCHED
-        );
+    fn the_picker_opens_from_the_same_edge_the_bar_sits_on() {
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH), WORK_TOP_NOTCHED);
     }
 
     #[test]
     fn a_second_display_is_placed_against_its_own_top_edge() {
         // A monitor above the built-in one has a negative origin, and the bar
-        // belongs at that screen's top rather than at zero.
-        assert_eq!(top_edge(-1080.0, -1050.0, true, 0.0), -1080.0);
-        assert_eq!(top_edge(-1080.0, -1050.0, false, 0.0), -1050.0);
+        // belongs at that screen's top rather than at zero. Both states, since
+        // the edge no longer depends on which one it is in.
+        assert_eq!(top_edge(-1080.0, -1050.0, 0.0), -1080.0);
     }
 
     #[test]
@@ -832,8 +870,8 @@ mod tests {
         // The old rule was "menu bar 34 points or taller means a notch", and a
         // 30 point band on hardware with no camera housing is four points from
         // tripping it. The inset is what decides now, and it is zero here.
-        assert_eq!(top_edge(SCREEN_TOP, 33.0, true, 0.0), SCREEN_TOP);
-        assert_eq!(top_edge(SCREEN_TOP, 36.0, true, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, 33.0, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, 36.0, 0.0), SCREEN_TOP);
     }
 
     #[test]
@@ -861,7 +899,7 @@ mod tests {
          */
         assert!(UNMEASURED_NOTCH > 0.0, "an unmeasured screen must take the safe branch");
         assert_eq!(
-            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, true, UNMEASURED_NOTCH),
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, UNMEASURED_NOTCH),
             WORK_TOP_NOTCHED,
             "below the menu bar, where nothing can cover it",
         );
@@ -872,7 +910,7 @@ mod tests {
         // The other half of the same rule: a real answer of zero must keep the
         // bar in the menu bar, or the housing check has cost every Mac without
         // one the position it was designed for.
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, true, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
     }
 
     #[test]

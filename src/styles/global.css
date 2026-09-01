@@ -215,6 +215,218 @@
   }
 
   /*
+   * ── Liquid glass, dark side ────────────────────────────────────────────────
+   *
+   * `.glass` above is calibrated against the site's paper canvas and is wrong
+   * here: a white fill with a white rim over a dark desktop is a grey slab. The
+   * overlay hangs over whatever the person happens to be looking at, so it has
+   * to read as a pane of tinted glass over unknown content rather than as a
+   * window with a colour.
+   *
+   * Four layers, each doing one job, which is the difference between this and
+   * `background: #111`:
+   *
+   *   1. a dark base tint, low enough alpha that the desktop shows through
+   *   2. a top-down light gradient, so the pane has a light source
+   *   3. a specular rim along the top edge only, which is what sells glass
+   *   4. two shadows: a tight contact one and a wide soft one for elevation
+   *
+   * `saturate` is doing more work than the blur. Backdrop blur alone greys out
+   * whatever is behind it; pushing saturation back up is what keeps the colour
+   * of the wallpaper alive through the pane, and it is the single cheapest
+   * thing that makes this look native rather than like a CSS card.
+   */
+  .pane-glass {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.07) 0%,
+        rgba(255, 255, 255, 0.02) 34%,
+        rgba(255, 255, 255, 0) 100%
+      ),
+      rgba(14, 14, 19, 0.72);
+    backdrop-filter: blur(44px) saturate(185%);
+    -webkit-backdrop-filter: blur(44px) saturate(185%);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.13) inset,
+      0 0 0 0.5px rgba(0, 0, 0, 0.5),
+      0 2px 10px -2px rgba(0, 0, 0, 0.45),
+      0 32px 72px -24px rgba(0, 0, 0, 0.75);
+  }
+
+  /*
+   * The closed bar, sitting inside the menu bar.
+   *
+   * Same material, thinner. It must not read as a card resting on the menu bar
+   * or the seam shows, so the elevation shadow is gone entirely and only the
+   * rim and a hairline of contact remain. The blur is lower because there are
+   * twenty-four points of it and a heavy blur at that height costs a repaint of
+   * the whole strip for something nobody can perceive.
+   */
+  .lip-glass {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.09) 0%,
+        rgba(255, 255, 255, 0.015) 100%
+      ),
+      rgba(10, 10, 14, 0.55);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.11) inset,
+      0 1px 3px -1px rgba(0, 0, 0, 0.5);
+    transition:
+      background 180ms cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 180ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .lip-glass:hover {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 255, 255, 0.04) 100%
+      ),
+      rgba(16, 16, 22, 0.68);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.18) inset,
+      0 2px 8px -2px rgba(0, 0, 0, 0.6);
+  }
+
+  /*
+   * A row under the cursor or the selection.
+   *
+   * Inset rather than full-bleed, with its own radius, because a selection that
+   * runs edge to edge is a table row and a selection that floats inside the
+   * padding is a control. The rim is what stops it looking like a flat grey
+   * highlight — same trick as the pane, one step quieter.
+   *
+   * The transition is Apple's own easing curve rather than `ease`: it leaves
+   * immediately and settles slowly, which is why hover states on macOS feel
+   * attached to the cursor instead of chasing it.
+   */
+  .row-glass {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.09) inset;
+  }
+
+  /*
+   * The selected row carries the accent, but as light through glass rather than
+   * as a fill: a tinted gradient plus a coloured rim. A solid accent block at
+   * this size reads as a button somebody is about to press by accident.
+   */
+  .row-glass-on {
+    background: linear-gradient(
+      180deg,
+      rgba(184, 166, 255, 0.22) 0%,
+      rgba(184, 166, 255, 0.1) 100%
+    );
+    box-shadow:
+      0 0 0 0.5px rgba(184, 166, 255, 0.34) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+      0 4px 14px -6px rgba(184, 166, 255, 0.4);
+  }
+
+  /*
+   * Small controls: the source filter, the keycaps, the close affordance.
+   * One material, two states, so nothing in the chrome invents its own look.
+   */
+  .chip-glass {
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    transition: background 140ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .chip-glass:hover {
+    background: rgba(255, 255, 255, 0.13);
+  }
+
+  .chip-glass-on {
+    background: linear-gradient(
+      180deg,
+      rgba(184, 166, 255, 0.26) 0%,
+      rgba(184, 166, 255, 0.15) 100%
+    );
+    box-shadow:
+      0 0 0 0.5px rgba(184, 166, 255, 0.4) inset,
+      0 2px 8px -4px rgba(184, 166, 255, 0.5);
+  }
+
+  /*
+   * The menu that drops out of the source filter. Heavier blur than the pane
+   * behind it, because it is in front of it and a popover that shares its
+   * parent's material looks pasted on rather than layered above.
+   */
+  .popover-glass {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.02) 100%
+      ),
+      rgba(20, 20, 26, 0.86);
+    backdrop-filter: blur(52px) saturate(190%);
+    -webkit-backdrop-filter: blur(52px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+      0 18px 44px -14px rgba(0, 0, 0, 0.85);
+  }
+
+  /*
+   * The pane arriving.
+   *
+   * Rust resizes the window instantly, so without this the picker is simply
+   * there between one frame and the next — which is the single thing that made
+   * it read as a prototype rather than as part of the system. The window still
+   * snaps; the contents settle into it, and that is enough to sell the open as
+   * deliberate.
+   *
+   * Origin at the top, because the pane grows down out of the bar. Scaling from
+   * the centre would have it expand upward through the menu bar it is hanging
+   * from. `transform` and `opacity` only, so it stays on the compositor.
+   */
+  @keyframes sidq-pane-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scaleY(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scaleY(1);
+    }
+  }
+
+  .animate-pane {
+    transform-origin: top center;
+    animation: sidq-pane-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  /*
+   * The rows arrive just behind the pane, as one group rather than staggered.
+   * A stagger at four to eight rows reads as a loading spinner: it implies the
+   * list is still arriving when it is already complete.
+   */
+  .animate-pane-body {
+    animation: sidq-pane-in 260ms cubic-bezier(0.32, 0.72, 0, 1) 40ms both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pane,
+    .animate-pane-body {
+      animation: none;
+    }
+  }
+
+  /*
    * The soft CTA.
    *
    * Four layers doing four jobs, which is what separates this from a coloured

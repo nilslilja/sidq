@@ -128,7 +128,7 @@ describe('the pill, across the two states', () => {
 
     await resizeTo(EXPANDED_WIDTH);
 
-    expect(screen.getByPlaceholderText(/pick up where you stopped/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/filter conversations/i)).toBeInTheDocument();
     expect(screen.getByText('Pricing page copy')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /pick up a conversation/i }),
@@ -142,7 +142,7 @@ describe('the pill, across the two states', () => {
     await resizeTo(EXPANDED_WIDTH);
     await resizeTo(COLLAPSED_WIDTH);
 
-    expect(screen.queryByPlaceholderText(/pick up where you stopped/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/filter conversations/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /pick up a conversation/i })).toBeInTheDocument();
   });
 
@@ -213,14 +213,14 @@ describe('the source filter', () => {
     expect(screen.getByRole('button', { name: /chatgpt/i })).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.keyDown(screen.getByPlaceholderText(/pick up where you stopped/i), {
+      fireEvent.keyDown(screen.getByLabelText(/filter conversations/i), {
         key: 'Escape',
       });
     });
 
     expect(screen.queryByRole('button', { name: /chatgpt/i })).not.toBeInTheDocument();
     expect(bridge.hidePill).not.toHaveBeenCalled();
-    expect(screen.getByPlaceholderText(/pick up where you stopped/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/filter conversations/i)).toBeInTheDocument();
   });
 });
 

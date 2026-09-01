@@ -507,11 +507,11 @@ export function Pill() {
              * middle belongs to nobody, so this covers nothing.
              *
              * Which means it has to read as part of that strip rather than as a
-             * card resting on it: no shadow, no ring, and a background close
-             * enough to the menu bar's own that the seam disappears.
+             * card resting on it: no elevation shadow and no ring, only the rim
+             * and a hairline of contact, so the seam with the menu bar
+             * disappears. `.lip-glass` carries all of that — see global.css.
              */
-            'rounded-b-[9px] bg-black/25 backdrop-blur-md',
-            'transition-colors duration-150 hover:bg-black/45',
+            'rounded-b-[11px] lip-glass',
             'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
           )}
         >
@@ -581,14 +581,39 @@ export function Pill() {
           // the menu bar, rounded where it ends. A card that rounded all four
           // corners would detach from the top of the screen and become an
           // ordinary floating panel the moment it opened.
-          'w-full overflow-hidden rounded-b-[18px]',
-          'border-x border-b border-white/[0.08]',
-          'bg-[#0C0C10]/96 backdrop-blur-xl',
-          'shadow-[0_24px_64px_-24px_rgba(0,0,0,0.8)]',
+          //
+          // The radius is larger than the lip's on purpose. A closed bar is a
+          // control and wants tight corners; an open pane is a surface and
+          // wants soft ones, and matching them exactly made the open state look
+          // like a stretched button.
+          'w-full overflow-hidden rounded-b-[22px]',
+          // Border and shadow both live in `.pane-glass`, which also supplies
+          // the specular rim and the saturation pass. Setting a border here too
+          // would double the rim and read as a seam.
+          'pane-glass animate-pane border-t-0',
         )}
       >
-        {/* ── Query ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-4 py-3" data-tauri-drag-region>
+        {/* ── Header ────────────────────────────────────────────────────── */}
+        {/*
+          * There is no search box any more, and typing still filters.
+          *
+          * The box was the largest thing in the window and it earned none of
+          * that: this list is at most fifty recent conversations, filtering it
+          * is two or three characters, and an empty text field sitting across
+          * the top made a picker look like a search engine. Real search over
+          * everything ever said lives in the main window, which is what
+          * "Open Sidq" at the bottom is for.
+          *
+          * The input is still here, just not drawn. It keeps focus, so every
+          * keystroke filters exactly as before and no behaviour is lost — the
+          * header simply shows what was typed instead of a field to type into.
+          * `sr-only` rather than `hidden`, because a hidden input cannot hold
+          * focus and the keyboard would go nowhere.
+          */}
+        <div
+          className="flex items-center gap-3 px-4 pb-2.5 pt-3"
+          data-tauri-drag-region
+        >
           <input
             ref={inputRef}
             value={query}
@@ -596,13 +621,35 @@ export function Pill() {
               setQuery(e.target.value);
               setIndex(0);
             }}
-            placeholder="Pick up where you stopped"
             spellCheck={false}
-            className={cn(
-              'min-w-0 flex-1 bg-transparent text-[0.9375rem] text-white',
-              'placeholder:text-white/30 focus:outline-none',
-            )}
+            aria-label="Filter conversations"
+            className="sr-only"
           />
+
+          <div className="min-w-0 flex-1">
+            <p
+              className={cn(
+                'truncate text-[0.9375rem] leading-tight',
+                query ? 'text-white' : 'font-medium text-white/90',
+              )}
+            >
+              {/*
+                * A caret after the typed text, because with no field there is
+                * otherwise nothing on screen saying the window is listening.
+                */}
+              {query || 'Pick up where you stopped'}
+              {query && (
+                <span
+                  aria-hidden="true"
+                  className="ml-px inline-block h-[0.95em] w-px translate-y-[0.14em] bg-[#B8A6FF]"
+                />
+              )}
+            </p>
+            <p className="mt-1 truncate text-[0.6875rem] leading-none text-white/35">
+              {statusLine(visible.length, inSource.length, query, source)}
+              {!query && inSource.length > 0 && ' · type to filter'}
+            </p>
+          </div>
           {/*
             * The source filter.
             *
@@ -621,11 +668,11 @@ export function Pill() {
               <button
                 onClick={() => setPicking((open) => !open)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2 py-1',
-                  'text-[0.75rem] transition-colors duration-100',
+                  'flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1',
+                  'text-[0.75rem]',
                   source === ANY_SOURCE
-                    ? 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
-                    : 'bg-[#B8A6FF]/15 text-[#B8A6FF]',
+                    ? 'chip-glass text-white/55 hover:text-white/85'
+                    : 'chip-glass-on text-[#D8CCFF]',
                 )}
               >
                 {source === ANY_SOURCE ? 'All AIs' : sourceLabel(source, true)}
@@ -637,9 +684,8 @@ export function Pill() {
               {picking && (
                 <div
                   className={cn(
-                    'absolute right-0 top-[calc(100%+6px)] z-20 min-w-[11rem] overflow-hidden',
-                    'rounded-[10px] border border-white/[0.09] bg-[#141419] py-1',
-                    'shadow-[0_16px_40px_-12px_rgba(0,0,0,0.9)]',
+                    'absolute right-0 top-[calc(100%+8px)] z-20 min-w-[11.5rem] overflow-hidden',
+                    'popover-glass rounded-[14px] p-1',
                   )}
                 >
                   <SourceRow
@@ -672,9 +718,6 @@ export function Pill() {
             </div>
           )}
 
-          <span className="shrink-0 text-[0.6875rem] tabular-nums text-white/30">
-            {statusLine(visible.length, inSource.length, query, source)}
-          </span>
         </div>
 
         {/*
@@ -686,11 +729,11 @@ export function Pill() {
          * something, so it gets the whole card and long enough to read.
          */}
         {phase.kind === 'saved' && (
-          <div className="border-t border-white/[0.07] px-4 py-5">
+          <div className="border-t border-white/[0.06] px-4 py-5">
             <div className="flex items-start gap-3">
               <span
                 aria-hidden="true"
-                className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[#B8A6FF]/20 text-[0.75rem] text-[#B8A6FF]"
+                className="chip-glass-on mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[0.75rem] text-[#D8CCFF]"
               >
                 ✓
               </span>
@@ -711,7 +754,7 @@ export function Pill() {
         )}
 
         {phase.kind === 'limited' && (
-          <div className="border-t border-white/[0.07] px-4 py-5">
+          <div className="border-t border-white/[0.06] px-4 py-5">
             <p className="text-[0.9375rem] font-medium text-white">
               That is {phase.cap} handovers this week
             </p>
@@ -732,9 +775,11 @@ export function Pill() {
                 void bridge?.hidePill();
               }}
               className={cn(
-                'mt-3 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-                'bg-[#B8A6FF] text-[#141319] transition-opacity duration-150',
-                'cursor-pointer hover:opacity-90',
+                'mt-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium',
+                'bg-gradient-to-b from-[#C9BBFF] to-[#A794FF] text-[#141319]',
+                'shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]',
+                'cursor-pointer transition-[box-shadow,transform] duration-150',
+                'hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]',
               )}
             >
               See the plans
@@ -742,13 +787,18 @@ export function Pill() {
           </div>
         )}
 
-        {phase.kind !== 'saved' && phase.kind !== 'limited' && visible.length > 0 && (
-          <div className="h-px bg-white/[0.07]" />
-        )}
-
         {/* ── Results ───────────────────────────────────────────────────── */}
+        {/*
+          * Rows float inside the padding rather than running edge to edge.
+          *
+          * A full-bleed highlight is a table row: it says the list is the
+          * surface and each line is a record in it. An inset one with its own
+          * radius is a control, which is what these are — every one of them is
+          * a button that writes a file. The separator line above the list went
+          * with it, because once rows are inset there is nothing to separate.
+          */}
         {phase.kind !== 'saved' && phase.kind !== 'limited' && (
-        <ul className="max-h-[17rem] overflow-y-auto">
+        <ul className="max-h-[17rem] space-y-0.5 overflow-y-auto px-2 pb-2">
           {visible.map((row, i) => (
             <li key={row.session.sessionId}>
               <button
@@ -758,22 +808,30 @@ export function Pill() {
                 }}
                 onMouseEnter={() => setIndex(i)}
                 className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-100',
-                  i === selected ? 'bg-white/[0.07]' : 'hover:bg-white/[0.04]',
+                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left',
+                  'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                  i === selected ? 'row-glass-on' : 'hover:row-glass',
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'size-1.5 shrink-0 rounded-full',
-                    i === selected ? 'bg-[#B8A6FF]' : 'bg-white/20',
+                    'size-1.5 shrink-0 rounded-full transition-colors duration-150',
+                    i === selected
+                      ? 'bg-[#B8A6FF] shadow-[0_0_8px_rgba(184,166,255,0.8)]'
+                      : 'bg-white/20',
                   )}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.875rem] text-white/90">
+                  <span
+                    className={cn(
+                      'block truncate text-[0.875rem] leading-tight transition-colors duration-150',
+                      i === selected ? 'text-white' : 'text-white/85',
+                    )}
+                  >
                     {row.session.title || row.session.lastPrompt}
                   </span>
-                  <span className="block truncate text-[0.75rem] text-white/35">
+                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
                     {row.reason}
                     {row.session.projectName && ` · ${row.session.projectName}`}
                   </span>
@@ -785,7 +843,7 @@ export function Pill() {
         )}
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 border-t border-white/[0.07] px-4 py-2">
+        <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2.5">
           {/*
             * Status and the way out share the left, in one group.
             *
@@ -828,7 +886,7 @@ export function Pill() {
             <button
               onClick={dismiss}
               aria-label="Close"
-              className="cursor-pointer rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 text-white/40 transition-colors duration-100 hover:bg-white/[0.14] hover:text-white/80"
+              className="chip-glass cursor-pointer rounded-[6px] px-1.5 py-0.5 text-white/45 hover:text-white/85"
             >
               esc
             </button>
@@ -860,9 +918,9 @@ function SourceRow({
     <button
       onClick={onPick}
       className={cn(
-        'flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left',
-        'text-[0.8125rem] transition-colors duration-100',
-        on ? 'text-[#B8A6FF]' : 'text-white/70 hover:bg-white/[0.06] hover:text-white',
+        'flex w-full cursor-pointer items-center justify-between gap-4 rounded-[10px] px-2.5 py-1.5 text-left',
+        'text-[0.8125rem] transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
+        on ? 'row-glass-on text-[#D8CCFF]' : 'text-white/70 hover:row-glass hover:text-white',
       )}
     >
       <span className="min-w-0 truncate">{label}</span>
@@ -873,6 +931,6 @@ function SourceRow({
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 text-white/40">{children}</span>
+    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">{children}</span>
   );
 }
