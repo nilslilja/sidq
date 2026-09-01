@@ -36,6 +36,20 @@ export const SOURCES: readonly Source[] = [
 ];
 
 /**
+ * Every product named in the list above, flattened.
+ *
+ * `Cursor, Windsurf, VS Code` is one reader and three products people go
+ * looking for, so a count of `SOURCES` says eight and undersells it by two.
+ * This is what the site counts and what the site names, from the same array
+ * the app filters by — so the number on the marketing page cannot drift from
+ * what actually ships, which is the only way a claim like that stays true
+ * without somebody remembering to check it.
+ */
+export const SUPPORTED: readonly string[] = SOURCES.flatMap((s) =>
+  s.label.split(',').map((name) => name.trim()),
+);
+
+/**
  * Short enough to sit in a 560 point picker.
  *
  * `Cursor, Windsurf, VS Code` is honest on a settings panel with room to

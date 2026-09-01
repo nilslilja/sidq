@@ -12,8 +12,8 @@
  *   is it going to be slow     fifty two milliseconds
  *   where does my stuff go     nowhere
  *
- * Every figure is checkable against the program. The count is the assistants
- * in `assistants.rs` plus the transcript readers. The token figure is
+ * Every figure is checkable against the program. The count is derived from
+ * `SUPPORTED` in sources.ts, which is the same array the picker filters by. The token figure is
  * MAX_CHARS in `compiler.rs`, 600,000 characters, converted at four characters
  * to the token. The 52ms is `recent_sessions()` on real transcripts, down from
  * 1,599ms before the digest cache. The zero is the handover path, which makes
@@ -48,8 +48,13 @@
  * ten" instead of two unrelated fragments.
  */
 
+import { SUPPORTED } from "@/lib/companion/sources";
+
 const STATS: ReadonlyArray<{ figure: string; label: string }> = [
-  { figure: "10", label: "assistants it reads" },
+  // Counted from the list the app itself filters by, never typed by hand. A
+  // hand-typed 10 here is a claim that goes stale the first time a reader is
+  // added or dropped and nobody remembers this file exists.
+  { figure: String(SUPPORTED.length), label: "assistants it reads" },
   { figure: "150,000", label: "tokens per handover" },
   { figure: "52ms", label: "to list every conversation" },
   { figure: "0", label: "bytes of conversation uploaded" },

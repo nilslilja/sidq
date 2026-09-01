@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { Hero } from "@/components/landing/Hero";
+import { WorksWith } from "@/components/landing/WorksWith";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
@@ -67,6 +68,14 @@ export function Landing() {
       </header>
 
       <Hero />
+
+      {/*
+       * The names, directly under the number that counts them. Anyone who read
+       * "10 assistants" in the hero and wondered whether theirs is one of them
+       * gets the answer in the next screenful rather than having to install to
+       * find out.
+       */}
+      <WorksWith />
 
       {/*
        * Pricing and the questions are on the page again.
