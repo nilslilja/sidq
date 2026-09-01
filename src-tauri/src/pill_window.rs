@@ -47,7 +47,29 @@ use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
  * right, and the middle is empty on every Mac without a notch. Nothing else
  * claims it, so nothing is covered.
  */
-const COLLAPSED: (f64, f64) = (152.0, 24.0);
+const COLLAPSED: (f64, f64) = (208.0, 56.0);
+
+/**
+ * How far the floating bar hangs below the top of the screen.
+ *
+ * Roughly a centimetre at 72 points to the inch. The bar used to sit inside the
+ * menu bar, flush against the very top, which made it part of the system chrome
+ * — and something that is part of the chrome is something you stop seeing. Held
+ * clear of every edge it reads as the app's own object sitting above the
+ * desktop, which is the whole point of it.
+ */
+const FLOAT_GAP: f64 = 28.0;
+
+/**
+ * The bar inside that window, in points.
+ *
+ * The window is deliberately larger than the thing it draws. A glow and a
+ * shadow are painted outside the pill's own box and are clipped at the window
+ * edge, so a window sized to the pill would cut both off square — which looks
+ * exactly like a bug and is the reason the old flush bar had no elevation at
+ * all. The margin is where the light goes.
+ */
+const BAR: (f64, f64) = (152.0, 28.0);
 
 /**
  * Whether the screen the bar is on has a camera housing over the menu bar.
@@ -293,9 +315,20 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
  */
 fn top_edge(screen_top: f64, work_top: f64, notch: f64) -> f64 {
     if notch <= 0.0 {
-        screen_top
+        screen_top + FLOAT_GAP
     } else {
-        work_top
+        /*
+         * A centimetre from the top of a 14 inch MacBook is still inside the
+         * camera housing, and half a bar behind a black cutout is worse than
+         * any inconsistency in where it sits. So the gap is a minimum rather
+         * than a position: whichever is lower, a centimetre or just under the
+         * housing, wins.
+         *
+         * In practice the two land within ten points of each other, so the bar
+         * looks like it is in the same place on both machines without ever
+         * being behind anything on either.
+         */
+        (screen_top + FLOAT_GAP).max(work_top)
     }
 }
 
@@ -801,10 +834,14 @@ mod tests {
         let measured = top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0);
 
         assert!(
-            unmeasured > measured,
-            "the cautious branch must sit lower, or it is not cautious"
+            unmeasured >= measured,
+            "the cautious branch must never sit higher, or it is not cautious"
         );
-        assert_eq!(measured, SCREEN_TOP, "measured and notchless means the very top");
+        assert_eq!(
+            measured,
+            SCREEN_TOP + FLOAT_GAP,
+            "measured and notchless means a gap below the top"
+        );
     }
 
     /// And on a Mac with a housing, the top is never where it goes.
@@ -820,8 +857,12 @@ mod tests {
     const NOTCH: f64 = 32.0;
 
     #[test]
-    fn the_bar_sits_in_the_menu_bar_when_there_is_no_housing() {
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
+    fn the_bar_hangs_a_gap_below_the_top_when_there_is_no_housing() {
+        // It sat at SCREEN_TOP, inside the menu bar. It floats now.
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0),
+            SCREEN_TOP + FLOAT_GAP
+        );
     }
 
     #[test]
@@ -853,8 +894,15 @@ mod tests {
      */
     #[test]
     fn the_picker_opens_from_the_same_edge_the_bar_sits_on() {
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH), WORK_TOP_NOTCHED);
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0),
+            SCREEN_TOP + FLOAT_GAP
+        );
+        // On a housing the gap is a floor, so whichever is lower wins.
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH),
+            (SCREEN_TOP + FLOAT_GAP).max(WORK_TOP_NOTCHED)
+        );
     }
 
     #[test]
@@ -862,7 +910,7 @@ mod tests {
         // A monitor above the built-in one has a negative origin, and the bar
         // belongs at that screen's top rather than at zero. Both states, since
         // the edge no longer depends on which one it is in.
-        assert_eq!(top_edge(-1080.0, -1050.0, 0.0), -1080.0);
+        assert_eq!(top_edge(-1080.0, -1050.0, 0.0), -1080.0 + FLOAT_GAP);
     }
 
     #[test]
@@ -870,8 +918,8 @@ mod tests {
         // The old rule was "menu bar 34 points or taller means a notch", and a
         // 30 point band on hardware with no camera housing is four points from
         // tripping it. The inset is what decides now, and it is zero here.
-        assert_eq!(top_edge(SCREEN_TOP, 33.0, 0.0), SCREEN_TOP);
-        assert_eq!(top_edge(SCREEN_TOP, 36.0, 0.0), SCREEN_TOP);
+        assert_eq!(top_edge(SCREEN_TOP, 33.0, 0.0), SCREEN_TOP + FLOAT_GAP);
+        assert_eq!(top_edge(SCREEN_TOP, 36.0, 0.0), SCREEN_TOP + FLOAT_GAP);
     }
 
     #[test]
@@ -900,17 +948,20 @@ mod tests {
         assert!(UNMEASURED_NOTCH > 0.0, "an unmeasured screen must take the safe branch");
         assert_eq!(
             top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, UNMEASURED_NOTCH),
-            WORK_TOP_NOTCHED,
-            "below the menu bar, where nothing can cover it",
+            (SCREEN_TOP + FLOAT_GAP).max(WORK_TOP_NOTCHED),
+            "clear of the menu bar, where nothing can cover it",
         );
     }
 
     #[test]
     fn zero_still_means_a_measured_screen_with_no_housing() {
-        // The other half of the same rule: a real answer of zero must keep the
-        // bar in the menu bar, or the housing check has cost every Mac without
+        // The other half of the same rule: a real answer of zero must give the
+        // bar the plain float, or the housing check has cost every Mac without
         // one the position it was designed for.
-        assert_eq!(top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0), SCREEN_TOP);
+        assert_eq!(
+            top_edge(SCREEN_TOP, WORK_TOP_PLAIN, 0.0),
+            SCREEN_TOP + FLOAT_GAP
+        );
     }
 
     #[test]
@@ -983,18 +1034,26 @@ mod tests {
     }
 
     #[test]
-    fn the_bar_fits_inside_a_menu_bar() {
+    fn the_bar_floats_clear_of_every_edge() {
         /*
-         * It was 36 points tall and hung below the menu bar, which is where a
-         * browser draws its tabs. It covered three of them, dead centre, in
-         * every window. Anything living in that row covers whatever is in
-         * front; the menu bar's middle belongs to nobody.
+         * This used to assert the opposite: that the window fitted inside a 24
+         * point menu bar, because the bar lived in it. It does not any more. It
+         * hangs a centimetre down, touching nothing, which is the difference
+         * between system chrome and the app's own object.
+         *
+         * What has to hold now is that the window leaves room around the bar it
+         * draws. The glow and the shadow are painted outside the pill's box and
+         * clipped at the window edge, so without margin on every side they cut
+         * off square.
          */
-        let ordinary_menu_bar = 24.0;
+        assert!(BAR.0 < COLLAPSED.0, "no room for the glow at the sides");
+        assert!(BAR.1 < COLLAPSED.1, "no room for the glow above and below");
         assert!(
-            COLLAPSED.1 <= ordinary_menu_bar,
-            "must not overhang the menu bar"
+            (COLLAPSED.1 - BAR.1) / 2.0 >= 12.0,
+            "a shadow needs more than a few points to fall into"
         );
+        // And it is genuinely off the top rather than nearly touching it.
+        assert!(FLOAT_GAP >= 20.0, "that is not floating, that is a margin");
     }
 
     #[test]

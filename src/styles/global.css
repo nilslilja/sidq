@@ -400,6 +400,90 @@
   }
 
   /*
+   * ── The floating bar ───────────────────────────────────────────────────────
+   *
+   * A pill hanging a centimetre under the top of the screen, touching nothing.
+   *
+   * Flush against the top it was system chrome, and chrome is the category of
+   * thing people stop seeing after a week. Held clear of every edge it reads as
+   * the app's own object resting above the desktop, and it gets to have a
+   * shadow — which the flush version could not, because a shadow with no gap
+   * under it is just a dark line.
+   */
+  .bar-float {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.02) 100%
+      ),
+      rgba(12, 12, 17, 0.66);
+    backdrop-filter: blur(26px) saturate(180%);
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
+      0 0 0 0.5px rgba(0, 0, 0, 0.55),
+      /* The glow. Wide, low alpha, the accent rather than white — this is the
+         only thing on screen that says the app is alive while nothing is
+         happening, so it has to be visible without ever being a light source. */
+      0 0 20px -4px rgba(184, 166, 255, 0.28),
+      0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    transition:
+      background 200ms cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .bar-float:hover {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.16) 0%,
+        rgba(255, 255, 255, 0.05) 100%
+      ),
+      rgba(18, 18, 25, 0.78);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
+      0 0 0 0.5px rgba(0, 0, 0, 0.55),
+      0 0 30px -2px rgba(184, 166, 255, 0.45),
+      0 10px 30px -8px rgba(0, 0, 0, 0.7);
+  }
+
+  /*
+   * Breathing, and it has to be almost invisible.
+   *
+   * Something that moves in the corner of your eye all day is a fault, not a
+   * flourish — the test is whether you notice it while looking at something
+   * else, and the answer must be no. Two points of travel over nine seconds is
+   * under the threshold for peripheral motion detection while still reading as
+   * alive when you look straight at it.
+   *
+   * `transform` only, so the compositor owns it and it costs nothing. Paired
+   * with a glow that swells on the same clock, because a thing that moves
+   * without changing brightness reads as sliding rather than breathing.
+   */
+  @keyframes sidq-breathe {
+    0%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.94;
+    }
+    50% {
+      transform: translateY(2px);
+      opacity: 1;
+    }
+  }
+
+  .bar-breathe {
+    animation: sidq-breathe 9s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar-breathe {
+      animation: none;
+    }
+  }
+
+  /*
    * The pane arriving.
    *
    * Rust resizes the window instantly, so without this the picker is simply

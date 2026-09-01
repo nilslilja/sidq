@@ -504,7 +504,17 @@ export function Pill() {
           onClick={() => void bridge?.expandPill()}
           aria-label="Open Sidq and pick up a conversation"
           className={cn(
-            'group flex h-full w-full items-center justify-center gap-2 px-3',
+            /*
+             * A pill inside the window rather than the window itself.
+             *
+             * Rust gives this a canvas larger than the bar on every side, and
+             * the margin is not wasted: the glow and the shadow are painted
+             * outside this element's box and would be clipped square at the
+             * window edge without it. Fixed height rather than `h-full` for the
+             * same reason — filling the window would put the pill back against
+             * the edges the whole change was about getting away from.
+             */
+            'group flex h-7 w-[152px] items-center justify-center gap-2 px-3',
             /*
              * Rounded at the bottom only, and no top border.
              *
@@ -518,7 +528,10 @@ export function Pill() {
              * and a hairline of contact, so the seam with the menu bar
              * disappears. `.lip-glass` carries all of that — see global.css.
              */
-            'rounded-b-[11px] lip-glass',
+            // Fully round, because it no longer meets an edge to be squared
+            // against. A bottom-only radius on a floating object reads as a
+            // piece that has broken off something.
+            'rounded-full bar-float bar-breathe',
             'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
           )}
         >
@@ -608,20 +621,22 @@ export function Pill() {
     >
       <div
         className={cn(
-          // Same silhouette as the lip it grew out of: squared where it meets
-          // the menu bar, rounded where it ends. A card that rounded all four
-          // corners would detach from the top of the screen and become an
-          // ordinary floating panel the moment it opened.
+          // Round on every corner, because it no longer meets an edge.
           //
-          // The radius is larger than the lip's on purpose. A closed bar is a
-          // control and wants tight corners; an open pane is a surface and
-          // wants soft ones, and matching them exactly made the open state look
-          // like a stretched button.
-          'w-full overflow-hidden rounded-b-[22px]',
+          // Squared at the top was right when it grew out of a bar wedged into
+          // the menu bar: a fully rounded card would have detached from the
+          // screen edge and looked wrong. The bar floats now, so the squared
+          // top is the thing that looks wrong — a panel with one flat side
+          // reads as a piece that has broken off something larger.
+          //
+          // Inset from the window for the same reason as the closed bar: the
+          // shadow is painted outside this box and clips square without margin
+          // to fall into.
+          'mx-2 mt-1 w-[calc(100%-1rem)] overflow-hidden rounded-[22px]',
           // Border and shadow both live in `.pane-glass`, which also supplies
           // the specular rim and the saturation pass. Setting a border here too
           // would double the rim and read as a seam.
-          'pane-glass animate-pane border-t-0',
+          'pane-glass animate-pane',
         )}
       >
         {/* ── Header ────────────────────────────────────────────────────── */}
