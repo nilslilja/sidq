@@ -101,6 +101,24 @@
   --ring: 245 75% 59%;
 }
 
+/*
+ * The frame in which the palette changes.
+ *
+ * See the effect in Home.tsx that sets this. A transition whose value comes
+ * from a custom property does not reliably restart when that property changes
+ * on an ancestor, which left themed text and backgrounds stuck at the previous
+ * palette — measured at 1.09:1 and 1.76:1, both unreadable. Suppressing every
+ * transition for the one frame the swap happens in is the general fix.
+ *
+ * `!important` because the rules it is overriding are utility classes, and
+ * matching their specificity individually would mean knowing all of them.
+ */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition: none !important;
+}
+
 @layer base {
   * {
     border-color: var(--color-line);
@@ -1091,6 +1109,14 @@
   --w-text-2: #3a3547;
   --w-text-3: #57516a;
   --w-text-4: #7a7489;
+  /*
+   * text-4 and below are not for text on the page background.
+   *
+   * Measured against `--w-bg` (#f1eff7): text-4 is 3.93:1, text-5 is 3.01:1 and
+   * text-6 is 2.33:1, all under AA for anything below 24px. They are for icons,
+   * dividers and disabled states. The eyebrow labels used text-5 and were the
+   * two failures this ramp caused; they take text-3 (6.6:1) now.
+   */
   --w-text-5: #8e8899;
   --w-text-6: #a29cb0;
 

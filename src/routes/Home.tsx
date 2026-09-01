@@ -105,6 +105,51 @@ export function Home() {
       /* a remembered preference is not worth failing a render over */
     }
   }, [theme]);
+
+  /*
+   * ── Nothing animates while the palette changes ───────────────────────────
+   *
+   * Every themed surface here takes its colour from a custom property, and
+   * several of them also have a transition, which is the normal way to make a
+   * hover feel attached to the cursor. Those two features do not compose:
+   * Chromium does not reliably re-trigger a running transition when the value
+   * behind it came from a custom property that changed on an ancestor, so on a
+   * theme switch the property stays at the previous palette's value and stays
+   * there.
+   *
+   * Measured, before this existed. Switching to light left the inactive
+   * sidebar labels at #aeb7ce on #f1eff7 — 1.76:1. Switching back to dark left
+   * the active item's background at #fbfafe under #eef1f8 text — 1.09:1, which
+   * is white on white. Both were stable seconds later, so neither was a
+   * transition still in flight.
+   *
+   * Killing transitions for the frame in which the palette changes fixes every
+   * one of them at once, rather than removing `color` from one rule and
+   * `background-color` from the next until they are all found. A theme switch
+   * should be instant anyway; it is the hover states that want easing, and
+   * those keep it.
+   *
+   * The flag comes off on the next frame via a double rAF: one to let the new
+   * values paint, one to be certain the paint has happened before transitions
+   * are allowed to matter again.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme-switching", "");
+
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() =>
+        root.removeAttribute("data-theme-switching"),
+      );
+    });
+
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+      root.removeAttribute("data-theme-switching");
+    };
+  }, [theme]);
   const [tab, setTab] = useState<Tab>("overview");
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [stats, setStats] = useState<[number, number]>([0, 0]);
@@ -508,9 +553,25 @@ function NavRow({
       onClick={onClick}
       className={cn(
         "flex items-center gap-2.5 rounded-[10px] px-3 py-[0.5625rem] text-left",
-        "text-[0.875rem] transition-colors duration-150",
+        /*
+         * Background and shadow only. `color` is deliberately not in here.
+         *
+         * These labels take their colour from `--w-text-3`, and that variable
+         * changes when the theme does. Chromium does not reliably re-trigger a
+         * running transition when the value behind it came from a custom
+         * property that changed on an ancestor, so the text stayed at the old
+         * palette's colour indefinitely: measured after a switch to light, the
+         * inactive labels were still #aeb7ce on #f1eff7, which is 1.76:1 and
+         * effectively unreadable. Not a transition mid-flight — stable three
+         * seconds later.
+         *
+         * Untransitioned, the colour snaps to the right value, which is what a
+         * theme switch should do anyway. Hover still animates the parts that
+         * do not depend on the palette.
+         */
+        "text-[0.875rem] transition-[background-color,box-shadow] duration-150",
         active
-          ? "bg-[var(--w-surface)] text-[var(--w-text)] shadow-[0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
+          ? "bg-[var(--w-surface)] text-[var(--w-text)] shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
           : "text-[var(--w-text-3)] hover:bg-[var(--w-surface)]/60 hover:text-[var(--w-text)]",
       )}
     >
@@ -735,7 +796,7 @@ function PanelHead({
   return (
     <header>
       {eyebrow && (
-        <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-5)]">
+        <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-3)]">
           {eyebrow.toUpperCase()}
         </p>
       )}
@@ -832,7 +893,7 @@ function Overview({
        * opens, which is what makes a greeting read as the app being awake
        * rather than as decoration.
        */}
-      <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-5)]">
+      <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-3)]">
         {today().toUpperCase()}
       </p>
       <h1 className="mt-1.5 font-display text-[2rem] leading-[1.1] tracking-[-0.04em]">
@@ -857,7 +918,7 @@ function Overview({
 
       <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-5)]">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
             HANDOVERS
           </h2>
 
@@ -938,6 +999,16 @@ function Overview({
           className={cn(
             "rounded-[14px] px-5 py-4 ring-1 ring-[var(--w-accent-soft)]/30",
             "bg-gradient-to-b from-[var(--w-tint)] to-[var(--w-surface)]",
+            /*
+             * The same rim and contact shadow the panel beside it has.
+             *
+             * Without them this was a tinted rectangle sitting on a raised
+             * surface, which reads as a hole rather than as a card — the one
+             * element on the screen that looked drawn on instead of placed.
+             * `--w-sheen` is the theme-aware highlight, near-white on paper and
+             * a six percent white in the dark, so this holds in both.
+             */
+            "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.05),0_10px_28px_-14px_rgba(70,50,140,0.22)]",
           )}
         >
           <Stat value={stats[0].toLocaleString()} label="conversations" />
@@ -1343,7 +1414,7 @@ function Invite({
           once: the invitee is the primary key of the referrals table. */}
       {!summary.redeemed && (
         <div className="mt-10 max-w-[34rem]">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-5)]">
+          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
             SOMEBODY GAVE YOU A CODE?
           </h2>
           <form
