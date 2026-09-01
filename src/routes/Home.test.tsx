@@ -959,7 +959,24 @@ describe("dark mode", () => {
    */
   test("no colour in this window is hard-coded any more", async () => {
     const { readFileSync } = await import("node:fs");
-    const source = readFileSync("src/routes/Home.tsx", "utf8");
+    const raw = readFileSync("src/routes/Home.tsx", "utf8");
+
+    /*
+     * Comments are stripped first, because this guard is about what the window
+     * paints and a comment paints nothing.
+     *
+     * The distinction started mattering when the contrast work needed to record
+     * what it had measured — "#aeb7ce on #f1eff7 is 1.76:1" is exactly the kind
+     * of thing that must survive in the file, and a guard that forbids writing
+     * a colour down cannot be satisfied without deleting the evidence for why
+     * the code is the way it is.
+     *
+     * Every other assertion below runs against the stripped source too, so a
+     * real `bg-white` in the markup still fails.
+     */
+    const source = raw
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
     expect(source).not.toMatch(/#[0-9A-Fa-f]{6}/);
     expect(source).not.toMatch(/\b(bg|text|border)-(white|black)\b/);
