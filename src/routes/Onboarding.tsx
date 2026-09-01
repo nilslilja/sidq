@@ -186,6 +186,36 @@ export default function Onboarding() {
     void bridge?.tapKeys().then(setTaps);
   }, [bridge]);
 
+  /*
+   * ── Whether the double-tap gesture can work on this machine ───────────────
+   *
+   * It is a global event monitor in Rust, and macOS delivers nothing at all to
+   * one of those without Accessibility. Not "sometimes", not "degraded" —
+   * nothing. So without the permission the gesture is not a feature that might
+   * be flaky, it is a keystroke that provably goes nowhere.
+   *
+   * Teaching it anyway is how somebody ends up believing the product is broken:
+   * they follow the instruction, nothing happens, and the reasonable conclusion
+   * is that Sidq does not work. The picker is right there and needs no
+   * permission, so on a machine without the grant the picker is simply the
+   * instruction and the gesture is never mentioned.
+   *
+   * `null` while the answer is unknown, and the block is hidden until it is
+   * known — a panel that appears a beat after the screen does is worse than
+   * one that was never there.
+   */
+  const [gestureWorks, setGestureWorks] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void bridge
+      ?.accessibilityGranted()
+      .then((ok) => alive && setGestureWorks(ok))
+      .catch(() => alive && setGestureWorks(false));
+    return () => {
+      alive = false;
+    };
+  }, [bridge, step]);
+
   useEffect(() => {
     if (step !== "signin" || !bridge) return;
 
@@ -359,24 +389,37 @@ export default function Onboarding() {
              * Two taps is how most people will use Sidq once they know it
              * exists, so it is the instruction and the picker is the fallback.
              */}
-            <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.09] p-4">
-              <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[1rem] text-white">
-                <span>Double-tap</span>
-                <Kbd>{taps[0]}</Kbd>
-              </p>
-              <p className="mt-2.5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/65">
-                Grabs whatever you were just in and puts the file on your
-                clipboard. Press ⌘V in ChatGPT, Claude or anywhere that takes an
-                attachment and the whole conversation goes with it.
-              </p>
-              <p className="mt-2 max-w-[42ch] text-[0.875rem] leading-relaxed text-white/40">
-                Double-tap <span className="text-white/70">{taps[1]}</span> puts
-                the last one back, for when you have copied something since.
-              </p>
-            </div>
+            {gestureWorks && (
+              <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.09] p-4">
+                <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[1rem] text-white">
+                  <span>Double-tap</span>
+                  <Kbd>{taps[0]}</Kbd>
+                </p>
+                <p className="mt-2.5 max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/65">
+                  Grabs whatever you were just in and puts the file on your
+                  clipboard. Press ⌘V in ChatGPT, Claude or anywhere that takes an
+                  attachment and the whole conversation goes with it.
+                </p>
+                <p className="mt-2 max-w-[42ch] text-[0.875rem] leading-relaxed text-white/40">
+                  Double-tap <span className="text-white/70">{taps[1]}</span> puts
+                  the last one back, for when you have copied something since.
+                </p>
+              </div>
+            )}
 
-            <p className="mt-7 text-[0.8125rem] uppercase tracking-[0.14em] text-white/35">
-              Or pick a different one
+            {/*
+              * The heading only says "or" when there is something to be an
+              * alternative to. Without the gesture this is the instruction, and
+              * calling the only route "a different one" reads as though a step
+              * went missing.
+              */}
+            <p
+              className={cn(
+                "text-[0.8125rem] uppercase tracking-[0.14em] text-white/35",
+                gestureWorks ? "mt-7" : "mt-0",
+              )}
+            >
+              {gestureWorks ? "Or pick a different one" : "Pick a conversation"}
             </p>
 
             <ol className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] text-white/75">

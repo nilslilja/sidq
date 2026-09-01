@@ -30,6 +30,14 @@ export interface HandoverResult {
   limited: boolean;
   used: number;
   cap: number | null;
+  /**
+   * Words in the file that was just written. Zero when nothing was.
+   *
+   * Words rather than bytes: nobody has a feel for 640 kB and everybody has one
+   * for forty thousand words. It is the number that says what you did not have
+   * to retype, which is the entire product in one figure.
+   */
+  words: number;
 }
 
 /** What the plan allows. For describing only; every limit is applied in Rust. */
@@ -473,7 +481,7 @@ export function desktopBridge(): OnboardingBridge | null {
         "save_transcript",
         args,
       )) as HandoverResult | null;
-      return out ?? { path: null, limited: false, used: 0, cap: null };
+      return out ?? { path: null, limited: false, used: 0, cap: null, words: 0 };
     },
     searchConversations: async (query, limit) => {
       const out = await invoke("search_conversations", { query, limit });

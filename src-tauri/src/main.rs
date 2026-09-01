@@ -170,6 +170,11 @@ struct HandoverResult {
     used: u32,
     /// The cap, or absent on a paid plan.
     cap: Option<u32>,
+    /// Words in the handover that was just written. Zero when nothing was.
+    ///
+    /// The picker shows it at the moment the file lands, which is the only
+    /// moment this window has to prove it did something worth doing.
+    words: usize,
 }
 
 /**
@@ -338,7 +343,7 @@ async fn save_transcript(
         if let Some(conn) = conn.as_ref() {
             if !entitlement::may_hand_over(conn, plan) {
                 let (used, cap) = entitlement::handover_allowance(conn, plan);
-                return HandoverResult { path: None, limited: true, used, cap };
+                return HandoverResult { path: None, limited: true, used, cap, words: 0 };
             }
         }
 
@@ -360,7 +365,12 @@ async fn save_transcript(
             .map(|c| entitlement::handover_allowance(c, plan))
             .unwrap_or((0, plan.handovers_per_week()));
 
-        HandoverResult { path: written, limited: false, used, cap }
+        let (path, words) = match written {
+            Some((path, words)) => (Some(path), words),
+            None => (None, 0),
+        };
+
+        HandoverResult { path, limited: false, used, cap, words }
     })
     .await
     .unwrap_or_default()
@@ -509,9 +519,20 @@ fn write_handover(
     resume_point: String,
     when: String,
     project: String,
-) -> Option<String> {
+) -> Option<(String, usize)> {
     (|| {
         let text = build_handover(&session_id, &source, &resume_point, &when, &project)?;
+
+        /*
+         * Counted before the write, because after it the only thing left is a
+         * path and answering "how much was that" would mean reading the file
+         * back off disk to say something we already knew.
+         *
+         * Words rather than bytes or characters. A person has no feel for
+         * 640 kB and a very good one for forty thousand words, which is the
+         * number that makes the point: that is what you did not retype.
+         */
+        let words = text.split_whitespace().count();
 
         let home = std::env::var_os("HOME")?;
         let dir = std::path::PathBuf::from(home).join("Downloads");
@@ -527,7 +548,7 @@ fn write_handover(
 
         let path = dir.join(format!("{}.md", &stem[..stem.len().min(60)]));
         std::fs::write(&path, text).ok()?;
-        Some(path.to_string_lossy().to_string())
+        Some((path.to_string_lossy().to_string(), words))
     })()
 }
 
@@ -1295,6 +1316,9 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
         "just now".to_string(),
         session.project_name.clone(),
     )?;
+    // The gesture path does not report a size to anybody — the notification it
+    // raises has room for a title and nothing else.
+    let (path, _words) = path;
 
     if !quick_grab::put_on_clipboard(std::path::Path::new(&path)) {
         return None;

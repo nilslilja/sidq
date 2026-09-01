@@ -80,7 +80,7 @@ type Phase =
   | { kind: 'browsing' }
   | { kind: 'working' }
   | { kind: 'done' }
-  | { kind: 'saved'; path: string }
+  | { kind: 'saved'; path: string; words: number; turns?: number; minutes?: number }
   | { kind: 'limited'; used: number; cap: number }
   | { kind: 'failed' };
 
@@ -376,7 +376,13 @@ export function Pill() {
         return;
       }
       playCue('done');
-      setPhase({ kind: 'saved', path: result.path });
+      setPhase({
+          kind: 'saved',
+          path: result.path,
+          words: result.words,
+          turns: target.session.turns,
+          minutes: target.session.activeMinutes,
+        });
       setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
     } catch {
       setPhase({ kind: 'failed' });
@@ -754,22 +760,67 @@ export function Pill() {
          * something, so it gets the whole card and long enough to read.
          */}
         {phase.kind === 'saved' && (
-          <div className="border-t border-white/[0.06] px-4 py-5">
+          <div className="animate-pane-body border-t border-white/[0.06] px-4 py-5">
             <div className="flex items-start gap-3">
+              {/*
+                * The tick lands rather than appears.
+                *
+                * This is the one moment the window has to prove it did
+                * something, and it used to arrive fully formed in the same
+                * frame as the text beside it — which reads as a state change
+                * rather than as a result. Scaling it in over 320ms costs
+                * nothing and is the difference between "the panel updated" and
+                * "that worked".
+                */}
               <span
                 aria-hidden="true"
-                className="chip-glass-on mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[0.75rem] text-[#D8CCFF]"
+                className="animate-land chip-glass-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#D8CCFF]"
               >
                 ✓
               </span>
-              <div className="min-w-0">
-                <p className="text-[0.9375rem] font-medium text-white">
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.9375rem] font-medium leading-tight text-white">
                   Saved to Downloads
                 </p>
                 <p className="mt-1 truncate text-[0.8125rem] text-white/50">
                   {phase.path.split('/').pop()}
                 </p>
-                <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/40">
+
+                {/*
+                  * What was actually carried, in figures.
+                  *
+                  * The panel said "attach it to any AI" and nothing about the
+                  * thing it had just done, so a handover that moved forty
+                  * thousand words looked identical to one that moved four
+                  * hundred. The word count is the product stated as a number:
+                  * that is what you did not retype.
+                  *
+                  * Turns and minutes come from the session row that was already
+                  * in hand, so this costs no extra work — and each is dropped
+                  * rather than shown as zero when the extractor did not record
+                  * it, because "0 messages" beside a file that plainly contains
+                  * some is worse than saying nothing.
+                  */}
+                {phase.words > 0 && (
+                  <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-white/70">
+                    <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#D8CCFF]">
+                      {phase.words.toLocaleString()}
+                    </span>
+                    <span>words carried</span>
+                    {phase.turns ? (
+                      <span className="text-white/35">
+                        · {phase.turns.toLocaleString()} messages
+                      </span>
+                    ) : null}
+                    {phase.minutes ? (
+                      <span className="text-white/35">
+                        · {Math.round(phase.minutes / 60)}h of work
+                      </span>
+                    ) : null}
+                  </p>
+                )}
+
+                <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
                   Attach it to any AI. It already tells them to read it and carry
                   on rather than summarise it back to you.
                 </p>
