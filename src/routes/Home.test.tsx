@@ -691,7 +691,10 @@ describe("the mark", () => {
      */
     const { readFileSync } = await import("node:fs");
     const icon = readFileSync("public/icons/icon.svg", "utf8");
-    const source = readFileSync("src/routes/Home.tsx", "utf8");
+    // The paths moved to a shared component when the overlay needed them too.
+    // Reading Home.tsx here would now pass without checking anything, which is
+    // the worst state a guard can be in.
+    const source = readFileSync("src/components/SidqMark.tsx", "utf8");
 
     const strokes = [...icon.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1]);
     expect(strokes).toHaveLength(2);

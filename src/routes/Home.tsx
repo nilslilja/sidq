@@ -16,6 +16,7 @@ import { ConnectExtension } from "@/components/companion/ConnectExtension";
 import { GrantAccess } from "@/components/companion/GrantAccess";
 import { SOURCES, sourceLabel, type Source } from "@/lib/companion/sources";
 import { cn } from "@/lib/cn";
+import { SidqMark } from "@/components/SidqMark";
 
 /*
  * The window behind the pill.
@@ -595,29 +596,14 @@ function NavRow({
  * The first version of this was four bars, which is Wispr's dictation waveform
  * and says nothing about what Sidq does.
  *
- * These two `d` strings are the icon's own, and `Home.test.tsx` reads the file
- * and fails if they stop matching, because a wordmark that has quietly drifted
- * from the app icon is not something anybody notices by looking.
+ * The paths themselves live in `SidqMark`, shared with the overlay, and a test
+ * reads that file against the icon so the two cannot drift apart.
  */
 function Mark() {
-  return (
-    <svg
-      viewBox="72 116 386 208"
-      width="30"
-      height="16"
-      fill="none"
-      stroke="var(--w-mark)"
-      strokeWidth="24"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-      <circle cx="416" cy="256" r="30" fill="var(--w-mark)" stroke="none" />
-    </svg>
-  );
+  // The paths moved to `SidqMark` when the overlay needed them too. The colour
+  // still comes from here, because `--w-mark` is this window's token and the
+  // shared component inherits it.
+  return <SidqMark className="shrink-0 text-[var(--w-mark)]" />;
 }
 
 /**

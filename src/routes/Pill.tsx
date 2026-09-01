@@ -14,6 +14,7 @@ import { desktopBridge } from '@/lib/onboarding/bridge';
 import type { PillState } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
 import { cn } from '@/lib/cn';
+import { SidqMark } from '@/components/SidqMark';
 
 /*
  * The pill.
@@ -516,19 +517,33 @@ export function Pill() {
           )}
         >
           {/*
-            * The dot beats when the count changes.
+            * The mark, and it is doing the job the dot used to.
             *
-            * The reader captures a conversation every fifteen seconds and said
-            * nothing about it, so the one always-visible piece of the product
-            * gave no sign it was working. Keyed on the change so the animation
-            * replays — re-adding a class does not restart one.
+            * This was a violet dot beside the word "Sidq", which is a label
+            * telling you the name of the thing you already installed. The mark
+            * says the same thing without spending any of a 152 point bar on
+            * spelling it, and it is the one drawing that ties this strip to the
+            * Dock icon and the window.
+            *
+            * It also absorbs the status dot rather than sitting next to one.
+            * The mark already ends in a filled circle — the wave runs into it —
+            * so the beat lands on a shape that was always there instead of
+            * adding a second one. Two dots twelve points apart in a strip this
+            * size reads as a rendering fault.
+            *
+            * The beat itself stays: the reader captures a conversation every
+            * fifteen seconds and used to say nothing about it, so the one
+            * always-visible piece of the product gave no sign it was working.
+            * Keyed on the change so the animation replays — re-adding a class
+            * does not restart one.
             */}
-          <span
+          <SidqMark
             key={beat}
-            aria-hidden="true"
+            width={22}
+            height={12}
             className={cn(
-              'size-1.5 shrink-0 rounded-full bg-[#B8A6FF] transition-opacity duration-150',
-              'opacity-80 group-hover:opacity-100',
+              'shrink-0 transition-colors duration-200',
+              saved ? 'text-[#D8CCFF]' : 'text-white/75 group-hover:text-white',
               (beat > 0 || saved) && 'animate-pulse-once',
             )}
           />
@@ -545,14 +560,24 @@ export function Pill() {
             * 152 points is not room for a conversation title, so it carries the
             * assistant's name and the notification carries the title.
             */}
-          <span
-            className={cn(
-              'truncate text-[0.6875rem] leading-none transition-colors duration-200',
-              saved ? 'text-[#D8CCFF]' : 'text-white/70',
-            )}
-          >
-            {saved ? `Saved · ${saved}` : indexed > 0 ? indexed.toLocaleString() : 'Sidq'}
-          </span>
+          {/*
+            * Only when there is something to report.
+            *
+            * The fallback used to be the string "Sidq", which is the one piece
+            * of information a person looking at their own menu bar already has.
+            * Idle, the mark alone is the whole bar; the text appears when the
+            * count exists or a handover has just landed.
+            */}
+          {(saved || indexed > 0) && (
+            <span
+              className={cn(
+                'truncate text-[0.6875rem] leading-none tabular-nums transition-colors duration-200',
+                saved ? 'text-[#D8CCFF]' : 'text-white/70',
+              )}
+            >
+              {saved ? `Saved · ${saved}` : indexed.toLocaleString()}
+            </span>
+          )}
           {/*
             * The shortcut only on hover. At this size it is the difference
             * between a label and a cluttered one, and anybody who has not
