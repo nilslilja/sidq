@@ -50,6 +50,65 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Sidq" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://www.sidq.tech/" />
+
+    <!--
+      The image the card actually promises.
+
+      `twitter:card` said summary_large_image and there was no image, so every
+      share on LinkedIn and X rendered the wide layout around an empty space,
+      which looks worse than the small card would have.
+    -->
+    <meta property="og:url" content="https://www.sidq.tech/" />
+    <meta property="og:image" content="https://www.sidq.tech/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Sidq. The models remember everything except you."
+    />
+    <meta name="twitter:image" content="https://www.sidq.tech/og.png" />
+
+    <!--
+      Structured data, and the reason it is worth the bytes.
+
+      "Sidq" is an existing Arabic word, so a branded search is not a search for
+      an invented term with one possible answer — it competes with dictionary
+      entries and names. This is what tells Google the string also identifies a
+      piece of software, who publishes it, what it costs and what it runs on,
+      which is what earns the block on the right rather than a blue link
+      somewhere on page one.
+
+      Every field here is checkable against the product. An inflated rating or
+      an invented review count is the one thing that gets structured data
+      ignored permanently, so there are none.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Sidq",
+        "url": "https://www.sidq.tech/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS",
+        "description": "Sidq carries a whole conversation from one AI into another. It reads your conversations off your own Mac and compiles any of them into a single handover you drop into a different assistant. Nothing is uploaded.",
+        "softwareVersion": "0.1.67",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Nils Lilja"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Sidq",
+          "url": "https://www.sidq.tech/"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

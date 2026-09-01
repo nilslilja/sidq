@@ -5,7 +5,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!downloads/|extension/|video/).*)",
+      "source": "/((?!downloads/|extension/|video/|robots\\.txt|sitemap\\.xml).*)",
       "destination": "/index.html"
     }
   ],

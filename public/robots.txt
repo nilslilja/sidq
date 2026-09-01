@@ -1,0 +1,18 @@
+# Sidq — https://www.sidq.tech
+#
+# Everything public is crawlable. The routes below are the desktop app's own
+# windows: they render inside the packaged Mac app, have no meaning on the web,
+# and a crawler indexing /pill would put an empty overlay in search results
+# under this domain's name.
+
+User-agent: *
+Allow: /
+
+Disallow: /pill
+Disallow: /home
+Disallow: /splash
+Disallow: /backdrop
+Disallow: /welcome
+Disallow: /desktop-signin
+
+Sitemap: https://www.sidq.tech/sitemap.xml
