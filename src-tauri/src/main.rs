@@ -1629,6 +1629,7 @@ fn expand_pill(app: tauri::AppHandle) {
 fn transcript_of(session_id: &str) -> Option<String> {
     work_history::session_transcript(session_id)
         .or_else(|| cursor_history::session_transcript(session_id))
+        .or_else(|| codex_history::session_transcript(session_id))
         .or_else(|| index_store::open().and_then(|c| index_store::session_transcript(&c, session_id)))
 }
 

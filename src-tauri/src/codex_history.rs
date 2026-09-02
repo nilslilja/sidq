@@ -434,3 +434,104 @@ mod codex_real {
         }
     }
 }
+
+/*
+ * The conversation itself, formatted the way every other reader formats one.
+ *
+ * "You:\n…\n\nAssistant:\n…", because `indexer::into_turns` splits on exactly
+ * that and teaching it a third shape is how two parsers for one thing drift
+ * apart.
+ *
+ * Without this a Codex row was listed in the picker and produced nothing when
+ * chosen: `transcript_of` fell through work_history and cursor_history and gave
+ * up. That is the same failure `a_rollout_with_nothing_said_is_not_a_row` exists
+ * to prevent inside this file, reintroduced one level up by only wiring the
+ * reader into the list and not into the thing the list is for.
+ */
+pub fn session_transcript(session_id: &str) -> Option<String> {
+    // Untrusted: it crosses from the webview and is joined onto a path below.
+    // A rollout stem is a uuid with a timestamp on the front and nothing else.
+    let safe = !session_id.is_empty()
+        && session_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !safe {
+        return None;
+    }
+
+    let root = sessions_dir()?;
+    let (path, _) = rollout_files(&root)
+        .into_iter()
+        .find(|(p, _)| p.file_stem().is_some_and(|s| s == session_id))?;
+
+    let text = std::fs::read_to_string(&path).ok()?;
+    let mut out = String::new();
+
+    for line in text.lines() {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let payload = value.get("payload").unwrap_or(&value);
+
+        let role = payload.get("role").and_then(|r| r.as_str());
+        // `developer` is the runtime's own system prompt. It is not part of the
+        // conversation and carrying it would hand the next model somebody
+        // else's instructions.
+        let speaker = match role {
+            Some("user") => "You",
+            Some("assistant") => "Assistant",
+            _ => continue,
+        };
+
+        let said = flatten_content(payload.get("content"));
+        if said.trim().is_empty() || (speaker == "You" && is_injected(&said)) {
+            continue;
+        }
+
+        if !out.is_empty() {
+            out.push_str("\n\n");
+        }
+        out.push_str(speaker);
+        out.push_str(":\n");
+        out.push_str(said.trim());
+    }
+
+    (!out.is_empty()).then_some(out)
+}
+
+#[cfg(test)]
+mod transcript_tests {
+    use super::*;
+
+    #[test]
+    fn refuses_anything_that_is_not_a_plain_id() {
+        assert_eq!(session_transcript(""), None);
+        assert_eq!(session_transcript("../../etc/passwd"), None);
+        assert_eq!(session_transcript("a/b"), None);
+        assert_eq!(session_transcript("x.jsonl"), None);
+    }
+}
+
+#[cfg(test)]
+mod codex_real_transcript {
+    use super::*;
+
+    /// The end to end check: a session the picker lists must hand over.
+    #[test]
+    #[ignore]
+    fn every_listed_session_can_actually_be_handed_over() {
+        for s in recent_sessions(20) {
+            let t = session_transcript(&s.session_id);
+            println!(
+                "  {:<40} transcript={}",
+                s.title.chars().take(40).collect::<String>(),
+                t.as_ref().map(|x| format!("{} chars", x.len())).unwrap_or("NONE".into())
+            );
+            assert!(
+                t.is_some(),
+                "listed but not handoverable: {}",
+                s.session_id
+            );
+        }
+    }
+}

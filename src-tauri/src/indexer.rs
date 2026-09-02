@@ -101,6 +101,9 @@ fn fingerprint_of(session_id: &str, ended_at: i64, turns: u32) -> String {
 pub fn sweep(conn: &Connection) -> usize {
     let mut sessions = work_history::recent_sessions(500);
     sessions.extend(cursor_history::recent_sessions(500));
+    // Without this Codex was readable by the picker and invisible to search and
+    // to the Sources panel, which is the shape of a source that half works.
+    sessions.extend(crate::codex_history::recent_sessions(500));
 
     let mut indexed = 0usize;
 
@@ -136,6 +139,7 @@ pub fn sweep(conn: &Connection) -> usize {
          */
         let Some(transcript) = work_history::session_transcript(&session.session_id)
             .or_else(|| cursor_history::session_transcript(&session.session_id))
+            .or_else(|| crate::codex_history::session_transcript(&session.session_id))
         else {
             continue;
         };
