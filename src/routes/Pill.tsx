@@ -108,6 +108,15 @@ function labelFor(source: string): string {
 export function Pill() {
   const bridge = useMemo(() => desktopBridge(), []);
   const [sessions, setSessions] = useState<WorkSession[]>([]);
+  /*
+   * Whether the first read has returned.
+   *
+   * `sessions` being empty is two different facts — nothing read yet, and
+   * nothing there — and the header said the second one for both. On a cold
+   * first open that is a verdict handed down before the evidence is in, which
+   * is exactly how it got reported as broken.
+   */
+  const [settled, setSettled] = useState(false);
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>({ kind: 'browsing' });
@@ -187,7 +196,12 @@ export function Pill() {
    */
   useEffect(() => {
     if (!bridge || mode !== 'expanded') return;
-    void bridge.recentWork(50).then((rows) => setSessions(rows as WorkSession[]));
+    void bridge
+      .recentWork(50)
+      .then((rows) => setSessions(rows as WorkSession[]))
+      // Settled on failure too. A read that errored has finished looking, and
+      // leaving it saying "reading…" forever is worse than saying it is empty.
+      .finally(() => setSettled(true));
   }, [bridge, mode]);
 
   /*
@@ -692,7 +706,7 @@ export function Pill() {
               )}
             </p>
             <p className="mt-1 truncate text-[0.6875rem] leading-none text-white/35">
-              {statusLine(visible.length, inSource.length, query, source)}
+              {statusLine(visible.length, inSource.length, query, source, settled)}
               {!query && inSource.length > 0 && ' · type to filter'}
             </p>
           </div>

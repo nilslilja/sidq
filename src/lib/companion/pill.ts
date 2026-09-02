@@ -130,6 +130,7 @@ export function statusLine(
   total: number,
   query: string,
   source: string = ANY_SOURCE,
+  settled: boolean = true,
 ): string {
   if (total === 0) {
     if (query.trim()) return 'Nothing matches that';
@@ -137,7 +138,24 @@ export function statusLine(
     // and telling somebody they have no conversations because they picked
     // Gemini is the kind of wrong that makes them stop trusting the count.
     if (source !== ANY_SOURCE) return `Nothing from ${sourceLabel(source, true)}`;
-    return 'No conversations found yet';
+
+    /*
+     * ── Empty because it has not looked yet, versus empty because there is
+     *    nothing there ────────────────────────────────────────────────────────
+     *
+     * These were the same sentence and they are not the same fact. Opening the
+     * picker reads every transcript on the machine, and on a large history that
+     * is a beat or two — measured at 186MB, 21 sessions, about 20ms warm but
+     * noticeably longer on the first open after an install, when nothing is
+     * cached and the whole disk is cold.
+     *
+     * "No conversations found yet" during that beat is a verdict delivered
+     * before the evidence is in, and the reasonable conclusion is that the
+     * product is broken. It was reported as exactly that.
+     *
+     * So the first moments say what is happening instead of what was found.
+     */
+    return settled ? 'No conversations found yet' : 'Reading your conversations…';
   }
 
   const label = total === 1 ? '1 conversation' : `${total} conversations`;

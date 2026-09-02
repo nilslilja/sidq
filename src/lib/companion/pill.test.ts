@@ -230,3 +230,33 @@ describe('the count under a source filter', () => {
     expect(statusLine(0, 0, 'zzz', 'gemini')).toBe('Nothing matches that');
   });
 });
+
+/*
+ * Reported as "sidq doesn't pick up chats anymore". The backend was fine —
+ * measured at 21 sessions from 186MB of transcripts in about 20ms — but the
+ * picker said "No conversations found yet" during the read, which is a verdict
+ * delivered before the evidence is in.
+ */
+describe('empty because it is looking, versus empty because it is empty', () => {
+  test('says what it is doing until the first read comes back', () => {
+    expect(statusLine(0, 0, '', ANY_SOURCE, false)).toBe(
+      'Reading your conversations…',
+    );
+  });
+
+  test('only calls it empty once it has actually looked', () => {
+    expect(statusLine(0, 0, '', ANY_SOURCE, true)).toBe(
+      'No conversations found yet',
+    );
+  });
+
+  test('a search with no matches is never mistaken for still loading', () => {
+    // The query has already been applied to a list that arrived, so this one is
+    // a real answer even when nothing has settled.
+    expect(statusLine(0, 0, 'tax', ANY_SOURCE, false)).toBe('Nothing matches that');
+  });
+
+  test('settled defaults to true, so existing callers keep their meaning', () => {
+    expect(statusLine(0, 0, '')).toBe('No conversations found yet');
+  });
+});
