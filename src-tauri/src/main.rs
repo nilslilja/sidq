@@ -26,6 +26,8 @@ mod compiler;
 mod double_tap;
 mod codex_history;
 mod login_item;
+
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 mod cursor_history;
 mod screen_reader;
 mod work_history;
@@ -1883,6 +1885,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .invoke_handler(tauri::generate_handler![
             recent_work,
             hide_pill,
@@ -2054,7 +2060,7 @@ fn main() {
                     "at_login",
                     "Open at login",
                     true,
-                    login_item::is_enabled(),
+                    app.autolaunch().is_enabled().unwrap_or(false),
                     None::<&str>,
                 )?;
 
@@ -2080,9 +2086,10 @@ fn main() {
                             // Read the state back rather than tracking it here:
                             // the checkmark and the launcher must agree, and the
                             // launcher is the one that can fail.
-                            let on = login_item::is_enabled();
+                            let launcher = app.autolaunch();
+                            let on = launcher.is_enabled().unwrap_or(false);
                             if on {
-                                let _ = login_item::disable();
+                                let _ = launcher.disable();
                             } else if running_from_a_mounted_image() {
                                 /*
                                  * Registering from the disk image writes a login
@@ -2102,7 +2109,7 @@ fn main() {
                                     )
                                     .show();
                             } else {
-                                let _ = login_item::enable();
+                                let _ = launcher.enable();
                             }
                         }
                         "quit" => {
@@ -2311,22 +2318,28 @@ fn main() {
              * The tray toggle already refused this case. The automatic enable
              * on launch did not, which is where the bad entry came from.
              */
-            // Clear the loose legacy agent an older build may have left, then
-            // enable through SMAppService so the item shows under the app.
-            //
-            // Off the setup thread on purpose. remove_legacy_agent() shells out
-            // to `launchctl` and blocks on it, and setup must not wait on a
-            // subprocess to finish — the splash card is closed at the end of
-            // this closure, so anything that stalls here leaves the card frozen
-            // on screen. Launch-at-login is fire-and-forget; nothing below
-            // depends on its result.
-            let mounted = running_from_a_mounted_image();
-            std::thread::spawn(move || {
-                login_item::remove_legacy_agent();
-                if !mounted && !login_item::is_enabled() {
-                    let _ = login_item::enable();
-                }
+            /*
+             * ── Why SMAppService was backed out ──────────────────────────────
+             *
+             * The bundled agent carried RunAtLoad, so registering it did not
+             * just arrange a launch at login — launchd honoured it immediately
+             * and started a second copy of Sidq on the spot. Two processes, two
+             * launch cards side by side, and the splash that "would not close"
+             * was actually a second app's splash sitting on the first's.
+             *
+             * The cosmetic win was the signer's name in Login Items. The cost
+             * was the app launching itself twice. Not a trade worth making, so
+             * autostart is the plugin's again and the registration is undone
+             * for anyone who installed 0.1.73 or 0.1.74.
+             */
+            std::thread::spawn(|| {
+                let _ = login_item::disable();
             });
+
+            let launcher = app.autolaunch();
+            if !running_from_a_mounted_image() && !launcher.is_enabled().unwrap_or(false) {
+                let _ = launcher.enable();
+            }
 
             /*
              * ── Take the launch card away ────────────────────────────────────
