@@ -24,6 +24,7 @@ mod capture;
 mod imports;
 mod compiler;
 mod double_tap;
+mod codex_history;
 mod cursor_history;
 mod screen_reader;
 mod work_history;
@@ -72,6 +73,7 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
          */
         let mut all = work_history::recent_sessions(capped);
         all.extend(cursor_history::recent_sessions(capped));
+        all.extend(codex_history::recent_sessions(capped));
 
         /*
          * ── And the ones that exist only in the index ────────────────────────

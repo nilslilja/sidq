@@ -28,6 +28,7 @@ export const SOURCES: readonly Source[] = [
   { id: 'claude-code', label: 'Claude Code', local: true },
   { id: 'cowork', label: 'Claude Cowork', local: true },
   { id: 'cursor', label: 'Cursor, Windsurf, VS Code', local: true },
+  { id: 'codex', label: 'Codex', local: true },
   { id: 'chatgpt', label: 'ChatGPT', local: false },
   { id: 'claude.ai', label: 'Claude.ai', local: false },
   { id: 'gemini', label: 'Gemini', local: false },

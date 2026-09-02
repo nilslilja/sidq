@@ -794,7 +794,11 @@ fn extract_timestamp(line: &str) -> Option<i64> {
 }
 
 /// Parse `YYYY-MM-DDTHH:MM:SS` (always UTC in these transcripts) to epoch millis.
-fn iso_to_millis(s: &str) -> Option<i64> {
+///
+/// Shared with the Codex reader so the two cannot drift on what a timestamp
+/// means, which is the sort of disagreement that shows up as one source being
+/// mysteriously ordered wrong in the picker.
+pub(crate) fn iso_to_millis(s: &str) -> Option<i64> {
     let b = s.as_bytes();
     if b.len() < 19 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' {
         return None;
