@@ -25,6 +25,7 @@ mod imports;
 mod compiler;
 mod double_tap;
 mod codex_history;
+mod login_item;
 mod cursor_history;
 mod screen_reader;
 mod work_history;
@@ -34,7 +35,6 @@ use tauri_plugin_notification::NotificationExt;
 use tauri::{AppHandle, Emitter, Manager};
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
 // scope the method simply does not exist, which is what the compiler was saying.
-use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartManagerExt};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 // OpenerExt puts .opener() on AppHandle. This is the supported way to hand a URL
@@ -1274,6 +1274,22 @@ async fn tap_keys() -> (String, String) {
  */
 static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
+/*
+ * Whether a quit was asked for on purpose.
+ *
+ * The pill is the product and it lives in the same process as the main window,
+ * so anything that quits the app kills the pill. The red button is already a
+ * no-op and Cmd+M minimises, but Cmd+Q still tore the whole thing down — the
+ * pill vanished from the menu bar and the shortcut stopped finding anything,
+ * from a keystroke people press out of habit to put a window away.
+ *
+ * So exit is refused unless this flag is set, and the only thing that sets it
+ * is the tray's own "Quit Sidq". Accidental quit cannot take the pill with it;
+ * the deliberate one still can, because an app you cannot quit at all is its
+ * own kind of broken.
+ */
+static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /**
  * Read what is open, take the conversation last touched, compile it, and put it
  * on the clipboard.
@@ -1867,10 +1883,6 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            None,
-        ))
         .invoke_handler(tauri::generate_handler![
             recent_work,
             hide_pill,
@@ -2042,7 +2054,7 @@ fn main() {
                     "at_login",
                     "Open at login",
                     true,
-                    app.autolaunch().is_enabled().unwrap_or(false),
+                    login_item::is_enabled(),
                     None::<&str>,
                 )?;
 
@@ -2068,10 +2080,9 @@ fn main() {
                             // Read the state back rather than tracking it here:
                             // the checkmark and the launcher must agree, and the
                             // launcher is the one that can fail.
-                            let launcher = app.autolaunch();
-                            let on = launcher.is_enabled().unwrap_or(false);
+                            let on = login_item::is_enabled();
                             if on {
-                                let _ = launcher.disable();
+                                let _ = login_item::disable();
                             } else if running_from_a_mounted_image() {
                                 /*
                                  * Registering from the disk image writes a login
@@ -2091,10 +2102,15 @@ fn main() {
                                     )
                                     .show();
                             } else {
-                                let _ = launcher.enable();
+                                let _ = login_item::enable();
                             }
                         }
-                        "quit" => app.exit(0),
+                        "quit" => {
+                            // The one deliberate way out. Set the flag the
+                            // run loop checks, then exit.
+                            QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
+                            app.exit(0);
+                        }
                         _ => {}
                     })
                     .build(app);
@@ -2295,9 +2311,11 @@ fn main() {
              * The tray toggle already refused this case. The automatic enable
              * on launch did not, which is where the bad entry came from.
              */
-            let launcher = app.autolaunch();
-            if !running_from_a_mounted_image() && !launcher.is_enabled().unwrap_or(false) {
-                let _ = launcher.enable();
+            // Clear the loose legacy agent an older build may have left, then
+            // enable through SMAppService so the item shows under the app.
+            login_item::remove_legacy_agent();
+            if !running_from_a_mounted_image() && !login_item::is_enabled() {
+                let _ = login_item::enable();
             }
 
             /*
@@ -2417,6 +2435,20 @@ fn main() {
             if let tauri::RunEvent::Reopen { .. } = event {
                 if let Some(w) = app.get_webview_window("pill") {
                     let _ = show_pill(&w);
+                }
+            }
+
+            /*
+             * Cmd+Q, the Dock's Quit, "close all windows" — every one of these
+             * asks the app to exit, and every one of them would take the pill
+             * with it. Refused unless the tray's Quit set the flag first. That
+             * is the whole "the pill stays on no matter what happens to the
+             * window" guarantee, enforced at the one place all of those paths
+             * funnel through.
+             */
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                if !QUITTING.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_exit();
                 }
             }
         });

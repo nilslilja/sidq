@@ -54,5 +54,11 @@ fn load_dotenv() {
 
 fn main() {
     load_dotenv();
+
+    // SMAppService lives in the ServiceManagement framework, which a Tauri app
+    // does not link by default. Without this line `class!(SMAppService)` finds
+    // nothing at runtime and autostart registration silently no-ops.
+    println!("cargo:rustc-link-lib=framework=ServiceManagement");
+
     tauri_build::build()
 }
