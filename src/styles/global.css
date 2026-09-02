@@ -484,6 +484,57 @@
   }
 
   /*
+   * ── The "nothing leaves" diagram ───────────────────────────────────────────
+   *
+   * Three motions making one argument: conversations arrive from the left, a
+   * file leaves toward Downloads on the right, and a fourth dot tries to cross
+   * the boundary and cannot.
+   *
+   * The blocked one stops dead rather than fading. A fade reads as "usually
+   * does not happen"; a hard stop reads as "cannot", which is the actual claim.
+   * It then sits still for most of the loop, so the eye reads it as a wall
+   * being hit rather than a rhythm.
+   *
+   * Transform and opacity only, and the whole thing is off under
+   * prefers-reduced-motion, where the dots simply sit in place — the diagram
+   * still says the same thing standing still.
+   */
+  @keyframes sidq-trust-in {
+    0%   { transform: translateX(0); opacity: 0; }
+    12%  { opacity: 1; }
+    78%  { transform: translateX(94px); opacity: 1; }
+    100% { transform: translateX(102px); opacity: 0; }
+  }
+
+  @keyframes sidq-trust-out {
+    0%   { transform: translate(-96px, -50%); opacity: 0; }
+    18%  { opacity: 1; }
+    100% { transform: translate(0, -50%); opacity: 1; }
+  }
+
+  @keyframes sidq-trust-blocked {
+    0%   { transform: translate(-50%, 0); opacity: 0; }
+    10%  { opacity: 1; }
+    /* Reaches the dashed boundary and stops. Everything after this is stillness. */
+    34%  { transform: translate(-50%, 9px); opacity: 1; }
+    40%  { transform: translate(-50%, 9px); opacity: 1; }
+    100% { transform: translate(-50%, 9px); opacity: 0.35; }
+  }
+
+  .trust-in      { animation: sidq-trust-in 3.4s ease-in-out infinite; }
+  .trust-out     { animation: sidq-trust-out 3.4s ease-in-out 0.9s infinite; }
+  .trust-blocked { animation: sidq-trust-blocked 3.4s ease-in-out 1.4s infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trust-in,
+    .trust-out,
+    .trust-blocked {
+      animation: none;
+      opacity: 1;
+    }
+  }
+
+  /*
    * The pane arriving.
    *
    * Rust resizes the window instantly, so without this the picker is simply

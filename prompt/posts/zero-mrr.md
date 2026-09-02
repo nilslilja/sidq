@@ -1,44 +1,32 @@
-# LinkedIn: 0 MRR + screen recording
+# LinkedIn: the flex post + screen recording
 
-i'm 18 and this week a $1.2m a year company tried to hire me as their CTO.
+negotiated a six figure offer so hard that i lost it. at 18. LMAOOOO
 
-equity, salary, the whole envelope. i let it sit in my inbox for two days and
-spent both of those nights rebuilding my own app at 1am instead.
+$1.2m a year company. CTO seat. equity, salary, the whole thing. i pushed on
+the terms one time too many and someone else took the chair. welp
 
-like $0 revenue, literally don't care
+GOOD. I DIDN'T WANT IT ANYWAY. I'D RATHER BUILD MY OWN THING THAT MAKES $0 A
+MONTH THAN RUN SOMEBODY ELSE'S THAT MAKES A MILLION
 
-my app has made zero dollars since launch. zero, bro. let a salary go cold to
-keep working on it and i'd do it again tomorrow lol
+so i shipped three releases in 48 hours instead
 
-(she's gonna read this. hi, you were solid with me the whole way and i mean
-that.)
+rebuilt the ENTIRE interface. rust. 236 tests. signed, notarized, out the door
+twice before 1am two nights running
 
-what i let it go cold for is Sidq. you spend 3 hours getting one AI to actually
-understand your project, then you want a second opinion and explain the whole
-thing again from scratch. everybody just accepted that. i didn't.
+found a bug where the panel dropped every single time it opened. went digging
+and there's a test sat in MY OWN codebase swearing that's correct behaviour.
+deleted my own test😭 the bug had a BODYGUARD bro
 
-it reads the conversation off your own Mac and hands it to the next AI. nothing
-uploaded. never leaves your machine.
+no team. no funding. no cofounder. no salary. nobody's permission. bedroom in
+stockholm. eighteen years old
 
-rebuilt the whole interface in those two nights. rust, 236 tests, shipped twice
-before 1am. found a bug where the panel dropped every time it opened and there
-was a test in my own codebase swearing that was correct, so i deleted my own
-test. the bug had a bodyguard😭
+demo below. watch it open
 
-18, alone, bedroom in stockholm. demo below.
+sidq reads your conversation straight off your Mac and throws the whole thing
+into the next AI. nothing uploaded, ever
 
-everybody on here has "building something 👀" in their headline, like fuh yall
-mean bruhhh😭 i'm not asking what you're building, i'm asking for your download
-link.
+i'm not building toward anything
 
-yo half of yall have had that idea in your notes app since january. mine
-shipped twice on tuesday.
-
-and if your first thought is i should've taken the job, you just explained why i
-didn't. i fw the risk, that's the whole job.
-
-i've got time. i'm 18.
-
-the money will still be there when i want it.
+i'm already doing it
 
 sidq.tech

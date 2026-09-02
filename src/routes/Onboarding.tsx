@@ -35,6 +35,7 @@ import { desktopBridge } from "@/lib/onboarding/bridge";
 import { HowReadingWorks } from "@/components/onboarding/HowReadingWorks";
 import { adoptSession, rememberDisplayName } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
+import { BeforeYouStart } from "@/components/onboarding/BeforeYouStart";
 
 /*
  * First run.
@@ -54,6 +55,29 @@ export default function Onboarding() {
   const bridge = useMemo(desktopBridge, []);
 
   const [step, setStep] = useState<StepId>("signin");
+
+  /*
+   * The trust screen, and it is deliberately not a step.
+   *
+   * Setup is seven steps and a test caps it there, because it was twelve and
+   * every one of them cost people who never finished. This is not an eighth: it
+   * comes before the flow starts, has no entry in the rail, and cannot be
+   * navigated back to — a progress bar that reads "1 of 8" when the first
+   * screen is a disclaimer is lying about how long setup is.
+   *
+   * Shown once per machine. Somebody reinstalling to fix something does not
+   * need the privacy argument again, and a screen that reappears after you have
+   * accepted it reads as a nag rather than a disclosure.
+   */
+  const [readTrust, setReadTrust] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("sidq.readTrust") === "yes";
+    } catch {
+      // A machine that cannot remember shows it again, which is the safe way
+      // round for a screen whose entire job is being seen.
+      return false;
+    }
+  });
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
   const [shortcutStuck, setShortcutStuck] = useState(false);
@@ -262,6 +286,28 @@ export default function Onboarding() {
     }
     advance();
   }, [discovery, advance]);
+
+  if (!readTrust) {
+    return (
+      <Shell
+        progress={0}
+        phase="Get started"
+        left={
+          <BeforeYouStart
+            onContinue={() => {
+              try {
+                localStorage.setItem("sidq.readTrust", "yes");
+              } catch {
+                /* not worth failing the flow over */
+              }
+              setReadTrust(true);
+            }}
+          />
+        }
+        right={renderRight()}
+      />
+    );
+  }
 
   return (
     <Shell
