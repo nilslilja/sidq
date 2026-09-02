@@ -2313,10 +2313,20 @@ fn main() {
              */
             // Clear the loose legacy agent an older build may have left, then
             // enable through SMAppService so the item shows under the app.
-            login_item::remove_legacy_agent();
-            if !running_from_a_mounted_image() && !login_item::is_enabled() {
-                let _ = login_item::enable();
-            }
+            //
+            // Off the setup thread on purpose. remove_legacy_agent() shells out
+            // to `launchctl` and blocks on it, and setup must not wait on a
+            // subprocess to finish — the splash card is closed at the end of
+            // this closure, so anything that stalls here leaves the card frozen
+            // on screen. Launch-at-login is fire-and-forget; nothing below
+            // depends on its result.
+            let mounted = running_from_a_mounted_image();
+            std::thread::spawn(move || {
+                login_item::remove_legacy_agent();
+                if !mounted && !login_item::is_enabled() {
+                    let _ = login_item::enable();
+                }
+            });
 
             /*
              * ── Take the launch card away ────────────────────────────────────
