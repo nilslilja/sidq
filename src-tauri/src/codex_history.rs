@@ -8,16 +8,16 @@
 //! carrying the session id and the working directory, then an entry per turn
 //! with a `role` and a `content` array of typed parts.
 //!
-//! ── Why this is written defensively ──────────────────────────────────────────
+//! ── Written blind, then corrected against a real rollout ─────────────────────
 //!
-//! Every other reader in this codebase was written against transcripts sitting
-//! on the machine, so its parsing was checked against the real thing. This one
-//! was not: Codex is not installed here, `~/.codex` does not exist, and the
-//! `codex-*` directories the ChatGPT desktop app leaves in Application Support
-//! are empty. That was checked rather than assumed.
+//! This was written before Codex existed on any machine here, against the
+//! documented shape. It was then run against a real session, which found two
+//! things a fixture never would have: the payload is nested under a
+//! `response_item` envelope, and Codex injects its own `<environment_context>`
+//! block as a `user` message — so the picker's first Codex row was titled with
+//! the runtime's preamble instead of the question.
 //!
-//! So the format below is what Codex documents and ships, and the parser treats
-//! every field as optional. A rollout whose shape has moved on since this was
+//! The parser still treats every field as optional. A rollout whose shape has moved on since this was
 //! written degrades to fewer facts about the session rather than to a panic or
 //! to a session that silently vanishes: an unknown line is skipped, a missing
 //! cwd becomes an empty project, a missing timestamp falls back to the file's
@@ -149,6 +149,13 @@ fn read_rollout(path: &Path, modified: i64) -> Option<WorkSession> {
             continue;
         }
 
+        // Codex injects machine context as a `user` message, so a raw role
+        // check counts the runtime's own preamble as something you typed. See
+        // `is_injected`.
+        if is_injected(&said) {
+            continue;
+        }
+
         turns += 1;
         if first_prompt.is_empty() {
             first_prompt = said.clone();
@@ -180,6 +187,41 @@ fn read_rollout(path: &Path, modified: i64) -> Option<WorkSession> {
         active_minutes: active_minutes(&stamps),
         source: SOURCE,
     })
+}
+
+/*
+ * Context the runtime injected, wearing the user's role.
+ *
+ * Found the first time this ran against a real rollout rather than a fixture.
+ * Codex opens every session by sending `<environment_context>` with the cwd,
+ * shell and platform in it — as `role: "user"`, not as a developer message. So
+ * the first thing the picker showed for a Codex session was
+ *
+ *   <environment_context> <cwd>/Users/nilslilja/…
+ *
+ * as the conversation's title, and the turn count was one higher than anything
+ * the person had actually said.
+ *
+ * Matched on the shape rather than a fixed list of tag names, because the list
+ * will grow and nobody will tell us: an injected block is a snake_case XML tag
+ * opening the very first line. Somebody genuinely starting a message with a tag
+ * like that loses one turn from a count, which is a far smaller cost than a
+ * garbage title on every session.
+ */
+fn is_injected(said: &str) -> bool {
+    let trimmed = said.trim_start();
+    let Some(rest) = trimmed.strip_prefix('<') else {
+        return false;
+    };
+    let Some(tag_end) = rest.find('>') else {
+        return false;
+    };
+    let tag = &rest[..tag_end];
+
+    !tag.is_empty()
+        && tag
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit())
 }
 
 /// The text out of a Responses-style content array, or a bare string.
@@ -354,5 +396,41 @@ mod tests {
         // sessions_dir returns None when ~/.codex is absent, which is the state
         // of most machines and must never be an error.
         assert!(recent_sessions(10).len() <= 10);
+    }
+}
+
+/*
+ * ── Diagnostics against the real thing ───────────────────────────────────────
+ *
+ * The parser above was written before Codex existed on any machine here, so
+ * these read whatever rollouts are actually on this one. Ignored, like the
+ * other diagnostics in this codebase: they prove nothing on a machine with no
+ * Codex history, and a test that passes by finding nothing is worse than no
+ * test.
+ *
+ *   cargo test --release codex_real -- --ignored --nocapture
+ */
+#[cfg(test)]
+mod codex_real {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    fn what_it_reads_off_this_machine() {
+        let sessions = recent_sessions(20);
+        println!("{} Codex sessions read", sessions.len());
+
+        for s in &sessions {
+            println!(
+                "  {:<44} turns={:<3} mins={:<4} project={}",
+                s.title.chars().take(44).collect::<String>(),
+                s.turns,
+                s.active_minutes,
+                s.project_name
+            );
+            assert!(!s.session_id.is_empty(), "a row must be openable");
+            assert!(s.turns > 0, "a listed session must have something in it");
+            assert!(s.ended_at > 0, "a row with no time cannot be ordered");
+        }
     }
 }
