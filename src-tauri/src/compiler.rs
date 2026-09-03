@@ -506,7 +506,58 @@ fn markdown_body(turns: &[Turn]) -> String {
 }
 
 /// The finished file.
+/*
+ * ── Credentials never leave in a handover ────────────────────────────────────
+ *
+ * People paste keys into conversations while debugging the request that uses
+ * them, and the transcript keeps them forever. A handover's whole job is to
+ * take a transcript somewhere else, so without this every one of those keys is
+ * posted into another assistant's history — and on the Team tier into a folder
+ * in a colleague's Drive.
+ *
+ * Done here rather than at each call site because there are four of those and
+ * somebody will add a fifth without knowing about this. The only way out of the
+ * compiler is through this function.
+ *
+ * `redact::scrub` is anchored on issuer prefixes and structure, never entropy,
+ * so commit hashes and UUIDs come through untouched. See that module.
+ */
 pub fn compile(turns: &[Turn], brief: &Brief, target: Target) -> String {
+    let (text, hits) = crate::redact::scrub(&compile_body(turns, brief, target));
+    if hits.is_empty() {
+        return text;
+    }
+
+    /*
+     * Say what was taken, at the top. A silent redaction is the worst of both:
+     * the reader meets "[redacted: github token]" unable to tell whether Sidq
+     * did that or the person did, and cannot tell what else went. Naming the
+     * count up front makes it a stated edit rather than a surprise.
+     */
+    let summary = hits
+        .iter()
+        .map(|h| {
+            if h.count == 1 {
+                format!("1 {}", h.kind)
+            } else {
+                format!("{} {}s", h.count, h.kind)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let note = match target {
+        Target::Claude => format!(
+            "<redactions>Sidq removed {summary} from this handover. Ask for any credential you need rather than guessing it.</redactions>\n"
+        ),
+        Target::Markdown => format!(
+            "_Sidq removed {summary} from this handover. Ask for any credential you need rather than guessing it._\n\n"
+        ),
+    };
+    format!("{note}{text}")
+}
+
+fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
     let (kept, dropped) = fit(turns);
     // Described from what survived the budget, not from the original: a turn
     // that was dropped is not in the file and must not be announced as if it
@@ -1010,6 +1061,39 @@ mod tests {
         assert!(!out.contains(", working on ."));
         assert!(!out.contains("The last thing they asked"));
     }
+
+    /*
+     * The wiring, not the matcher.
+     *
+     * redact.rs tests what counts as a credential. This exists because a
+     * correct matcher is worthless if a call path skips it, and there are four
+     * that could.
+     */
+    #[test]
+    fn a_credential_in_the_conversation_never_reaches_the_file() {
+        let turns = [Turn {
+            role: Role::You,
+            blocks: vec![Block::Said(
+                "it fails with ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa in the header".into(),
+            )],
+        }];
+        for target in [Target::Markdown, Target::Claude] {
+            let out = compile(&turns, &brief(), target);
+            assert!(
+                !out.contains("ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                "the token survived compile"
+            );
+            assert!(out.contains("[redacted: github token]"), "{out}");
+            // Not a fixed count: the brief quotes the opening message, so a
+            // token said once legitimately appears twice in the document and
+            // both copies are redacted.
+            assert!(
+                out.contains("github token") && out.contains("Sidq removed"),
+                "edit not declared: {out}"
+            );
+        }
+    }
+
 }
 #[cfg(test)]
 mod honesty_tests {

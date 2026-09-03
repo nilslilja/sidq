@@ -26,6 +26,7 @@ mod compiler;
 mod double_tap;
 mod codex_history;
 mod login_item;
+mod redact;
 
 mod cursor_history;
 mod screen_reader;
