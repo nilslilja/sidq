@@ -105,12 +105,69 @@ export function Hero() {
           <PoweredByClaude />
         </div>
 
+        {/*
+         * ── Set as a poster, not as a sentence ───────────────────────────────
+         *
+         * The words did not change and did not need to. What was wrong was that
+         * they were typeset like prose: one balanced block, every word the same
+         * weight, breaking wherever the measure happened to run out. A line
+         * whose whole job is to be screenshotted cannot break somewhere
+         * different on every screen.
+         *
+         * So the turn in the sentence is the turn in the layout. "The models
+         * remember everything" is the setup and sits on its own; "except you"
+         * is the payoff and drops to its own line at every width above a phone.
+         * The reader gets the beat the sentence was written to have.
+         *
+         * `text-balance` is gone deliberately. It optimises for even rag, which
+         * is right for a paragraph and wrong here — it kept pulling "except"
+         * up to sit with the setup and killing the joke.
+         */}
         <h1
           id="hero"
-          className="animate-rise w-full text-balance text-center font-display text-[clamp(2.125rem,7vw,4.75rem)] leading-[0.95] tracking-[-0.045em] text-white"
+          className="animate-rise w-full text-center font-display text-[clamp(2.375rem,7.4vw,5rem)] leading-[0.94] tracking-[-0.05em] text-[#F4F1FF]"
           style={{ animationDelay: "80ms" }}
         >
-          The models remember everything except&nbsp;you
+          The models remember everything{" "}
+          {/*
+           * The payoff, and the only place on the page where the brand violet
+           * carries meaning rather than decoration: the sentence is about the
+           * one thing the models do not have, and the colour is what marks it.
+           *
+           * `block` only from sm up. On a phone the measure is already forcing
+           * a break and a hard one as well leaves "except you" stranded under
+           * two nearly empty lines.
+           */}
+          {/*
+           * #CDBEFF and not the brand's own #B8A6FF, which is a contrast
+           * result rather than a preference. The headline crosses the sky from
+           * #3A3968 down to about #5B5793, and measured against the darkest
+           * point it reaches, B8A6FF gives 3.08:1 — under the 3:1 bar for large
+           * text once antialiasing is accounted for, and visibly muddy on a
+           * laptop in daylight. This tint measures 3.84:1 at the same point and
+           * 6.31:1 at the top, and reads as the same colour.
+           */}
+          {/*
+           * The payoff, and the reason it is not a second typeface.
+           *
+           * Geist Mono was tried here on the theory that a real pairing beats
+           * the same font at another weight. It does not work at this size:
+           * mono letterforms are evenly spaced by design, so next to a display
+           * line pulled to -0.05em the phrase reads as a code sample rather
+           * than the end of a sentence, and the even rhythm drains the emphasis
+           * out of exactly the two words that carry the joke.
+           *
+           * The contrast that does work is weight and colour against the same
+           * family: lighter, so it lands as an aside rather than a shout, and
+           * violet, which is the one place on the page the brand colour means
+           * something — the sentence is about the thing the models do not have.
+           *
+           * #CDBEFF and not the brand's own #B8A6FF is a measurement. The
+           * headline crosses the sky from #3A3968 to about #5B5793, and against
+           * the darkest point B8A6FF gives 3.08:1, under the 3:1 large-text
+           * bar. This measures 3.84:1 there and 6.31:1 at the top.
+           */}
+          <span className="block font-normal text-[#CDBEFF]">except&nbsp;you</span>
         </h1>
 
         {/*

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { Hero } from "@/components/landing/Hero";
 import { WorksWith } from "@/components/landing/WorksWith";
+import { HandoverFilm } from "@/components/landing/HandoverFilm";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
@@ -76,6 +77,31 @@ export function Landing() {
        * find out.
        */}
       <WorksWith />
+
+      {/*
+       * The demonstration, between the roster and the price.
+       *
+       * Somebody who has read the headline knows what Sidq claims and has no
+       * idea what using it looks like, and the next thing they meet used to be
+       * a pricing table. This is the answer to "what actually happens", placed
+       * where the question gets asked.
+       */}
+      <section
+        aria-labelledby="see-it"
+        className="mx-auto max-w-[68rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-24"
+      >
+        <h2
+          id="see-it"
+          className="mx-auto max-w-[20ch] text-balance text-center font-display text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[0.96] tracking-[-0.04em]"
+        >
+          Watch a conversation change hands
+        </h2>
+        <p className="ink-muted mx-auto mt-4 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
+          The real interface, and the real document it writes. Nothing here is a
+          mock-up of something that works differently.
+        </p>
+        <HandoverFilm className="mt-10" />
+      </section>
 
       {/*
        * Pricing and the questions are on the page again.

@@ -185,9 +185,34 @@
    * A contrasting serif read as decorative rather than engineered, so the
    * hierarchy is carried by scale and tracking instead of by a second family.
    */
+  /*
+   * ── The display face ─────────────────────────────────────────────────────
+   *
+   * This was `font-family: var(--font-sans)` and nothing else, which is to say
+   * the headline was body copy at seventy six pixels. That is why the hero read
+   * as a template: there was no typographic difference between the sentence
+   * that has to stop somebody and the paragraph explaining it, only a size.
+   *
+   * Geist is a variable font, so the character comes out of the axes rather
+   * than a second file — no extra request, nothing new to subset, and it still
+   * renders with the wifi off, which the app requires.
+   *
+   * Weight 660 rather than 700: at display sizes a true bold closes the
+   * counters in a, e and o and the line turns into a block. Tracking is where
+   * most of the work is. Type set for paragraphs carries spacing that looks
+   * loose and amateur once letters are this large, so it tightens as the type
+   * grows, which is what a typesetter would have done by hand.
+   */
   .font-display {
     font-family: var(--font-sans);
-    font-weight: 600;
+    font-weight: 660;
+    font-optical-sizing: auto;
+    /* Lining figures at display size: proportional digits make "150,000" look
+       like it was typed rather than set. */
+    font-variant-numeric: lining-nums tabular-nums;
+    /* 660, not 600 and not 700. Six hundred is a text weight and looks thin
+       once the type is this large; a true bold closes the counters in a, e
+       and o and the line becomes a solid block. */
     letter-spacing: -0.038em;
     line-height: 1.02;
   }
@@ -1368,4 +1393,139 @@
   --w-sheen: rgba(255, 255, 255, 0.06);
   --w-card-from: #1f2947;
   --w-card-to: #182034;
+
+}
+
+
+/*
+ * A marquee that is a proof strip, not decoration.
+ *
+ * The track holds the list twice and slides exactly half its width, so the
+ * second copy is under the cursor at the moment the first runs out and the
+ * loop has no seam. Animating a transform keeps it on the compositor; the
+ * obvious version animates `left` and drops frames the whole way across.
+ *
+ * It pauses on hover because the names are the content — a reader who stops
+ * to look should not have to chase it.
+ */
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-slide 38s linear infinite;
+}
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marquee-slide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/*
+ * Fade at both ends rather than a hard cut, so names enter and leave instead
+ * of being chopped at the viewport edge.
+ */
+.marquee {
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+/*
+ * Motion that exists to be watched is exactly what this setting is for. The
+ * list is still entirely readable standing still.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  .marquee {
+    overflow-x: auto;
+  }
+}
+/*
+ * The film's camera move.
+ *
+ * A long, heavily eased transition on transform alone. The easing matters more
+ * than the duration: a linear zoom reads as a machine panning, and the curve
+ * below starts fast and settles, which is what a person moving their attention
+ * looks like.
+ */
+.film-camera {
+  /*
+   * 620ms, down from 1500. The beats are half a second now, so a move that
+   * takes a second and a half never arrives before the next one starts and the
+   * whole film reads as drifting rather than cutting.
+   */
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The cursor travels on the same curve, a beat quicker, so it leads the camera
+   rather than trailing it. */
+.film-cursor {
+  /* Slightly ahead of the camera, so the pointer leads and the frame follows,
+     which is the order those happen in when a person does it. */
+  transition:
+    left 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.film-caption {
+  animation: film-caption-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes film-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The document arriving. It wipes in from the top rather than fading, because
+   a fade reads as a picture loading and a wipe reads as text being written. */
+.film-paste {
+  animation: film-paste-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes film-paste-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/*
+ * Motion whose only job is to be watched is exactly what this setting means.
+ * The film still advances through its beats; it simply cuts between them.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .film-camera,
+  .film-cursor {
+    transition: none;
+  }
+  .film-caption,
+  .film-paste {
+    animation: none;
+  }
 }

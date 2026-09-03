@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
 export function Pricing() {
   return (
     <section
-      className="mx-auto max-w-[76rem] px-6 py-24"
+      className="mx-auto max-w-[84rem] px-6 py-24"
       aria-labelledby="pricing"
     >
       <h2
@@ -45,7 +45,7 @@ export function Pricing() {
        * `overflow-hidden` also clips the Duo card's travelling light to the
        * rounded corner instead of letting it square one off.
        */}
-      <div className="mt-14 overflow-hidden rounded-[22px] bg-ink/10 shadow-[0_1px_2px_rgba(18,18,26,0.04),0_18px_44px_-28px_rgba(18,18,26,0.28)] ring-1 ring-ink/10 lg:grid lg:grid-cols-3 lg:gap-px">
+      <div className="mt-14 overflow-hidden rounded-[22px] bg-ink/10 shadow-[0_1px_2px_rgba(18,18,26,0.04),0_18px_44px_-28px_rgba(18,18,26,0.28)] ring-1 ring-ink/10 lg:grid lg:grid-cols-4 lg:gap-px">
         <div className="grid gap-px lg:contents">
           {PLANS.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />

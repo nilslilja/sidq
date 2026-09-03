@@ -39,25 +39,48 @@ export function WorksWith() {
        * Cowork", which is the layout that makes a list like this look like
        * filler. Flowing them and centring each line keeps the block dense.
        */}
-      <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2.5">
-        {SUPPORTED.map((name) => (
-          <li key={name}>
-            <span
-              className={[
-                "glass-subtle inline-flex items-center rounded-full px-3.5 py-1.5",
-                "font-display text-[clamp(0.9375rem,1.4vw,1.125rem)] tracking-[-0.02em]",
-                "text-ink transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                // Lifts a hair on hover. Nothing here is clickable, so this is
-                // not an affordance — it is the page answering the cursor,
-                // which is the difference between a list and a surface.
-                "hover:-translate-y-0.5",
-              ].join(" ")}
+      {/*
+       * ── A moving strip rather than a wrapped block ──────────────────────────
+       *
+       * Eleven names sitting still read as a feature list, and a feature list is
+       * a thing people skim. The same eleven moving read as a roster, and the
+       * eye follows them long enough to register how many there are — which is
+       * the only claim on this page that is both impressive and checkable by
+       * anybody who cares to count.
+       *
+       * The list is rendered twice into one track, and the animation slides the
+       * track exactly half its own width. At the instant the first copy leaves
+       * the frame the second is already in that position, so the loop has no
+       * seam. See `.marquee-track` in global.css.
+       *
+       * The duplicate is hidden from assistive technology: a screen reader
+       * should hear the roster once, not stutter through it twice.
+       */}
+      <div className="marquee mt-5 overflow-hidden">
+        <div className="marquee-track">
+          {[false, true].map((isClone) => (
+            <ul
+              key={String(isClone)}
+              aria-hidden={isClone || undefined}
+              className="flex shrink-0 items-center gap-x-3 pr-3"
             >
-              {name}
-            </span>
-          </li>
-        ))}
-      </ul>
+              {SUPPORTED.map((name) => (
+                <li key={name}>
+                  <span
+                    className={[
+                      "glass-subtle inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1.5",
+                      "font-display text-[clamp(0.9375rem,1.4vw,1.125rem)] tracking-[-0.02em]",
+                      "text-ink",
+                    ].join(" ")}
+                  >
+                    {name}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
+      </div>
 
       <p className="ink-muted mx-auto mt-5 max-w-[46ch] text-balance text-center text-[0.875rem] leading-relaxed">
         Whatever you had the conversation in, Sidq can carry it into whatever you

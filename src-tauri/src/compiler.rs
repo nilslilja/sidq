@@ -1200,3 +1200,41 @@ mod honesty_tests {
         assert!(!read_from_a_screen("claude-code"));
     }
 }
+
+#[cfg(test)]
+mod demo_sample {
+    use super::*;
+
+    /*
+     * Emits the exact handover the marketing page shows.
+     *
+     * Run with `cargo test print_a_handover -- --ignored --nocapture`. The site
+     * must show the real output, not an approximation of it, and the only way
+     * to guarantee that is to generate it from the same compiler the app runs.
+     */
+    #[test]
+    #[ignore]
+    fn print_a_handover_for_the_website() {
+        let turns = [
+            Turn { role: Role::You, blocks: vec![Block::Said(
+                "our checkout silently drops about 8% of payments and we cannot work out why".into())] },
+            Turn { role: Role::Assistant, blocks: vec![
+                Block::Thought("the retries are the clue, not the failures".into()),
+                Block::Said("Stripe is retrying the webhook and the handler is not idempotent, so the second delivery overwrites the first with a stale status.".into())] },
+            Turn { role: Role::You, blocks: vec![Block::Said(
+                "so we key on the event id instead".into())] },
+        ];
+        let profile = ["never use em dashes in anything you write for me".to_string()];
+        let brief = Brief {
+            source: "ChatGPT",
+            when: "yesterday",
+            project: "checkout",
+            resume_point: "add the idempotency key and backfill the failed events",
+            profile: &profile,
+            team: &[],
+        };
+        println!("=====HANDOVER=====");
+        println!("{}", compile(&turns, &brief, Target::Markdown));
+        println!("=====END=====");
+    }
+}

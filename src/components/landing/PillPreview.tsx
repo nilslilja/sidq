@@ -1,26 +1,26 @@
-import { cn } from '@/lib/cn';
+import { cn } from "@/lib/cn";
 
 /*
- * The pill, drawn for the website.
+ * The picker, as it actually is.
  *
- * What this replaces was the first prototype's card: a task, a status line and a
- * running timer. It had stopped describing the product some time ago. Somebody
- * looking at the site saw a Pomodoro clock and then installed something that
- * moves conversations between assistants, which is the worst possible order to
- * learn that in.
+ * ── Why this exists and why it keeps going stale ─────────────────────────────
  *
- * So this is the real interface, drawn rather than screenshotted. Same layout,
- * same type, same keys along the bottom. When the screen recording lands it can
- * sit next to this without either one looking like a different product.
+ * The real picker in routes/Pill.tsx is wired to live sessions, a Tauri window
+ * and a keyboard, none of which exist on a marketing page. So the page draws
+ * it, and the drawing has to be kept honest by hand.
  *
- * A drawing rather than an image on purpose: it is a few hundred bytes instead
- * of a few hundred kilobytes, it stays sharp on every display, and it cannot go
- * stale in the silent way a screenshot does when the interface moves on.
+ * It was not. The pill was remastered into liquid glass — `pane-glass` panes,
+ * inset `row-glass` rows, `chip-glass` keycaps, a 22px radius — and this file
+ * stayed on the flat `bg-[#141319]` box from before it, so the front page spent
+ * a week showing an interface the product no longer had.
+ *
+ * Every class below is copied from Pill.tsx rather than approximated, and the
+ * test beside this file fails if the two stop sharing them. A screenshot cannot
+ * catch this: both versions look fine, one of them is just not the product.
  */
 
 export interface PillRow {
   title: string;
-  /** The line underneath: why it ranked here, and where it came from. */
   meta: string;
 }
 
@@ -29,89 +29,118 @@ export function PillPreview({
   rows,
   selected = 0,
   status,
-  footer = 'Whole conversation, not a summary',
+  footer = "Whole conversation, not a summary",
   className,
 }: {
-  /** Left blank to show the placeholder, as it looks when first summoned. */
   query?: string;
   rows: PillRow[];
   selected?: number;
-  /** Right-hand count. Derived when not given, so it cannot contradict the list. */
   status?: string;
   footer?: string;
   className?: string;
 }) {
-  const count = rows.length === 1 ? '1 conversation' : `${rows.length} conversations`;
+  const count =
+    rows.length === 1 ? "1 conversation" : `${rows.length} conversations`;
 
   return (
     <div
       className={cn(
-        'w-full overflow-hidden rounded-[18px] text-left',
-        'bg-[#141319]/95 ring-1 ring-inset ring-white/10',
-        'shadow-[0_8px_24px_-8px_rgba(20,18,45,0.45),0_32px_64px_-24px_rgba(20,18,45,0.55)]',
+        // Pill.tsx: 'overflow-hidden rounded-[22px]' + 'pane-glass'. The border
+        // and shadow live inside pane-glass; adding any here doubles the rim.
+        "w-full overflow-hidden rounded-[22px] text-left",
+        "pane-glass",
         className,
       )}
     >
-      {/* ── Query ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-[0.9375rem]',
-            query ? 'text-white' : 'text-white/30',
-          )}
-        >
-          {query || 'Pick up where you stopped'}
-          {/* The caret. Static: a blinking cursor in a still image reads as a
-              bug, and on the marketing page nothing is focused anyway. */}
-          {query && <span className="ml-0.5 inline-block h-[1.05em] w-px translate-y-[0.15em] bg-white/70" />}
-        </span>
-        <span className="shrink-0 text-[0.6875rem] tabular-nums text-white/30">
+      {/*
+       * The header. There is no search box in the real picker any more — typing
+       * filters and the query appears here as text, so a box drawn on the page
+       * would be an interface element that does not exist.
+       */}
+      <div className="flex items-center gap-3 px-4 pb-2.5 pt-3">
+        <div className="min-w-0 flex-1">
+          <p
+            className={cn(
+              "truncate text-[0.9375rem] leading-tight",
+              query ? "text-white" : "font-medium text-white/90",
+            )}
+          >
+            {query || "Pick up where you stopped"}
+            {query && (
+              // Static caret. A blink in a still frame reads as a rendering
+              // fault, and nothing on this page has focus anyway.
+              <span className="ml-0.5 inline-block h-[1.05em] w-px translate-y-[0.15em] bg-white/70" />
+            )}
+          </p>
+        </div>
+        <span className="shrink-0 text-[0.6875rem] tabular-nums text-white/35">
           {status ?? count}
         </span>
       </div>
 
-      {rows.length > 0 && <div className="h-px bg-white/[0.07]" />}
-
-      {/* ── Results ─────────────────────────────────────────────────────── */}
-      <ul>
+      {/* Rows are inset with their own radius, which is what makes a selection
+          read as a control rather than a table row. */}
+      <ul className="px-2 pb-2">
         {rows.map((row, i) => (
-          <li
-            key={row.title}
-            className={cn(
-              'flex items-center gap-3 px-4 py-2.5',
-              i === selected && 'bg-white/[0.07]',
-            )}
-          >
-            <span
-              aria-hidden="true"
+          <li key={row.title}>
+            <div
               className={cn(
-                'size-1.5 shrink-0 rounded-full',
-                i === selected ? 'bg-[#B8A6FF]' : 'bg-white/20',
+                "flex w-full items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left",
+                "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                i === selected ? "row-glass-on" : "",
               )}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[0.875rem] text-white/90">{row.title}</span>
-              <span className="block truncate text-[0.75rem] text-white/35">{row.meta}</span>
-            </span>
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full transition-colors duration-150",
+                  i === selected
+                    ? "bg-[#B8A6FF] shadow-[0_0_8px_rgba(184,166,255,0.8)]"
+                    : "bg-white/20",
+                )}
+              />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
+                    i === selected ? "text-white" : "text-white/85",
+                  )}
+                >
+                  {row.title}
+                </span>
+                <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                  {row.meta}
+                </span>
+              </span>
+            </div>
           </li>
         ))}
       </ul>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-t border-white/[0.07] px-4 py-2">
-        <span className="text-[0.6875rem] text-white/30">{footer}</span>
-        <span className="flex items-center gap-1.5 text-[0.625rem] text-white/25">
-          <Key>↑↓</Key>
-          <Key>↵</Key>
-          <Key>esc</Key>
+      {/*
+       * The footer, which is a hairline rule and not a glass lip. `.lip-glass`
+       * exists but belongs to the collapsed bar; using it here would invent a
+       * surface the picker does not have.
+       */}
+      <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2.5">
+        <span className="min-w-0 truncate text-[0.6875rem] text-white/30">
+          {footer}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
+          <Cap>↑↓</Cap>
+          <Cap>↵</Cap>
+          <Cap>⌘↵</Cap>
         </span>
       </div>
     </div>
   );
 }
 
-function Key({ children }: { children: React.ReactNode }) {
+function Cap({ children }: { children: React.ReactNode }) {
+  // Pill.tsx: 'chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45'.
   return (
-    <span className="rounded-[5px] bg-white/[0.07] px-1.5 py-0.5 text-white/40">{children}</span>
+    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">
+      {children}
+    </span>
   );
 }

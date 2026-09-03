@@ -15,8 +15,28 @@ describe("what the site claims it reads", () => {
   test("every supported product is named on the page", () => {
     render(<WorksWith />);
     for (const name of SUPPORTED) {
-      expect(screen.getByText(name)).toBeInTheDocument();
+      /*
+       * `getAllByText`, because the marquee renders the roster twice into one
+       * track — that is how the loop closes without a seam, and the second copy
+       * is aria-hidden so it is never announced. What matters here is that the
+       * name is on the page at all, not how many times it was painted.
+       */
+      expect(screen.getAllByText(name).length).toBeGreaterThan(0);
     }
+  });
+
+  test("a screen reader hears the roster once, not twice", () => {
+    /*
+     * The duplicate exists for the animation and nothing else. If its
+     * aria-hidden is ever dropped, every assistant is announced twice and the
+     * strip becomes actively worse than the static list it replaced — which is
+     * invisible to anybody checking the page by looking at it.
+     */
+    const { container } = render(<WorksWith />);
+    const lists = container.querySelectorAll("ul");
+    expect(lists.length).toBe(2);
+    expect(lists[0].getAttribute("aria-hidden")).toBeNull();
+    expect(lists[1].getAttribute("aria-hidden")).toBe("true");
   });
 
   test("the hero's count is the number of products actually named", () => {
