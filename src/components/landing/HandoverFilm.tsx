@@ -117,6 +117,13 @@ const PICKED = 0;
 const LIST_SHOT = { scale: 1.34, at: { x: 46, y: 26 } };
 
 /*
+ * How long the pointer takes to cross the panel. Must match `.film-cursor` in
+ * global.css: the row highlight is timed off this, and if the two drift the
+ * highlight lands before the cursor again.
+ */
+const CURSOR_TRAVEL_MS = 620;
+
+/*
  * ── The pick, as a sequence of states rather than a slideshow ────────────────
  *
  * Three things were wrong and they compounded. The panel opened with a row
@@ -142,7 +149,13 @@ const BEATS: Beat[] = [
   // The list opens, nothing hovered, and the pointer is still up at the bar.
   { hold: 800, ...LIST_SHOT, at: { x: 50, y: 12 }, caption: "Everything you have said, to every assistant." },
   // The pointer travels down. Same shot, so only it is moving.
-  { hold: 950, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
+  /*
+   * Long enough for three things in order: the pointer travels (620ms, see
+   * CURSOR_TRAVEL_MS), the row lights when it lands, and the highlight is
+   * legible for a beat before the click lands on top of it. At 950 the hover
+   * existed for barely a third of a second and the pick still read as instant.
+   */
+  { hold: 1300, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
   // Clicked.
   { hold: 900, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
@@ -362,7 +375,42 @@ export function HandoverFilm({ className }: { className?: string }) {
   const scene = BEATS[beat];
   const showPicker = beat >= 2 && beat <= 4;
   const showChat = beat >= 5;
-  const pick = PICK[beat] ?? { hover: null, press: false };
+  /*
+   * ── The row lights when the pointer lands, not when the beat starts ─────────
+   *
+   * The remaining half of the "it picks before the cursor gets there" problem.
+   * The hover state was applied the instant the beat began, while the cursor
+   * was still 620ms into its travel, so the row lit up under an empty patch of
+   * panel and the pointer arrived at something already selected — which is
+   * exactly what it looked like.
+   *
+   * The delay matches the cursor's transition in global.css. It is only paid on
+   * arrival: once the pointer is on the row, later beats that keep it there
+   * apply immediately, or the highlight would drop out and flash back on at
+   * the moment of the click.
+   */
+  const wanted = PICK[beat] ?? { hover: null, press: false };
+  const [landed, setLanded] = useState(false);
+  const wasHovering = useRef(false);
+
+  useEffect(() => {
+    if (wanted.hover === null) {
+      setLanded(false);
+      wasHovering.current = false;
+      return;
+    }
+    if (wasHovering.current) {
+      setLanded(true);
+      return;
+    }
+    const id = window.setTimeout(() => {
+      setLanded(true);
+      wasHovering.current = true;
+    }, CURSOR_TRAVEL_MS);
+    return () => window.clearTimeout(id);
+  }, [wanted.hover]);
+
+  const pick = { hover: landed ? wanted.hover : null, press: wanted.press && landed };
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>

@@ -50,6 +50,15 @@ use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
 const GLOW_MARGIN: f64 = 40.0;
 
 /*
+ * The expanded panel's own top margin, from `mx-2 mt-1` in Pill.tsx.
+ *
+ * Small, but it has to be right: this is the number that decides whether the
+ * picker's top edge lands where the collapsed bar's did, and the two sizes have
+ * to agree or the panel appears to jump when it opens.
+ */
+const EXPANDED_INSET: f64 = 4.0;
+
+/*
  * The collapsed window: the bar plus room for its light on every side.
  *
  * It was 208x56 around a 152x28 bar, which left 14 points above and below. The
@@ -276,7 +285,18 @@ const EXPANDED_THRESHOLD: f64 = 396.0;
  * coordinates, so a second display with a non-zero origin lands correctly
  * without any arithmetic of our own.
  */
-fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
+/*
+ * `top_inset` is how much transparent space the window carries above the thing
+ * it actually draws, and it is not the same for the two sizes.
+ *
+ * The collapsed window is deliberately larger than the bar so the glow has
+ * somewhere to go, so its first drawn pixel is GLOW_MARGIN below its own top
+ * edge. The expanded panel has no such margin — it starts 4 points in, from its
+ * own `mt-1`. Subtracting the collapsed margin from both is why the picker
+ * opened hard against the top of the screen: it was being hoisted 40 points to
+ * compensate for padding it does not have.
+ */
+fn place(w: &WebviewWindow, size: (f64, f64), top_inset: f64) -> tauri::Result<()> {
     w.set_size(LogicalSize::new(size.0, size.1))?;
 
     if let Ok(Some(monitor)) = w.current_monitor() {
@@ -291,7 +311,7 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
          * above it, because that much of the window is transparent room for the
          * glow rather than anything drawn — see COLLAPSED.
          */
-        let y = top_edge(screen.y, origin.y, notch_height()) - GLOW_MARGIN;
+        let y = top_edge(screen.y, origin.y, notch_height()) - top_inset;
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
@@ -742,7 +762,7 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
      * set_focusable was standing in for: it can take the keyboard when clicked
      * and never pulls the person out of the app they are in.
      */
-    let _ = place(w, EXPANDED);
+    let _ = place(w, EXPANDED, EXPANDED_INSET);
     let _ = w.show();
 
     // After showing, never before: showing resets the level and the collection
@@ -881,7 +901,7 @@ pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     // Same reasoning as `expand`: no `?`, because the raise is last and must
     // not be skipped by anything before it.
     let _ = w.hide();
-    let _ = place(w, COLLAPSED);
+    let _ = place(w, COLLAPSED, GLOW_MARGIN);
     let _ = w.show();
     raise_above_everything(w, BAR_LEVEL, false);
     watch_for_outside_clicks(w, false);
