@@ -14,6 +14,7 @@ import {
 import { HowItGoes } from "@/components/onboarding/HowItGoes";
 import { PoweredByClaude } from "@/components/landing/PoweredByClaude";
 import { useShortcutGate } from "@/lib/onboarding/use-shortcut-gate";
+import type { Combo } from "@/lib/onboarding/use-shortcut-gate";
 import { GrantAccess } from "@/components/companion/GrantAccess";
 import { sourceLabel } from "@/lib/companion/sources";
 import type { WorkSession } from "@/lib/companion/work-history";
@@ -49,6 +50,24 @@ import { BeforeYouStart } from "@/components/onboarding/BeforeYouStart";
  * shortcut steps degrade to a skip. Being unable to develop the flow without
  * building the Rust shell every time would mean it never gets polished.
  */
+
+/*
+ * "⌘⇧K" into the shape the keypress gate wants.
+ *
+ * Rust owns which shortcut registered and reports it as the glyphs a person
+ * reads, so this is the one place that turns them back into modifier flags and
+ * a layout independent KeyboardEvent code.
+ */
+function comboFromLabel(label: string): Combo {
+  const letter = label.replace(/[^A-Za-z]/g, "").toUpperCase() || "K";
+  return {
+    meta: label.includes("⌘"),
+    shift: label.includes("⇧"),
+    alt: label.includes("⌥"),
+    ctrl: label.includes("⌃"),
+    code: `Key${letter}`,
+  };
+}
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -102,7 +121,12 @@ export default function Onboarding() {
    * tell us that — only that the ask has happened, so the copy can stop
    * offering and start explaining what to do if nothing showed up.
    */
-  const [notified, setNotified] = useState(false);
+  /*
+   * Three states, not two: never asked, posted, refused. A boolean could not
+   * tell "we sent one" from "macOS would not let us", so the screen claimed
+   * success either way.
+   */
+  const [notified, setNotified] = useState<"sent" | "failed" | null>(null);
 
   /*
    * Count handovers while that step is up.
@@ -147,9 +171,37 @@ export default function Onboarding() {
 
   // Shortcut gates. Only armed on their own step, so the listeners are never
   // sitting on the window swallowing keys during the rest of the flow.
+  /*
+   * The shortcut that actually registered, which is not always the one asked
+   * for. `undefined` while unknown, `null` when every candidate was taken.
+   */
+  const [pickerKey, setPickerKey] = useState<string | null | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    let alive = true;
+    void bridge
+      ?.pickerShortcut()
+      .then((k) => alive && setPickerKey(k))
+      .catch(() => alive && setPickerKey(null));
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
+
+  /*
+   * Teaching the key that works.
+   *
+   * The gate has to match whatever registered, or the screen asks for one
+   * combination and listens for another — which is a step nobody can pass.
+   */
+  const pillCombo = useMemo(() => comboFromLabel(pickerKey ?? "⌘⇧K"), [
+    pickerKey,
+  ]);
+
   const pillGate = useShortcutGate({
     armed: step === "pill",
-    combo: { meta: true, shift: true, code: "KeyK" },
+    combo: pillCombo,
     onComplete: advance,
   });
 
@@ -513,19 +565,36 @@ export default function Onboarding() {
               )}
             </div>
 
-            <div className="mt-7">
+            <div className="mt-7 flex flex-wrap items-center gap-4">
               {handovers > 0 ? (
                 <PrimaryAction label="Continue" onClick={advance} />
               ) : (
-                <button
-                  onClick={advance}
-                  className={cn(
-                    "text-[0.8125rem] text-white/40 underline-offset-4",
-                    "cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline",
-                  )}
-                >
-                  Skip for now
-                </button>
+                <>
+                  {/*
+                   * A route that cannot fail.
+                   *
+                   * Everything above is a keyboard gesture that needs
+                   * Accessibility, or a global shortcut another app may own.
+                   * When either is missing this screen offered nothing but
+                   * "Skip for now" — so the one step that makes somebody
+                   * actually use the product was the easiest to walk past, and
+                   * it read as though a step were broken. A button opens the
+                   * picker whatever else is unavailable.
+                   */}
+                  <PrimaryAction
+                    label="Open the picker"
+                    onClick={() => void bridge?.openPicker()}
+                  />
+                  <button
+                    onClick={advance}
+                    className={cn(
+                      "text-[0.8125rem] text-white/40 underline-offset-4",
+                      "cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline",
+                    )}
+                  >
+                    Skip for now
+                  </button>
+                </>
               )}
             </div>
           </Instruction>
@@ -562,8 +631,19 @@ export default function Onboarding() {
               <div className="mt-4 flex items-center gap-4">
                 <button
                   onClick={() => {
-                    setNotified(true);
-                    void bridge?.notifySample();
+                    /*
+                     * Wait for the answer rather than assuming one.
+                     *
+                     * This set `notified` before the call and ignored the
+                     * result, so the screen said "Sent. Check the top-right of
+                     * your screen" whether or not anything had been posted —
+                     * which is how a broken notification path stayed invisible.
+                     * Rust now reports whether it actually got one out.
+                     */
+                    void bridge
+                      ?.notifySample()
+                      .then((ok) => setNotified(ok ? "sent" : "failed"))
+                      .catch(() => setNotified("failed"));
                   }}
                   className={cn(
                     "rounded-lg bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-[#0B0B10]",
@@ -613,16 +693,45 @@ export default function Onboarding() {
       case "pill":
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
-            <div className="flex items-center gap-2">
-              <Key lit={pillGate.held.meta}>⌘</Key>
-              <Key lit={pillGate.held.shift}>⇧</Key>
-              <Key lit={pillGate.held.key}>K</Key>
-            </div>
-            <div className="mt-7">
-              <PrimaryAction label="Press ⌘⇧K to continue" waiting />
-            </div>
-            {shortcutStuck && (
-              <ShortcutEscape onSkip={advance} reason="collision" />
+            {pickerKey === null ? (
+              /*
+               * Every candidate was taken.
+               *
+               * Waiting on a keypress that provably cannot arrive is the dead
+               * end this screen used to be. Say so, and let the person past —
+               * the picker still opens from the pill and the tray.
+               */
+              <>
+                <p className="max-w-[42ch] text-[0.9375rem] leading-relaxed text-white/60">
+                  Another app already owns every shortcut Sidq tried, so there is
+                  no key to press here. Open the picker from the pill at the top
+                  of your screen, or from the menu bar icon.
+                </p>
+                <div className="mt-7">
+                  <PrimaryAction label="Continue" onClick={advance} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  {pillCombo.meta && <Key lit={pillGate.held.meta}>⌘</Key>}
+                  {pillCombo.ctrl && <Key lit={pillGate.held.ctrl}>⌃</Key>}
+                  {pillCombo.alt && <Key lit={pillGate.held.alt}>⌥</Key>}
+                  {pillCombo.shift && <Key lit={pillGate.held.shift}>⇧</Key>}
+                  <Key lit={pillGate.held.key}>
+                    {pillCombo.code.replace("Key", "")}
+                  </Key>
+                </div>
+                <div className="mt-7">
+                  <PrimaryAction
+                    label={`Press ${pickerKey ?? "⌘⇧K"} to continue`}
+                    waiting
+                  />
+                </div>
+                {shortcutStuck && (
+                  <ShortcutEscape onSkip={advance} reason="collision" />
+                )}
+              </>
             )}
           </Instruction>
         );

@@ -528,7 +528,7 @@ export function Pill() {
              * same reason — filling the window would put the pill back against
              * the edges the whole change was about getting away from.
              */
-            'group flex h-7 w-[152px] items-center justify-center gap-2 px-3',
+            'group flex h-6 w-[112px] items-center justify-center gap-1.5 px-2.5',
             /*
              * Rounded at the bottom only, and no top border.
              *

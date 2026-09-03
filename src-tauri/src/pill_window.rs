@@ -47,7 +47,22 @@ use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
  * right, and the middle is empty on every Mac without a notch. Nothing else
  * claims it, so nothing is covered.
  */
-const COLLAPSED: (f64, f64) = (208.0, 56.0);
+const GLOW_MARGIN: f64 = 40.0;
+
+/*
+ * The collapsed window: the bar plus room for its light on every side.
+ *
+ * It was 208x56 around a 152x28 bar, which left 14 points above and below. The
+ * widest thing the bar casts is `0 8px 24px -8px`, reaching 24 points under it,
+ * so the shadow hit the window edge and stopped square — the "abruptly cut off"
+ * glow. 40 points clears every shadow in `.bar-float` with room to spare.
+ *
+ * Growing the window would normally mean a bigger dead zone over the desktop,
+ * since a window swallows clicks across its whole frame whether it has drawn
+ * anything there or not. `follow_cursor` below is what stops that, and it is
+ * the reason this margin can be generous.
+ */
+const COLLAPSED: (f64, f64) = (BAR.0 + GLOW_MARGIN * 2.0, BAR.1 + GLOW_MARGIN * 2.0);
 
 /**
  * How far the floating bar hangs below the top of the screen.
@@ -69,7 +84,7 @@ const FLOAT_GAP: f64 = 28.0;
  * exactly like a bug and is the reason the old flush bar had no elevation at
  * all. The margin is where the light goes.
  */
-const BAR: (f64, f64) = (152.0, 28.0);
+const BAR: (f64, f64) = (112.0, 24.0);
 
 /**
  * Whether the screen the bar is on has a camera housing over the menu bar.
@@ -207,6 +222,9 @@ const UNMEASURED_NOTCH: f64 = 32.0;
  * Called from setup, on the main thread, before the pill is ever shown.
  */
 pub fn measure_from_setup(w: &WebviewWindow) {
+    // One watcher for the life of the app; see follow_cursor.
+    follow_cursor(w);
+
     if let Ok(handle) = w.ns_window() {
         measure_notch(handle as *mut objc::runtime::Object);
     }
@@ -268,7 +286,12 @@ fn place(w: &WebviewWindow, size: (f64, f64)) -> tauri::Result<()> {
         let usable = area.size.to_logical::<f64>(scale);
         let screen = monitor.position().to_logical::<f64>(scale);
 
-        let y = top_edge(screen.y, origin.y, notch_height());
+        /*
+         * top_edge is where the *bar* belongs. The window starts GLOW_MARGIN
+         * above it, because that much of the window is transparent room for the
+         * glow rather than anything drawn — see COLLAPSED.
+         */
+        let y = top_edge(screen.y, origin.y, notch_height()) - GLOW_MARGIN;
 
         w.set_position(LogicalPosition::new(
             origin.x + (usable.width - size.0) / 2.0,
@@ -743,6 +766,117 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
  * *becoming* key; it does not make it give up key status it already holds, and
  * the difference is a person pressing Esc and then typing into nothing.
  */
+/*
+ * Let the desktop have every pixel the bar is not actually drawn on.
+ *
+ * A window swallows clicks across its whole frame whether or not anything has
+ * been painted there, and this window is deliberately larger than the bar so
+ * the glow has somewhere to go. That margin was landing on other applications:
+ * roughly a centimetre around the pill where a browser tab or a search field
+ * simply could not be clicked, with nothing on screen to explain why.
+ *
+ * `ignore_cursor_events` is all-or-nothing per window, so it is toggled instead:
+ * the cursor position is read straight from the window server and the window
+ * accepts clicks only while the pointer is over the bar. Polling rather than a
+ * global mouse monitor because a monitor for mouse movement needs Accessibility
+ * and this must work before anybody has granted it.
+ *
+ * Expanded, the whole panel is real and none of this applies.
+ */
+#[cfg(target_os = "macos")]
+fn follow_cursor(w: &WebviewWindow) {
+    use objc::{class, msg_send, sel, sel_impl};
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct Point {
+        x: f64,
+        y: f64,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct Rect {
+        origin: Point,
+        size: Point,
+    }
+
+    let win = w.clone();
+    std::thread::spawn(move || {
+        // Only touched from this thread.
+        let mut ignoring: Option<bool> = None;
+
+        // Where the window is, refreshed a fraction as often as the cursor is
+        // read. Asking Tauri for geometry crosses to the event loop, and doing
+        // that sixteen times a second from a background thread is both wasteful
+        // and a good way to stall on macOS. The bar only moves when a display
+        // changes or the picker opens, so a second-old answer is exact almost
+        // always and one tick stale at worst.
+        let mut geometry: Option<(f64, f64, f64, bool)> = None;
+        let mut last_read = std::time::Instant::now();
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(60));
+
+            if geometry.is_none() || last_read.elapsed().as_millis() > 700 {
+                // The window going away ends the loop rather than spinning.
+                let Ok(scale) = win.scale_factor() else { return };
+                let Ok(pos) = win.outer_position() else { return };
+                geometry = Some((
+                    pos.x as f64 / scale,
+                    pos.y as f64 / scale,
+                    scale,
+                    is_expanded(&win),
+                ));
+                last_read = std::time::Instant::now();
+            }
+            let Some((win_x, win_y, _scale, expanded)) = geometry else {
+                continue;
+            };
+
+            // Expanded, everything is clickable.
+            let wants_clicks = if expanded {
+                true
+            } else {
+                // SAFETY: both are documented class methods taking no arguments
+                // and returning plain C structs; neither can raise.
+                let (cursor, screen_h) = unsafe {
+                    let p: Point = msg_send![class!(NSEvent), mouseLocation];
+                    let screen: *mut objc::runtime::Object =
+                        msg_send![class!(NSScreen), mainScreen];
+                    if screen.is_null() {
+                        continue;
+                    }
+                    let frame: Rect = msg_send![screen, frame];
+                    (p, frame.size.y)
+                };
+
+                // NSEvent counts from the bottom of the screen, Tauri from the
+                // top. Everything below is in top-left points.
+                let cx = cursor.x;
+                let cy = screen_h - cursor.y;
+
+                let left = win_x + GLOW_MARGIN;
+                let top = win_y + GLOW_MARGIN;
+
+                cx >= left && cx <= left + BAR.0 && cy >= top && cy <= top + BAR.1
+            };
+
+            if ignoring == Some(!wants_clicks) {
+                continue;
+            }
+            ignoring = Some(!wants_clicks);
+
+            let target = win.clone();
+            let _ = win.run_on_main_thread(move || {
+                let _ = target.set_ignore_cursor_events(!wants_clicks);
+            });
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn follow_cursor(_w: &WebviewWindow) {}
+
 pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     // Same reasoning as `expand`: no `?`, because the raise is last and must
     // not be skipped by anything before it.

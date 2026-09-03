@@ -348,7 +348,24 @@ export interface OnboardingBridge {
    * sending one is both the ask and the only honest test: the person sees the
    * result on their own screen.
    */
-  notifySample: () => Promise<void>;
+  notifySample: () => Promise<boolean>;
+  /**
+   * The picker shortcut that actually registered with macOS.
+   *
+   * Global shortcuts are first-come, so the combination the product asks for is
+   * not always the one it gets. Setup has to teach the key that works rather
+   * than the key that was wanted, and `null` means every candidate was taken —
+   * which the screen says outright instead of waiting on a key that will never
+   * arrive.
+   */
+  pickerShortcut: () => Promise<string | null>;
+  /**
+   * Open the picker directly.
+   *
+   * The handover step needs a route that cannot fail the way a global shortcut
+   * or an ungranted Accessibility permission can.
+   */
+  openPicker: () => Promise<void>;
   /** The Notifications pane, for anyone who declined and changed their mind. */
   openNotificationSettings: () => Promise<void>;
   /**
@@ -563,7 +580,13 @@ export function desktopBridge(): OnboardingBridge | null {
       await invoke("open_accessibility_settings");
     },
     notifySample: async () => {
-      await invoke("notify_sample");
+      return (await invoke("notify_sample")) as boolean;
+    },
+    pickerShortcut: async () => {
+      return ((await invoke("picker_shortcut")) as string | null) ?? null;
+    },
+    openPicker: async () => {
+      await invoke("open_picker");
     },
     openNotificationSettings: async () => {
       await invoke("open_notification_settings");

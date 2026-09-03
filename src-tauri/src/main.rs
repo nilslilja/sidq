@@ -37,7 +37,7 @@ use tauri::{AppHandle, Emitter, Manager};
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
 // scope the method simply does not exist, which is what the compiler was saying.
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState};
 // OpenerExt puts .opener() on AppHandle. This is the supported way to hand a URL
 // to the system browser; shell().open() still works but is deprecated.
 use tauri_plugin_opener::OpenerExt;
@@ -313,12 +313,7 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
      * assistant in the headline and the conversation underneath means the
      * whole thing is legible from a banner nobody clicks.
      */
-    let _ = app
-        .notification()
-        .builder()
-        .title(format!("New chat from {label} saved"))
-        .body(&found.title)
-        .show();
+    notify(app, &format!("New chat from {label} saved"), &found.title);
 }
 
 #[tauri::command]
@@ -709,17 +704,95 @@ fn open_accessibility_settings() {
  * Same shape as the Accessibility step: the button does the thing, in the
  * moment, rather than describing where a switch lives.
  */
-#[tauri::command]
-fn notify_sample(app: AppHandle) {
-    let _ = app
+/*
+ * Post a notification, and actually post it.
+ *
+ * Every call site used to be `let _ = app.notification()…show()`, which threw
+ * away the one piece of information worth having. The plugin's `show()` fails
+ * quietly on macOS in more cases than it succeeds loudly in — a build installed
+ * over another, a bundle whose authorisation the notification centre has not
+ * caught up with, a first post before the user has ever been asked — and a
+ * swallowed error there is indistinguishable from a machine that is simply
+ * quiet. That is why notifications "worked on every other build": nothing was
+ * broken intermittently, the failures were just invisible.
+ *
+ * So: try the plugin, and if it refuses, ask the system directly. The osascript
+ * route is the one already used for the disk-image warning, and that one has
+ * never failed to appear.
+ *
+ * Returns whether anything was actually posted, so a caller that is a test
+ * button can say so rather than lying.
+ */
+fn notify(app: &AppHandle, title: &str, body: &str) -> bool {
+    if app
         .notification()
         .builder()
-        .title("Sidq is set up")
-        .body("This is what you will see when a conversation is read.")
-        .show();
+        .title(title)
+        .body(body)
+        .show()
+        .is_ok()
+    {
+        return true;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // Quotes are the only thing that can break the one-liner, and a
+        // conversation title is user data that may well contain them.
+        let esc = |t: &str| t.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!(
+            "display notification \"{}\" with title \"{}\"",
+            esc(body),
+            esc(title)
+        );
+        return std::process::Command::new("/usr/bin/osascript")
+            .arg("-e")
+            .arg(script)
+            .status()
+            .map(|st| st.success())
+            .unwrap_or(false);
+    }
+
+    #[allow(unreachable_code)]
+    false
+}
+
+#[tauri::command]
+fn notify_sample(app: AppHandle) -> bool {
+    notify(
+        &app,
+        "Sidq is set up",
+        "This is what you will see when a conversation is read.",
+    )
 }
 
 /// The Notifications pane, for anyone who said no and changed their mind.
+/*
+ * Open the picker from the setup window.
+ *
+ * The handover step waits for a real handover and, until now, offered no way to
+ * begin one: the instruction was a keyboard gesture that needs Accessibility,
+ * and if that had not been granted — or the shortcut had lost its registration
+ * — the only way off the screen was "Skip for now". Somebody who skips the one
+ * step that makes the product do its thing has not seen the product.
+ *
+ * A button that opens the picker cannot fail the way a global shortcut can, so
+ * the step always has a route through it.
+ */
+#[tauri::command]
+fn open_picker(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("pill") {
+        let _ = show_pill(&w);
+        let _ = pill_window::expand(&w);
+    }
+}
+
+/// The picker shortcut that actually registered, if any.
+#[tauri::command]
+fn picker_shortcut() -> Option<String> {
+    PICKER_KEY.lock().ok().and_then(|k| k.clone())
+}
+
 #[tauri::command]
 fn open_notification_settings() {
     #[cfg(target_os = "macos")]
@@ -1289,6 +1362,14 @@ static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None)
  * the deliberate one still can, because an app you cannot quit at all is its
  * own kind of broken.
  */
+/*
+ * Which picker shortcut actually registered.
+ *
+ * Empty only when every candidate was taken, which is itself worth saying out
+ * loud rather than leaving setup waiting on a key that will never arrive.
+ */
+static PICKER_KEY: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Quit on purpose, past the guard above.
@@ -1390,33 +1471,26 @@ fn label_for(source: &str) -> &str {
  */
 fn grab_and_announce(app: &AppHandle) {
     let Some(grabbed) = grab_now(app) else {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Nothing to grab yet")
-            .body("Open a conversation with any AI and press it again.")
-            .show();
+        notify(
+            app,
+            "Nothing to grab yet",
+            "Open a conversation with any AI and press it again.",
+        );
         return;
     };
 
     let _ = app.emit("sidq:grabbed", &grabbed.title);
-    let _ = app
-        .notification()
-        .builder()
-            .title(format!("{} is on your clipboard", grabbed.source))
-            /*
-             * Both routes, because they suit different destinations: pasting
-             * is right for a chat box, attaching is right for anything with
-             * retrieval. Saying only one hides the better half.
-             */
-            /*
-             * "Attach", singular, because that is now the only thing on the
-             * clipboard. It said "attach or paste" while both were on there and
-             * the paste is what actually happened, every time — an application
-             * offered text alongside a file takes the text.
-             */
-            .body(format!("{} — press ⌘V to attach it anywhere.", grabbed.title))
-        .show();
+    /*
+     * "Attach", singular, because that is now the only thing on the clipboard.
+     * It said "attach or paste" while both were on there and the paste is what
+     * actually happened every time — an application offered text alongside a
+     * file takes the text.
+     */
+    notify(
+        app,
+        &format!("{} is on your clipboard", grabbed.source),
+        &format!("{} — press ⌘V to attach it anywhere.", grabbed.title),
+    );
 }
 
 /**
@@ -1431,23 +1505,21 @@ fn drop_last(app: &AppHandle) {
     let last = LAST_GRAB.lock().ok().and_then(|t| t.clone());
 
     let Some(path) = last else {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Nothing grabbed yet")
-            .body("Grab a conversation first, then this puts it back on your clipboard.")
-            .show();
+        notify(
+            app,
+            "Nothing grabbed yet",
+            "Grab a conversation first, then this puts it back on your clipboard.",
+        );
         return;
     };
 
     // The same file the grab put there.
     if quick_grab::put_on_clipboard(std::path::Path::new(&path)) {
-        let _ = app
-            .notification()
-            .builder()
-            .title("Back on your clipboard")
-            .body("Press ⌘V to attach it wherever you are.")
-            .show();
+        notify(
+            app,
+            "Back on your clipboard",
+            "Press ⌘V to attach it wherever you are.",
+        );
     }
 }
 
@@ -1920,6 +1992,8 @@ fn main() {
             request_accessibility,
             open_accessibility_settings,
             notify_sample,
+            picker_shortcut,
+            open_picker,
             open_notification_settings,
             extension_status,
             download_extension,
@@ -2107,14 +2181,11 @@ fn main() {
                                  * so it silently never started, while macOS went
                                  * on listing Sidq as a background item forever.
                                  */
-                                let _ = app
-                                    .notification()
-                                    .builder()
-                                    .title("Move Sidq to Applications first")
-                                    .body(
-                                        "Opening at login needs Sidq installed, not run from the disk image.",
-                                    )
-                                    .show();
+                                notify(
+                                    app,
+                                    "Move Sidq to Applications first",
+                                    "Opening at login needs Sidq installed, not run from the disk image.",
+                                );
                             } else {
                                 let _ = login_item::enable();
                             }
@@ -2248,9 +2319,24 @@ fn main() {
              * Toggling rather than only showing: pressing the summon key again
              * is what everybody tries first when they want it gone.
              */
-            let pick = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyK);
+            /*
+             * Candidates, best first.
+             *
+             * A global shortcut is first-come on macOS, so the combination the product
+             * wants is not necessarily the one it gets. ⌘⇧K is what everything is
+             * written around; the rest exist because it is commonly taken, and losing
+             * the picker entirely is far worse than teaching a different key. There is
+             * no way to ask macOS in advance, so each is checked by trying it.
+             */
+            const CANDIDATES: [(Modifiers, Code, &str); 4] = [
+                (Modifiers::SUPER.union(Modifiers::SHIFT), Code::KeyK, "⌘⇧K"),
+                (Modifiers::SUPER.union(Modifiers::SHIFT), Code::KeyJ, "⌘⇧J"),
+                (Modifiers::SUPER.union(Modifiers::ALT), Code::KeyK, "⌘⌥K"),
+                (Modifiers::CONTROL.union(Modifiers::SHIFT), Code::KeyK, "⌃⇧K"),
+            ];
+
             let pick_handle = app.handle().clone();
-            app.global_shortcut().on_shortcut(pick, move |_, _, event| {
+            let on_pick = move |_: &tauri::AppHandle, _: &Shortcut, event: ShortcutEvent| {
                 if event.state() != ShortcutState::Pressed {
                     return;
                 }
@@ -2271,7 +2357,28 @@ fn main() {
                     // taking it off the screen entirely.
                     let _ = pill_window::toggle(&w);
                 }
-            })?;
+            };
+
+            /*
+             * Registration failure is no longer fatal.
+             *
+             * This was `on_shortcut(...)?`, so a combination another app had already
+             * claimed took the whole of setup down with it. The picker is reachable
+             * from the tray and the pill regardless, so a lost shortcut is a far
+             * smaller problem than an app that will not start.
+             */
+            for (mods, code, label) in CANDIDATES {
+                if app
+                    .global_shortcut()
+                    .on_shortcut(Shortcut::new(Some(mods), code), on_pick.clone())
+                    .is_ok()
+                {
+                    if let Ok(mut slot) = PICKER_KEY.lock() {
+                        *slot = Some(label.to_string());
+                    }
+                    break;
+                }
+            }
 
 
             /*
