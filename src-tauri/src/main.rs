@@ -1291,6 +1291,19 @@ static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None)
  */
 static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Quit on purpose, past the guard above.
+///
+/// Every exit in the app must go through here. `AppHandle::exit` raises
+/// `ExitRequested` like Cmd+Q does, so the guard cannot tell a real quit from an
+/// accidental one by the event alone — it can only read this flag. The disk
+/// image copy learned that the hard way: it called `exit(0)` after handing over
+/// to the installed copy, the guard refused it, and the copy stayed alive with
+/// its always-on-top launch card floating over the app it had just started.
+fn quit_deliberately(app: &AppHandle) {
+    QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
+    app.exit(0);
+}
+
 /**
  * Read what is open, take the conversation last touched, compile it, and put it
  * on the clipboard.
@@ -1963,7 +1976,7 @@ fn main() {
              * somebody spends concluding the feature is broken.
              */
             if hand_over_to_the_installed_copy() {
-                app.handle().exit(0);
+                quit_deliberately(&app.handle());
                 return Ok(());
             }
 
@@ -2107,10 +2120,7 @@ fn main() {
                             }
                         }
                         "quit" => {
-                            // The one deliberate way out. Set the flag the
-                            // run loop checks, then exit.
-                            QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
-                            app.exit(0);
+                            quit_deliberately(app);
                         }
                         _ => {}
                     })
