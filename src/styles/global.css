@@ -1468,11 +1468,20 @@
  */
 .film-camera {
   /*
-   * 620ms, down from 1500. The beats are half a second now, so a move that
-   * takes a second and a half never arrives before the next one starts and the
-   * whole film reads as drifting rather than cutting.
+   * Two seconds, on a curve that is gentle at both ends.
+   *
+   * The easing matters more than the duration. cubic-bezier(0.22,1,0.36,1)
+   * leaves fast and settles slowly, which is right for a control answering a
+   * click and wrong for a camera — it reads as a lurch followed by a drift.
+   * A near-symmetric ease-in-out accelerates and decelerates evenly, which is
+   * how a camera on a rig moves and why this now looks operated rather than
+   * animated.
+   *
+   * Longer than the eye needs, on purpose. A move that is still finishing when
+   * the beat ends never leaves dead air, and slowness reads as confidence in a
+   * way no amount of polish on a fast move does.
    */
-  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 2000ms cubic-bezier(0.4, 0.02, 0.2, 1);
 }
 
 /* The cursor travels on the same curve, a beat quicker, so it leads the camera
@@ -1481,12 +1490,12 @@
   /* Slightly ahead of the camera, so the pointer leads and the frame follows,
      which is the order those happen in when a person does it. */
   transition:
-    left 480ms cubic-bezier(0.22, 1, 0.36, 1),
-    top 480ms cubic-bezier(0.22, 1, 0.36, 1);
+    left 1500ms cubic-bezier(0.4, 0.02, 0.2, 1),
+    top 1500ms cubic-bezier(0.4, 0.02, 0.2, 1);
 }
 
 .film-caption {
-  animation: film-caption-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: film-caption-in 900ms cubic-bezier(0.4, 0.02, 0.2, 1) both;
 }
 @keyframes film-caption-in {
   from {
@@ -1502,7 +1511,7 @@
 /* The document arriving. It wipes in from the top rather than fading, because
    a fade reads as a picture loading and a wipe reads as text being written. */
 .film-paste {
-  animation: film-paste-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: film-paste-in 1400ms cubic-bezier(0.4, 0.02, 0.2, 1) both;
 }
 @keyframes film-paste-in {
   from {

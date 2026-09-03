@@ -73,6 +73,16 @@ interface Beat {
  * read, and the loop restarting before somebody finishes reading it wastes the
  * only beat that closes the argument.
  *
+ * ── Why it is this slow ──────────────────────────────────────────────────────
+ *
+ * Nearly three seconds a beat, with the camera taking two of them to move. That
+ * is much slower than feels right while building it, and it is the difference
+ * between a demo that looks eager and one that looks certain. Fast cuts read as
+ * a product trying to hold your attention; a slow move reads as one that
+ * assumes it already has it. The move is also almost always still going when
+ * the beat ends, which is deliberate — there is never a moment of dead air
+ * where the frame has arrived and nothing is happening yet.
+ *
  * ── The pill opens on its own beat ───────────────────────────────────────────
  *
  * The camera used to push into the pill on the same beat the picker replaced
@@ -80,17 +90,17 @@ interface Beat {
  * made the move feel like it had missed. Beat 1 is the closed bar and nothing
  * else; the panel arrives on beat 2, after the camera has settled.
  */
-const BEAT = 1800;
+const BEAT = 2900;
 
 const BEATS: Beat[] = [
   { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "It sits above everything, out of the way." },
-  { hold: BEAT, scale: 2.2, at: { x: 50, y: 9 }, caption: "One shortcut, from wherever you are." },
-  { hold: BEAT, scale: 1.45, at: { x: 50, y: 30 }, caption: "Everything you have said, to every assistant." },
-  { hold: BEAT, scale: 1.45, at: { x: 50, y: 34 }, caption: "Pick the one you want to carry." },
-  { hold: BEAT, scale: 1.45, at: { x: 50, y: 30 }, caption: "It writes the whole conversation to a file." },
+  { hold: BEAT, scale: 1.75, at: { x: 50, y: 10 }, caption: "One shortcut, from wherever you are." },
+  { hold: BEAT, scale: 1.3, at: { x: 50, y: 32 }, caption: "Everything you have said, to every assistant." },
+  { hold: BEAT, scale: 1.32, at: { x: 50, y: 35 }, caption: "Pick the one you want to carry." },
+  { hold: BEAT, scale: 1.3, at: { x: 50, y: 32 }, caption: "It writes the whole conversation to a file." },
   { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: BEAT, scale: 2.2, at: { x: 26, y: 86 }, caption: "Attach it." },
-  { hold: 5200, scale: 1.05, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
+  { hold: BEAT, scale: 1.75, at: { x: 28, y: 84 }, caption: "Attach it." },
+  { hold: 7000, scale: 1.05, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
 
 /*
