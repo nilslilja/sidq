@@ -23,7 +23,6 @@
 import { DownloadButton, usePlatform } from "./DownloadButton";
 import { PoweredByClaude } from "./PoweredByClaude";
 import { WaitlistForPlatform } from "./WaitlistForPlatform";
-import { HeroStats } from "./HeroStats";
 
 export function Hero() {
   const { platform } = usePlatform();
@@ -244,12 +243,15 @@ export function Hero() {
        * Below the button on purpose too. Somebody who arrived ready to install
        * should reach the button without reading four statistics first.
        */}
-      <div
-        className="animate-rise relative mx-auto w-full px-6 pb-[7vh]"
-        style={{ animationDelay: "400ms" }}
-      >
-        <HeroStats />
-      </div>
+      {/*
+       * The statistics moved out of the hero and under the film.
+       *
+       * The film is pulled up over the bottom of the sky, which is exactly
+       * where this band used to sit, so a hundred pixels of the demo landed on
+       * top of it. Below the film they also read better than they did here:
+       * four numbers about a product somebody has just watched work are
+       * evidence, where the same four ahead of it were claims.
+       */}
     </section>
   );
 }

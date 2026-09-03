@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PillPreview } from "./PillPreview";
+import { MacDock } from "./MacDock";
 import { cn } from "@/lib/cn";
 
 /*
@@ -190,6 +191,15 @@ export function HandoverFilm({ className }: { className?: string }) {
           }}
         >
           <MenuBar />
+
+          {/*
+           * The shelf, so the shot is a Mac rather than a rectangle with a
+           * gradient. Sidq sits among the applications somebody already has,
+           * which is the only thing in the frame that gives it scale.
+           */}
+          <div className="absolute inset-x-0 bottom-[2.5%] z-10 flex justify-center">
+            <MacDock />
+          </div>
           <Pill expanded={showPicker} />
 
           {showPicker && (

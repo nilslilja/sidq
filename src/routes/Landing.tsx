@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { Hero } from "@/components/landing/Hero";
+import { Reveal } from "@/components/landing/Reveal";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { HandoverFilm } from "@/components/landing/HandoverFilm";
+import { HeroStats } from "@/components/landing/HeroStats";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
@@ -76,32 +78,68 @@ export function Landing() {
        * gets the answer in the next screenful rather than having to install to
        * find out.
        */}
-      <WorksWith />
-
       {/*
-       * The demonstration, between the roster and the price.
+       * ── The demonstration, straddling the fold ────────────────────────────
        *
-       * Somebody who has read the headline knows what Sidq claims and has no
-       * idea what using it looks like, and the next thing they meet used to be
-       * a pricing table. This is the answer to "what actually happens", placed
-       * where the question gets asked.
+       * It used to live between the roster and the price, which meant somebody
+       * had to already be persuaded enough to scroll past two sections before
+       * they saw the product do anything.
+       *
+       * Now it starts inside the hero. The top quarter of the film sits over
+       * the bottom of the sky and is already running when the page loads, so
+       * the first screen contains a moving product rather than a promise about
+       * one, and the frame is visibly cut off — which is the part that makes
+       * somebody scroll. The rest arrives as they do.
+       *
+       * The negative margin is what pulls it up over the hero, and it is tuned
+       * against one hard constraint: it may never touch the download button.
+       * At 16vh it covered the button by seventy pixels, which trades the only
+       * conversion on the page for an effect. Four leaves the button clear and
+       * still puts roughly a third of the film in the first screen.
+       *
+       * It is on this wrapper rather than in the hero's own padding so the hero
+       * stays a self-contained section that reads without knowing this exists.
        */}
       <section
         aria-labelledby="see-it"
-        className="mx-auto max-w-[68rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-24"
+        className="relative z-10 -mt-[4vh] px-5 pb-16 sm:px-6 sm:pb-20 lg:-mt-[6vh] lg:pb-28"
       >
-        <h2
-          id="see-it"
-          className="mx-auto max-w-[20ch] text-balance text-center font-display text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[0.96] tracking-[-0.04em]"
-        >
-          Watch a conversation change hands
-        </h2>
-        <p className="ink-muted mx-auto mt-4 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
-          The real interface, and the real document it writes. Nothing here is a
-          mock-up of something that works differently.
-        </p>
-        <HandoverFilm className="mt-10" />
+        <div className="mx-auto max-w-[68rem]">
+          <HandoverFilm />
+
+          {/*
+           * The heading comes after the film, not before it.
+           *
+           * Above, it would be a label on something already visible and would
+           * push the film out of the first screen, which is the one thing this
+           * placement exists to avoid. Underneath it reads as the caption to
+           * what somebody has just watched.
+           */}
+          <h2
+            id="see-it"
+            className="mx-auto mt-12 max-w-[20ch] text-balance text-center font-display text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[0.96] tracking-[-0.04em]"
+          >
+            Watch a conversation change hands
+          </h2>
+          <p className="ink-muted mx-auto mt-4 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
+            The real interface, and the real document it writes. Nothing here is
+            a mock-up of something that works differently.
+          </p>
+
+          {/*
+           * The measurements, after the demonstration rather than before it.
+           * Four numbers about a product somebody has just watched work read as
+           * evidence; the same four ahead of it are claims.
+           */}
+          <div className="mt-14">
+            <HeroStats />
+          </div>
+        </div>
       </section>
+
+      <Reveal>
+        <WorksWith />
+      </Reveal>
 
       {/*
        * Pricing and the questions are on the page again.
@@ -118,11 +156,15 @@ export function Landing() {
        * second download panel. Nobody reads a case for a free Mac app.
        */}
       <section className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28">
-        <Pricing />
+        <Reveal>
+          <Pricing />
+        </Reveal>
       </section>
 
       <section className="mx-auto max-w-[76rem] px-5 pb-16 sm:px-6 sm:pb-20 lg:pb-28">
-        <Faq limit={4} />
+        <Reveal>
+          <Faq limit={4} />
+        </Reveal>
       </section>
 
       <SiteFooter />

@@ -23,7 +23,14 @@ import { useEffect, useRef, useState } from 'react';
  */
 
 /** Far enough to register, near enough not to look like a page building itself. */
-const RISE_PX = 16;
+/*
+ * 16 was a nudge nobody registered. Sections should read as arriving — coming
+ * up and settling into place — which needs enough travel to be seen as motion
+ * rather than as a repaint, paired with a slight scale so the block looks like
+ * it is assembling rather than sliding.
+ */
+const RISE_PX = 34;
+const START_SCALE = 0.965;
 
 /**
  * Fires slightly before the element is fully on screen.
@@ -83,10 +90,15 @@ export function Reveal({
       className={className}
       style={{
         opacity: shown ? 1 : 0,
-        transform: shown ? 'none' : `translateY(${RISE_PX}px)`,
+        transform: shown ? 'none' : `translateY(${RISE_PX}px) scale(${START_SCALE})`,
         // Decelerating. Linear or symmetric easing on an entrance is the
         // clearest tell of an animation nobody tuned.
-        transition: `opacity 500ms cubic-bezier(0.16,1,0.3,1) ${delay}s, transform 500ms cubic-bezier(0.16,1,0.3,1) ${delay}s`,
+        /*
+         * 720ms on a curve that overshoots slightly, so the block arrives and
+         * settles rather than easing to a stop. Long enough to be seen as an
+         * arrival, short enough that scrolling never waits on it.
+         */
+        transition: `opacity 520ms cubic-bezier(0.16,1,0.3,1) ${delay}s, transform 720ms cubic-bezier(0.22,1.15,0.36,1) ${delay}s`,
       }}
     >
       {children}
