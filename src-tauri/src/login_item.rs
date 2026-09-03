@@ -1,95 +1,103 @@
-//! Launch-at-login through SMAppService, and migration off the old loose agent.
+//! Launch-at-login, and getting the signer's name out of Login Items.
 //!
-//! ── Why this replaces tauri-plugin-autostart on macOS ────────────────────────
+//! ── Why not the autostart plugin ─────────────────────────────────────────────
 //!
-//! The plugin, configured with `MacosLauncher::LaunchAgent`, wrote a loose
-//! legacy agent to `~/Library/LaunchAgents/Sidq.plist`. macOS attributes loose
-//! legacy agents to the code-signing team, so "Allow in the Background" showed
-//! the certificate holder's personal name instead of the app. A user found this
-//! with `sfltool dumpbtm` and it is exactly right: the fix is not the
-//! certificate, it is the registration method.
+//! `MacosLauncher::LaunchAgent` writes a loose agent to
+//! `~/Library/LaunchAgents/Sidq.plist`. macOS calls that a legacy agent and
+//! attributes it to the code-signing team, so "Allow in the Background" shows
+//! the certificate holder's personal name rather than the app. A user found
+//! this with `sfltool dumpbtm`. The certificate is not the lever — the
+//! registration method is.
 //!
-//! SMAppService registers a plist bundled inside the app
-//! (`Contents/Library/LaunchAgents/app.sidq.desktop.agent.plist`) and macOS
-//! groups it under the app. Same signature, but it now reads as "Sidq".
+//! ── Why the main app, and not a bundled agent ────────────────────────────────
+//!
+//! The first attempt bundled an agent plist and registered it with
+//! `agentServiceWithPlistName:`. That plist carried `RunAtLoad`, and launchd
+//! honours `RunAtLoad` the moment the job is loaded — not only at login. So
+//! registering it started a second copy of Sidq on the spot: two processes, two
+//! launch cards stacked on screen, and a splash that appeared frozen because it
+//! belonged to an app nobody knew was running.
+//!
+//! `SMAppService.mainAppService` is the right tool for "open this app at
+//! login". It registers the bundle itself, needs no plist, and adding something
+//! to the login-item list does not launch it — so the double-launch is not a
+//! bug that was tuned out, it is a class of bug this approach does not have.
 //!
 //! ── Everything here fails soft ───────────────────────────────────────────────
 //!
-//! Launch-at-login is a convenience, never a thing the product depends on. Every
-//! call returns a plain bool and a registration that errors is logged and
-//! swallowed rather than propagated, because a person who could not be enrolled
-//! at login still has a working app. The one hard rule from the old code is
-//! kept: never register while running from a mounted disk image, or launchd
-//! ends up pointed at a path that vanishes when the image ejects.
+//! Launch-at-login is a convenience and never something the product depends on.
+//! Every call returns a plain bool; a registration that fails leaves a working
+//! app that simply does not open itself at login.
 
+/// What macOS reports about the app's login-item registration.
 #[cfg(target_os = "macos")]
 mod imp {
+    use objc2::msg_send;
     use objc2::rc::Retained;
     use objc2::runtime::{AnyClass, AnyObject, Bool};
-    use objc2::msg_send;
     use objc2_foundation::NSString;
 
-    /// The filename SMAppService is asked to register. Must match both the
-    /// bundled plist's name and its `Label`.
-    const PLIST_NAME: &str = "app.sidq.desktop.agent.plist";
+    /// The agent registered by 0.1.73 and 0.1.74, kept only so it can be undone.
+    const STALE_AGENT_PLIST: &str = "app.sidq.desktop.agent.plist";
 
-    /// SMAppServiceStatus. Only `enabled` means it is actually on.
+    /// SMAppServiceStatus.enabled. Anything else is not on.
     const STATUS_ENABLED: isize = 1;
 
     fn class() -> Option<&'static AnyClass> {
-        // None on a system without ServiceManagement, which cannot happen on the
-        // 13.0 minimum but is handled rather than unwrapped.
         AnyClass::get(c"SMAppService")
     }
 
-    /// `+[SMAppService agentServiceWithPlistName:]`.
-    fn agent() -> Option<Retained<AnyObject>> {
+    /// `+[SMAppService mainAppService]` — the app itself as a login item.
+    fn main_app() -> Option<Retained<AnyObject>> {
         let cls = class()?;
-        let name = NSString::from_str(PLIST_NAME);
-        // Class method returning a retained autoreleased instance.
-        let obj: *mut AnyObject =
-            unsafe { msg_send![cls, agentServiceWithPlistName: &*name] };
+        let obj: *mut AnyObject = unsafe { msg_send![cls, mainAppService] };
         if obj.is_null() {
             return None;
         }
-        // SAFETY: agentServiceWithPlistName: returns a valid, autoreleased
-        // SMAppService; retain it so it outlives the pool.
-        Some(unsafe { Retained::retain(obj) }?)
+        // SAFETY: mainAppService returns a valid autoreleased SMAppService.
+        unsafe { Retained::retain(obj) }
     }
 
-    /// Turn launch-at-login on. Returns whether it is enabled afterwards.
-    pub fn enable() -> bool {
-        let Some(agent) = agent() else {
-            return false;
-        };
-        let mut err: *mut AnyObject = std::ptr::null_mut();
-        // -[SMAppService registerAndReturnError:]
-        let ok: Bool = unsafe { msg_send![&*agent, registerAndReturnError: &mut err] };
-        if !ok.as_bool() {
-            // A registration error is the operator's problem, not the user's.
-            eprintln!("login item: register failed");
-            return false;
+    /// The bundled-agent service 0.1.73/0.1.74 registered, for unregistering.
+    fn stale_agent() -> Option<Retained<AnyObject>> {
+        let cls = class()?;
+        let name = NSString::from_str(STALE_AGENT_PLIST);
+        let obj: *mut AnyObject = unsafe { msg_send![cls, agentServiceWithPlistName: &*name] };
+        if obj.is_null() {
+            return None;
         }
-        true
+        // SAFETY: as above.
+        unsafe { Retained::retain(obj) }
     }
 
-    /// Turn it off. Returns true when it ends up not enabled.
-    pub fn disable() -> bool {
-        let Some(agent) = agent() else {
-            return true;
-        };
+    pub fn enable() -> bool {
+        let Some(svc) = main_app() else { return false };
         let mut err: *mut AnyObject = std::ptr::null_mut();
-        let _: Bool = unsafe { msg_send![&*agent, unregisterAndReturnError: &mut err] };
+        let ok: Bool = unsafe { msg_send![&*svc, registerAndReturnError: &mut err] };
+        ok.as_bool()
+    }
+
+    pub fn disable() -> bool {
+        let Some(svc) = main_app() else { return true };
+        let mut err: *mut AnyObject = std::ptr::null_mut();
+        let _: Bool = unsafe { msg_send![&*svc, unregisterAndReturnError: &mut err] };
         !is_enabled()
     }
 
-    /// Whether macOS currently has it enabled.
     pub fn is_enabled() -> bool {
-        let Some(agent) = agent() else {
-            return false;
-        };
-        let status: isize = unsafe { msg_send![&*agent, status] };
+        let Some(svc) = main_app() else { return false };
+        let status: isize = unsafe { msg_send![&*svc, status] };
         status == STATUS_ENABLED
+    }
+
+    /// Undo the bundled-agent registration that 0.1.73 and 0.1.74 created.
+    ///
+    /// Without this, anyone who installed those two keeps a registered agent
+    /// with `RunAtLoad` set, and keeps getting a second copy of Sidq at login.
+    pub fn unregister_stale_agent() {
+        let Some(svc) = stale_agent() else { return };
+        let mut err: *mut AnyObject = std::ptr::null_mut();
+        let _: Bool = unsafe { msg_send![&*svc, unregisterAndReturnError: &mut err] };
     }
 }
 
@@ -104,20 +112,18 @@ mod imp {
     pub fn is_enabled() -> bool {
         false
     }
+    pub fn unregister_stale_agent() {}
 }
 
-pub use imp::{disable, enable, is_enabled};
+pub use imp::{disable, enable, is_enabled, unregister_stale_agent};
 
-/// Remove the loose legacy agent the old builds wrote.
+/// Delete the loose legacy agent older builds wrote, and unload it.
 ///
-/// Run once on startup. `bootout` unloads the running job; deleting the file
-/// stops it coming back at next login. Both are best-effort: on a fresh install
-/// there is nothing here, and a machine that never had the old build simply
-/// finds nothing to remove.
+/// This is the part that actually clears the signer's name from "Allow in the
+/// Background" on an upgrade: registering the app properly adds a good entry,
+/// but the old loose one sits there beside it until it is removed.
 ///
-/// This is what actually clears the personal name from "Allow in the
-/// Background" for people upgrading — registering the new agent alone would
-/// leave the old entry sitting beside it.
+/// Shells out, so never call it on the setup thread.
 #[cfg(target_os = "macos")]
 pub fn remove_legacy_agent() {
     let Some(home) = std::env::var_os("HOME") else {
@@ -127,27 +133,21 @@ pub fn remove_legacy_agent() {
         .join("Library")
         .join("LaunchAgents")
         .join("Sidq.plist");
-
     if !path.exists() {
         return;
     }
 
-    // gui/<uid> is the per-user launchd domain the loose agent lived in.
-    // Ignoring the result on purpose: bootout fails harmlessly when the job is
-    // not loaded, which is the common case, and the file removal below is what
-    // actually stops it returning at next login.
-    let uid = real_uid();
+    // bootout fails harmlessly when the job is not loaded; removing the file is
+    // what stops it coming back at next login.
     let _ = std::process::Command::new("launchctl")
-        .args(["bootout", &format!("gui/{uid}/Sidq")])
+        .args(["bootout", &format!("gui/{}/Sidq", real_uid())])
         .output();
-
     let _ = std::fs::remove_file(&path);
 }
 
 #[cfg(not(target_os = "macos"))]
 pub fn remove_legacy_agent() {}
 
-/// The real user id, without pulling in the libc crate for one call.
 #[cfg(target_os = "macos")]
 fn real_uid() -> u32 {
     extern "C" {
