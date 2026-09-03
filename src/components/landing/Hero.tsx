@@ -21,6 +21,7 @@
  * scroll frame.
  */
 import { DownloadButton, usePlatform } from "./DownloadButton";
+import { CLOUD_NEAR, CLOUD_MID, CLOUD_FAR } from "./clouds";
 import { PoweredByClaude } from "./PoweredByClaude";
 import { WaitlistForPlatform } from "./WaitlistForPlatform";
 
@@ -37,6 +38,31 @@ export function Hero() {
         aria-hidden="true"
         className="absolute inset-0 bg-[linear-gradient(180deg,#0A3B86_0%,#0C4290_30%,#114E9C_52%,#1A5FB0_66%,#3F86D4_76%,#8CBDEE_86%,#CFE4F8_94%,#F7F6F3_100%)]"
       />
+
+      {/*
+       * ── Clouds ──────────────────────────────────────────────────────────────
+       *
+       * Three bands drifting at three speeds. The texture is fractal noise
+       * thresholded into shape rather than a photograph or a blurred blob — see
+       * clouds.ts for why, and for the pipeline that turns noise into an edge
+       * that reads as cloud at every scale.
+       *
+       * Parallax by speed alone: the near band crosses in two and a half
+       * minutes and the far one takes seven, and the eye reads that difference
+       * as distance without any of it being in perspective.
+       *
+       * Behind the type, clipped by the section's own overflow-hidden. The sky
+       * is a backdrop and must never compete with the words on it, which is
+       * also why the nearest band tops out at half opacity.
+       */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div className="cloud-band cloud-far" style={{ backgroundImage: CLOUD_FAR }} />
+        <div className="cloud-band cloud-mid" style={{ backgroundImage: CLOUD_MID }} />
+        <div className="cloud-band cloud-near" style={{ backgroundImage: CLOUD_NEAR }} />
+      </div>
 
       {/*
        * Grain over the sky, because a single gradient stretched this far bands

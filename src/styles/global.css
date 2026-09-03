@@ -1481,7 +1481,7 @@
    * the beat ends never leaves dead air, and slowness reads as confidence in a
    * way no amount of polish on a fast move does.
    */
-  transition: transform 2000ms cubic-bezier(0.4, 0.02, 0.2, 1);
+  transition: transform 900ms cubic-bezier(0.4, 0.02, 0.2, 1);
 }
 
 /* The cursor travels on the same curve, a beat quicker, so it leads the camera
@@ -1490,12 +1490,12 @@
   /* Slightly ahead of the camera, so the pointer leads and the frame follows,
      which is the order those happen in when a person does it. */
   transition:
-    left 1500ms cubic-bezier(0.4, 0.02, 0.2, 1),
-    top 1500ms cubic-bezier(0.4, 0.02, 0.2, 1);
+    left 620ms cubic-bezier(0.4, 0.02, 0.2, 1),
+    top 620ms cubic-bezier(0.4, 0.02, 0.2, 1);
 }
 
 .film-caption {
-  animation: film-caption-in 900ms cubic-bezier(0.4, 0.02, 0.2, 1) both;
+  animation: film-caption-in 420ms cubic-bezier(0.4, 0.02, 0.2, 1) both;
 }
 @keyframes film-caption-in {
   from {
@@ -1508,21 +1508,33 @@
   }
 }
 
-/* The document arriving. It wipes in from the top rather than fading, because
-   a fade reads as a picture loading and a wipe reads as text being written. */
-.film-paste {
-  animation: film-paste-in 1400ms cubic-bezier(0.4, 0.02, 0.2, 1) both;
+/*
+ * The caret that sits at the end of the streaming reply.
+ *
+ * The reply used to arrive as one block behind a clip-path wipe, which reads as
+ * a document being uncovered rather than an answer being written. It is typed
+ * out now, and this is the thing blinking at the end of it.
+ */
+.film-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  translate: 0 0.15em;
+  background: currentColor;
+  animation: film-caret-blink 1s steps(1, end) infinite;
 }
-@keyframes film-paste-in {
-  from {
-    opacity: 0;
-    clip-path: inset(0 0 100% 0);
-  }
-  to {
+
+@keyframes film-caret-blink {
+  0%,
+  50% {
     opacity: 1;
-    clip-path: inset(0 0 0 0);
+  }
+  50.01%,
+  100% {
+    opacity: 0;
   }
 }
+
 
 /*
  * Motion whose only job is to be watched is exactly what this setting means.
@@ -1533,8 +1545,12 @@
   .film-cursor {
     transition: none;
   }
-  .film-caption,
-  .film-paste {
+  .film-caption {
+    animation: none;
+  }
+
+  /* The caret stops blinking; the reply is simply all there. */
+  .film-caret {
     animation: none;
   }
 }
@@ -1555,6 +1571,8 @@
  * exactly -50% lands the copy where the original was and the loop has no seam.
  */
 .cloud-band {
+  /* The texture is set inline from clouds.ts, which generates it. */
+  background-size: 1400px 100%;
   position: absolute;
   inset-inline: 0;
   width: 200%;
@@ -1565,34 +1583,21 @@
 .cloud-near {
   height: 34%;
   top: 18%;
-  opacity: 0.5;
-  background-image:
-    radial-gradient(70px 26px at 8% 60%, rgba(255, 255, 255, 0.95), transparent 70%),
-    radial-gradient(110px 34px at 14% 55%, rgba(255, 255, 255, 0.9), transparent 72%),
-    radial-gradient(60px 22px at 21% 62%, rgba(255, 255, 255, 0.85), transparent 70%),
-    radial-gradient(90px 30px at 58% 40%, rgba(255, 255, 255, 0.9), transparent 72%),
-    radial-gradient(130px 38px at 66% 46%, rgba(255, 255, 255, 0.85), transparent 72%);
+  opacity: 0.72;
   animation: cloud-drift 150s linear infinite;
 }
 
 .cloud-mid {
   height: 30%;
   top: 30%;
-  opacity: 0.34;
-  background-image:
-    radial-gradient(150px 34px at 30% 50%, rgba(255, 255, 255, 0.85), transparent 72%),
-    radial-gradient(90px 26px at 40% 58%, rgba(255, 255, 255, 0.8), transparent 70%),
-    radial-gradient(170px 40px at 80% 44%, rgba(255, 255, 255, 0.8), transparent 72%);
+  opacity: 0.5;
   animation: cloud-drift 260s linear infinite;
 }
 
 .cloud-far {
   height: 26%;
   top: 8%;
-  opacity: 0.2;
-  background-image:
-    radial-gradient(200px 30px at 20% 50%, rgba(255, 255, 255, 0.7), transparent 74%),
-    radial-gradient(240px 34px at 70% 56%, rgba(255, 255, 255, 0.65), transparent 74%);
+  opacity: 0.3;
   animation: cloud-drift 420s linear infinite;
 }
 

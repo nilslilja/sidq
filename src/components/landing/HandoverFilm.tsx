@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PillPreview } from "./PillPreview";
 import { MacDock } from "./MacDock";
 import { cn } from "@/lib/cn";
@@ -90,17 +90,48 @@ interface Beat {
  * made the move feel like it had missed. Beat 1 is the closed bar and nothing
  * else; the panel arrives on beat 2, after the camera has settled.
  */
-const BEAT = 2900;
+const BEAT = 1500;
 
+/*
+ * ── The cursor and the selection are the same fact ───────────────────────────
+ *
+ * These y values are measured, not guessed: the three rows sit at 21.1%, 28.4%
+ * and 35.7% of the stage, and the collapsed bar at 9.2%.
+ *
+ * That measurement is the fix for the worst thing in the earlier cut. The
+ * cursor was placed by eye and the highlighted row was set by a separate rule,
+ * so the pointer hovered near the middle row while the top row lit up, and then
+ * the highlight moved again after the click. It read as a demo that had lost
+ * track of itself, because it had: nothing tied the two together.
+ *
+ * Now one row is chosen — the checkout conversation, because that is the one
+ * the reply at the end is about — and the cursor sits exactly on it from the
+ * moment the list opens until the file is written. It never switches rows,
+ * because a person picking a conversation does not either.
+ */
+const ROW_Y = [21.1, 28.4, 35.7];
+const PICKED = 0;
+
+/*
+ * ── Quick, but not hurried ───────────────────────────────────────────────────
+ *
+ * Beats were 2900ms with a 2000ms camera move, which was calm and far too slow:
+ * every step had a stretch of dead air after the move landed. 1500ms with a
+ * 900ms move keeps the same easing — the part that makes it feel operated
+ * rather than animated — while cutting the waiting.
+ *
+ * The two beats that hold longer earn it. The list needs long enough to read
+ * three titles, and the reply needs long enough to read a reply.
+ */
 const BEATS: Beat[] = [
-  { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "It sits above everything, out of the way." },
-  { hold: BEAT, scale: 1.75, at: { x: 50, y: 10 }, caption: "One shortcut, from wherever you are." },
-  { hold: BEAT, scale: 1.3, at: { x: 50, y: 32 }, caption: "Everything you have said, to every assistant." },
-  { hold: BEAT, scale: 1.32, at: { x: 50, y: 35 }, caption: "Pick the one you want to carry." },
-  { hold: BEAT, scale: 1.3, at: { x: 50, y: 32 }, caption: "It writes the whole conversation to a file." },
-  { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: BEAT, scale: 1.75, at: { x: 28, y: 84 }, caption: "Attach it." },
-  { hold: 7000, scale: 1.05, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
+  { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
+  { hold: BEAT, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
+  { hold: 2200, scale: 1.32, at: { x: 50, y: 28.4 }, caption: "Everything you have said, to every assistant." },
+  { hold: BEAT, scale: 1.42, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
+  { hold: BEAT, scale: 1.42, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
+  { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
+  { hold: BEAT, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
+  { hold: 5200, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
 
 /*
@@ -162,6 +193,73 @@ const REPLY = [
 const STAGE_W = 1040;
 const STAGE_H = 650;
 
+/*
+ * ── Streaming the reply ──────────────────────────────────────────────────────
+ *
+ * The reply used to appear as a finished block behind a clip-path wipe, top to
+ * bottom. That reads as a document being uncovered, not as an answer being
+ * written, and it was the reason the last shot felt slow and unlike anything a
+ * model actually does.
+ *
+ * This emits it in chunks, left to right, the way a model streams tokens. Words
+ * rather than characters, because that is closer to what a token is and because
+ * per-character typing at a readable speed takes far too long for a loop.
+ *
+ * The cadence is deliberately uneven. A fixed interval reads as a teleprinter;
+ * real output arrives in bursts with small stalls, so the delay per word is
+ * modulated by a cheap deterministic wobble. Deterministic and not random so
+ * every viewer sees the same take, and so it cannot desynchronise from the
+ * beat that owns it.
+ */
+const WORDS_PER_TICK = 2;
+const TICK_MS = 34;
+
+function useStreamedReply(active: boolean, lines: string[]) {
+  const [shown, setShown] = useState(0);
+  const total = useMemo(
+    () => lines.reduce((n, l) => n + l.split(" ").length, 0),
+    [lines],
+  );
+
+  useEffect(() => {
+    if (!active) {
+      setShown(0);
+      return;
+    }
+    let n = 0;
+    const id = window.setInterval(() => {
+      // The wobble: some ticks emit one word, some three. Averages to two.
+      const step = WORDS_PER_TICK + ((n * 7) % 3) - 1;
+      n = Math.min(total, n + Math.max(1, step));
+      setShown(n);
+      if (n >= total) window.clearInterval(id);
+    }, TICK_MS);
+    return () => window.clearInterval(id);
+  }, [active, total]);
+
+  return useMemo(() => sliceIntoLines(lines, shown), [lines, shown]);
+}
+
+/*
+ * Turn "n words have been emitted" back into per-line text.
+ *
+ * Exported so it can be tested. The stream is a single running count across the
+ * whole reply, because that is how a model emits — it does not know about the
+ * paragraph breaks, it just keeps going. Rendering needs the opposite view, so
+ * this walks the lines spending the budget as it goes: a line that fits
+ * entirely is complete, the one the budget runs out inside is the one carrying
+ * the caret, and every line after it is empty.
+ */
+export function sliceIntoLines(lines: string[], shown: number) {
+  let left = shown;
+  return lines.map((line) => {
+    const words = line.split(" ");
+    const take = Math.max(0, Math.min(words.length, left));
+    left -= words.length;
+    return { text: words.slice(0, take).join(" "), done: take === words.length };
+  });
+}
+
 export function HandoverFilm({ className }: { className?: string }) {
   const [beat, setBeat] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -209,7 +307,11 @@ export function HandoverFilm({ className }: { className?: string }) {
   const scene = BEATS[beat];
   const showPicker = beat >= 2 && beat <= 4;
   const showChat = beat >= 5;
-  const selected = beat >= 3 ? 0 : 1;
+  /*
+   * Always the row the cursor is on. See ROW_Y: the pointer and the highlight
+   * are one decision, not two that have to be kept in sync by hand.
+   */
+  const selected = PICKED;
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>
@@ -345,6 +447,8 @@ function Pill({ expanded }: { expanded: boolean }) {
  * the empty state every chat box on the internet has.
  */
 function ChatWindow({ revealed }: { revealed: boolean }) {
+  const streamed = useStreamedReply(revealed, REPLY);
+
   return (
     <div className="absolute inset-x-[8%] bottom-[6%] top-[12%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
       <div className="flex h-[7%] items-center gap-[0.6%] bg-white/[0.04] px-[1.4%]">
@@ -355,7 +459,7 @@ function ChatWindow({ revealed }: { revealed: boolean }) {
 
       <div className="h-[76%] overflow-hidden px-[6%] pt-[3%]">
         {revealed ? (
-          <div className="film-paste">
+          <div>
             {/* The attachment, as a chip on the person's own turn. */}
             <div className="flex justify-end">
               <span className="inline-flex items-center gap-[0.6em] rounded-[8px] bg-white/[0.08] px-[0.9em] py-[0.5em] text-[0.4rem] text-white/70 ring-1 ring-white/10">
@@ -372,10 +476,21 @@ function ChatWindow({ revealed }: { revealed: boolean }) {
              * is prose an assistant wrote and not a file — the monospace it used
              * to be is what made it look like source.
              */}
-            <div className="mt-[3%] space-y-[1.6%] text-[0.42rem] leading-[1.7] text-white/80">
-              {REPLY.map((line) => (
-                <p key={line} className={/^\d\./.test(line) ? "pl-[3%] text-white/70" : undefined}>
-                  {line}
+            {/*
+              * Every line starts at the same left edge.
+              *
+              * The numbered steps used to carry pl-[3%], which put two of the
+              * six lines on a different left margin from the other four. In a
+              * block this small that does not read as hierarchy, it reads as
+              * text that has slipped.
+              */}
+            <div className="mt-[3%] space-y-[1.6%] text-left text-[0.42rem] leading-[1.7] text-white/80">
+              {streamed.map((line, i) => (
+                <p key={i} className={line.text ? undefined : "hidden"}>
+                  {line.text}
+                  {/* The caret rides the end of whichever line is still being
+                      written, and disappears when the last one finishes. */}
+                  {!line.done && line.text && <span className="film-caret" />}
                 </p>
               ))}
             </div>
