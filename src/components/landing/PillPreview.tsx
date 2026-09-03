@@ -27,15 +27,25 @@ export interface PillRow {
 export function PillPreview({
   query,
   rows,
-  selected = 0,
+  selected = null,
   status,
+  pressed = false,
   footer = "Whole conversation, not a summary",
   className,
 }: {
   query?: string;
   rows: PillRow[];
-  selected?: number;
+  /*
+   * Which row is under the pointer, or null for none.
+   *
+   * Null matters: the picker opens with nothing highlighted, because nothing is
+   * hovered yet. Defaulting to row 0 made the film look like it arrived with a
+   * conversation already chosen, so the actual choosing never read as an event.
+   */
+  selected?: number | null;
   status?: string;
+  /** The row is being clicked this instant. */
+  pressed?: boolean;
   footer?: string;
   className?: string;
 }) {
@@ -88,6 +98,9 @@ export function PillPreview({
                 "flex w-full items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left",
                 "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
                 i === selected ? "row-glass-on" : "",
+                // The press. Brief, small, and on the row itself rather than a
+                // separate ripple, because that is what the real one does.
+                i === selected && pressed ? "scale-[0.985] brightness-125" : "",
               )}
             >
               <span

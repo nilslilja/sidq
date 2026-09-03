@@ -90,49 +90,77 @@ interface Beat {
  * made the move feel like it had missed. Beat 1 is the closed bar and nothing
  * else; the panel arrives on beat 2, after the camera has settled.
  */
-const BEAT = 1500;
+const BEAT = 1200;
 
 /*
- * ── The cursor and the selection are the same fact ───────────────────────────
- *
- * These y values are measured, not guessed: the three rows sit at 21.1%, 28.4%
- * and 35.7% of the stage, and the collapsed bar at 9.2%.
- *
- * That measurement is the fix for the worst thing in the earlier cut. The
- * cursor was placed by eye and the highlighted row was set by a separate rule,
- * so the pointer hovered near the middle row while the top row lit up, and then
- * the highlight moved again after the click. It read as a demo that had lost
- * track of itself, because it had: nothing tied the two together.
- *
- * Now one row is chosen — the checkout conversation, because that is the one
- * the reply at the end is about — and the cursor sits exactly on it from the
- * moment the list opens until the file is written. It never switches rows,
- * because a person picking a conversation does not either.
+ * Measured, not guessed: the three rows sit at 21.1%, 28.4% and 35.7% of the
+ * stage, and the collapsed bar at 9.2%.
  */
 const ROW_Y = [21.1, 28.4, 35.7];
 const PICKED = 0;
 
 /*
- * ── Quick, but not hurried ───────────────────────────────────────────────────
+ * ── One camera position for the whole pick ───────────────────────────────────
  *
- * Beats were 2900ms with a 2000ms camera move, which was calm and far too slow:
- * every step had a stretch of dead air after the move landed. 1500ms with a
- * 900ms move keeps the same easing — the part that makes it feel operated
- * rather than animated — while cutting the waiting.
+ * This is the fix for the film looking like it could not make up its mind. The
+ * camera used to move on every beat — in to the bar, out to the list, in again
+ * to the row, and back out — so the frame was still travelling while the thing
+ * it was travelling toward also moved. Three consecutive moves in different
+ * directions read as indecision, because that is what indecision looks like.
  *
- * The two beats that hold longer earn it. The list needs long enough to read
- * three titles, and the reply needs long enough to read a reply.
+ * Now the camera settles once when the panel opens and does not move again
+ * until the panel is gone. Everything that happens during the pick is the
+ * cursor, which is the only thing that should be moving while somebody is
+ * choosing. Identical scale and origin across those beats means the transition
+ * has nothing to do and the frame is genuinely still.
  */
+const LIST_SHOT = { scale: 1.34, at: { x: 46, y: 26 } };
+
+/*
+ * ── The pick, as a sequence of states rather than a slideshow ────────────────
+ *
+ * Three things were wrong and they compounded. The panel opened with a row
+ * already highlighted, so the choosing had happened before the viewer arrived.
+ * The cursor then moved to a row that was already lit, so nothing changed when
+ * it got there. And there was no click, so the file appeared for no visible
+ * reason.
+ *
+ * It reads as a person now: the list opens with nothing selected, the pointer
+ * travels down into it, the row lights when the pointer reaches it — which is
+ * the real picker's hover behaviour, not an invention — and then it is clicked.
+ */
+interface PickState {
+  /** Which row is hovered, or null for none. */
+  hover: number | null;
+  /** Mid-click on this beat. */
+  press: boolean;
+}
+
 const BEATS: Beat[] = [
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
-  { hold: BEAT, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
-  { hold: 2200, scale: 1.32, at: { x: 50, y: 28.4 }, caption: "Everything you have said, to every assistant." },
-  { hold: BEAT, scale: 1.42, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
-  { hold: BEAT, scale: 1.42, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
+  { hold: 1000, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
+  // The list opens, nothing hovered, and the pointer is still up at the bar.
+  { hold: 800, ...LIST_SHOT, at: { x: 50, y: 12 }, caption: "Everything you have said, to every assistant." },
+  // The pointer travels down. Same shot, so only it is moving.
+  { hold: 950, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
+  // Clicked.
+  { hold: 900, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: BEAT, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
-  { hold: 5200, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
+  { hold: 1000, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
+  { hold: 6000, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
+
+/*
+ * Hover and press per beat, kept beside the script rather than derived from a
+ * beat number in the render, so the whole choreography is readable in one
+ * place. Beat 2 opens the list with nothing hovered; 3 is the hover; 4 is the
+ * click and everything after it.
+ */
+const PICK: Record<number, PickState> = {
+  2: { hover: null, press: false },
+  3: { hover: PICKED, press: false },
+  4: { hover: PICKED, press: true },
+};
 
 /*
  * Nothing here belongs to anybody.
@@ -166,13 +194,36 @@ const ROWS = [
  */
 const ATTACHMENT = "Continue-this-conversation.md";
 
-const REPLY = [
-  "Picking up from the idempotency work rather than starting over.",
-  "You were losing roughly 8% of payments because Stripe retries the webhook and the handler was not idempotent, so a second delivery overwrote the first with a stale status. Keying on the event id fixes new traffic but not the events already dropped.",
-  "Two things left from where you stopped:",
-  "1. Add the idempotency key on the event id, and make the write a no-op when the id has been seen.",
-  "2. Backfill the failed events. You will want the ones from before the fix went out, not all of them.",
-  "I can start on the backfill query if you want to see the shape of it first.",
+/*
+ * ── The reply ────────────────────────────────────────────────────────────────
+ *
+ * Every specific here came across in the handover and nothing in it could have
+ * been guessed: the eight per cent, the retry behaviour, the decision to key on
+ * the event id, the fact that a backfill is still outstanding, and the standing
+ * instruction about em dashes. That is the argument — not that Sidq writes a
+ * file, but that the model on the other side resumes mid-thought.
+ *
+ * The snippet is here because the audience is people who write code, and a
+ * three line diff is the fastest way to say "it understood the actual problem"
+ * to that reader. It is kept to three lines for the same reason the earlier
+ * version of this whole shot was thrown out: a wall of monospace reads as a
+ * dump, and one small block reads as an answer.
+ */
+export type ReplyLine = { text: string; code?: boolean };
+
+const REPLY: ReplyLine[] = [
+  { text: "Picking up from the idempotency work rather than starting over." },
+  {
+    text: "You were losing about 8% of payments because Stripe retries the webhook and the handler was not idempotent, so the second delivery overwrote the first with a stale status. Keying on the event id fixes new traffic but leaves everything already dropped.",
+  },
+  { text: "The guard is small. Take the event id and refuse anything you have already seen:" },
+  { text: "const seen = await db.events.find(evt.id);", code: true },
+  { text: "if (seen) return ok();          // retry, not a new payment", code: true },
+  { text: "await db.events.insert({ id: evt.id, status: evt.type });", code: true },
+  {
+    text: "That closes the leak going forward. The backfill is the other half, and it only wants the events from before the fix shipped rather than the whole table.",
+  },
+  { text: "I can write the backfill query next, or we can check the retry counts first to see how many were actually lost." },
 ];
 
 /*
@@ -214,10 +265,10 @@ const STAGE_H = 650;
 const WORDS_PER_TICK = 2;
 const TICK_MS = 34;
 
-function useStreamedReply(active: boolean, lines: string[]) {
+function useStreamedReply(active: boolean, lines: ReplyLine[]) {
   const [shown, setShown] = useState(0);
   const total = useMemo(
-    () => lines.reduce((n, l) => n + l.split(" ").length, 0),
+    () => lines.reduce((n, l) => n + l.text.split(" ").length, 0),
     [lines],
   );
 
@@ -250,13 +301,17 @@ function useStreamedReply(active: boolean, lines: string[]) {
  * entirely is complete, the one the budget runs out inside is the one carrying
  * the caret, and every line after it is empty.
  */
-export function sliceIntoLines(lines: string[], shown: number) {
+export function sliceIntoLines(lines: ReplyLine[], shown: number) {
   let left = shown;
   return lines.map((line) => {
-    const words = line.split(" ");
+    const words = line.text.split(" ");
     const take = Math.max(0, Math.min(words.length, left));
     left -= words.length;
-    return { text: words.slice(0, take).join(" "), done: take === words.length };
+    return {
+      text: words.slice(0, take).join(" "),
+      done: take === words.length,
+      code: line.code === true,
+    };
   });
 }
 
@@ -307,11 +362,7 @@ export function HandoverFilm({ className }: { className?: string }) {
   const scene = BEATS[beat];
   const showPicker = beat >= 2 && beat <= 4;
   const showChat = beat >= 5;
-  /*
-   * Always the row the cursor is on. See ROW_Y: the pointer and the highlight
-   * are one decision, not two that have to be kept in sync by hand.
-   */
-  const selected = PICKED;
+  const pick = PICK[beat] ?? { hover: null, press: false };
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>
@@ -360,7 +411,8 @@ export function HandoverFilm({ className }: { className?: string }) {
             <div className="absolute inset-x-[22%] top-[11%] z-30">
               <PillPreview
                 rows={ROWS}
-                selected={selected}
+                selected={pick.hover}
+                pressed={pick.press}
                 footer="Whole conversation, not a summary"
               />
             </div>
@@ -484,12 +536,28 @@ function ChatWindow({ revealed }: { revealed: boolean }) {
               * block this small that does not read as hierarchy, it reads as
               * text that has slipped.
               */}
-            <div className="mt-[3%] space-y-[1.6%] text-left text-[0.42rem] leading-[1.7] text-white/80">
+            {/*
+              * Tighter than prose usually wants. leading-[1.7] with 1.6% between
+              * paragraphs left this looking like a document with air in it; a
+              * chat reply is a dense block and the spacing has to say so.
+              *
+              * Every line starts at the same left edge, including the snippet,
+              * which is why the code rows carry no indent of their own — the
+              * block is marked by its background and its face, not by a margin.
+              */}
+            <div className="mt-[2.4%] space-y-[0.9%] text-left text-[0.42rem] leading-[1.45] text-white/80">
               {streamed.map((line, i) => (
-                <p key={i} className={line.text ? undefined : "hidden"}>
+                <p
+                  key={i}
+                  className={[
+                    line.text ? "" : "hidden",
+                    line.code
+                      ? "whitespace-pre rounded-[3px] bg-white/[0.06] px-[1.2%] py-[0.35%] font-mono text-[0.38rem] text-[#B8E6C8]"
+                      : "",
+                  ].join(" ")}
+                >
                   {line.text}
-                  {/* The caret rides the end of whichever line is still being
-                      written, and disappears when the last one finishes. */}
+                  {/* The caret rides whichever line is still being written. */}
                   {!line.done && line.text && <span className="film-caret" />}
                 </p>
               ))}
