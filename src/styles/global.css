@@ -1529,3 +1529,79 @@
     animation: none;
   }
 }
+
+/*
+ * ── Clouds, drawn ────────────────────────────────────────────────────────────
+ *
+ * Three layers of soft radial blobs on transparent bands, each drifting at its
+ * own speed. Parallax by speed alone is what sells depth here: the near band
+ * crosses in a couple of minutes, the far one takes four times as long, and the
+ * eye reads the difference as distance without any of it being in perspective.
+ *
+ * Radial gradients rather than an image, for the same reason the rest of this
+ * page is drawn: nothing to license, nothing to load, sharp on every display,
+ * and it cannot arrive late and shift the layout.
+ *
+ * Each layer is 200% wide and holds the same shapes twice, so translating it by
+ * exactly -50% lands the copy where the original was and the loop has no seam.
+ */
+.cloud-band {
+  position: absolute;
+  inset-inline: 0;
+  width: 200%;
+  background-repeat: repeat-x;
+  will-change: auto;
+}
+
+.cloud-near {
+  height: 34%;
+  top: 18%;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(70px 26px at 8% 60%, rgba(255, 255, 255, 0.95), transparent 70%),
+    radial-gradient(110px 34px at 14% 55%, rgba(255, 255, 255, 0.9), transparent 72%),
+    radial-gradient(60px 22px at 21% 62%, rgba(255, 255, 255, 0.85), transparent 70%),
+    radial-gradient(90px 30px at 58% 40%, rgba(255, 255, 255, 0.9), transparent 72%),
+    radial-gradient(130px 38px at 66% 46%, rgba(255, 255, 255, 0.85), transparent 72%);
+  animation: cloud-drift 150s linear infinite;
+}
+
+.cloud-mid {
+  height: 30%;
+  top: 30%;
+  opacity: 0.34;
+  background-image:
+    radial-gradient(150px 34px at 30% 50%, rgba(255, 255, 255, 0.85), transparent 72%),
+    radial-gradient(90px 26px at 40% 58%, rgba(255, 255, 255, 0.8), transparent 70%),
+    radial-gradient(170px 40px at 80% 44%, rgba(255, 255, 255, 0.8), transparent 72%);
+  animation: cloud-drift 260s linear infinite;
+}
+
+.cloud-far {
+  height: 26%;
+  top: 8%;
+  opacity: 0.2;
+  background-image:
+    radial-gradient(200px 30px at 20% 50%, rgba(255, 255, 255, 0.7), transparent 74%),
+    radial-gradient(240px 34px at 70% 56%, rgba(255, 255, 255, 0.65), transparent 74%);
+  animation: cloud-drift 420s linear infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/*
+ * Drift is ambience, and ambience is the first thing this setting should stop.
+ * The clouds stay; they simply stop moving.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .cloud-band {
+    animation: none;
+  }
+}

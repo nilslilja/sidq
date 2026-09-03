@@ -35,7 +35,7 @@ export function Hero() {
        */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(180deg,#3A3968_0%,#46437B_20%,#5B5793_40%,#8A7FA8_56%,#BE9AA6_68%,#E3B597_79%,#F6DCBC_90%,#F7F6F3_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(180deg,#0A3B86_0%,#0C4290_30%,#114E9C_52%,#1A5FB0_66%,#3F86D4_76%,#8CBDEE_86%,#CFE4F8_94%,#F7F6F3_100%)]"
       />
 
       {/*
@@ -183,7 +183,7 @@ export function Hero() {
          * on its own.
          */}
         <p
-          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white/85"
+          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
           style={{ animationDelay: "160ms" }}
         >
           Sidq is the one that remembers. Every conversation you have ever had,
@@ -213,7 +213,18 @@ export function Hero() {
          * the numbers were added; they only made it obvious by putting legible
          * text directly underneath it.
          */}
-        <p className="mt-5 w-full text-center text-[0.8125rem] text-ink/80">
+        {/*
+           * White, not ink.
+           *
+           * This sits 71% down the sky. On the old gradient that point had
+           * warmed to cream and dark text was correct; the blue sky is still
+           * blue there, so ink measured 3.22:1 at thirteen pixels against a
+           * 4.5:1 requirement. The colour has to follow the ground under it.
+           *
+           * Full white, not 85%: at thirteen pixels this owes 4.5:1 and 85%
+           * measured 3.92 here. There is no headroom to spend at this size.
+           */}
+          <p className="mt-5 w-full text-center text-[0.8125rem] text-white">
           Free. No card. Mac app, about a minute to set up.
         </p>
 

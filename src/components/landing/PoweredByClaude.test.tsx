@@ -60,16 +60,25 @@ describe('the sentence', () => {
     expect(root?.className).toContain('w-full');
   });
 
-  test('the trailing clause follows the tone it was given', () => {
-    // It was `text-ink/35` on every surface, so on the dark setup screen it was
-    // near-black on near-black: present, taking up space, unreadable.
-    const dark = render(<PoweredByClaude tone="light" />);
-    expect(dark.getByText(/and every other one/).className).toContain('text-white/35');
-    dark.unmount();
+    test('the trailing clause follows the tone it was given', () => {
+      /*
+       * It was `text-ink/35` everywhere, so on the dark setup screen it was
+       * near-black on near-black: present, taking up space, unreadable.
+       *
+       * The ink-or-white choice is asserted; the opacity is not. This pinned
+       * /35 exactly and then failed the day that value had to rise for contrast
+       * on a lighter sky — a real fix broken by a test guarding the wrong
+       * thing. What matters is that the clause takes its colour from the
+       * surface. How faint it is within that is a contrast decision, and
+       * contrast is measured against the actual background, not pinned here.
+       */
+      const dark = render(<PoweredByClaude tone="light" />);
+      expect(dark.getByText(/and every other one/).className).toMatch(/text-white\//);
+      dark.unmount();
 
-    const light = render(<PoweredByClaude tone="dark" />);
-    expect(light.getByText(/and every other one/).className).toContain('text-ink/35');
-  });
+      const light = render(<PoweredByClaude tone="dark" />);
+      expect(light.getByText(/and every other one/).className).toMatch(/text-ink\//);
+    });
 
   test('the locality note is always there', () => {
     // The line above is a strong claim about what Sidq holds. This is the one

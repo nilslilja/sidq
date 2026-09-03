@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PillPreview } from "./PillPreview";
 import { MacDock } from "./MacDock";
 import { cn } from "@/lib/cn";
@@ -60,26 +60,37 @@ interface Beat {
 /*
  * The script.
  *
- * Every mechanical step is half a second, which is roughly how long the action
- * actually takes: a click is instant and the eye needs a beat to see the
- * result, and anything longer reads as the demo waiting for you rather than
- * showing you something. The first version held each step for three or four
- * seconds and felt broken.
+ * ── One length for every beat ────────────────────────────────────────────────
  *
- * Two beats break the rule, both because they are the point rather than the
- * plumbing: the list of conversations, which is the moment somebody realises
- * how much of their history is in there, and the document at the end, which is
- * the thing being sold and has to be read.
+ * The first version gave each beat whatever felt right — half a second here,
+ * two and a bit there — and the result read as broken rather than as paced.
+ * A viewer works out the rhythm of a loop in the first two beats and then
+ * predicts it; when the third arrives early they read it as a stutter, not as
+ * emphasis. So every beat is the same length. It is slower than the fastest
+ * version and far calmer, and calm is what makes it look deliberate.
+ *
+ * The last beat is the exception, and it is not pacing: there is a reply to
+ * read, and the loop restarting before somebody finishes reading it wastes the
+ * only beat that closes the argument.
+ *
+ * ── The pill opens on its own beat ───────────────────────────────────────────
+ *
+ * The camera used to push into the pill on the same beat the picker replaced
+ * it, so it zoomed toward a bar that had already become a panel — which is what
+ * made the move feel like it had missed. Beat 1 is the closed bar and nothing
+ * else; the panel arrives on beat 2, after the camera has settled.
  */
+const BEAT = 1800;
+
 const BEATS: Beat[] = [
-  { hold: 900, scale: 1, at: { x: 50, y: 46 }, caption: "It sits above everything, out of the way." },
-  { hold: 500, scale: 2.4, at: { x: 50, y: 9 }, caption: "One shortcut, from wherever you are." },
-  { hold: 2200, scale: 1.5, at: { x: 50, y: 30 }, caption: "Everything you have said, to every assistant." },
-  { hold: 500, scale: 1.7, at: { x: 38, y: 26 }, caption: "Pick one." },
-  { hold: 500, scale: 1.7, at: { x: 38, y: 26 }, caption: "It writes the file." },
-  { hold: 500, scale: 1, at: { x: 50, y: 50 }, caption: "Open anything else." },
-  { hold: 500, scale: 2.4, at: { x: 14, y: 84 }, caption: "Attach it." },
-  { hold: 3400, scale: 1.1, at: { x: 50, y: 44 }, caption: "It arrives knowing the decisions, the constraints and where you stopped." },
+  { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "It sits above everything, out of the way." },
+  { hold: BEAT, scale: 2.2, at: { x: 50, y: 9 }, caption: "One shortcut, from wherever you are." },
+  { hold: BEAT, scale: 1.45, at: { x: 50, y: 30 }, caption: "Everything you have said, to every assistant." },
+  { hold: BEAT, scale: 1.45, at: { x: 50, y: 34 }, caption: "Pick the one you want to carry." },
+  { hold: BEAT, scale: 1.45, at: { x: 50, y: 30 }, caption: "It writes the whole conversation to a file." },
+  { hold: BEAT, scale: 1, at: { x: 50, y: 52 }, caption: "Open anything else. A different company's model is fine." },
+  { hold: BEAT, scale: 2.2, at: { x: 26, y: 86 }, caption: "Attach it." },
+  { hold: 5200, scale: 1.05, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
 
 /*
@@ -98,43 +109,66 @@ const ROWS = [
 ];
 
 /*
- * Verbatim from `compiler.rs`. See the note at the top of this file: this is
- * generated output, not prose written to look like it. Trimmed only by cutting
- * whole sections from the end, never by rewording a line.
+ * ── What the last shot shows, and why it changed ─────────────────────────────
+ *
+ * It used to print the handover file itself, in monospace. That was accurate
+ * and it was the wrong thing to show: a wall of grey fixed-width text reads as
+ * source code, and the point being made is not "Sidq produces a file" — anybody
+ * can produce a file. The point is that the assistant on the other side picks
+ * the work up without being briefed.
+ *
+ * So the shot is the reply. The file is a chip above it, the way an attachment
+ * actually appears, and underneath is the answer that came back. Every specific
+ * in it — the eight per cent, the retries, the idempotency key, the em dash
+ * rule — is something the handover carried and nothing the assistant could have
+ * known otherwise, which is the entire argument made in six lines.
  */
-const HANDOVER = `# Continue this conversation
+const ATTACHMENT = "Continue-this-conversation.md";
 
-WHAT THIS IS
+const REPLY = [
+  "Picking up from the idempotency work rather than starting over.",
+  "You were losing roughly 8% of payments because Stripe retries the webhook and the handler was not idempotent, so a second delivery overwrote the first with a stale status. Keying on the event id fixes new traffic but not the events already dropped.",
+  "Two things left from where you stopped:",
+  "1. Add the idempotency key on the event id, and make the write a no-op when the id has been seen.",
+  "2. Backfill the failed events. You will want the ones from before the fix went out, not all of them.",
+  "I can start on the backfill query if you want to see the shape of it first.",
+];
 
-A record of a conversation that happened somewhere else, given to you so it can
-carry on here. It was between the person you are talking to now and ChatGPT,
-yesterday, working on checkout. It includes the assistant's private reasoning,
-which was never shown to anyone.
-
-They were there for all of it. Do not summarise it back to them; that spends the
-turn on something they already know.
-
-WHO YOU ARE TALKING TO
-
-Standing instructions this person has given assistants before, in their own
-words. Apply them here unless they say otherwise.
-
-- never use em dashes in anything you write for me
-
-WHERE IT GOT TO
-
-It opened with: our checkout silently drops about 8% of payments and we cannot
-work out why
-
-By the end they were on: so we key on the event id instead
-
-The last thing they asked was: add the idempotency key and backfill the failed
-events`;
+/*
+ * ── One design size, scaled ──────────────────────────────────────────────────
+ *
+ * The scene is laid out once at 1040 by 650 and the whole thing is scaled to
+ * whatever width it is handed. Everything inside can then be sized in absolute
+ * units and it stays in proportion at every screen, which is what fixes the
+ * phone: the film was 335 wide there with fifteen pixel type inside it, so the
+ * picker was half the width of the Mac it was supposed to be sitting on.
+ *
+ * A percentage layout cannot do this. Percentages keep boxes proportional and
+ * leave type at whatever the root says, so the smaller the frame the more the
+ * text dominates it — and the frame is a scale model of a desktop, where type
+ * being the wrong size relative to the window is the one thing that reads as
+ * fake.
+ */
+const STAGE_W = 1040;
+const STAGE_H = 650;
 
 export function HandoverFilm({ className }: { className?: string }) {
   const [beat, setBeat] = useState(0);
   const [playing, setPlaying] = useState(true);
   const wrap = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(1);
+
+  // Layout effect, so the first paint is already at the right size rather than
+  // flashing full size and snapping down.
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const measure = () => setFit(el.clientWidth / STAGE_W);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /*
    * Only runs while it is on screen.
@@ -163,15 +197,23 @@ export function HandoverFilm({ className }: { className?: string }) {
   }, [beat, playing]);
 
   const scene = BEATS[beat];
-  const showPicker = beat >= 1 && beat <= 4;
+  const showPicker = beat >= 2 && beat <= 4;
   const showChat = beat >= 5;
   const selected = beat >= 3 ? 0 : 1;
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>
+      {/* Reserves exactly the scaled height, so nothing below it shifts. */}
+      <div style={{ height: STAGE_H * fit }} className="relative w-full">
       <div
+        style={{
+          width: STAGE_W,
+          height: STAGE_H,
+          transform: `scale(${fit})`,
+          transformOrigin: "top left",
+        }}
         className={cn(
-          "relative aspect-[16/10] w-full overflow-hidden rounded-[18px]",
+          "relative overflow-hidden rounded-[18px]",
           // Sidq's own dawn rather than a licensed desktop photograph.
           "bg-[linear-gradient(165deg,#2A2A5C_0%,#4C4A8A_28%,#8E7BB0_52%,#D8A08C_74%,#F0C9A0_100%)]",
           "shadow-[0_40px_100px_-30px_rgba(30,27,75,0.55)]",
@@ -215,6 +257,7 @@ export function HandoverFilm({ className }: { className?: string }) {
           {showChat && <ChatWindow revealed={beat >= 7} />}
           <Cursor at={scene.at} />
         </div>
+      </div>
       </div>
 
       {/*
@@ -293,32 +336,51 @@ function Pill({ expanded }: { expanded: boolean }) {
  */
 function ChatWindow({ revealed }: { revealed: boolean }) {
   return (
-    <div className="absolute inset-x-[8%] top-[12%] bottom-[6%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
+    <div className="absolute inset-x-[8%] bottom-[6%] top-[12%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
       <div className="flex h-[7%] items-center gap-[0.6%] bg-white/[0.04] px-[1.4%]">
         {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
           <span key={c} className="h-[26%] w-[0.9%] rounded-full" style={{ background: c }} />
         ))}
       </div>
 
-      <div className="h-[76%] overflow-hidden px-[4%] pt-[2.5%]">
+      <div className="h-[76%] overflow-hidden px-[6%] pt-[3%]">
         {revealed ? (
-          <pre className="film-paste whitespace-pre-wrap font-mono text-[0.34rem] leading-[1.45] text-white/80">
-            {HANDOVER}
-          </pre>
+          <div className="film-paste">
+            {/* The attachment, as a chip on the person's own turn. */}
+            <div className="flex justify-end">
+              <span className="inline-flex items-center gap-[0.6em] rounded-[8px] bg-white/[0.08] px-[0.9em] py-[0.5em] text-[0.4rem] text-white/70 ring-1 ring-white/10">
+                <svg viewBox="0 0 24 24" className="h-[1.2em]" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                {ATTACHMENT}
+              </span>
+            </div>
+
+            {/*
+             * The reply. Set in the sans at a normal reading size, because this
+             * is prose an assistant wrote and not a file — the monospace it used
+             * to be is what made it look like source.
+             */}
+            <div className="mt-[3%] space-y-[1.6%] text-[0.42rem] leading-[1.7] text-white/80">
+              {REPLY.map((line) => (
+                <p key={line} className={/^\d\./.test(line) ? "pl-[3%] text-white/70" : undefined}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          </div>
         ) : (
-          <p className="pt-[12%] text-center text-[0.55rem] text-white/25">
-            Ask anything
-          </p>
+          <p className="pt-[12%] text-center text-[0.55rem] text-white/25">Ask anything</p>
         )}
       </div>
 
-      {/* The composer, with the attach control the fifth beat zooms to. */}
       <div className="absolute inset-x-[4%] bottom-[4%] flex h-[9%] items-center gap-[1.5%] rounded-full bg-white/[0.06] px-[2%] ring-1 ring-white/10">
         <svg viewBox="0 0 24 24" className="h-[46%] text-white/45" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
         </svg>
         <span className="text-[0.4rem] text-white/30">
-          {revealed ? "Continue-this-conversation.md" : "Attach a file"}
+          {revealed ? ATTACHMENT : "Attach a file"}
         </span>
       </div>
     </div>

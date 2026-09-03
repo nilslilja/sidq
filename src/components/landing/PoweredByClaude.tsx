@@ -45,6 +45,18 @@ interface Model {
   logo: string;
   /** The brand colour, used on the word so it reads even before the mark loads. */
   colour: string;
+  /*
+   * The same brand, lightened for the sky.
+   *
+   * These wordmarks were picked against the old purple zenith. On the blue they
+   * fall apart: ChatGPT's teal measures 3.13:1, Gemini's blue 2.85 and
+   * DeepSeek's 2.31, all against a 4.5:1 requirement at thirteen pixels — a
+   * blue wordmark on a blue sky was never going to work.
+   *
+   * Lifted toward white by the least amount that clears the bar, so the hue is
+   * still recognisably theirs. Absent where the original already passes.
+   */
+  onSky?: string;
   /**
    * A one-colour mark, drawn in the text's colour rather than its own.
    *
@@ -66,13 +78,13 @@ interface Model {
  * advertising the slowest path into the product.
  */
 const MODELS: Model[] = [
-  { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F', mono: true },
-  { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757' },
-  { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF' },
+  { name: 'ChatGPT', logo: '/openai-logo.svg', colour: '#10A37F', onSky: '#5CC0A8', mono: true },
+  { name: 'Claude', logo: '/claude-logo.svg', colour: '#D97757', onSky: '#E49D86' },
+  { name: 'Gemini', logo: '/gemini-logo.svg', colour: '#3186FF', onSky: '#7BB2FF' },
   { name: 'Cursor', logo: '', colour: '#E5E5E5' },
-  { name: 'DeepSeek', logo: '', colour: '#4D6BFE' },
+  { name: 'DeepSeek', logo: '', colour: '#4D6BFE', onSky: '#98A9FE' },
   { name: 'Grok', logo: '/grok-logo.svg', colour: '#E5E5E5', mono: true },
-  { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7' },
+  { name: 'Copilot', logo: '/copilot-logo.svg', colour: '#8B7BF7', onSky: '#B0A5FA' },
 ];
 
 /** Sits under the rotating line and is what makes it not sound like surveillance. */
@@ -206,7 +218,7 @@ export function PoweredByClaude({
           />
         )}
         <span>
-          Reads your <span style={{ color: model.colour }}>{model.name}</span> conversations
+          Reads your <span style={{ color: (light && model.onSky) || model.colour }} className="font-medium">{model.name}</span> conversations
           {/*
             * Follows the tone like everything else here.
             *
@@ -214,7 +226,14 @@ export function PoweredByClaude({
             * onboarding panel it was near-black on near-black: the clause was
             * there, took up a line, and could not be read.
             */}
-          <span className={light ? 'text-white/35' : 'text-ink/35'}>
+          {/*
+              * 35% measured 2.55:1 on the blue sky at thirteen pixels, against a
+              * 4.5:1 requirement — the same failure this comment was already
+              * describing, reintroduced by changing the ground underneath it.
+              * The clause is subordinate, which is a job for weight and size
+              * rather than for making it unreadable.
+              */}
+            <span className={light ? 'text-white/70' : 'text-ink/55'}>
             {' '}
             and every other one
           </span>
@@ -225,7 +244,12 @@ export function PoweredByClaude({
       <span
         className={cn(
           'text-[0.75rem] tracking-[-0.005em]',
-          light ? 'text-white/40' : 'text-ink/40',
+          /*
+             * 40% was calibrated against the old purple zenith. On the blue sky
+             * this measures 2.87:1 at twelve pixels, where body text owes
+             * 4.5:1 — a legibility failure rather than a soft one.
+             */
+            light ? 'text-white/80' : 'text-ink/55',
         )}
       >
         {LOCALITY_NOTE}
