@@ -222,14 +222,30 @@ function PlanCard({
         </ul>
       )}
 
-      <Button
-        className="mt-6 w-full"
-        variant={plan.featured ? "accent" : "outline"}
-        onClick={onSubscribe}
-        disabled={busy}
-      >
-        {busy ? "Opening checkout…" : plan.cta}
-      </Button>
+      {/*
+       * Team has no Stripe product behind it, so the button opens a
+       * conversation rather than a checkout that would fail on a missing price.
+       */}
+      {plan.ctaHref ? (
+        <Button
+          className="mt-6 w-full"
+          variant="outline"
+          onClick={() => {
+            window.location.href = plan.ctaHref as string;
+          }}
+        >
+          {plan.cta}
+        </Button>
+      ) : (
+        <Button
+          className="mt-6 w-full"
+          variant={plan.featured ? "accent" : "outline"}
+          onClick={onSubscribe}
+          disabled={busy}
+        >
+          {busy ? "Opening checkout…" : plan.cta}
+        </Button>
+      )}
     </section>
   );
 }

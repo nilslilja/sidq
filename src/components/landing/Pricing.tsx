@@ -107,6 +107,20 @@ function PlanCta({ plan }: { plan: Plan }) {
     );
   }
 
+  /*
+   * A tier with no checkout behind it.
+   *
+   * Team is sold by talking to somebody: there is no Stripe product, and a
+   * button that opened an empty checkout would be worse than no tier at all.
+   */
+  if (plan.ctaHref) {
+    return (
+      <a href={plan.ctaHref} className={className}>
+        {plan.cta}
+      </a>
+    );
+  }
+
   return (
     <Link to="/upgrade" className={className}>
       {plan.cta}

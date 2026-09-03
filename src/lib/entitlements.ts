@@ -94,6 +94,19 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
     historyDays: UNLIMITED,
     seats: 2,
   },
+  /*
+   * Everything Duo has, without the two.
+   *
+   * Seats are unlimited because the mechanism that shares context is a folder
+   * the team already syncs, not a server with a per-member cost — so the number
+   * of people is a billing question rather than a capacity one, and it is
+   * settled in the conversation that sells the tier.
+   */
+  team: {
+    handoffsPerWeek: UNLIMITED,
+    historyDays: UNLIMITED,
+    seats: UNLIMITED,
+  },
 };
 
 export function entitlementsFor(plan: PlanId): Entitlements {

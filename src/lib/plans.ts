@@ -20,7 +20,7 @@
 
 import { entitlementsFor } from "./entitlements";
 
-export type PlanId = "free" | "pro" | "duo";
+export type PlanId = "free" | "pro" | "duo" | "team";
 
 export interface Plan {
   id: PlanId;
@@ -42,6 +42,13 @@ export interface Plan {
    * belongs beside the number, not four bullets below it.
    */
   priceNote?: string;
+  /**
+   * Where the button goes when it is not the checkout.
+   *
+   * A tier sold by talking to somebody has no price to charge yet, and a
+   * "Subscribe" button opening an empty checkout is worse than no tier at all.
+   */
+  ctaHref?: string;
   /**
    * Lines that state a ceiling rather than a capability.
    *
@@ -121,6 +128,50 @@ export const PLANS: Plan[] = [
     features: [
       "Unlimited handovers, every day",
       "Search everything you have ever asked, however far back it goes",
+    ],
+  },
+  /*
+   * ── Why there is a tier above two people ───────────────────────────────────
+   *
+   * The ladder stopped at Duo, which is to say it stopped at two. Every plan
+   * above free was priced per person and sold to a person, so the product had a
+   * ceiling of one invoice per pair however many people wanted it — and the
+   * most common question after a demo was whether a team could buy it.
+   *
+   * The mechanism is already built and already paid for: team_context shares
+   * standing instructions through a folder the team syncs themselves, with Sidq
+   * never opening a socket. Duo is that feature sold to two people. This is the
+   * same feature sold to twenty, and it costs nothing more to run.
+   *
+   * ── Sold on the security review, not on the convenience ────────────────────
+   *
+   * The buyer here is not the developer. It is whoever has to approve a tool
+   * that touches every conversation their engineers have with an AI, and that
+   * person is currently rejecting cloud AI tools for exactly that reason.
+   * "Conversations never leave the device" is the sentence that gets past them.
+   * For an individual that architecture is a nicety; for this buyer it is the
+   * whole reason the purchase is possible, and it is the one answer a hosted
+   * competitor cannot give.
+   *
+   * No price and no checkout, deliberately. There is no Stripe product behind
+   * it, the right number is unknown until a few have been sold, and the first
+   * team conversations are worth having by hand.
+   */
+  {
+    id: "team",
+    name: "Team",
+    price: "Let's talk",
+    cadence: null,
+    promise:
+      "Your whole team working from the same context, on machines nothing leaves.",
+    inherits: "Duo",
+    cta: "Talk to us",
+    ctaHref: "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
+    features: [
+      "Unlimited seats, one invoice",
+      "Shared standing instructions across everyone, synced through your own drive",
+      "Nothing is uploaded, so there is no vendor to put through security review",
+      "Works with the wifi off, on locked down machines",
     ],
   },
   {
