@@ -64,6 +64,10 @@ const FaqPage = lazy(() =>
 const Privacy = lazy(() =>
   import("@/routes/Legal").then((m) => ({ default: m.Privacy })),
 );
+
+// The builders' night application. Its own page rather than part of the product
+// marketing, so the link can be sent on its own.
+const Build = lazy(() => import("@/routes/Build"));
 const Terms = lazy(() =>
   import("@/routes/Legal").then((m) => ({ default: m.Terms })),
 );
@@ -171,6 +175,14 @@ function Shell() {
       <div className="relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route
+            path="/build"
+            element={
+              <Suspense fallback={<Blank />}>
+                <Build />
+              </Suspense>
+            }
+          />
           {/* What the landing page stopped being. Their own routes so each one
               is something you can send to a person on its own. */}
           <Route
