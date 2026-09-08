@@ -46,6 +46,7 @@ pub enum Plan {
     Free,
     Pro,
     Duo,
+    Team,
 }
 
 impl Plan {
@@ -54,6 +55,7 @@ impl Plan {
         match tier {
             "pro" | "paid" => Plan::Pro,
             "duo" => Plan::Duo,
+            "team" => Plan::Team,
             _ => Plan::Free,
         }
     }
@@ -63,6 +65,7 @@ impl Plan {
             Plan::Free => "free",
             Plan::Pro => "pro",
             Plan::Duo => "duo",
+            Plan::Team => "team",
         }
     }
 
@@ -75,6 +78,22 @@ impl Plan {
             Plan::Free => Some(5),
             _ => None,
         }
+    }
+
+    /**
+     * May this account use the team folder?
+     *
+     * A capability rather than `== Plan::Duo`, which is how the Team tier came
+     * to be sold and not implemented: the pricing page has offered Team since it
+     * was written, `from_tier` did not know the word, and every gate compared
+     * against Duo exactly. A Team customer would have lost the folder they were
+     * paying for *and* been capped at five handovers a week.
+     *
+     * Asking what a plan may do, rather than which plan it is, is what stops the
+     * next tier repeating it.
+     */
+    pub fn may_share_with_team(self) -> bool {
+        matches!(self, Plan::Duo | Plan::Team)
     }
 
     /// How far back search reaches, in days. `None` means everything.
@@ -299,6 +318,39 @@ mod tests {
         assert_eq!(Plan::from_tier("paid"), Plan::Pro);
         assert_eq!(Plan::from_tier("pro"), Plan::Pro);
         assert_eq!(Plan::from_tier("duo"), Plan::Duo);
+    }
+
+    /*
+     * The tier that was sold and never implemented.
+     *
+     * `plans.ts` has offered Team since it was written, `from_tier` did not know
+     * the word, and every gate compared `== Plan::Duo` exactly. A Team customer
+     * would have lost the folder they were paying for and been capped at five
+     * handovers a week, silently.
+     */
+    #[test]
+    fn a_team_account_can_use_the_team_folder() {
+        assert_eq!(Plan::from_tier("team"), Plan::Team);
+        assert!(Plan::Team.may_share_with_team());
+        assert!(Plan::Duo.may_share_with_team());
+    }
+
+    #[test]
+    fn a_team_account_is_not_capped_like_a_free_one() {
+        assert_eq!(Plan::Team.handovers_per_week(), None);
+        assert_eq!(Plan::Team.history_days(), None);
+    }
+
+    #[test]
+    fn paying_for_one_person_does_not_open_the_team_folder() {
+        assert!(!Plan::Free.may_share_with_team());
+        assert!(!Plan::Pro.may_share_with_team());
+    }
+
+    #[test]
+    fn a_tier_nobody_recognises_still_costs_a_feature() {
+        assert_eq!(Plan::from_tier("enterprise-plus"), Plan::Free);
+        assert!(!Plan::from_tier("").may_share_with_team());
     }
 
     #[test]

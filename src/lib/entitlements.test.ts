@@ -62,7 +62,7 @@ describe("entitlements", () => {
   });
 
   test("paying removes every meter", () => {
-    for (const plan of ["pro", "duo"] as const) {
+    for (const plan of ["pro", "duo", "team"] as const) {
       const e = entitlementsFor(plan);
       expect(isUnlimited(e.handoffsPerWeek)).toBe(true);
       expect(isUnlimited(e.historyDays)).toBe(true);
@@ -81,7 +81,7 @@ describe("entitlements", () => {
 
   test("every paid plan beats free on something people can name", () => {
     const free = entitlementsFor("free");
-    for (const plan of ["pro", "duo"] as const) {
+    for (const plan of ["pro", "duo", "team"] as const) {
       const e = entitlementsFor(plan);
       expect(
         isUnlimited(e.handoffsPerWeek) && !isUnlimited(free.handoffsPerWeek),
@@ -155,8 +155,16 @@ describe("pricing cards match the contract", () => {
       .join(" ")
       .toLowerCase();
 
+    /*
+     * Word boundaries, because "your team" contains "our team".
+     *
+     * The bare substring flagged a Team bullet reading "every AI conversation
+     * your team has" — a sentence about the customer's own team, which is the
+     * opposite of what this test is guarding. What it is looking for is Sidq
+     * promising Sidq's labour.
+     */
     expect(text).not.toMatch(
-      /real person|a human|coach reviews|we will review|our team/,
+      /real person|a human|coach reviews|we will review|\bour team\b/,
     );
   });
 
@@ -416,5 +424,30 @@ describe("what Duo promises", () => {
 
     expect(text).toContain("uploads nothing");
     expect(text).toContain("not shared");
+  });
+});
+
+/*
+ * ── The tier that was sold and never wired up ────────────────────────────────
+ *
+ * plans.ts has offered Team since it was written. `planFromTier` did not know
+ * the word, so a Team customer fell through to free: no team folder, five
+ * handovers a week, seven days of search. The parity loops above only iterated
+ * pro and duo, which is exactly why nobody noticed.
+ */
+describe("the team tier", () => {
+  test("maps to itself rather than falling through to free", () => {
+    expect(planFromTier("team")).toBe("team");
+  });
+
+  test("is not capped like a free account", () => {
+    const team = entitlementsFor("team");
+    expect(isUnlimited(team.handoffsPerWeek)).toBe(true);
+    expect(isUnlimited(team.historyDays)).toBe(true);
+  });
+
+  test("still refuses a tier nobody recognises", () => {
+    expect(planFromTier("enterprise-plus")).toBe("free");
+    expect(planFromTier(null)).toBe("free");
   });
 });

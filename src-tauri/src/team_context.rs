@@ -60,6 +60,28 @@ const MAX_PEOPLE: usize = 12;
 /// A context file above this is not one of ours and is not worth parsing.
 const MAX_BYTES: u64 = 256 * 1024;
 
+/**
+ * The file a team writes once for everybody.
+ *
+ * This already worked — the folder reads anything ending in `SUFFIX`, and the
+ * rules above say so deliberately: "a team that wants a hand-written house-rules
+ * file shared by everyone can just write one and drop it in." Nobody knew,
+ * because nothing named it.
+ *
+ * Naming it makes it the thing an organisation actually buys. One file, and
+ * every handover any of them makes carries the same standards — into whichever
+ * assistant each person happens to use, with no server to put through a security
+ * review. It is exempt from `PER_PERSON` and read first, because house rules
+ * that get cut off after six lines are not house rules.
+ */
+pub const HOUSE_FILE: &str = "house-rules.sidq-context.md";
+
+/// How many house rules ride along. Larger than one person's share, on purpose.
+const HOUSE_LIMIT: usize = 12;
+
+/// Most conversations read out of one folder, so a busy team cannot flood it.
+const MAX_SHARED: usize = 60;
+
 /// One line somebody on the team keeps telling assistants.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TeamRule {
@@ -152,10 +174,28 @@ pub fn read_others(folder: &Path, mine: &str) -> Vec<TeamRule> {
     // Stable across runs, so a handover does not reorder itself for no reason.
     files.sort();
 
-    files
+    /*
+     * The house file first, and outside the per-person cap.
+     *
+     * It is not one teammate's opinion competing with the others for room. It
+     * is the standard everybody agreed on, so it leads and it is allowed to be
+     * longer than any individual's.
+     */
+    let (house, people): (Vec<PathBuf>, Vec<PathBuf>) = files
         .into_iter()
-        .take(MAX_PEOPLE)
-        .flat_map(|path| parse(&fs::read_to_string(&path).unwrap_or_default(), &path))
+        .partition(|p| p.file_name().and_then(|n| n.to_str()) == Some(HOUSE_FILE));
+
+    house
+        .into_iter()
+        .flat_map(|path| {
+            parse_limited(&fs::read_to_string(&path).unwrap_or_default(), &path, HOUSE_LIMIT)
+        })
+        .chain(
+            people
+                .into_iter()
+                .take(MAX_PEOPLE)
+                .flat_map(|path| parse(&fs::read_to_string(&path).unwrap_or_default(), &path)),
+        )
         .collect()
 }
 
@@ -166,6 +206,10 @@ pub fn read_others(folder: &Path, mine: &str) -> Vec<TeamRule> {
  * hand-written file still attributes to something rather than to nobody.
  */
 fn parse(text: &str, path: &Path) -> Vec<TeamRule> {
+    parse_limited(text, path, PER_PERSON)
+}
+
+fn parse_limited(text: &str, path: &Path, limit: usize) -> Vec<TeamRule> {
     let fallback = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -184,7 +228,7 @@ fn parse(text: &str, path: &Path) -> Vec<TeamRule> {
         .filter_map(|l| l.trim().strip_prefix("- "))
         .map(str::trim)
         .filter(|t| !t.is_empty())
-        .take(PER_PERSON)
+        .take(limit)
         .map(|text| TeamRule { who: who.clone(), text: text.to_string() })
         .collect()
 }
@@ -237,7 +281,14 @@ pub struct SharedHandover {
  * another company's assistant. The conversation leaves this Mac either way. All
  * this decides is whether a colleague sees it before OpenAI does.
  */
-pub fn share_handover(folder: &Path, who: &str, title: &str, text: &str) -> Option<PathBuf> {
+pub fn share_handover(
+    folder: &Path,
+    who: &str,
+    title: &str,
+    source: &str,
+    session_id: &str,
+    text: &str,
+) -> Option<PathBuf> {
     let dir = folder.join(HANDOVERS_DIR);
     fs::create_dir_all(&dir).ok()?;
 
@@ -250,10 +301,86 @@ pub fn share_handover(folder: &Path, who: &str, title: &str, text: &str) -> Opti
     let stem = if stem.is_empty() { "conversation".into() } else { stem };
     let stem = &stem[..stem.len().min(60)];
 
+    /*
+     * The session's own fingerprint, so two conversations cannot collide.
+     *
+     * The name used to be person plus title. Two conversations by one person
+     * called the same thing — "Pricing page copy" twice in a week is not
+     * unusual — wrote to the same path, and the second silently replaced the
+     * first. Cross-person collision was already impossible; this closes the
+     * remaining one.
+     */
+    let mark = fingerprint(session_id);
+
     // Who first, so a directory listing groups by person without needing Sidq.
-    let path = dir.join(format!("{}--{stem}.md", file_stem_for(who)));
-    fs::write(&path, text).ok()?;
+    let path = dir.join(format!("{}--{stem}--{mark}.md", file_stem_for(who)));
+
+    /*
+     * A header, in front matter, because the filename cannot carry the truth.
+     *
+     * The title was recovered by turning dashes back into spaces, so "e-mail"
+     * came back as "e mail" and any title containing a double dash split in the
+     * wrong place. The real title, the source, the session and the moment it was
+     * shared live here instead — plain text, still legible before it leaves the
+     * Mac, which is the rule this folder is built on.
+     */
+    let header = format!(
+        "---\nfrom: {who}\ntitle: {title}\nsource: {source}\nsession: {session_id}\nshared: {at}\n---\n\n",
+        who = who,
+        title = title.replace('\n', " "),
+        source = source,
+        session_id = session_id,
+        at = crate::index_store::now_millis(),
+    );
+
+    fs::write(&path, format!("{header}{text}")).ok()?;
     Some(path)
+}
+
+/// Eight hex characters of the session id. Enough to separate two conversations.
+fn fingerprint(session_id: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in session_id.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x1000_0000_01b3);
+    }
+    format!("{:08x}", (hash & 0xffff_ffff) as u32)
+}
+
+/// The front matter a shared file carries, and the conversation under it.
+pub struct SharedFile {
+    pub title: Option<String>,
+    pub from: Option<String>,
+    pub body: String,
+}
+
+/**
+ * Split a shared file into what it says about itself and what it holds.
+ *
+ * A file without front matter is not an error: the folder deliberately reads
+ * anything that parses, including files a person wrote by hand, and one of those
+ * is all body.
+ */
+pub fn split_shared(text: &str) -> SharedFile {
+    let Some(rest) = text.strip_prefix("---\n") else {
+        return SharedFile { title: None, from: None, body: text.to_string() };
+    };
+    let Some((head, body)) = rest.split_once("\n---\n") else {
+        return SharedFile { title: None, from: None, body: text.to_string() };
+    };
+
+    let field = |key: &str| -> Option<String> {
+        head.lines()
+            .find_map(|line| line.strip_prefix(&format!("{key}: ")))
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+    };
+
+    SharedFile {
+        title: field("title"),
+        from: field("from"),
+        body: body.trim_start_matches('\n').to_string(),
+    }
 }
 
 /// The name part of a filename, without the context-file suffix.
@@ -280,11 +407,24 @@ pub fn shared_handovers(folder: &Path, who: &str) -> Vec<SharedHandover> {
         .filter_map(|entry| {
             let path = entry.path();
             let name = path.file_name()?.to_str()?.strip_suffix(".md")?;
-            let (stem, title) = name.split_once("--")?;
+            let (stem, rest) = name.split_once("--")?;
+
+            /*
+             * The header first, the filename only as a fallback.
+             *
+             * De-slugging was lossy in both directions: "e-mail" came back as
+             * "e mail", and a title containing a double dash split in the wrong
+             * place. Files written before this, and any a person wrote by hand,
+             * still work — they just fall back to the old guess.
+             */
+            let head = fs::read_to_string(&path).map(|t| split_shared(&t)).ok();
+            let named = head.as_ref().and_then(|h| h.title.clone());
+            let from = head.as_ref().and_then(|h| h.from.clone());
+            let fallback = rest.rsplit_once("--").map_or(rest, |(t, _)| t);
 
             Some(SharedHandover {
-                who: stem.replace('-', " "),
-                title: title.replace('-', " "),
+                who: from.unwrap_or_else(|| stem.replace('-', " ")),
+                title: named.unwrap_or_else(|| fallback.replace('-', " ")),
                 when: entry
                     .metadata()
                     .ok()
@@ -299,6 +439,15 @@ pub fn shared_handovers(folder: &Path, who: &str) -> Vec<SharedHandover> {
         .collect();
 
     out.sort_by_key(|h| std::cmp::Reverse(h.when));
+    /*
+     * Capped like everything else read out of this folder.
+     *
+     * `read_others` has had `MAX_PEOPLE` and `MAX_BYTES` since it was written;
+     * this had neither, and each file can be 600,000 characters. A team that
+     * shares every day for a year would have the window reading the whole lot
+     * on every open of the panel.
+     */
+    out.truncate(MAX_SHARED);
     out
 }
 
@@ -315,7 +464,9 @@ pub fn read_shared(folder: &Path, path: &str) -> Option<String> {
     if !wanted.starts_with(&dir) {
         return None;
     }
-    fs::read_to_string(wanted).ok()
+    // The header is provenance for the list, not something to paste into an
+    // assistant. What comes back is the conversation.
+    fs::read_to_string(wanted).ok().map(|text| split_shared(&text).body)
 }
 
 /* ── Finding a team that already exists ──────────────────────────────────── */
@@ -567,25 +718,131 @@ mod tests {
         assert!(out.contains("- Sam: always TypeScript, never JS"), "and Sam's, with his name on");
     }
 
+    /*
+     * ── The claim the team tier is sold on, one level up ─────────────────────
+     *
+     * The test above proves a colleague's rules reach a handover somebody
+     * builds. This proves the organisation's do: one house file, written once,
+     * and it is in front of every conversation anybody hands to any assistant.
+     *
+     * That is the sentence an engineering lead is buying — your standards ride
+     * along in every AI conversation your team has — and it costs nothing to
+     * run, because the folder is one they already sync and no model or server is
+     * involved at any point.
+     */
+    #[test]
+    fn the_house_standard_reaches_a_handover_nobody_wrote_it_for() {
+        let shared = scratch("houseendtoend");
+
+        // Written once, by whoever sets the team up.
+        fs::write(
+            shared.join(HOUSE_FILE),
+            "# House\n\n- every PR needs a test\n- never log customer data\n",
+        )
+        .unwrap();
+
+        // Somebody who has never opened that file hands a conversation over.
+        let theirs: Vec<(String, String)> = read_others(&shared, &file_name_for("Nils"))
+            .into_iter()
+            .map(|r| (r.who, r.text))
+            .collect();
+
+        let turns = vec![crate::capture::Turn {
+            role: crate::capture::Role::You,
+            blocks: vec![crate::capture::Block::Said("ship the retry logic".into())],
+        }];
+        let brief = crate::compiler::Brief {
+            source: "ChatGPT",
+            when: "today",
+            project: "Sidq",
+            resume_point: "carry on",
+            profile: &[],
+            team: &theirs,
+        };
+
+        let out = crate::compiler::compile(&turns, &brief, crate::compiler::Target::Markdown);
+
+        assert!(out.contains("- House: every PR needs a test"));
+        assert!(out.contains("- House: never log customer data"));
+    }
+
     #[test]
     fn a_shared_conversation_is_named_after_who_shared_it() {
         let dir = scratch("share");
-        let path = share_handover(&dir, "Nils", "Pricing page copy", "the whole thing").unwrap();
+        let path = share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-1", "the whole thing").unwrap();
 
         assert!(path.starts_with(dir.join(HANDOVERS_DIR)));
-        assert_eq!(fs::read_to_string(&path).unwrap(), "the whole thing");
+
+        // The file carries a readable header and the conversation under it.
+        let raw = fs::read_to_string(&path).unwrap();
+        assert!(raw.starts_with("---\n"), "front matter is there to be read");
+        assert!(raw.contains("title: Pricing page copy"));
+        assert!(raw.contains("source: claude-code"));
+        assert_eq!(split_shared(&raw).body, "the whole thing");
 
         let found = shared_handovers(&dir, "Sam");
         assert_eq!(found.len(), 1);
-        assert_eq!(found[0].who, "nils");
+        // "Nils", not "nils": the name comes from the header now rather than
+        // from a lowercased filename slug, so it is spelled how they spell it.
+        assert_eq!(found[0].who, "Nils");
         assert_eq!(found[0].title, "Pricing page copy");
         assert!(!found[0].mine, "Sam did not share this one");
+    }
+
+    /*
+     * ── Two conversations, one title ─────────────────────────────────────────
+     *
+     * The filename was person plus title. "Pricing page copy" twice in a week is
+     * not unusual, and the second write silently replaced the first — no error,
+     * no warning, the earlier conversation simply gone from the folder.
+     */
+    #[test]
+    fn two_conversations_with_the_same_title_both_survive() {
+        let dir = scratch("collide");
+        share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-a", "the first").unwrap();
+        share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-b", "the second").unwrap();
+
+        assert_eq!(shared_handovers(&dir, "Sam").len(), 2, "one overwrote the other");
+    }
+
+    #[test]
+    fn a_title_comes_back_exactly_as_it_was_written() {
+        // Recovered by turning dashes into spaces, "e-mail" came back as
+        // "e mail" and anything with a double dash split in the wrong place.
+        let dir = scratch("titles");
+        share_handover(&dir, "Nils", "e-mail -- the re-write", "chatgpt", "s-t", "x").unwrap();
+
+        assert_eq!(shared_handovers(&dir, "Sam")[0].title, "e-mail -- the re-write");
+    }
+
+    #[test]
+    fn a_house_rules_file_is_not_capped_like_one_persons_share() {
+        // The thing an organisation actually buys: one file, and every handover
+        // anyone on the team makes carries the same standards.
+        let dir = scratch("house");
+        let rules: String = (1..=9).map(|n| format!("- house rule {n}\n")).collect();
+        fs::write(dir.join(HOUSE_FILE), format!("# House\n\n{rules}")).unwrap();
+
+        let read = read_others(&dir, "nils.sidq-context.md");
+        let house = read.iter().filter(|r| r.who == "House").count();
+
+        assert!(house > PER_PERSON, "house rules are not one person's share");
+        assert_eq!(house, 9);
+    }
+
+    #[test]
+    fn the_house_file_is_read_before_anybody_else() {
+        let dir = scratch("houseorder");
+        fs::write(dir.join(HOUSE_FILE), "# House\n\n- always TypeScript\n").unwrap();
+        publish(&dir, "Sam", &["prefers tabs".to_string()]).unwrap();
+
+        assert_eq!(read_others(&dir, "nils.sidq-context.md")[0].who, "House");
     }
 
     #[test]
     fn your_own_shares_are_marked_as_yours() {
         let dir = scratch("shareself");
-        share_handover(&dir, "Nils", "Pricing page copy", "x");
+        share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-1", "x");
 
         assert!(shared_handovers(&dir, "Nils")[0].mine);
     }
@@ -593,9 +850,9 @@ mod tests {
     #[test]
     fn shared_conversations_come_back_newest_first() {
         let dir = scratch("shareorder");
-        share_handover(&dir, "Nils", "First", "a");
+        share_handover(&dir, "Nils", "First", "claude-code", "s-1", "a");
         std::thread::sleep(std::time::Duration::from_millis(1100));
-        share_handover(&dir, "Sam", "Second", "b");
+        share_handover(&dir, "Sam", "Second", "claude-code", "s-56", "b");
 
         let found = shared_handovers(&dir, "Nils");
         assert_eq!(found[0].title, "Second");
@@ -609,7 +866,7 @@ mod tests {
     #[test]
     fn nothing_outside_the_folder_can_be_read_back() {
         let dir = scratch("escape");
-        let path = share_handover(&dir, "Nils", "Real", "the real one").unwrap();
+        let path = share_handover(&dir, "Nils", "Real", "claude-code", "s-53", "the real one").unwrap();
         assert_eq!(read_shared(&dir, &path.to_string_lossy()).unwrap(), "the real one");
 
         let outside = dir.join("..").join("..").join("etc").join("hosts");
@@ -620,7 +877,7 @@ mod tests {
     #[test]
     fn a_title_full_of_punctuation_still_makes_a_filename() {
         let dir = scratch("sharetitle");
-        let path = share_handover(&dir, "Nils", "What/now: \"really\"?", "x").unwrap();
+        let path = share_handover(&dir, "Nils", "What/now: \"really\"?", "chatgpt", "s-punct", "x").unwrap();
 
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         assert!(!name.contains('/'));
@@ -720,7 +977,7 @@ mod demonstration {
         // Two Macs, two people, one synced folder.
         super::publish(&dir, "Nils", &["no em dashes in anything I post".into()]);
         super::publish(&dir, "Sam", &["always TypeScript, never JS".into()]);
-        super::share_handover(&dir, "Sam", "Refund policy wording", "…the whole conversation…");
+        super::share_handover(&dir, "Sam", "Refund policy wording", "claude-code", "s-94", "…the whole conversation…");
 
         println!("\n=== the folder, as your Drive syncs it ===");
         for entry in walk(&dir) {

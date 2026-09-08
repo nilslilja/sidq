@@ -1961,9 +1961,25 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         </button>
       </div>
 
-      <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
-        In this folder
-      </p>
+      {/*
+       * The seat count, next to the heading.
+       *
+       * Every person is already listed below with what they contribute, which
+       * answers "who is here" and not "how many". On a Team plan that number is
+       * the invoice, and it is derived from a folder rather than looked up in a
+       * database — which is the whole argument for a tier that costs nothing per
+       * seat to run. Worth stating rather than leaving to be counted.
+       */}
+      <div className="mt-6 flex items-baseline justify-between gap-4">
+        <p className="text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
+          In this folder
+        </p>
+        <p className="text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
+          {settings.members.length + 1 === 1
+            ? "1 person"
+            : `${settings.members.length + 1} people`}
+        </p>
+      </div>
 
       <ul className="mt-3 space-y-px">
         <li className="flex items-baseline gap-4 rounded-[10px] bg-[var(--w-raised)] px-3 py-2.5">

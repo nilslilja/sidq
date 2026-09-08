@@ -122,6 +122,16 @@ export function entitlementsFor(plan: PlanId): Entitlements {
 export function planFromTier(tier: string | null | undefined): PlanId {
   if (tier === 'pro' || tier === 'paid') return 'pro';
   if (tier === 'duo') return 'duo';
+  /*
+   * Team was sold and never mapped.
+   *
+   * The pricing page has offered this tier since it was written and this
+   * function did not know the word, so the moment anybody bought it they fell
+   * through to free: no team folder, five handovers a week, seven days of
+   * search. The parity tests below only ever looped over pro and duo, which is
+   * why nothing caught it.
+   */
+  if (tier === 'team') return 'team';
   return 'free';
 }
 

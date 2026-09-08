@@ -169,6 +169,7 @@ export const PLANS: Plan[] = [
     ctaHref: "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
     features: [
       "Unlimited seats, one invoice",
+      "One house-rules file: your standards ride along in every AI conversation your team has",
       "Shared standing instructions across everyone, synced through your own drive",
       "Nothing is uploaded, so there is no vendor to put through security review",
       "Works with the wifi off, on locked down machines",
@@ -190,11 +191,19 @@ export const PLANS: Plan[] = [
      * syncs, and every handover any of them makes carries the team's rules as
      * well as their own.
      *
-     * The line that must never appear here is that conversations are shared.
-     * They are not, and they are not going to be: nothing leaves the Mac except
-     * one small Markdown file of rules the person can open and read first. A
-     * buyer who reads "shared context" as "my co-founder can see my chats" has
-     * been mis-sold, so the bullet says which thing is shared.
+     * ── What is shared, stated exactly ───────────────────────────────────
+     *
+     * This used to say conversations are never shared and never would be. That
+     * was true when it was written and stopped being true when `share_handover`
+     * shipped: a whole conversation can now go into the folder.
+     *
+     * The distinction that matters is not whether it can happen but what makes
+     * it happen. Rules publish themselves. A conversation only moves because
+     * somebody pressed a button on that one conversation — nothing is on a
+     * timer, and nothing is shared because a folder was configured once. A buyer
+     * who reads "shared context" as "my co-founder can see my chats by default"
+     * has still been mis-sold, so the bullets say which is automatic and which
+     * is a decision.
      */
     promise: "Both of you, working from the same context.",
     priceNote: "$15 each",
@@ -217,6 +226,8 @@ export const PLANS: Plan[] = [
     features: [
       "$15 a person, against $19.99 each",
       "Your standing instructions, shared: every handover knows how the team works",
+      "Hand a whole conversation to a teammate when you choose to, never automatically",
+      "They pick it up in their own AI, with their own conventions applied",
       "Through a folder you already sync, so still nothing uploaded",
       "One bill, one subscription to cancel",
     ],

@@ -391,6 +391,35 @@ fn build_handover(
     when: &str,
     project: &str,
 ) -> Option<String> {
+    build_handover_for(
+        session_id,
+        source,
+        resume_point,
+        when,
+        project,
+        compiler::Target::for_source(source),
+    )
+}
+
+/**
+ * The same handover, compiled for an assistant the caller names.
+ *
+ * `Target::for_source` guesses from where the conversation came, and its own
+ * comment says a wrong guess "costs formatting, not content". That holds while
+ * you are handing a conversation to yourself. It stops holding the moment
+ * somebody else is receiving it: a Claude Code conversation shared to a
+ * colleague who lives in ChatGPT arrives as XML tags, and they cannot re-target
+ * a file that was already rendered.
+ */
+#[allow(clippy::too_many_arguments)]
+fn build_handover_for(
+    session_id: &str,
+    source: &str,
+    resume_point: &str,
+    when: &str,
+    project: &str,
+    target: compiler::Target,
+) -> Option<String> {
     let rules: Vec<String> = index_store::open()
         .map(|conn| {
             /*
@@ -445,11 +474,7 @@ fn build_handover(
     };
 
     match work_history::session_capture(session_id) {
-        Some(turns) => Some(compiler::compile(
-            &turns,
-            &brief,
-            compiler::Target::for_source(source),
-        )),
+        Some(turns) => Some(compiler::compile(&turns, &brief, target)),
         None => {
             /*
              * ── Browser conversations kept their turns ───────────────────────
@@ -485,11 +510,7 @@ fn build_handover(
                     .collect()
             };
 
-            Some(compiler::compile(
-                &turns,
-                &brief,
-                compiler::Target::for_source(source),
-            ))
+            Some(compiler::compile(&turns, &brief, target))
         }
     }
 }
@@ -1047,7 +1068,7 @@ fn team_rules(mine: &[String]) -> Vec<(String, String)> {
      * read by teammates for ever.
      */
     let paid = index_store::open()
-        .map(|conn| entitlement::current(&conn) == entitlement::Plan::Duo)
+        .map(|conn| entitlement::current(&conn).may_share_with_team())
         .unwrap_or(false);
     if !paid {
         team_context::publish(&folder, &name, &[]);
@@ -1167,7 +1188,7 @@ async fn team_settings() -> TeamSettings {
         let name = team_name();
         let folder = team_folder();
         let allowed = index_store::open()
-            .map(|conn| entitlement::current(&conn) == entitlement::Plan::Duo)
+            .map(|conn| entitlement::current(&conn).may_share_with_team())
             .unwrap_or(false);
 
         let (members, sharing) = match folder.as_ref() {
@@ -1271,7 +1292,7 @@ async fn set_team_name(name: String) -> bool {
 fn duo_folder() -> Option<std::path::PathBuf> {
     let folder = team_folder()?;
     let conn = index_store::open()?;
-    (entitlement::current(&conn) == entitlement::Plan::Duo).then_some(folder)
+    entitlement::current(&conn).may_share_with_team().then_some(folder)
 }
 
 /**
@@ -1292,12 +1313,42 @@ async fn share_handover(
 ) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(folder) = duo_folder() else { return false };
-        let Some(text) = build_handover(&session_id, &source, &resume_point, &when, &project)
-        else {
+
+        /*
+         * Find the resume point rather than requiring the caller to have one.
+         *
+         * The window shares from a row of handover history, which records what
+         * was carried and when but not where the conversation had got to — so it
+         * passed an empty string, and every shared conversation reached a
+         * colleague with no "pick up from here" line at all. The session knows;
+         * ask it.
+         */
+        let resume_point = if resume_point.trim().is_empty() {
+            quick_grab::by_id(&session_id).map(|s| s.last_prompt).unwrap_or_default()
+        } else {
+            resume_point
+        };
+        /*
+         * Markdown, whatever the conversation came from.
+         *
+         * The receiver is not the author and does not necessarily use the same
+         * assistant. Markdown pastes correctly into every one of them; XML
+         * pastes correctly into one. It also keeps the folder's own rule that
+         * what leaves your Mac is legible before it goes.
+         */
+        let Some(text) = build_handover_for(
+            &session_id,
+            &source,
+            &resume_point,
+            &when,
+            &project,
+            compiler::Target::Markdown,
+        ) else {
             return false;
         };
 
-        team_context::share_handover(&folder, &team_name(), &title, &text).is_some()
+        team_context::share_handover(&folder, &team_name(), &title, &source, &session_id, &text)
+            .is_some()
     })
     .await
     .unwrap_or(false)
@@ -1315,11 +1366,52 @@ async fn team_handovers() -> Vec<team_context::SharedHandover> {
     .unwrap_or_default()
 }
 
-/// Read one back so the window can put it on the clipboard.
+/**
+ * Read one back so the window can put it on the clipboard.
+ *
+ * ── Why the reader's own rules go on the front ───────────────────────────────
+ *
+ * A shared conversation used to arrive exactly as the author compiled it: their
+ * standing instructions, their team snapshot, their assistant's formatting. That
+ * is a file somebody sent you, not a handover to you. The next assistant read it
+ * and knew how the *author* works.
+ *
+ * Now the reader's own standing instructions are put in front of it, built the
+ * same way their own handovers build theirs. Same conversation, addressed to the
+ * person actually picking it up — which is the whole difference between sharing
+ * a file and handing work over.
+ *
+ * Costs nothing: the rules are already on this machine, and no model, server or
+ * network is involved in putting them there.
+ */
 #[tauri::command]
 async fn read_team_handover(path: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        team_context::read_shared(&duo_folder()?, &path)
+        let folder = duo_folder()?;
+        let shared = team_context::read_shared(&folder, &path)?;
+
+        let mine: Vec<String> = index_store::open()
+            .map(|conn| {
+                profile::build(&index_store::own_turns(&conn, profile::TURN_BUDGET), 8)
+                    .into_iter()
+                    .filter(|fact| fact.conversations >= 2)
+                    .map(|fact| fact.text)
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if mine.is_empty() {
+            return Some(shared);
+        }
+
+        let rules = mine.iter().map(|r| format!("- {r}")).collect::<Vec<_>>().join("\n");
+        Some(format!(
+            "# How the person picking this up works\n\n\
+             This conversation happened on somebody else's machine. These are the \
+             standing instructions of the person handing it to you now, and they \
+             take precedence over anything the original assistant was told.\n\n\
+             {rules}\n\n---\n\n{shared}"
+        ))
     })
     .await
     .ok()
