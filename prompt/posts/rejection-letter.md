@@ -13,61 +13,41 @@ Checked in the inbox: applied 13 May with Bizzr, rejected 6 June, applied again
 
 ---
 
-Y COMBINATOR REJECTED ME.
+Y COMBINATOR REJECTED ME. i don't care, here's the letter.
 
-i don't care. here's the letter.
+20,000 of you watched me apply in august and clapped. i already had the no sitting
+in my inbox. june 6th.
 
-20,000 of you watched me apply in august and clapped.
+different company. Bizzr. never heard of it? GOOD. it deserved to die.
 
-i already had the no. june 6th. sitting in my inbox the whole time.
+my grades might not get me a diploma, my app shipped signed with my mum's apple
+account because i didn't have the $99, three ventures, zero dollars.
 
-different company. Bizzr. never heard of it? good. it deserved to die.
+that's the CV. NOT EMBARRASSED BY ONE LINE OF IT.
 
-my grades might not get me a diploma.
+now read what i highlighted. their words, not mine. "over 50% of the startups we
+accept are repeat applicants."
 
-my app shipped signed with my mum's apple account because i didn't have $99.
+so i applied again eight days ago. this time with something you can DOWNLOAD
+instead of imagine.
 
-three ventures. zero dollars.
+i'm not here to be relatable, i'm not here for your encouragement in the comments,
+I'M HERE TO MAKE MONEY.
 
-that's the CV. not embarrassed by one line of it.
-
-now read what i highlighted. their words, not mine.
-
-"over 50% of the startups we accept are repeat applicants."
-
-so i applied again. eight days ago.
-
-this time with something you can download instead of imagine.
-
-let me be clear about why this is on your feed.
-
-i'm not here to be relatable.
-
-i'm not here for encouragement in the comments.
-
-i'm here to make money.
-
-half of you have been "building something" since january.
-
-it's a notion doc with a logo you paid for.
-
-you have the degree. the title. the banner. founder in the headline.
-
-not one stranger has ever downloaded a thing you made.
+half of you have been "building something" since january and it's a notion doc
+with a logo you paid for. you have the degree, the title, the banner, founder in
+the headline, and NOT ONE STRANGER HAS EVER DOWNLOADED A THING YOU MADE.
 
 i have bad grades, no diploma coming, and something that shipped again last night.
 
-Sidq takes the AI conversation already sitting on your mac and drops it whole into
-whatever you open next. word for word. nothing uploaded. no server. nothing for
-your security team to review.
+Sidq drops the AI conversation already sitting on your mac straight into whatever
+you open next. word for word, nothing uploaded, no server, nothing for your
+security team to review.
 
-everything else in this category puts your work on someone else's computer.
+if this makes you want to humble me, TYPE IT. i reply to everything.
 
-if reading this makes you want to humble me, type it. i reply to everything.
-
-i'm buying a gt3 rs and doing donuts in my school car park.
-
-not a joke. you're early.
+i'm buying a GT3 RS and doing donuts in my school car park. not a joke, you're
+just early.
 
 still waiting on the email.
 
