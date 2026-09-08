@@ -61,6 +61,14 @@ const bridge: Partial<OnboardingBridge> = {
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
   openHome: vi.fn(async () => {}),
+  movePill: vi.fn(async () => {}),
+  /*
+   * Captured, because which conversation the picker is aimed at is the whole
+   * contract with the grab gesture: Rust takes the row reported here rather
+   * than the newest conversation, so a wrong or stale value hands somebody a
+   * different conversation from the one they are looking at.
+   */
+  aimAt: vi.fn(async () => {}),
   onChanged: vi.fn(async () => () => {}),
   /*
    * Captured rather than ignored, so the test below can fire a find the way
@@ -115,6 +123,26 @@ describe('the pill, across the two states', () => {
     // The count alone. The bar lives inside the menu bar now and "16
     // conversations" does not fit in 152 points without covering something.
     expect(screen.getByText('16')).toBeInTheDocument();
+  });
+
+  test('tells Rust which conversation the picker is aimed at, and stops when it shuts', async () => {
+    /*
+     * The contract behind the grab gesture. Double-tapping the modifier with
+     * the picker open must take the row being looked at, and Rust can only know
+     * which that is because this is reported.
+     *
+     * The null on collapse matters as much as the id: left set, the gesture
+     * would keep pointing at whatever was last hovered long after the window
+     * shut, and its whole purpose is working with nothing open.
+     */
+    render(<Pill />);
+    await settle();
+
+    await resizeTo(EXPANDED_WIDTH);
+    expect(bridge.aimAt).toHaveBeenCalledWith('abc');
+
+    await resizeTo(COLLAPSED_WIDTH);
+    expect(bridge.aimAt).toHaveBeenLastCalledWith(null);
   });
 
   test('renders the picker once the window is the picker\'s size', async () => {

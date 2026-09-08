@@ -228,7 +228,7 @@ fn is_bare_tag(line: &str) -> bool {
  * once the fence around it has been thrown away — so the profile fills up with
  * lines out of files nobody was talking about.
  */
-fn sentences(body: &str) -> Vec<String> {
+pub(crate) fn sentences(body: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut inside_fence = false;
 
@@ -259,7 +259,7 @@ fn sentences(body: &str) -> Vec<String> {
  * not a profile, it is a transcript with extra steps, and the person stops
  * reading it on the first wrong line.
  */
-fn is_instruction(sentence: &str) -> bool {
+pub(crate) fn is_instruction(sentence: &str) -> bool {
     let length = sentence.chars().count();
     if !(MIN_CHARS..=MAX_CHARS).contains(&length) {
         return false;

@@ -7,8 +7,9 @@ they were written. This is the first post in a different genre.
 It only works because of the turn in the middle: the list is not an apology, it
 is evidence. People who ship have bug lists. People who talk do not.
 
-Numbers used, all checked today: 17 releases (0.1.72 to 0.1.89), 463 tests
-(253 Rust, 210 JS), 235 tests at the time of the YC post two weeks ago.
+Numbers used, all checked today: 17 releases (0.1.72 to 0.1.89). Test counts and
+"built alone at 18" are retired per the 2026-09-06 lock-in — cut both from the
+body, let the bug list carry it instead.
 
 Post around 08:00 or 19:30 Stockholm. Link in the first comment, not the post.
 
@@ -51,10 +52,10 @@ you have never shipped an interface.
 half of yall have "building in public" in your headline and have never once said
 what broke. not because nothing broke. because nothing shipped.
 
-235 tests when i applied to YC two weeks ago. 463 today. rust, native mac app,
-still nothing uploaded, your conversations still never leave your machine.
+rust, native mac app, still nothing uploaded, your conversations still never
+leave your machine.
 
-i broke every one of those myself in two days and fixed every one of them
-myself in two days, in my bedroom, in stockholm.
+i broke every one of those in two days and fixed every one of them in two
+days. no team, no funding, stockholm.
 
 post your bug list. i'll wait.

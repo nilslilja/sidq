@@ -179,7 +179,7 @@ export function ConnectModelsPreview({ found }: { found: number }) {
           <span
             className={cn(
               'text-[0.6875rem]',
-              a.local ? 'text-[#B8A6FF]' : 'text-white/30',
+              a.local ? 'text-lilac' : 'text-white/30',
             )}
           >
             {a.local ? (found > 0 ? 'Connected' : 'No setup needed') : 'Via browser'}

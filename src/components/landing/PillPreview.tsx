@@ -30,7 +30,7 @@ export function PillPreview({
   selected = null,
   status,
   pressed = false,
-  footer = "Whole conversation, not a summary",
+  footer = "The conversation itself, not a summary",
   className,
 }: {
   query?: string;
@@ -108,7 +108,7 @@ export function PillPreview({
                 className={cn(
                   "size-1.5 shrink-0 rounded-full transition-colors duration-150",
                   i === selected
-                    ? "bg-[#B8A6FF] shadow-[0_0_8px_rgba(184,166,255,0.8)]"
+                    ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
                     : "bg-white/20",
                 )}
               />

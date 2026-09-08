@@ -40,45 +40,14 @@ use crate::capture::{Block, Role, Turn};
  */
 const MAX_CHARS: usize = 600_000;
 
-/**
- * Keep the end.
- *
- * Whole turns are dropped from the front until it fits, never a fraction of
- * one: half a turn hands the next model a sentence with no speaker and no
- * conclusion. The end is what matters, because a handover is by definition a
- * request to continue from where it stopped.
- *
- * How many were dropped is stated in the output. Silently truncating somebody's
- * conversation and presenting the remainder as the whole thing is the one
- * failure here that would be worse than the file being too large.
+/*
+ * Whole turns are selected, never a fraction of one: half a turn hands the next
+ * model a sentence with no speaker and no conclusion. Which turns, and why, is
+ * `selection`'s question — and whatever it answers, what was left out is stated
+ * in the output. Silently reducing somebody's conversation and presenting the
+ * remainder as the whole of it is the one failure here that would be worse than
+ * the file being too large.
  */
-fn fit(turns: &[Turn]) -> (&[Turn], usize) {
-    let mut total = 0usize;
-    let mut first = turns.len();
-
-    for (i, turn) in turns.iter().enumerate().rev() {
-        total += weight(turn);
-        if total > MAX_CHARS {
-            break;
-        }
-        first = i;
-    }
-
-    (&turns[first..], first)
-}
-
-/// Roughly how many characters a turn will occupy once formatted.
-fn weight(turn: &Turn) -> usize {
-    turn.blocks
-        .iter()
-        .map(|b| match b {
-            Block::Said(t) | Block::Thought(t) => t.chars().count() + 24,
-            Block::Did { tool, input } => tool.chars().count() + input.chars().count() + 24,
-            Block::Saw { output, .. } => output.chars().count() + 32,
-            Block::Interrupted => 24,
-        })
-        .sum()
-}
 
 /// Which assistant is going to read this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -557,11 +526,20 @@ pub fn compile(turns: &[Turn], brief: &Brief, target: Target) -> String {
     format!("{note}{text}")
 }
 
+/// "1 turn", "6 turns" — written out so the note reads as a sentence.
+fn turn_count(n: usize) -> String {
+    if n == 1 {
+        "1 turn".to_string()
+    } else {
+        format!("{n} turns")
+    }
+}
+
 fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
-    let (kept, dropped) = fit(turns);
-    // Described from what survived the budget, not from the original: a turn
-    // that was dropped is not in the file and must not be announced as if it
-    // were.
+    let (kept, report) = crate::selection::select(turns, MAX_CHARS);
+    let kept = kept.as_slice();
+    // Described from what was selected, not from the original: a turn that was
+    // left out is not in the file and must not be announced as if it were.
     let has_reasoning = kept
         .iter()
         .any(|t| t.blocks.iter().any(|b| matches!(b, Block::Thought(_))));
@@ -587,9 +565,16 @@ fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
         }
         Target::Markdown => Brief { profile: brief.profile, team: brief.team, ..*brief },
     };
+    /*
+     * The arc is read from the whole conversation and not from what was
+     * selected. It quotes how the conversation opened, and scene-setting is
+     * exactly the shape of turn a selection can decide is worth less than the
+     * work that followed it. Describing the second turn as the beginning would
+     * be wrong in the one place a person checks first.
+     */
     let arc = match target {
-        Target::Claude => escape(&arc_of(kept)),
-        Target::Markdown => arc_of(kept),
+        Target::Claude => escape(&arc_of(turns)),
+        Target::Markdown => arc_of(turns),
     };
 
     let instruction = instruction(&quoted, &contents_of(kept), &arc, has_reasoning);
@@ -599,16 +584,40 @@ fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
         Target::Markdown => markdown_body(kept),
     };
 
-    if dropped > 0 {
-        // Said at the top, where the model reads it before the first turn and
-        // knows the conversation has a beginning it cannot see.
-        let note = format!(
-            "The first {dropped} turns of this conversation are not included; \
-it was too long to carry whole. What follows is everything after them.\n\n"
-        );
+    /*
+     * Said at the top, where the model reads it before the first turn.
+     *
+     * The wording used to be "the first N turns are not included … what follows
+     * is everything after them", which was true of a cut from the front and is
+     * false of a selection: what is left out now can come from anywhere, and
+     * saying otherwise would misdescribe the file in its own header.
+     *
+     * The two cases are kept apart because they mean different things to
+     * whoever reads it. Filler removed is housekeeping and nothing is missing.
+     * A conversation that would not fit is a real loss, and is worth saying
+     * plainly.
+     */
+    let note = match (report.filler, report.overflow) {
+        (0, 0) => None,
+        (filler, 0) => Some(format!(
+            "{} that said nothing — greetings, acknowledgements — {} left out. \
+Everything else is here, word for word and in the order it happened.",
+            turn_count(filler),
+            if filler == 1 { "was" } else { "were" },
+        )),
+        _ => Some(format!(
+            "This conversation was too long to carry whole, so {} of its {} are not \
+here. What is here is the conversation itself, word for word and in order — \
+nothing has been summarised or rewritten.",
+            turn_count(report.dropped()),
+            turn_count(turns.len()),
+        )),
+    };
+
+    if let Some(note) = note {
         body = match target {
-            Target::Claude => format!("<truncated>{}</truncated>\n{body}", escape(note.trim())),
-            Target::Markdown => format!("_{}_\n\n{body}", note.trim()),
+            Target::Claude => format!("<selection>{}</selection>\n{body}", escape(&note)),
+            Target::Markdown => format!("_{note}_\n\n{body}"),
         };
     }
 
@@ -853,8 +862,12 @@ mod tests {
          * this was built on compiled to 2,014,478 characters, which is not a
          * handover but a denial of service on somebody's context window.
          *
-         * The end is what a handover is for. Dropping from the front is right;
-         * dropping silently is not.
+         * This test used to assert that turn 0 was gone, because the rule was
+         * to cut from the front until the rest fitted. It is asserted the other
+         * way round now, and deliberately: the opening of a conversation is
+         * where its constraints get set, the brief quotes it, and losing it was
+         * never what anybody wanted — it was only ever the cheapest thing to
+         * drop. What goes now is whatever carries least, wherever it sits.
          */
         let big = "x".repeat(20_000);
         let many: Vec<Turn> = (0..80)
@@ -872,8 +885,12 @@ mod tests {
 
         assert!(out.chars().count() < MAX_CHARS + 4_000, "must fit the budget");
         assert!(out.contains("the last thing said"), "the end has to survive");
-        assert!(out.contains("are not included"), "and it must say so");
-        assert!(!out.contains("turn 0 "), "the front is what goes");
+        assert!(out.contains("are not here"), "and it must say so");
+        assert!(out.contains("turn 0 "), "the opening is kept, not spent first");
+        assert!(
+            out.contains("nothing has been summarised or rewritten"),
+            "what survived is still verbatim, and the note has to say which it is"
+        );
     }
 
     #[test]

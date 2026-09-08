@@ -311,15 +311,108 @@ fn place(w: &WebviewWindow, size: (f64, f64), top_inset: f64) -> tauri::Result<(
          * above it, because that much of the window is transparent room for the
          * glow rather than anything drawn — see COLLAPSED.
          */
-        let y = top_edge(screen.y, origin.y, notch_height()) - top_inset;
+        let anchor_x = origin.x + (usable.width - size.0) / 2.0;
+        let anchor_y = top_edge(screen.y, origin.y, notch_height()) - top_inset;
 
-        w.set_position(LogicalPosition::new(
-            origin.x + (usable.width - size.0) / 2.0,
-            y,
+        let (dx, dy) = offset();
+        w.set_position(on_screen(
+            (anchor_x + dx, anchor_y + dy),
+            size,
+            (origin.x, origin.y),
+            (usable.width, usable.height),
         ))?;
     }
 
     Ok(())
+}
+
+/**
+ * Where the person has moved the pill to, as a distance from where it would sit.
+ *
+ * Kept as an offset and not as a position because the position is not stable:
+ * it depends on the screen, and screens change. Somebody who nudges the bar a
+ * little left of centre on a laptop means it to be a little left of centre on
+ * the external display too, not at an x coordinate that display may not have.
+ */
+static OFFSET: std::sync::Mutex<(f64, f64)> = std::sync::Mutex::new((0.0, 0.0));
+
+/// Where the settings table keeps it between launches.
+const OFFSET_KEY: &str = "pill_offset";
+
+/// How far one press moves it. Small enough to aim, large enough to feel.
+const NUDGE: f64 = 24.0;
+
+fn offset() -> (f64, f64) {
+    OFFSET.lock().map(|o| *o).unwrap_or((0.0, 0.0))
+}
+
+/**
+ * Keep the window inside the screen it is on.
+ *
+ * Somewhere in the arrow keys is a person holding one down, and a bar that can
+ * be pushed off the edge is a bar that can be lost with no way to get it back:
+ * it is not in the Dock, it has no window in the switcher, and the shortcut
+ * would open a picker nobody can see. A margin of it always stays reachable.
+ */
+fn on_screen(
+    wanted: (f64, f64),
+    size: (f64, f64),
+    origin: (f64, f64),
+    usable: (f64, f64),
+) -> LogicalPosition<f64> {
+    let x = wanted
+        .0
+        .clamp(origin.0 - size.0 + KEEP_VISIBLE, origin.0 + usable.0 - KEEP_VISIBLE);
+    let y = wanted
+        .1
+        .clamp(origin.1 - size.1 + KEEP_VISIBLE, origin.1 + usable.1 - KEEP_VISIBLE);
+    LogicalPosition::new(x, y)
+}
+
+/// How much of the window must stay on the screen, in points.
+const KEEP_VISIBLE: f64 = 80.0;
+
+/**
+ * Move the pill, and remember where it was moved to.
+ *
+ * ⌘ and an arrow key, and only that. It is not a global shortcut — registering
+ * ⌘+arrow globally takes "move to the end of the line" away from every text
+ * field on the machine, which `docs/state-of-play.md` records as a thing never
+ * to do again. So this arrives from the window itself, while the picker is open
+ * and focused, which is also the only time somebody can see what they are
+ * aiming at.
+ */
+pub fn nudge(w: &WebviewWindow, dx: f64, dy: f64) {
+    if let Ok(mut slot) = OFFSET.lock() {
+        slot.0 += dx * NUDGE;
+        slot.1 += dy * NUDGE;
+    }
+    remember_offset();
+
+    let expanded = w.inner_size().map(|s| s.height as f64 > EXPANDED_THRESHOLD).unwrap_or(false);
+    let (size, inset) =
+        if expanded { (EXPANDED, EXPANDED_INSET) } else { (COLLAPSED, GLOW_MARGIN) };
+    let _ = place(w, size, inset);
+}
+
+/// Read back where it was left last time.
+pub fn restore_offset() {
+    let Some(conn) = crate::index_store::open() else { return };
+    let Some(saved) = crate::index_store::setting(&conn, OFFSET_KEY) else { return };
+    let Some((x, y)) = saved.split_once(',') else { return };
+    let (Ok(x), Ok(y)) = (x.parse::<f64>(), y.parse::<f64>()) else {
+        return;
+    };
+    if let Ok(mut slot) = OFFSET.lock() {
+        *slot = (x, y);
+    }
+}
+
+fn remember_offset() {
+    let (x, y) = offset();
+    if let Some(conn) = crate::index_store::open() {
+        let _ = crate::index_store::put_setting(&conn, OFFSET_KEY, &format!("{x},{y}"));
+    }
 }
 
 
@@ -920,6 +1013,50 @@ pub fn toggle(w: &WebviewWindow) -> tauri::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /*
+     * ── A moved pill has to stay reachable ───────────────────────────────────
+     *
+     * The bar is not in the Dock and has no entry in the window switcher, so a
+     * window pushed past the edge of the screen is a window with no way back:
+     * the shortcut would open a picker nobody can see, and the only remedy left
+     * would be deleting a settings row by hand.
+     *
+     * Somebody holding an arrow key down is not an edge case, it is the first
+     * thing a person does when they find out the keys work.
+     */
+
+    /// The collapsed window, and a plain 1440x900 screen at the origin.
+    const A_SCREEN: ((f64, f64), (f64, f64)) = ((0.0, 30.0), (1440.0, 870.0));
+
+    #[test]
+    fn a_window_pushed_left_forever_keeps_an_edge_on_screen() {
+        let at = on_screen((-99_999.0, 100.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
+        assert!(
+            at.x + COLLAPSED.0 >= A_SCREEN.0 .0 + KEEP_VISIBLE,
+            "some of it is still over the left edge of the screen"
+        );
+    }
+
+    #[test]
+    fn a_window_pushed_right_forever_keeps_an_edge_on_screen() {
+        let at = on_screen((99_999.0, 100.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
+        assert!(at.x <= A_SCREEN.1 .0 - KEEP_VISIBLE, "it has not left the right edge");
+    }
+
+    #[test]
+    fn a_window_pushed_down_forever_stays_within_the_screen() {
+        let at = on_screen((100.0, 99_999.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
+        assert!(at.y <= A_SCREEN.0 .1 + A_SCREEN.1 .1 - KEEP_VISIBLE, "still on the desktop");
+    }
+
+    #[test]
+    fn a_position_already_on_screen_is_left_exactly_where_it_was() {
+        // The clamp is a backstop, not a layout rule: anywhere sensible must
+        // pass through it untouched, or every placement drifts.
+        let at = on_screen((640.0, 40.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
+        assert_eq!((at.x, at.y), (640.0, 40.0));
+    }
 
     /*
      * The numbers below are measured, not invented.

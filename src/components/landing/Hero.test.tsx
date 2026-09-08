@@ -82,7 +82,7 @@ describe("the sub-line", () => {
     render(<Hero />);
     const sub = screen.getByText(/Sidq is the one that remembers/);
     expect(sub.textContent).toMatch(
-      /carried whole into whichever AI you open next/,
+      /carried word for word into whichever AI you open next/,
     );
   });
 });

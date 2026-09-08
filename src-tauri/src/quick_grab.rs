@@ -88,6 +88,23 @@ pub fn put_on_clipboard(file: &std::path::Path) -> bool {
  * first and this reads the result.
  */
 pub fn most_recent() -> Option<work_history::WorkSession> {
+    everything().into_iter().next()
+}
+
+/**
+ * One named conversation, out of the same list.
+ *
+ * For the gesture made while the picker is open: the row under the pointer is
+ * the one somebody means, and taking the newest instead would hand them a
+ * different conversation from the one they are looking at. Reads the same
+ * sources as `most_recent` so a row that can be listed can always be grabbed.
+ */
+pub fn by_id(session_id: &str) -> Option<work_history::WorkSession> {
+    everything().into_iter().find(|s| s.session_id == session_id)
+}
+
+/// Every conversation the picker would list, newest first.
+fn everything() -> Vec<work_history::WorkSession> {
     let mut all = work_history::recent_sessions(12);
     all.extend(crate::cursor_history::recent_sessions(12));
 
@@ -105,7 +122,7 @@ pub fn most_recent() -> Option<work_history::WorkSession> {
     }));
 
     all.sort_by_key(|s| std::cmp::Reverse(s.ended_at));
-    all.into_iter().next()
+    all
 }
 
 /// How the notification and the window refer to a conversation with no title.

@@ -461,7 +461,7 @@ export function HandoverFilm({ className }: { className?: string }) {
                 rows={ROWS}
                 selected={pick.hover}
                 pressed={pick.press}
-                footer="Whole conversation, not a summary"
+                footer="The conversation itself, not a summary"
               />
             </div>
           )}

@@ -30,6 +30,7 @@ mod redact;
 
 mod cursor_history;
 mod screen_reader;
+mod selection;
 mod work_history;
 
 
@@ -948,13 +949,23 @@ fn absorb(conversation: &Conversation) {
         .trim()
         .to_string();
 
-    let _ = index_store::put_session(
-        &conn, &session_id, &conversation.source, &title,
-        &conversation.source, "", now, turns.len() as u32, 0,
-    );
-    let _ = index_store::put_messages(
+    /*
+     * Merged rather than written over, for the same reason the accessibility
+     * sweep merges: this is a page, and a page holds what it has loaded. An
+     * emit arriving while the top of a long conversation is unloaded used to
+     * replace the stored copy with the visible tail — this path never had even
+     * the length guard the sweep had.
+     */
+    let Some(kept) = index_store::merge_messages(
         &conn, &session_id, &turns,
         &format!("live:{}", conversation.text.len()),
+    ) else {
+        return;
+    };
+
+    let _ = index_store::put_session(
+        &conn, &session_id, &conversation.source, &title,
+        &conversation.source, "", now, kept as u32, 0,
     );
 }
 
@@ -1371,6 +1382,44 @@ static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None)
  */
 static PICKER_KEY: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
+/**
+ * Which onboarding step is on screen, when one is.
+ *
+ * Setup needs the shortcut two ways round. The step that teaches the key wants
+ * to swallow it and light up, proving the real global shortcut fired. The step
+ * after it says "press it, pick a conversation, press return" — and for that
+ * one the picker has to actually open, or the instruction is a lie.
+ *
+ * It was a lie. The key was claimed for the whole time the welcome window was
+ * up, the event went to a listener armed only on the earlier step, and the
+ * headline instruction of the handover step did nothing at all.
+ */
+static ONBOARDING_STEP: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Steps that want the picker to open rather than to eat the keypress.
+const STEPS_WANTING_THE_PICKER: [&str; 1] = ["handover"];
+
+/**
+ * The conversation the picker is pointing at, while it is open.
+ *
+ * Hovering a row selects it, so this is both the row under the pointer and the
+ * row the arrow keys are on — one fact, not two, which is why there is one
+ * slot rather than a hover slot and a selection slot that could disagree.
+ *
+ * Cleared when the picker closes. A stale id here would send the gesture to
+ * whatever was last looked at rather than to what is happening now, and the
+ * whole point of the gesture is that it needs no window.
+ */
+static AIMED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// The picker saying which conversation it is on, or `None` when it closes.
+#[tauri::command]
+fn aim_at(session_id: Option<String>) {
+    if let Ok(mut slot) = AIMED.lock() {
+        *slot = session_id;
+    }
+}
+
 static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Quit on purpose, past the guard above.
@@ -1402,7 +1451,21 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
         }
     }
 
-    let session = quick_grab::most_recent()?;
+    /*
+     * The row under the pointer wins over the newest.
+     *
+     * With the picker open somebody is looking at a specific conversation, and
+     * the gesture has to take that one — grabbing the most recent instead would
+     * hand them something they can see they did not pick, which is worse than
+     * the gesture doing nothing.
+     *
+     * Falls back to the newest whenever the picker is shut, which is what the
+     * gesture is mostly for: no window, no aiming, just the last thing touched.
+     */
+    let aimed = AIMED.lock().ok().and_then(|a| a.clone());
+    let session = aimed
+        .and_then(|id| quick_grab::by_id(&id))
+        .or_else(quick_grab::most_recent)?;
     let title = quick_grab::name_of(&session);
 
     /*
@@ -1718,6 +1781,23 @@ fn expand_pill(app: tauri::AppHandle) {
 }
 
 /**
+ * ⌘ and an arrow: move the pill, one step per press.
+ *
+ * The only way to move it. There was a Tauri drag region on the picker's header
+ * that had never worked — the capability granting `start-dragging` names the
+ * `overlay` and `welcome` windows and the pill is neither, so the attribute was
+ * inert markup — and even a working drag would have been undone by the next
+ * open, because placing the window re-centres it. One control that works beats
+ * two where the obvious one does nothing.
+ */
+#[tauri::command]
+fn move_pill(app: tauri::AppHandle, dx: f64, dy: f64) {
+    if let Some(w) = app.get_webview_window("pill") {
+        pill_window::nudge(&w, dx, dy);
+    }
+}
+
+/**
  * The whole conversation, from wherever it lives.
  *
  * Three places, tried in order: a Claude Code or Cowork transcript, a Cursor
@@ -1896,6 +1976,9 @@ fn has_onboarded(app: &AppHandle) -> bool {
 /// Closes first run and brings the card up.
 #[tauri::command]
 fn finish_onboarding(app: AppHandle) -> Result<(), String> {
+    // Setup is over, so no step wants the shortcut any more.
+    set_onboarding_step(None);
+
     if let Some(path) = onboarding_marker(&app) {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -1944,9 +2027,23 @@ fn claim_for_onboarding(app: &AppHandle, event: &str) -> bool {
         return false;
     }
 
+    // The step that asks you to open the picker has to be allowed to open it.
+    let showing = ONBOARDING_STEP.lock().ok().and_then(|s| s.clone()).unwrap_or_default();
+    if STEPS_WANTING_THE_PICKER.contains(&showing.as_str()) {
+        return false;
+    }
+
     let _ = welcome.set_focus();
     let _ = welcome.emit(event, ());
     true
+}
+
+/// Setup saying which step it is on, so the shortcut can behave accordingly.
+#[tauri::command]
+fn set_onboarding_step(step: Option<String>) {
+    if let Ok(mut slot) = ONBOARDING_STEP.lock() {
+        *slot = step;
+    }
 }
 
 /*
@@ -2011,7 +2108,10 @@ fn main() {
             save_transcript,
             open_sign_in,
             open_upgrade,
-            finish_onboarding
+            finish_onboarding,
+            set_onboarding_step,
+            move_pill,
+            aim_at
         ])
         .setup(|app| {
             /*
@@ -2065,6 +2165,9 @@ fn main() {
              * next placement moves it up. See pill_window::measure_from_setup.
              */
             if let Some(pill) = app.get_webview_window("pill") {
+                // Where it was left last time, read before the first placement
+                // so it does not appear centred and then jump.
+                pill_window::restore_offset();
                 pill_window::measure_from_setup(&pill);
             }
 

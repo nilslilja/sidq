@@ -136,7 +136,7 @@ function PhaseRail({ current, progress }: { current: Phase; progress: number }) 
             </span>
             <span className="h-[2px] w-full overflow-hidden rounded-full bg-white/[0.08]">
               <span
-                className="block h-full rounded-full bg-[#B8A6FF] transition-[width] duration-500 ease-out"
+                className="block h-full rounded-full bg-lilac transition-[width] duration-500 ease-out"
                 // Completed phases are full; the active one fills with overall
                 // progress so the bar always moves on every single step.
                 style={{ width: done ? '100%' : active ? `${Math.max(12, progress * 100)}%` : '0%' }}
@@ -218,7 +218,7 @@ export function Key({ children, lit }: { children: React.ReactNode; lit?: boolea
         'grid min-w-[2.75rem] place-items-center rounded-[10px] px-3 py-2.5',
         'text-[0.8125rem] transition-all duration-150',
         lit
-          ? 'bg-[#B8A6FF] text-white shadow-[0_0_0_1px_rgba(99,102,241,0.6),0_6px_20px_-4px_rgba(99,102,241,0.75)]'
+          ? 'bg-lilac text-white shadow-[0_0_0_1px_rgba(99,102,241,0.6),0_6px_20px_-4px_rgba(99,102,241,0.75)]'
           : 'bg-white/[0.07] text-white/70 shadow-[0_1px_0_0_rgba(255,255,255,0.09)_inset]',
       )}
     >

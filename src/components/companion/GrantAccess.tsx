@@ -78,7 +78,7 @@ export function GrantAccess({
         className={cn(
           'rounded-[12px] border p-4',
           compact && 'p-3',
-          dark ? 'border-[#B8A6FF]/25 bg-[#B8A6FF]/[0.08]' : 'border-[#B8A6FF]/45 bg-[#F5F1FF]',
+          dark ? 'border-lilac/25 bg-lilac/[0.08]' : 'border-lilac/45 bg-[#F5F1FF]',
         )}
       >
         <p
@@ -89,7 +89,7 @@ export function GrantAccess({
         >
           <span
             aria-hidden="true"
-            className={cn('size-1.5 rounded-full', dark ? 'bg-[#B8A6FF]' : 'bg-[#6A4BEA]')}
+            className={cn('size-1.5 rounded-full', dark ? 'bg-lilac' : 'bg-[#6A4BEA]')}
           />
           Reading your AIs
         </p>
@@ -169,7 +169,7 @@ export function GrantAccess({
           className={cn(
             'rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
             'cursor-pointer transition-opacity duration-150 hover:opacity-90',
-            dark ? 'bg-[#B8A6FF] text-[#141319]' : 'bg-[#16141C] text-white',
+            dark ? 'bg-lilac text-[#141319]' : 'bg-[#16141C] text-white',
           )}
         >
           Turn it on

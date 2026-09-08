@@ -232,6 +232,19 @@ export default function Onboarding() {
    * which is why this listener exists and why the step is genuinely proof the
    * shortcut works rather than proof a key was pressed.
    */
+  /*
+   * Which step is showing, told to the app.
+   *
+   * The picker shortcut has to do two different things during setup: light this
+   * window up on the step that teaches the key, and open the actual picker on
+   * the step that asks you to use it. Rust cannot know which without being told,
+   * and until it was, the handover step's headline instruction did nothing —
+   * the key was swallowed and the event sent to a listener that was not armed.
+   */
+  useEffect(() => {
+    void bridge?.setStep(step);
+  }, [step, bridge]);
+
   useEffect(() => {
     if (!bridge) return;
     const wanted = step === "pill" ? "shortcut-pill" : null;
@@ -488,7 +501,7 @@ export default function Onboarding() {
              * exists, so it is the instruction and the picker is the fallback.
              */}
             {gestureWorks && (
-              <div className="rounded-[12px] border border-[#B8A6FF]/35 bg-[#B8A6FF]/[0.09] p-4">
+              <div className="rounded-[12px] border border-lilac/35 bg-lilac/[0.09] p-4">
                 <p className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[1rem] text-white">
                   <span>Double-tap</span>
                   <Kbd>{taps[0]}</Kbd>
@@ -522,7 +535,14 @@ export default function Onboarding() {
 
             <ol className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[0.9375rem] text-white/75">
               <li>
-                <Kbd>&#8984;&#8679;K</Kbd>
+                {/*
+                 * The key that actually registered, not the one we hoped for.
+                 * ⌘⇧K is only the first candidate — when it is taken, Rust
+                 * falls through to ⌘⇧J, ⌘⌥K or ⌃⇧K, and this step used to
+                 * teach the wrong key one screen after the previous step
+                 * taught the right one.
+                 */}
+                <Kbd>{pickerKey ?? "⌘⇧K"}</Kbd>
               </li>
               <li aria-hidden="true" className="text-white/25">
                 &rarr;
@@ -540,7 +560,7 @@ export default function Onboarding() {
               className={cn(
                 "mt-6 max-w-[46ch] rounded-[12px] border p-4",
                 handovers > 0
-                  ? "border-[#B8A6FF]/45 bg-[#B8A6FF]/[0.08]"
+                  ? "border-lilac/45 bg-lilac/[0.08]"
                   : "border-white/[0.10] bg-white/[0.03]",
               )}
             >
@@ -549,7 +569,7 @@ export default function Onboarding() {
                   <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
                     <span
                       aria-hidden="true"
-                      className="size-1.5 rounded-full bg-[#B8A6FF]"
+                      className="size-1.5 rounded-full bg-lilac"
                     />
                     That is one, in your Downloads folder
                   </p>
@@ -617,15 +637,29 @@ export default function Onboarding() {
             </p>
 
             <div className="mt-6 max-w-[46ch] rounded-[12px] border border-white/[0.10] bg-white/[0.03] p-4">
+              {/*
+               * Three states, read as three.
+               *
+               * Rust has reported whether the notification actually got out
+               * since the comment on the button below was written, but every
+               * line here tested `notified` for truthiness — and "failed" is
+               * truthy. So the one case worth telling somebody about, the one
+               * where nothing was posted, printed "Sent. Check the top-right of
+               * your screen" and sent them looking for something that was never
+               * there.
+               */}
               <p className="text-[0.875rem] font-medium text-white">
-                {notified
-                  ? "Sent. Check the top-right of your screen"
-                  : "Send one now"}
+                {notified === "sent" && "Sent. Check the top-right of your screen"}
+                {notified === "failed" && "That one did not get through"}
+                {notified === null && "Send one now"}
               </p>
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-                {notified
-                  ? "If nothing appeared, macOS is holding them back for Sidq and the button below opens the setting."
-                  : "macOS asks the first time an app posts one, so this is the ask and the test at the same time."}
+                {notified === "sent" &&
+                  "If nothing appeared, macOS is holding them back for Sidq and the button below opens the setting."}
+                {notified === "failed" &&
+                  "macOS would not post it, which almost always means notifications are turned off for Sidq. The button below opens the setting."}
+                {notified === null &&
+                  "macOS asks the first time an app posts one, so this is the ask and the test at the same time."}
               </p>
 
               <div className="mt-4 flex items-center gap-4">
@@ -650,7 +684,9 @@ export default function Onboarding() {
                     "cursor-pointer transition-opacity duration-150 hover:opacity-90",
                   )}
                 >
-                  {notified ? "Send another" : "Send a test notification"}
+                  {notified === "failed" && "Try again"}
+                  {notified === "sent" && "Send another"}
+                  {notified === null && "Send a test notification"}
                 </button>
 
                 {notified && (
@@ -731,6 +767,25 @@ export default function Onboarding() {
                 {shortcutStuck && (
                   <ShortcutEscape onSkip={advance} reason="collision" />
                 )}
+
+                {/*
+                 * Taught here rather than on a step of its own.
+                 *
+                 * It is the same window and the same keycaps, and setup is
+                 * seven screens already — an eighth to say one sentence is
+                 * worse than the sentence sitting where somebody is looking at
+                 * the thing it describes.
+                 */}
+                <p className="mt-9 flex flex-wrap items-center gap-x-2 gap-y-2 text-[0.875rem] text-white/45">
+                  <span>It sits at the top of the screen. Move it with</span>
+                  <Kbd>&#8984;</Kbd>
+                  <span className="text-white/30">+</span>
+                  <Kbd>&larr;</Kbd>
+                  <Kbd>&rarr;</Kbd>
+                  <Kbd>&uarr;</Kbd>
+                  <Kbd>&darr;</Kbd>
+                  <span>while it is open.</span>
+                </p>
               </>
             )}
           </Instruction>
@@ -947,7 +1002,7 @@ function BrowserReads({
           <p className="flex items-center gap-2 text-[0.875rem] font-medium text-white">
             <span
               aria-hidden="true"
-              className="size-1.5 rounded-full bg-[#B8A6FF]"
+              className="size-1.5 rounded-full bg-lilac"
             />
             Read from your browser: {read.join(", ")}
           </p>
@@ -998,7 +1053,7 @@ function Chips({
             className={cn(
               "min-h-10 rounded-full px-3.5 text-[0.8125rem] transition-all duration-150",
               on
-                ? "bg-[#B8A6FF] text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]"
+                ? "bg-lilac text-white shadow-[0_6px_18px_-6px_rgba(99,102,241,0.8)]"
                 : "bg-white/[0.06] text-white/65 hover:bg-white/[0.11] hover:text-white",
             )}
           >

@@ -90,7 +90,7 @@ export const PLANS: Plan[] = [
     ],
     features: [
       "Every conversation already on your Mac, from day one",
-      "Full transcripts, never summaries",
+      "Word for word, never summarised",
       "Nothing uploaded, ever",
     ],
   },

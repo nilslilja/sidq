@@ -3,8 +3,9 @@
 **The models remember everything except you.**
 
 A macOS app that reads the AI conversations already on your Mac and carries any
-one of them, whole, into whichever AI you open next. Word for word, never a
-summary. Nothing is uploaded.
+one of them into whichever AI you open next. Word for word: nothing is
+summarised or rewritten, and anything left out is named in the file itself.
+Nothing is uploaded.
 
 This repository is both halves: the desktop app and the marketing site at
 sidq.tech are one React codebase, and which one you get is decided by the route.
@@ -54,9 +55,17 @@ feel instant, which is why the transcript listing is cached against each file's
 size and mtime — see `index_store::transcript_digest`, and the ignored timing
 test in `work_history` that measures it.
 
-**A handover** is the whole conversation plus a compiled brief saying what it is,
-where it got to, and the standing instructions this person keeps giving
-assistants. It goes to the clipboard or to a file. `compiler.rs` builds it.
+**A handover** is the conversation plus a compiled brief saying what it is, where
+it got to, and the standing instructions this person keeps giving assistants. It
+goes to the clipboard or to a file. `compiler.rs` builds it.
+
+**What it carries** is decided by `selection.rs`, and only ever by leaving whole
+turns out — never by shortening one. Turns that said nothing go ("hey", "ok
+thanks"), and if the conversation is too large to fit a context window, the
+turns carrying least go too: bulk before reasoning, and never the opening, the
+end, or a tool call without its result. The file says which of the two happened.
+No model is involved in deciding, which is why it costs nothing and works
+offline.
 
 **The profile** — the "How you work" tab — is built from your own repeated
 sentences, returned word for word. Nothing there is generated, which is why each

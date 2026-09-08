@@ -140,8 +140,8 @@ function StaysHere({ live }: { live: boolean }) {
       className="relative mt-8 h-[132px] overflow-hidden rounded-[16px] border border-white/[0.08] bg-[#0D0D13]"
     >
       {/* The machine. Everything inside this line is yours. */}
-      <div className="absolute inset-x-6 inset-y-5 rounded-[11px] border border-dashed border-[#B8A6FF]/30" />
-      <span className="absolute left-1/2 top-[9px] -translate-x-1/2 bg-[#0D0D13] px-2 text-[0.625rem] uppercase tracking-[0.14em] text-[#B8A6FF]">
+      <div className="absolute inset-x-6 inset-y-5 rounded-[11px] border border-dashed border-lilac/30" />
+      <span className="absolute left-1/2 top-[9px] -translate-x-1/2 bg-[#0D0D13] px-2 text-[0.625rem] uppercase tracking-[0.14em] text-lilac">
         your Mac
       </span>
 
@@ -158,14 +158,14 @@ function StaysHere({ live }: { live: boolean }) {
       ))}
 
       {/* Sidq. */}
-      <span className="absolute left-1/2 top-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#B8A6FF]/40 bg-[#B8A6FF]/12 text-[0.6875rem] font-medium text-[#D8CCFF]">
+      <span className="absolute left-1/2 top-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-lilac/40 bg-lilac/12 text-[0.6875rem] font-medium text-[#D8CCFF]">
         Sidq
       </span>
 
       {/* The handover, landing in Downloads and going no further. */}
       <span
         className={[
-          "absolute right-[13%] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-[#B8A6FF]",
+          "absolute right-[13%] top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-lilac",
           live ? "trust-out" : "opacity-0",
         ].join(" ")}
       />

@@ -51,7 +51,7 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
     return (
       <div
         className={cn(
-          'rounded-[12px] border border-[#B8A6FF]/45 bg-[#F5F1FF] p-4',
+          'rounded-[12px] border border-lilac/45 bg-[#F5F1FF] p-4',
           compact && 'p-3',
         )}
       >

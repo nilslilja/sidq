@@ -11,13 +11,14 @@ line of code needs it.
 
 **Summary** (132 max)
 
-> Carry a whole conversation from one AI assistant into another, word for word.
-> Works with the Sidq Mac app. Nothing is uploaded.
+> Carry a conversation from one AI assistant into another, word for word, never
+> summarised. Works with the Sidq Mac app. Nothing is uploaded.
 
 **Description**
 
-> Sidq moves an entire conversation from one AI assistant into a different one.
-> Not a summary, the whole thing.
+> Sidq moves a conversation from one AI assistant into a different one, in the
+> words it actually happened in. Not a summary — nothing is shortened or
+> rewritten, and anything left out is named in what it hands over.
 >
 > This extension is the part that reads assistants running in a browser. It
 > works with the Sidq app on your Mac, which reads the assistants that write

@@ -1001,25 +1001,23 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
         }
 
         /*
-         * ── A conversation is never allowed to get smaller ───────────────────
+         * ── A read is a window, so it is merged and never written over ───────
          *
          * These sites unload the top of a long conversation once you scroll
-         * away from it, so a later sweep can genuinely see less than an earlier
-         * one. `put_messages` deletes and reinserts, so that read would throw
-         * the rest away.
-         *
-         * Which made the one thing worth telling people useless. Scroll to the
-         * top, wait for Sidq to take the whole thing, scroll back down to carry
-         * on reading, and the next sweep put the tail back. Seen on a real
-         * index: a handover made at twelve turns, six left in the row after.
-         *
-         * Growth still writes, so a conversation being added to is picked up as
-         * it always was. Only shrinking is refused.
+         * away from it, so a later sweep genuinely sees less than an earlier
+         * one, and writing that read over the stored copy would throw the rest
+         * away. `merge_messages` folds the two together instead, which is what
+         * finally makes the one instruction worth giving — scroll up, and what
+         * you uncover is kept when you scroll back down.
          */
-        if length < crate::index_store::stored_length(conn, &session_id) {
-            continue;
-        }
-        if crate::index_store::put_messages(conn, &session_id, &turns, &fingerprint).is_some() {
+        if let Some(kept) =
+            crate::index_store::merge_messages(conn, &session_id, &turns, &fingerprint)
+        {
+            // Again, now the merged length is known: the row above counted only
+            // the turns this one read could see, and ranking reads that count.
+            let _ = crate::index_store::put_session(
+                conn, &session_id, source, &clean, source, "", now, kept as u32, 0,
+            );
             found.push(Found { source, title: clean, first_time });
         }
     }

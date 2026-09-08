@@ -87,6 +87,14 @@ type Phase =
 /** How long the bar shows what just landed before returning to the count. */
 const SAVED_BANNER_MS = 4200;
 
+/** Which way each arrow moves the window, held with ⌘. */
+const NUDGES: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
 /**
  * The name a person would use, from the id Sidq records.
  *
@@ -186,6 +194,25 @@ export function Pill() {
    * jumps back to the first.
    */
   const selected = Math.min(index, Math.max(0, visible.length - 1));
+
+  /*
+   * Tell the app which conversation is under the pointer.
+   *
+   * Hovering a row selects it, so this one value is both what the mouse is on
+   * and what the arrows are on. The grab gesture reads it: double-tapping the
+   * modifier with the picker open takes the row you are looking at, rather than
+   * the most recent conversation, which may not be the one on screen.
+   *
+   * Cleared the moment the picker collapses. A stale id would quietly redirect
+   * the gesture to whatever was last hovered, and the gesture's whole value is
+   * that it works with no window open at all.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+    const aimed =
+      mode === 'expanded' ? (visible[selected]?.session.sessionId ?? null) : null;
+    void bridge.aimAt(aimed);
+  }, [bridge, mode, visible, selected]);
 
   /*
    * Reload every time it opens, not once at launch.
@@ -466,6 +493,24 @@ export function Pill() {
       dismiss();
       return;
     }
+    /*
+     * ⌘ and an arrow moves the window. The only way to move it.
+     *
+     * Checked before the plain arrows below, which take the selection: with the
+     * order the other way round, holding ⌘ would still walk the list and the
+     * window would never move.
+     *
+     * It is deliberately not a global shortcut. Registering ⌘+arrow globally
+     * takes "move to the end of the line" away from every text field on the
+     * machine — recorded in docs/state-of-play.md as a thing never to do again —
+     * so it lives here, where the picker is open, focused, and visible to aim.
+     */
+    if (e.metaKey && NUDGES[e.key]) {
+      e.preventDefault();
+      const [dx, dy] = NUDGES[e.key];
+      void bridge?.movePill(dx, dy);
+      return;
+    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, visible.length));
@@ -546,7 +591,7 @@ export function Pill() {
             // against. A bottom-only radius on a floating object reads as a
             // piece that has broken off something.
             'rounded-full bar-float bar-breathe',
-            'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[#B8A6FF]/70',
+            'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-lilac/70',
           )}
         >
           {/*
@@ -670,10 +715,19 @@ export function Pill() {
           * `sr-only` rather than `hidden`, because a hidden input cannot hold
           * focus and the keyboard would go nowhere.
           */}
-        <div
-          className="flex items-center gap-3 px-4 pb-2.5 pt-3"
-          data-tauri-drag-region
-        >
+        {/*
+         * There was a `data-tauri-drag-region` here and it had never once
+         * worked. The attribute asks Tauri for `core:window:allow-start-dragging`,
+         * which `capabilities/default.json` grants to the `overlay` and
+         * `welcome` windows; the pill is neither, so the drag was refused
+         * silently. Even had it been granted, the next expand or collapse
+         * re-centres the window and would have thrown the move away.
+         *
+         * ⌘ and an arrow moves it now, it persists, and it is the only control
+         * — which is better than two where the one people would try does
+         * nothing and says nothing.
+         */}
+        <div className="flex items-center gap-3 px-4 pb-2.5 pt-3">
           <input
             ref={inputRef}
             value={query}
@@ -701,7 +755,7 @@ export function Pill() {
               {query && (
                 <span
                   aria-hidden="true"
-                  className="ml-px inline-block h-[0.95em] w-px translate-y-[0.14em] bg-[#B8A6FF]"
+                  className="ml-px inline-block h-[0.95em] w-px translate-y-[0.14em] bg-lilac"
                 />
               )}
             </p>
@@ -923,7 +977,7 @@ export function Pill() {
                   className={cn(
                     'size-1.5 shrink-0 rounded-full transition-colors duration-150',
                     i === selected
-                      ? 'bg-[#B8A6FF] shadow-[0_0_8px_rgba(184,166,255,0.8)]'
+                      ? 'bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]'
                       : 'bg-white/20',
                   )}
                 />

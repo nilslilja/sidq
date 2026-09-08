@@ -100,7 +100,7 @@ export function HowItGoes() {
         >
           <span
             className={cn(
-              'size-1 rounded-full bg-[#B8A6FF]',
+              'size-1 rounded-full bg-lilac',
               at(2) && !still.current && 'animate-pulse-once',
             )}
           />
@@ -198,7 +198,7 @@ export function HowItGoes() {
                   <span
                     className={cn(
                       'size-1 rounded-full',
-                      i === 0 ? 'bg-[#B8A6FF]' : 'bg-white/20',
+                      i === 0 ? 'bg-lilac' : 'bg-white/20',
                     )}
                   />
                   <span
@@ -279,7 +279,7 @@ export function HowItGoes() {
             className={cn(
               'h-1 rounded-full transition-[width,background-color] duration-300',
               'cursor-pointer',
-              i === beat ? 'w-5 bg-[#B8A6FF]' : 'w-1.5 bg-white/20 hover:bg-white/40',
+              i === beat ? 'w-5 bg-lilac' : 'w-1.5 bg-white/20 hover:bg-white/40',
             )}
           />
         ))}

@@ -12,9 +12,13 @@ a doc that still says otherwise, it is older than this line.
 ## What the product is
 
 **Sidq reads the AI conversations already on your Mac and carries any one of
-them, whole, into whichever AI you open next.**
+them into whichever AI you open next.**
 
-Not a summary. The conversation, word for word, from one keystroke.
+Not a summary. The conversation, word for word, from one keystroke. What it
+leaves out are turns that said nothing, and — only when a conversation is too
+large for a context window — the turns carrying least. Both are named in the
+file. Nothing is ever shortened or rewritten, which is the distinction the whole
+product rests on.
 
 The gap it fills: most people now pay for three or four assistants and not one
 of them can read another. You explain your project to the first, then explain it

@@ -187,7 +187,7 @@ export function Hero() {
           style={{ animationDelay: "160ms" }}
         >
           Sidq is the one that remembers. Every conversation you have ever had,
-          carried whole into whichever AI you open next.
+          carried word for word into whichever AI you open next.
         </p>
 
         {/* The line somebody repeats, directly over the button. */}

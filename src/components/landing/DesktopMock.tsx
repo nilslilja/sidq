@@ -90,7 +90,7 @@ export function DesktopMock({ className }: { className?: string }) {
                 className={cn(
                   "h-[0.4rem] rounded-full",
                   i % 3 === 0
-                    ? "bg-[#B8A6FF]/40"
+                    ? "bg-lilac/40"
                     : i % 3 === 1
                       ? "bg-white/15"
                       : "bg-white/10",
@@ -146,7 +146,7 @@ export function DesktopMock({ className }: { className?: string }) {
           >
             <span
               aria-hidden="true"
-              className="size-1.5 shrink-0 rounded-full bg-[#B8A6FF]/70"
+              className="size-1.5 shrink-0 rounded-full bg-lilac/70"
             />
             <span className="truncate text-[clamp(0.35rem,0.6vw,0.625rem)] leading-none text-white/70">
               214

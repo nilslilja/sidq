@@ -431,6 +431,29 @@ export interface OnboardingBridge {
   hidePill: () => Promise<void>;
   /** Grows the bar into the picker. What clicking it does. */
   expandPill: () => Promise<void>;
+  /**
+   * Move the bar one step, in whole steps of a fixed size.
+   *
+   * `dx` and `dy` are directions, not distances: -1, 0 or 1. How far a step is
+   * belongs to the window, not to the key that asked.
+   */
+  movePill: (dx: number, dy: number) => Promise<void>;
+  /**
+   * Which conversation the picker is pointing at, or null when it closes.
+   *
+   * The grab gesture reads it: with the picker open the row under the pointer
+   * is what somebody means, and the newest conversation is only the right
+   * answer when there is no window to aim with.
+   */
+  aimAt: (sessionId: string | null) => Promise<void>;
+  /**
+   * Tell the app which step is on screen.
+   *
+   * The picker shortcut has to behave differently depending on it: the step
+   * that teaches the key swallows it and lights up, and the step that says
+   * "press it, then pick a conversation" needs the picker to actually open.
+   */
+  setStep: (step: string | null) => Promise<void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -647,6 +670,15 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     expandPill: async () => {
       await invoke("expand_pill");
+    },
+    movePill: async (dx: number, dy: number) => {
+      await invoke("move_pill", { dx, dy });
+    },
+    aimAt: async (sessionId: string | null) => {
+      await invoke("aim_at", { sessionId });
+    },
+    setStep: async (step: string | null) => {
+      await invoke("set_onboarding_step", { step });
     },
     finish: async () => {
       await invoke("finish_onboarding");

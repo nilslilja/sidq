@@ -520,27 +520,158 @@ pub fn is_current(conn: &Connection, session_id: &str, fingerprint: &str) -> boo
     .is_ok()
 }
 
+/// Whitespace is not identity: the same turn re-rendered can wrap differently.
+fn normalised(body: &str) -> String {
+    body.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /**
- * How much of this conversation is already stored, in characters.
+ * Long enough that one turn being the start of another means it is that turn.
  *
- * Asked so a later read cannot make a conversation smaller. `put_messages`
- * deletes and reinserts, so a sweep that catches a page holding less than the
- * last one throws away the difference — and pages do hold less: these sites
- * unload the top of a long conversation once you scroll away from it.
- *
- * Which made the one instruction worth giving useless. Scroll to the top, wait
- * for Sidq to read the whole thing, scroll back down to carry on, and the next
- * sweep quietly replaced it with the tail again. Seen on a real index: a
- * handover made at twelve turns, and six left in the row afterwards.
+ * A reply that was still being written when the page was read is a genuine
+ * prefix of the finished one, and matching on that is how a conversation caught
+ * mid-stream lines up with itself on the next pass. But "ok" is also a prefix of
+ * "ok so the problem is the index", and those are two different turns. Short
+ * bodies therefore have to match exactly.
  */
-pub fn stored_length(conn: &Connection, session_id: &str) -> usize {
-    conn.query_row(
-        "SELECT COALESCE(SUM(LENGTH(body)), 0) FROM messages WHERE session_id = ?1",
-        [session_id],
-        |row| row.get::<_, i64>(0),
+const PREFIX_MATCH_FLOOR: usize = 24;
+
+/// The same turn, allowing for one that was still being written when it was read.
+fn same_turn(stored: &(String, String), incoming: &(String, String)) -> bool {
+    if stored.0 != incoming.0 {
+        return false;
+    }
+    let a = normalised(&stored.1);
+    let b = normalised(&incoming.1);
+    if a == b {
+        return true;
+    }
+    a.len().min(b.len()) >= PREFIX_MATCH_FLOOR && (a.starts_with(&b) || b.starts_with(&a))
+}
+
+/**
+ * Two windows onto one conversation, spliced into the whole of it.
+ *
+ * ── Why the page paths cannot simply replace ─────────────────────────────────
+ *
+ * A transcript on disk is the entire conversation, so reading it again and
+ * writing back what came is right, and the file paths keep doing exactly that.
+ *
+ * A page is not. ChatGPT, Claude.ai and Gemini fetch the recent part of a long
+ * conversation and load the rest as you scroll, then unload it again once you
+ * scroll away. Every read is therefore a window, never the whole, and writing a
+ * window over the stored copy discards every turn outside it. Seen on a real
+ * index: a handover made at twelve turns, six left in the row afterwards.
+ *
+ * ── Why alignment is by offset and not by membership ─────────────────────────
+ *
+ * Short turns genuinely repeat — "ok", "go on", "that worked" — so a merge that
+ * asked whether a turn exists anywhere in the stored copy would drop every
+ * repeat after the first. An offset is accepted only when every pair it lines up
+ * agrees, so it is a run of consecutive turns that identifies the overlap, never
+ * a single one.
+ *
+ * Windows that share nothing are not an error. Nothing is thrown away: what is
+ * stored is kept, and turns the read brought that are not already held go after
+ * it.
+ */
+pub fn merge_turns(
+    stored: &[(String, String)],
+    incoming: &[(String, String)],
+) -> Vec<(String, String)> {
+    if stored.is_empty() {
+        return incoming.to_vec();
+    }
+    if incoming.is_empty() {
+        return stored.to_vec();
+    }
+
+    // `incoming[k]` is the same turn as `stored[k + offset]`.
+    let mut best: Option<(isize, usize)> = None;
+    for offset in -(incoming.len() as isize - 1)..=(stored.len() as isize - 1) {
+        let mut overlap = 0usize;
+        let mut agrees = true;
+        for (k, turn) in incoming.iter().enumerate() {
+            let Ok(i) = usize::try_from(k as isize + offset) else {
+                continue;
+            };
+            let Some(held) = stored.get(i) else { continue };
+            overlap += 1;
+            if !same_turn(held, turn) {
+                agrees = false;
+                break;
+            }
+        }
+        if agrees && overlap > 0 && best.is_none_or(|(_, widest)| overlap > widest) {
+            best = Some((offset, overlap));
+        }
+    }
+
+    let Some((offset, _)) = best else {
+        let mut out = stored.to_vec();
+        for turn in incoming {
+            if !stored.iter().any(|held| same_turn(held, turn)) {
+                out.push(turn.clone());
+            }
+        }
+        return out;
+    };
+
+    let first = offset.min(0);
+    let last = (stored.len() as isize).max(offset + incoming.len() as isize);
+    (first..last)
+        .filter_map(|p| {
+            let held = usize::try_from(p).ok().and_then(|i| stored.get(i));
+            let read = usize::try_from(p - offset).ok().and_then(|k| incoming.get(k));
+            match (held, read) {
+                // Overlapping, so the two agree — but one may have been caught
+                // mid-stream, and the longer of the pair is the finished one.
+                (Some(a), Some(b)) if b.1.len() > a.1.len() => Some(b.clone()),
+                (Some(a), _) => Some(a.clone()),
+                (None, Some(b)) => Some(b.clone()),
+                (None, None) => None,
+            }
+        })
+        .collect()
+}
+
+/**
+ * Fold a page read into what is already held, and say how much is held after.
+ *
+ * The file and export paths keep calling `put_messages`, because for them the
+ * source is complete and replacing is correct. Only the two paths reading a
+ * live page — the accessibility sweep and the assistant window inside Sidq —
+ * come through here.
+ */
+pub fn merge_messages(
+    conn: &Connection,
+    session_id: &str,
+    incoming: &[(String, String)],
+    fingerprint: &str,
+) -> Option<usize> {
+    let stored = session_turns(conn, session_id);
+    let merged = merge_turns(&stored, incoming);
+
+    if merged == stored {
+        // Nothing new in it. The read is still worth remembering, so the next
+        // sweep can skip this conversation instead of rebuilding the same list.
+        remember(conn, session_id, fingerprint)?;
+        return Some(stored.len());
+    }
+
+    put_messages(conn, session_id, &merged, fingerprint)?;
+    Some(merged.len())
+}
+
+/// Note that this exact read has been dealt with.
+fn remember(conn: &Connection, session_id: &str, fingerprint: &str) -> Option<()> {
+    conn.execute(
+        "INSERT INTO seen (session_id, fingerprint) VALUES (?1,?2)
+         ON CONFLICT(session_id) DO UPDATE SET fingerprint = excluded.fingerprint",
+        params![session_id, fingerprint],
     )
-    .map(|n| n.max(0) as usize)
-    .unwrap_or(0)
+    .ok()?;
+    Some(())
 }
 
 /// Metadata for one session, replacing any earlier version of it.
@@ -608,13 +739,7 @@ pub fn put_messages(
         }
     }
 
-    conn.execute(
-        "INSERT INTO seen (session_id, fingerprint) VALUES (?1,?2)
-         ON CONFLICT(session_id) DO UPDATE SET fingerprint = excluded.fingerprint",
-        params![session_id, fingerprint],
-    )
-    .ok()?;
-    Some(())
+    remember(conn, session_id, fingerprint)
 }
 
 /**
@@ -999,6 +1124,160 @@ pub(crate) mod tests {
         seed(&conn, "a", 1, "we decided to drop it");
 
         assert_eq!(search(&conn, "decide", 0, 10).0.len(), 1);
+    }
+
+    /*
+     * ── Merging a page read ──────────────────────────────────────────────────
+     *
+     * Every one of these is a shape a real browser read arrives in. They are
+     * worth pinning because the failure they describe is silent and permanent:
+     * the index simply holds less than it did, and the person who made a
+     * handover from it never learns what was missing from it.
+     */
+
+    fn spoken(turns: &[(&str, &str)]) -> Vec<(String, String)> {
+        turns.iter().map(|(role, body)| ((*role).to_string(), (*body).to_string())).collect()
+    }
+
+    #[test]
+    fn a_read_that_lost_the_top_does_not_take_it_out_of_the_index() {
+        let conn = memory();
+        let whole = spoken(&[
+            ("You", "how should I index this"),
+            ("Assistant", "one table for listing, one for the text"),
+            ("You", "and the ordering"),
+        ]);
+        merge_messages(&conn, "s", &whole, "read-1").unwrap();
+
+        // Scrolled away from the top, so the site unloaded the first exchange.
+        merge_messages(&conn, "s", &spoken(&[("You", "and the ordering")]), "read-2").unwrap();
+
+        assert_eq!(session_turns(&conn, "s"), whole);
+    }
+
+    #[test]
+    fn a_read_that_uncovered_the_top_keeps_the_bottom_too() {
+        let conn = memory();
+        // What was on screen when Sidq first looked: the recent end of it.
+        merge_messages(
+            &conn,
+            "s",
+            &spoken(&[("You", "and the ordering"), ("Assistant", "by rowid, front to back")]),
+            "read-1",
+        )
+        .unwrap();
+
+        // Scrolled up. The head loaded and the site dropped the last reply.
+        merge_messages(
+            &conn,
+            "s",
+            &spoken(&[
+                ("You", "how should I index this"),
+                ("Assistant", "one table for listing, one for the text"),
+                ("You", "and the ordering"),
+            ]),
+            "read-2",
+        )
+        .unwrap();
+
+        assert_eq!(
+            session_turns(&conn, "s"),
+            spoken(&[
+                ("You", "how should I index this"),
+                ("Assistant", "one table for listing, one for the text"),
+                ("You", "and the ordering"),
+                ("Assistant", "by rowid, front to back"),
+            ]),
+            "both ends survive a pair of reads that held neither whole"
+        );
+    }
+
+    #[test]
+    fn a_swedish_conversation_is_not_lost_to_a_shorter_read() {
+        /*
+         * The guard this replaced compared incoming bytes against stored
+         * characters. Every letter like ö counts twice on one side of that
+         * comparison and once on the other, so a read that was genuinely
+         * smaller could pass it and overwrite what was held.
+         */
+        let conn = memory();
+        let whole = spoken(&[
+            ("You", "hur gör jag för att översätta det här"),
+            ("Assistant", "börja med att läsa filen"),
+            ("You", "tack så mycket"),
+        ]);
+        merge_messages(&conn, "s", &whole, "read-1").unwrap();
+
+        merge_messages(&conn, "s", &spoken(&[("You", "tack så mycket")]), "read-2").unwrap();
+
+        assert_eq!(session_turns(&conn, "s"), whole);
+    }
+
+    #[test]
+    fn reading_the_same_conversation_again_changes_nothing() {
+        let conn = memory();
+        let read = spoken(&[("You", "again"), ("Assistant", "and again")]);
+
+        merge_messages(&conn, "s", &read, "read-1").unwrap();
+        merge_messages(&conn, "s", &read, "read-2").unwrap();
+
+        assert_eq!(session_turns(&conn, "s"), read, "no doubling");
+    }
+
+    #[test]
+    fn a_reply_caught_mid_sentence_is_finished_rather_than_duplicated() {
+        let conn = memory();
+        merge_messages(
+            &conn,
+            "s",
+            &spoken(&[
+                ("You", "explain how the merge works"),
+                ("Assistant", "it lines the two windows up by"),
+            ]),
+            "read-1",
+        )
+        .unwrap();
+
+        // Read again once the reply had finished arriving.
+        let finished = spoken(&[
+            ("You", "explain how the merge works"),
+            ("Assistant", "it lines the two windows up by offset, then splices them"),
+        ]);
+        merge_messages(&conn, "s", &finished, "read-2").unwrap();
+
+        assert_eq!(session_turns(&conn, "s"), finished);
+    }
+
+    #[test]
+    fn a_short_turn_that_repeats_is_not_collapsed_into_one() {
+        // Why the overlap is found by offset and not by asking whether a turn
+        // exists somewhere: "ok" is said twice here and means something
+        // different both times.
+        let conn = memory();
+        let read = spoken(&[
+            ("You", "ok"),
+            ("Assistant", "first"),
+            ("You", "ok"),
+            ("Assistant", "second"),
+        ]);
+
+        merge_messages(&conn, "s", &read, "read-1").unwrap();
+        merge_messages(&conn, "s", &read, "read-2").unwrap();
+
+        assert_eq!(session_turns(&conn, "s"), read);
+    }
+
+    #[test]
+    fn windows_that_share_nothing_still_lose_nothing() {
+        let conn = memory();
+        merge_messages(&conn, "s", &spoken(&[("You", "alpha")]), "read-1").unwrap();
+        merge_messages(&conn, "s", &spoken(&[("You", "beta")]), "read-2").unwrap();
+
+        assert_eq!(
+            session_turns(&conn, "s"),
+            spoken(&[("You", "alpha"), ("You", "beta")]),
+            "an alignment that cannot be found is not a reason to drop either"
+        );
     }
 }
 

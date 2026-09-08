@@ -82,7 +82,25 @@ export function WorksWith() {
         </div>
       </div>
 
-      <p className="ink-muted mx-auto mt-5 max-w-[46ch] text-balance text-center text-[0.875rem] leading-relaxed">
+      {/*
+       * The aside that admits the roster is absurd.
+       *
+       * Eleven names is a flex and a wall at the same time, and the honest
+       * reaction to a list that long is that nobody is reading it. Saying so
+       * first is worth more than pretending otherwise — and it turns the list
+       * into the argument, because the point was never how many Sidq reads. It
+       * is that the three or four you actually pay for cannot read each other.
+       *
+       * Set darker and a step larger than the line below it. Two muted grey
+       * paragraphs stacked would read as one block nobody finishes; this is the
+       * statement and that is the footnote to it.
+       */}
+      <p className="mx-auto mt-6 max-w-[44ch] text-balance text-center text-[0.9375rem] font-medium leading-relaxed text-ink">
+        Nobody needs eleven. You use three or four &mdash; and not one of them
+        can read another.
+      </p>
+
+      <p className="ink-muted mx-auto mt-2.5 max-w-[46ch] text-balance text-center text-[0.875rem] leading-relaxed">
         Whatever you had the conversation in, Sidq can carry it into whatever you
         open next. Including into a different company's model.
       </p>

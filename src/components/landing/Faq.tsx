@@ -28,7 +28,7 @@ const FREE = entitlementsFor("free");
 export const FAQS = [
   {
     q: "What does it actually do?",
-    a: "You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the entire conversation into the new one, word for word, from a single keystroke.",
+    a: "You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the conversation into the new one, word for word, from a single keystroke. It drops the greetings and the ok-thanks. If the conversation is bigger than the window it is going into, it carries what matters and names what it left, in the file, where the next AI reads it. Nothing is ever summarised.",
   },
   {
     q: "Which AIs does it work with?",
