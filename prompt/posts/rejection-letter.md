@@ -4,7 +4,7 @@ Attach: screenshot of the 6 June rejection email, "over 50% of the startups we
 accept are repeat applicants" highlighted. Crop so three things are legible on a
 phone: apply@ycombinator.com, the date, the highlighted line. Nothing else.
 
-Optional second attachment: the 40s Loom below.
+Loom goes in the FIRST COMMENT, not on the post. See below.
 
 Post 08:00 or 19:30 Stockholm. Link in the first comment, never the body.
 
@@ -13,41 +13,46 @@ Checked in the inbox: applied 13 May with Bizzr, rejected 6 June, applied again
 
 ---
 
-Y COMBINATOR REJECTED ME. i don't care, here's the letter.
+Y COMBINATOR REJECTED ME AND I FORGOT ABOUT IT IN A WEEK.
 
-20,000 of you watched me apply in august and clapped. i already had the no sitting
-in my inbox. june 6th.
+40,000 of you watched me apply in august and clapped, and the rejection was
+already sitting in my inbox from june 6th. i didn't bring it up because i
+genuinely did not care, the company they said no to deserved it.
 
-different company. Bizzr. never heard of it? GOOD. it deserved to die.
+it was called Bizzr. you've never heard of it. CORRECT.
 
-my grades might not get me a diploma, my app shipped signed with my mum's apple
-account because i didn't have the $99, three ventures, zero dollars.
+my GPA is 1.9, i might not walk out of school with a diploma in june, and my app
+went out signed with my mum's apple account because i didn't have the $99.
 
-that's the CV. NOT EMBARRASSED BY ONE LINE OF IT.
+that's the resume. now watch what i do with it.
 
-now read what i highlighted. their words, not mine. "over 50% of the startups we
+read the last paragraph, THEIR words not mine: "over 50% of the startups we
 accept are repeat applicants."
 
-so i applied again eight days ago. this time with something you can DOWNLOAD
-instead of imagine.
+they told me to come back, so i came back eight days later with a native mac app
+written in rust, signed and notarised by apple, that i shipped TWICE in the last
+24 hours.
 
-i'm not here to be relatable, i'm not here for your encouragement in the comments,
-I'M HERE TO MAKE MONEY.
+i'm not here to be relatable, i'm not here for encouragement in the comments,
+I'M HERE TO GET RICH AND I'M NOT PRETENDING OTHERWISE.
 
 half of you have been "building something" since january and it's a notion doc
-with a logo you paid for. you have the degree, the title, the banner, founder in
-the headline, and NOT ONE STRANGER HAS EVER DOWNLOADED A THING YOU MADE.
+with a logo you paid someone on fiverr for. you've got the degree, the title, the
+banner, FOUNDER in the headline, and NOT ONE STRANGER ON EARTH HAS EVER
+DOWNLOADED A THING YOU MADE.
 
-i have bad grades, no diploma coming, and something that shipped again last night.
+Sidq takes the AI conversation already sitting on your mac and drops it whole
+into whatever you open next, word for word, nothing uploaded, no server, nothing
+for your security team to review. every other tool in this category puts your
+work on someone else's computer.
 
-Sidq drops the AI conversation already sitting on your mac straight into whatever
-you open next. word for word, nothing uploaded, no server, nothing for your
-security team to review.
+if reading this makes you want to humble me then TYPE IT, i answer every single
+comment.
 
-if this makes you want to humble me, TYPE IT. i reply to everything.
+i'm buying a GT3 RS and doing donuts in the school car park with the exact grades
+that were supposed to stop me.
 
-i'm buying a GT3 RS and doing donuts in my school car park. not a joke, you're
-just early.
+NONE OF YOU ARE BUILT LIKE THIS.
 
 still waiting on the email.
 
