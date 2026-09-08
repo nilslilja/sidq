@@ -361,20 +361,20 @@ describe("what setup asked for", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /Good (morning|afternoon|evening), Nils/,
+        name: /^Nils, nothing here has left this Mac\.$/,
       }),
     ).toBeInTheDocument();
     localStorage.removeItem("sidq.name");
   });
 
-  test("no name is a greeting, not a dangling comma", async () => {
+  test("no name still reads as a sentence, not a dangling comma", async () => {
     localStorage.removeItem("sidq.name");
     render(<Home />);
     await settle();
 
     expect(
       screen.getByRole("heading", {
-        name: /^Good (morning|afternoon|evening)$/,
+        name: /^Nothing here has left this Mac\.$/,
       }),
     ).toBeInTheDocument();
   });

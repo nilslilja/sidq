@@ -703,9 +703,18 @@ function today(): string {
  * anything clever: nobody has ever been annoyed by "good afternoon" at 12:01.
  */
 function greeting(): string {
-  const hour = new Date().getHours();
-  const part =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  /*
+   * Not "Good evening".
+   *
+   * The time of day is the one thing on this screen the person already knows,
+   * and every application ever written has said it to them. It cost a heading
+   * and returned nothing.
+   *
+   * What is worth saying every time the window opens is the claim the whole
+   * product rests on, addressed to the one person who can check it: everything
+   * Sidq has read is still on this machine. It is short, it is true, and no
+   * competitor can put it on their own overview.
+   */
 
   /*
    * The name setup asked for, and the reason it is worth asking.
@@ -724,7 +733,9 @@ function greeting(): string {
     }
   })();
 
-  return name ? `${part}, ${name}` : part;
+  return name
+    ? `${name}, nothing here has left this Mac.`
+    : "Nothing here has left this Mac.";
 }
 
 /**

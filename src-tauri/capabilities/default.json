@@ -1,10 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the two windows are allowed to do. Deliberately minimal: they move and resize themselves, show a notification, register two shortcuts, and open one URL in the browser. Nothing touches the filesystem, and the shell permission is narrowed to opening https and sidq links rather than running commands.",
+  "description": "What the app's windows are allowed to do. Deliberately minimal: they move and resize themselves, show a notification, register two shortcuts, and open one URL in the browser. Nothing touches the filesystem, and the shell permission is narrowed to opening https and sidq links rather than running commands. The list used to name an 'overlay' window that had already been deleted from tauri.conf.json, which left the pill, home, splash and backdrop matching no capability at all \u2014 every core window and event call from those webviews was denied, silently. That is why the picker's drag region never did anything.",
   "windows": [
-    "overlay",
-    "welcome"
+    "welcome",
+    "pill",
+    "home",
+    "splash",
+    "backdrop"
   ],
   "permissions": [
     "core:default",

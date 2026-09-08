@@ -95,7 +95,7 @@ export function PillPreview({
           <li key={row.title}>
             <div
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left",
+                "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
                 "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
                 i === selected ? "row-glass-on" : "",
                 // The press. Brief, small, and on the row itself rather than a

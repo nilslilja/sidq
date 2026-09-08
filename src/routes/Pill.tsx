@@ -967,7 +967,7 @@ export function Pill() {
                 }}
                 onMouseEnter={() => setIndex(i)}
                 className={cn(
-                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left',
+                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left',
                   'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
                   i === selected ? 'row-glass-on' : 'hover:row-glass',
                 )}
@@ -1016,7 +1016,7 @@ export function Pill() {
             {phase.kind === 'saved' && 'Ready to attach'}
             {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && '↵ file to attach · ⌘↵ copy · ⌘O the window'}
+            {phase.kind === 'browsing' && '↵ attach · ⌘↵ copy'}
           </span>
           <button
             onClick={() => {
@@ -1028,12 +1028,10 @@ export function Pill() {
               'cursor-pointer transition-colors duration-100 hover:text-white/70',
             )}
           >
-            Open Sidq ›
+            Open Sidq ⌘O
           </button>
           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>
-            <Key>↵</Key>
-            <Key>⌘↵</Key>
             {/*
               * Clickable, because the rest of this window is.
               *

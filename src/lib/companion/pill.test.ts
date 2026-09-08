@@ -129,7 +129,7 @@ describe('statusLine', () => {
   });
 
   test('distinguishes an empty history from a query that matched nothing', () => {
-    expect(statusLine(0, 0, '')).toBe('No conversations found yet');
+    expect(statusLine(0, 0, '')).toBe('Nothing here yet. Open any AI and it lands in this list.');
     expect(statusLine(0, 0, 'xyz')).toBe('Nothing matches that');
   });
 });
@@ -223,7 +223,7 @@ describe('the count under a source filter', () => {
      * untrustworthy.
      */
     expect(statusLine(0, 0, '', 'gemini')).toBe('Nothing from Gemini');
-    expect(statusLine(0, 0, '', ANY_SOURCE)).toBe('No conversations found yet');
+    expect(statusLine(0, 0, '', ANY_SOURCE)).toBe('Nothing here yet. Open any AI and it lands in this list.');
   });
 
   test('a query that matches nothing still blames the query', () => {
@@ -246,7 +246,7 @@ describe('empty because it is looking, versus empty because it is empty', () => 
 
   test('only calls it empty once it has actually looked', () => {
     expect(statusLine(0, 0, '', ANY_SOURCE, true)).toBe(
-      'No conversations found yet',
+      'Nothing here yet. Open any AI and it lands in this list.',
     );
   });
 
@@ -257,6 +257,6 @@ describe('empty because it is looking, versus empty because it is empty', () => 
   });
 
   test('settled defaults to true, so existing callers keep their meaning', () => {
-    expect(statusLine(0, 0, '')).toBe('No conversations found yet');
+    expect(statusLine(0, 0, '')).toBe('Nothing here yet. Open any AI and it lands in this list.');
   });
 });

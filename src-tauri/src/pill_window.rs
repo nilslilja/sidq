@@ -314,12 +314,23 @@ fn place(w: &WebviewWindow, size: (f64, f64), top_inset: f64) -> tauri::Result<(
         let anchor_x = origin.x + (usable.width - size.0) / 2.0;
         let anchor_y = top_edge(screen.y, origin.y, notch_height()) - top_inset;
 
+        /*
+         * Clamped against the whole screen, not the work area.
+         *
+         * The work area starts below the menu bar, and the bar deliberately
+         * sits inside the menu bar — so clamping to it fought the position
+         * `top_edge` had just chosen and pushed the bar about thirteen points
+         * down its own screen, before anybody had moved anything. It also made
+         * upward nudging arithmetically impossible: the floor sat below the
+         * resting position, so every ⌘↑ resolved to the same clamped y.
+         */
+        let full = monitor.size().to_logical::<f64>(scale);
         let (dx, dy) = offset();
         w.set_position(on_screen(
             (anchor_x + dx, anchor_y + dy),
             size,
-            (origin.x, origin.y),
-            (usable.width, usable.height),
+            (screen.x, screen.y),
+            (full.width, full.height),
         ))?;
     }
 
@@ -369,8 +380,15 @@ fn on_screen(
     LogicalPosition::new(x, y)
 }
 
-/// How much of the window must stay on the screen, in points.
-const KEEP_VISIBLE: f64 = 80.0;
+/**
+ * How much of the window must stay on screen, in points.
+ *
+ * One bar's height. It has to be smaller than `GLOW_MARGIN`, because that much
+ * of the collapsed window is transparent room for the glow rather than anything
+ * drawn — a keep-visible larger than the margin is a rule about empty pixels,
+ * and it clamps the bar before a single one of them is on screen.
+ */
+const KEEP_VISIBLE: f64 = BAR.1;
 
 /**
  * Move the pill, and remember where it was moved to.
@@ -389,7 +407,7 @@ pub fn nudge(w: &WebviewWindow, dx: f64, dy: f64) {
     }
     remember_offset();
 
-    let expanded = w.inner_size().map(|s| s.height as f64 > EXPANDED_THRESHOLD).unwrap_or(false);
+    let expanded = is_expanded(w);
     let (size, inset) =
         if expanded { (EXPANDED, EXPANDED_INSET) } else { (COLLAPSED, GLOW_MARGIN) };
     let _ = place(w, size, inset);
@@ -1048,6 +1066,36 @@ mod tests {
     fn a_window_pushed_down_forever_stays_within_the_screen() {
         let at = on_screen((100.0, 99_999.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
         assert!(at.y <= A_SCREEN.0 .1 + A_SCREEN.1 .1 - KEEP_VISIBLE, "still on the desktop");
+    }
+
+    /*
+     * ── The clamp must not move the bar off its own anchor ───────────────────
+     *
+     * Shipped broken in 0.9.0. The clamp was measured against the work area,
+     * which starts below the menu bar, while the bar deliberately sits inside
+     * it. So the resting position — computed by `top_edge` and correct — was
+     * pushed about thirteen points down on every notchless Mac, and every ⌘↑
+     * afterwards resolved to that same floor.
+     *
+     * The numbers below are this machine: a 1440x900 display reporting frame
+     * 0..900 and a work area starting at 25.
+     */
+    #[test]
+    fn the_resting_bar_is_never_clamped_off_its_anchor() {
+        let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
+        let at = on_screen((640.0, anchor_y), COLLAPSED, (0.0, 0.0), (1440.0, 900.0));
+
+        assert_eq!(at.y, anchor_y, "the clamp moved the bar before anybody touched it");
+    }
+
+    #[test]
+    fn the_bar_can_still_be_nudged_upward_from_its_resting_place() {
+        // The failure this pins: KEEP_VISIBLE was larger than GLOW_MARGIN, so
+        // the floor sat below the resting position and up was a no-op.
+        let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
+        let at = on_screen((640.0, anchor_y - NUDGE), COLLAPSED, (0.0, 0.0), (1440.0, 900.0));
+
+        assert!(at.y < anchor_y, "⌘↑ has to actually move it");
     }
 
     #[test]

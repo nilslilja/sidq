@@ -42,7 +42,7 @@ describe("the picture of the picker matches the picker", () => {
     "border-white/[0.06]",
     "chip-glass",
     "rounded-[22px]",
-    "rounded-[11px]",
+    "rounded-[10px]",
   ];
 
   for (const surface of SURFACES) {

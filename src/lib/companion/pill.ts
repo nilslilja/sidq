@@ -155,7 +155,9 @@ export function statusLine(
      *
      * So the first moments say what is happening instead of what was found.
      */
-    return settled ? 'No conversations found yet' : 'Reading your conversations…';
+    return settled
+      ? 'Nothing here yet. Open any AI and it lands in this list.'
+      : 'Reading your conversations…';
   }
 
   const label = total === 1 ? '1 conversation' : `${total} conversations`;
