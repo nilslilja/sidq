@@ -1354,6 +1354,47 @@ async fn share_handover(
     .unwrap_or(false)
 }
 
+/**
+ * Compile a conversation and leave it in an assistant's composer.
+ *
+ * The last step of "one keystroke" that was never actually done. Everything
+ * before this put the handover on the clipboard and then relied on the person
+ * to switch application, find the composer and paste — which is the same
+ * administration `quick_grab` exists to remove.
+ *
+ * It costs nothing to run: the assistant is the one they already pay for, in a
+ * window Sidq already opens, and no model or server of ours is involved at any
+ * point. It also does not press send. That message is theirs to spend.
+ */
+#[tauri::command]
+async fn hand_over_into(
+    app: AppHandle,
+    session_id: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+    assistant: String,
+) -> Result<(), String> {
+    let text = tauri::async_runtime::spawn_blocking(move || {
+        build_handover_for(
+            &session_id,
+            &source,
+            &resume_point,
+            &when,
+            &project,
+            compiler::Target::for_source(&assistant),
+        )
+        .map(|text| (text, assistant))
+    })
+    .await
+    .map_err(|_| "Could not read that conversation.".to_string())?
+    .ok_or("Could not read that conversation.")?;
+
+    let (text, assistant) = text;
+    assistants::deliver(&app, &assistant, &text)
+}
+
 /// Every conversation anybody on the team has put in the folder, newest first.
 #[tauri::command]
 async fn team_handovers() -> Vec<team_context::SharedHandover> {
@@ -2203,7 +2244,8 @@ fn main() {
             finish_onboarding,
             set_onboarding_step,
             move_pill,
-            aim_at
+            aim_at,
+            hand_over_into
         ])
         .setup(|app| {
             /*

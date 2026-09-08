@@ -851,6 +851,16 @@ function Overview({
    * conversation somewhere it should not be.
    */
   const [sharesWithTeam, setSharesWithTeam] = useState(false);
+  /*
+   * The assistants a handover can be sent straight into.
+   *
+   * Fetched once rather than per row: it is the same six every time, it never
+   * changes while the window is open, and a request per row on a list of fifty
+   * would be fifty requests to answer one question.
+   */
+  const [assistants, setAssistants] = useState<{ id: string; label: string }[]>(
+    [],
+  );
   const [taps, setTaps] = useState<[string, string] | null>(null);
   const [shared, setShared] = useState<string | null>(null);
 
@@ -866,6 +876,7 @@ function Overview({
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentHandovers().then(setRows);
+    void bridge.assistantList().then(setAssistants);
     void bridge.tapKeys().then(setTaps);
     void bridge
       .teamSettings()
@@ -956,6 +967,49 @@ function Overview({
                   <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
                     {whenHandedOver(row.madeAt)}
                   </span>
+                  {/*
+                   * Send it straight into an assistant's box.
+                   *
+                   * The promise was one keystroke and it stopped at the
+                   * clipboard: switch application, find the composer, click it,
+                   * paste. Sidq already opens these assistants in its own
+                   * window, so it puts the conversation where it was going.
+                   *
+                   * It does not press send. That message costs the person a
+                   * turn on their own plan, and they may want a line in front
+                   * of it.
+                   */}
+                  {assistants.length > 0 && (
+                    <select
+                      aria-label={`Send ${row.title || "this conversation"} into an assistant`}
+                      value=""
+                      onChange={(e) => {
+                        const assistant = e.target.value;
+                        if (!assistant) return;
+                        e.target.value = "";
+                        void bridge?.handOverInto({
+                          sessionId: row.sessionId,
+                          source: row.source,
+                          resumePoint: "",
+                          when: whenHandedOver(row.madeAt),
+                          project: row.project,
+                          assistant,
+                        });
+                      }}
+                      className={cn(
+                        "shrink-0 cursor-pointer rounded-md bg-transparent px-2 py-1",
+                        "text-[0.75rem] text-[var(--w-text-3)]",
+                        "transition-colors duration-150 hover:text-[var(--w-text)]",
+                      )}
+                    >
+                      <option value="">Send to…</option>
+                      {assistants.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {/*
                    * Shown only to a team that has somewhere to share into, so
                    * it is not a button advertising a plan on a row about work

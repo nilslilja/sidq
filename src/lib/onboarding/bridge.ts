@@ -454,6 +454,22 @@ export interface OnboardingBridge {
    * "press it, then pick a conversation" needs the picker to actually open.
    */
   setStep: (step: string | null) => Promise<void>;
+  /**
+   * Compile a conversation and leave it in an assistant's composer.
+   *
+   * Opens the assistant in Sidq's own window and puts the handover where it was
+   * going anyway, so the last four steps — switch app, find the box, click it,
+   * paste — stop existing. It does not press send: that message is the person's
+   * to spend, and they may want a sentence in front of it.
+   */
+  handOverInto: (args: {
+    sessionId: string;
+    source: string;
+    resumePoint: string;
+    when: string;
+    project: string;
+    assistant: string;
+  }) => Promise<void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -679,6 +695,9 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     setStep: async (step: string | null) => {
       await invoke("set_onboarding_step", { step });
+    },
+    handOverInto: async (args) => {
+      await invoke("hand_over_into", { ...args });
     },
     finish: async () => {
       await invoke("finish_onboarding");

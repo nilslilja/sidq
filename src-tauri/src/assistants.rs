@@ -231,6 +231,138 @@ fn reader_script(source: &str) -> String {
     )
 }
 
+/**
+ * Put a handover into an assistant's composer, without sending it.
+ *
+ * ── Why this exists ──────────────────────────────────────────────────────────
+ *
+ * The promise is one keystroke. What actually happened was: press the key, the
+ * handover lands on the clipboard, switch application, find the composer, click
+ * it, paste. Five acts, four of them administration, which is the exact cost
+ * `quick_grab` was written to remove and only removed half of.
+ *
+ * Sidq already runs these assistants in its own window and already injects a
+ * script into them, so it can put the text where it was going anyway.
+ *
+ * ── Why it does not press send ───────────────────────────────────────────────
+ *
+ * It would be one more line. It is deliberately not there.
+ *
+ * Sending is the person's turn to spend: it costs them a message against their
+ * own plan, and it commits a conversation they may want a sentence added to
+ * first. Nothing in this app has ever acted on somebody's behalf without them
+ * asking — see the same argument in `quick_grab` about the clipboard — and an
+ * assistant that submits on its own is a worse version of that.
+ *
+ * So the conversation is in the box, the cursor is in it, and the person
+ * presses return. That is one keystroke either side of the handover instead of
+ * five.
+ *
+ * ── Why it is by selector, and what that costs ───────────────────────────────
+ *
+ * The same trade the reader makes: these are other people's pages and the
+ * composers move. A selector that stops matching means the text does not arrive
+ * and Sidq says so, rather than typing into whatever else was on the page.
+ */
+fn deliver_script(text: &str) -> String {
+    // JSON is a valid JavaScript expression, which is what makes this safe:
+    // the handover contains backticks, quotes and newlines by definition.
+    let payload = serde_json::to_string(text).unwrap_or_else(|_| "\"\"".into());
+
+    format!(
+        r#"
+(() => {{
+  const TEXT = {payload};
+
+  const BOXES = [
+    '#prompt-textarea',
+    'div.ProseMirror[contenteditable="true"]',
+    'rich-textarea div[contenteditable="true"]',
+    '.ql-editor[contenteditable="true"]',
+    'textarea#chat-input',
+    'form textarea',
+    'div[contenteditable="true"]',
+    'textarea',
+  ];
+
+  const findBox = () => {{
+    for (const selector of BOXES) {{
+      for (const el of document.querySelectorAll(selector)) {{
+        // Visible, and not something else's search field.
+        const box = el.getBoundingClientRect();
+        if (box.width > 120 && box.height > 16) return el;
+      }}
+    }}
+    return null;
+  }};
+
+  const fill = (el) => {{
+    el.focus();
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {{
+      /*
+       * React holds the value, not the DOM. Assigning `el.value` updates the
+       * node and React overwrites it on the next render as though nothing was
+       * typed, so the native setter is called and an input event raised to tell
+       * React what happened.
+       */
+      const setter = Object.getOwnPropertyDescriptor(
+        el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+        'value',
+      ).set;
+      setter.call(el, TEXT);
+      el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }} else {{
+      // A contenteditable composer. execCommand is deprecated and is still the
+      // only insertion every one of these editors treats as real typing.
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      if (!document.execCommand('insertText', false, TEXT)) {{
+        el.textContent = TEXT;
+      }}
+      el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    }}
+    el.scrollTop = el.scrollHeight;
+  }};
+
+  /*
+   * The page is usually still loading when this runs, because it was opened a
+   * moment ago. Tried for a few seconds and then given up on, rather than left
+   * waiting for a composer that is never coming.
+   */
+  let tries = 0;
+  const attempt = () => {{
+    const box = findBox();
+    if (box) {{ fill(box); return; }}
+    if (++tries < 40) setTimeout(attempt, 250);
+  }};
+  attempt();
+}})();
+"#
+    )
+}
+
+/**
+ * Open an assistant and leave a handover in its composer.
+ *
+ * Returns once the script has been handed to the window. Whether the composer
+ * was there to receive it is decided in the page, which is why the script keeps
+ * looking for a few seconds rather than assuming the site has finished loading.
+ */
+pub fn deliver(app: &tauri::AppHandle, id: &str, text: &str) -> Result<(), String> {
+    open(app, id)?;
+
+    let window = app
+        .get_webview_window("assistant")
+        .ok_or("The assistant window did not open.")?;
+
+    window
+        .eval(&deliver_script(text))
+        .map_err(|e| format!("Could not reach the assistant: {e}"))
+}
+
 /// Open an assistant, or focus the window that already has it.
 pub fn open(app: &tauri::AppHandle, id: &str) -> Result<(), String> {
     let assistant = find(id).ok_or("Sidq does not know that assistant.")?;
@@ -271,6 +403,61 @@ pub fn open(app: &tauri::AppHandle, id: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /*
+     * ── The handover is data, and has to arrive as data ──────────────────────
+     *
+     * It contains backticks, quotes, newlines and whatever the person typed,
+     * because it is a verbatim conversation. Pasting it into a script template
+     * by hand would break on the first code fence and, worse, would execute
+     * whatever a conversation happened to contain. It is serialised as JSON,
+     * which is both a valid JavaScript expression and inert.
+     */
+    #[test]
+    fn a_conversation_full_of_quotes_and_backticks_is_still_data() {
+        let nasty = "`); alert('x'); //\n\"quoted\" and a backtick `";
+        let script = deliver_script(nasty);
+
+        let line = script
+            .lines()
+            .find(|l| l.trim_start().starts_with("const TEXT ="))
+            .expect("the payload is assigned on one line");
+
+        /*
+         * The whole of it on a single line is the property that matters. A raw
+         * newline would end the statement and leave the rest of somebody's
+         * conversation sitting in the script as code.
+         */
+        assert!(line.contains("\\n"), "the newline is escaped, not real");
+        assert!(line.contains("\\\""), "the quote is escaped");
+        assert!(line.trim_end().ends_with(';'));
+    }
+
+    #[test]
+    fn it_never_presses_send() {
+        /*
+         * Deliberate, and worth a test because it is one line away at all times.
+         * Sending spends a message on the person's own plan and commits a
+         * conversation they may want to add a sentence to first. Nothing in this
+         * app acts on somebody's behalf without being asked.
+         */
+        let script = deliver_script("anything");
+
+        assert!(!script.contains("form.submit"));
+        assert!(!script.contains("click()"));
+        assert!(!script.to_lowercase().contains("keydown"));
+        assert!(!script.contains("Enter"));
+    }
+
+    #[test]
+    fn it_gives_up_rather_than_typing_into_the_wrong_thing() {
+        let script = deliver_script("x");
+
+        // A bounded retry, because the page is still loading when this runs.
+        assert!(script.contains("tries < 40"));
+        // And a size floor, so it does not fill a search box or a hidden input.
+        assert!(script.contains("width > 120"));
+    }
 
     #[test]
     fn every_assistant_has_an_https_address() {
