@@ -546,7 +546,8 @@ export interface OnboardingBridge {
    */
   counting: () => Promise<boolean>;
   setCounting: (on: boolean) => Promise<void>;
-  countedEvents: () => Promise<string[]>;
+  /** Each event's name on the wire, and what it means, from Rust. */
+  countedEvents: () => Promise<[string, string][]>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -793,7 +794,8 @@ export function desktopBridge(): OnboardingBridge | null {
     setCounting: async (on: boolean) => {
       await invoke("set_counting", { on });
     },
-    countedEvents: async () => ((await invoke("counted_events")) as string[]) ?? [],
+    countedEvents: async () =>
+      ((await invoke("counted_events")) as [string, string][]) ?? [],
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

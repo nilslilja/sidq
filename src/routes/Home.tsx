@@ -1142,7 +1142,7 @@ function Overview({
  */
 function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [on, setOn] = useState<boolean | null>(null);
-  const [events, setEvents] = useState<string[]>([]);
+  const [events, setEvents] = useState<[string, string][]>([]);
   const [showing, setShowing] = useState(false);
 
   useEffect(() => {
@@ -1193,13 +1193,15 @@ function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             {showing ? "Hide the list" : `Everything it can count (${events.length})`}
           </button>
           {showing && (
-            <ul className="mt-3 space-y-1">
-              {events.map((name) => (
-                <li
-                  key={name}
-                  className="font-mono text-[0.75rem] text-[var(--w-text-3)]"
-                >
-                  {name}
+            <ul className="mt-3 space-y-2">
+              {events.map(([name, what]) => (
+                <li key={name} className="flex flex-wrap items-baseline gap-x-3">
+                  <span className="font-mono text-[0.75rem] text-[var(--w-text-4)]">
+                    {name}
+                  </span>
+                  <span className="min-w-0 flex-1 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+                    {what}
+                  </span>
                 </li>
               ))}
             </ul>

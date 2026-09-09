@@ -60,3 +60,7 @@ dist-extension/
 
 # Sidecar build output. Rebuilt by release.sh; see src-tauri/binaries/README.md
 src-tauri/binaries/sidq-mcp-*
+
+# Build output. These are 8MB a release and they are why .git reached 2.66GB;
+# they belong on GitHub Releases, not in history.
+release/*.dmg

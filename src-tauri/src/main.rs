@@ -28,6 +28,7 @@ mod pill_window;
 use sidq::{
     capture, codex_history, compiler, cursor_history, double_tap, entitlement, imports,
     index_store, invites, login_item, mcp_setup, memory, profile, quick_grab, screen_reader,
+    telemetry,
     team_context, work_history,
 };
 
@@ -1467,6 +1468,45 @@ async fn mcp_config_block() -> Option<String> {
     .flatten()
 }
 
+/// Whether counting is on. Absent means off, and absent is the default.
+#[tauri::command]
+async fn counting() -> bool {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open().map(|c| telemetry::enabled(&c)).unwrap_or(false)
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/**
+ * Turn counting on or off.
+ *
+ * Off is not just a flag. `set_enabled` also empties the queue, because sending
+ * a backlog gathered before somebody opted out is the worst possible reading of
+ * "you can turn this off".
+ */
+#[tauri::command]
+async fn set_counting(on: bool) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        index_store::open().and_then(|c| telemetry::set_enabled(&c, on)).is_some()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/**
+ * Every event that can be counted, and what each one means.
+ *
+ * Read out of Rust rather than typed into the window. The list in Settings is
+ * the only place somebody can check the privacy page against the program, so it
+ * has to come from the same declaration the program counts against — a
+ * hand-written copy would go stale in exactly the place that must not.
+ */
+#[tauri::command]
+async fn counted_events() -> Vec<(String, String)> {
+    telemetry::catalogue()
+}
+
 /// A project's memory as text, for the clipboard.
 #[tauri::command]
 async fn memory_text(path: String) -> Option<String> {
@@ -2401,6 +2441,9 @@ fn main() {
             mcp_clients,
             connect_mcp,
             mcp_config_block,
+            counting,
+            set_counting,
+            counted_events,
             share_project,
             team_projects,
             read_team_project

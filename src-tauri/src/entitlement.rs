@@ -60,7 +60,7 @@ impl Plan {
         }
     }
 
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Plan::Free => "free",
             Plan::Pro => "pro",
@@ -233,6 +233,22 @@ pub fn current(conn: &Connection) -> Plan {
     index_store::setting(conn, "tier")
         .map(|t| Plan::from_tier(&t))
         .unwrap_or(Plan::Free)
+}
+
+/**
+ * The plan as last confirmed, without asking anybody.
+ *
+ * `current` will go to the network when its cached answer is stale, which is
+ * right for a limit — refusing a handover on an out-of-date tier is the one
+ * mistake this module must not make — and wrong for bookkeeping. Telemetry uses
+ * this so that counting can never be the reason a request leaves the machine.
+ *
+ * No grace window either, deliberately. A stale answer here mislabels a row in
+ * a counting table; falling back to `Free` for that would be a worse number,
+ * not a safer one.
+ */
+pub fn last_known(conn: &Connection) -> Plan {
+    index_store::setting(conn, "tier").map(|t| Plan::from_tier(&t)).unwrap_or(Plan::Free)
 }
 
 /**

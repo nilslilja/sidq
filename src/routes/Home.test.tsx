@@ -82,6 +82,19 @@ const bridge: Partial<OnboardingBridge> = {
       source: "claude-code",
     },
   ]),
+  /*
+   * Counting, which the Overview panel reads on mount.
+   *
+   * Off, because that is the default and the default is the whole basis of the
+   * claim the privacy page makes. A mock that returns true here would let a
+   * regression flipping the default sail through every test in this file.
+   */
+  counting: vi.fn(async () => false),
+  setCounting: vi.fn(async () => {}),
+  countedEvents: vi.fn(async () => [
+    ["opened", "Sidq was opened."],
+    ["handed_over", "A conversation was handed over."],
+  ] as [string, string][]),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   planStatus: vi.fn(async () => PLAN),
   recentHandovers: vi.fn(async () => []),
