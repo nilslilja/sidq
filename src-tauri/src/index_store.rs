@@ -39,7 +39,7 @@ use std::path::PathBuf;
  * the whole batch is skipped once user_version has caught up, so a new table
  * only reaches an existing install if this number moves.
  */
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -108,6 +108,7 @@ fn migrate(conn: &Connection) -> Option<()> {
             source         TEXT NOT NULL,
             title          TEXT NOT NULL DEFAULT '',
             project        TEXT NOT NULL DEFAULT '',
+            project_path   TEXT NOT NULL DEFAULT '',
             branch         TEXT NOT NULL DEFAULT '',
             ended_at       INTEGER NOT NULL DEFAULT 0,
             turns          INTEGER NOT NULL DEFAULT 0,
@@ -188,6 +189,26 @@ fn migrate(conn: &Connection) -> Option<()> {
         ",
     )
     .ok()?;
+
+    /*
+     * ── A column, which CREATE TABLE IF NOT EXISTS cannot add ────────────────
+     *
+     * Everything above is create-if-missing, so a table arrives on an existing
+     * install the moment the version moves. A *column* does not: the table is
+     * already there, the statement is skipped, and the column never appears.
+     *
+     * `project` holds the folder's name, which is what the picker and the
+     * search rows print. Two directories called `Sidq` on two disks are one
+     * project under that, which is fine for a label and wrong for grouping
+     * somebody's work. The path goes alongside rather than replacing it, so
+     * nothing that renders the name has to change.
+     *
+     * Failure is ignored on purpose: the one way this errors is the column
+     * already existing, which is the state it is trying to reach.
+     */
+    if version < 4 {
+        let _ = conn.execute("ALTER TABLE sessions ADD COLUMN project_path TEXT NOT NULL DEFAULT ''", []);
+    }
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION).ok()?;
     Some(())
@@ -318,6 +339,165 @@ pub fn handovers_since(conn: &Connection, since: i64) -> u32 {
  * them would fill the profile with things models say a lot, which is roughly
  * the opposite of a personal profile.
  */
+/**
+ * One project's turns, keyed by conversation.
+ *
+ * ── The same machinery as `own_turns_by_project`, asking the opposite ────────
+ *
+ * That one keys by project so a sentence repeated across two unrelated projects
+ * counts twice and one repeated ten times inside a single project counts once.
+ * Its comment says why: "Repetition inside one project is a task. The same
+ * sentence turning up in a second, unrelated project is a preference."
+ *
+ * A project memory wants the tasks. So this keys by conversation, inside one
+ * project, and what comes back is what you kept saying while building that
+ * thing rather than how you work in general.
+ */
+pub fn own_turns_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<(String, String)> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT m.session_id, m.body
+           FROM messages m
+           JOIN sessions s ON s.session_id = m.session_id
+          WHERE m.role = 'You' AND s.project_path = ?1 AND s.project_path <> ''
+          ORDER BY s.ended_at DESC
+          LIMIT ?2",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map(params![path, limit], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
+/// Every project with work in it, busiest first.
+///
+/// Only rows that know where they are. A browser conversation is filed under
+/// its assistant, which is not a place, and a project list that says "chatgpt"
+/// is answering a different question from the one it was asked.
+pub fn projects(conn: &Connection, limit: usize) -> Vec<ProjectRow> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT s.project_path, s.project, COUNT(*), SUM(s.turns), SUM(s.active_minutes),
+                MIN(s.ended_at), MAX(s.ended_at)
+           FROM sessions s
+          WHERE s.project_path <> ''
+          GROUP BY s.project_path
+          ORDER BY SUM(s.turns) DESC
+          LIMIT ?1",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map([limit], |row| {
+        Ok(ProjectRow {
+            path: row.get(0)?,
+            name: row.get(1)?,
+            conversations: row.get::<_, i64>(2)? as usize,
+            turns: row.get::<_, Option<i64>>(3)?.unwrap_or(0) as usize,
+            minutes: row.get::<_, Option<i64>>(4)?.unwrap_or(0) as usize,
+            started: row.get::<_, Option<i64>>(5)?.unwrap_or(0),
+            touched: row.get::<_, Option<i64>>(6)?.unwrap_or(0),
+        })
+    })
+    .map(|rows| {
+        rows.filter_map(Result::ok)
+            /*
+             * Sandboxes are refused here as well as at the source.
+             *
+             * Cowork gives every session its own container at /sessions/<name>,
+             * so each is a project of one. The reader stops new ones, but rows
+             * cached before that still carry them, and a list where ten of
+             * twelve entries are generated adjectives buries the two real
+             * repositories. Done in Rust rather than in SQL so "sandbox" has one
+             * definition with tests on it.
+             */
+            .filter(|row: &ProjectRow| !crate::work_history::is_sandbox(&row.path))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+/// The last thing asked in a project, from the picker's own cache.
+///
+/// Read from `transcript_digest` rather than by re-opening the newest
+/// transcript: the digest already holds `last_prompt` for every conversation
+/// the picker has ever listed, it is there for sources this module cannot parse
+/// itself, and it is the field `work_history` describes as "exactly the point
+/// they stopped".
+pub fn last_prompt_for_project(conn: &Connection, path: &str) -> String {
+    conn.query_row(
+        "SELECT last_prompt FROM transcript_digest
+          WHERE project = ?1 AND last_prompt <> ''
+          ORDER BY ended_at DESC LIMIT 1",
+        [path],
+        |row| row.get(0),
+    )
+    .unwrap_or_default()
+}
+
+/// One thing somebody is working on, and how much of it there is.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectRow {
+    /// Full path, which is the identity. Two folders called Sidq are two things.
+    pub path: String,
+    /// What a person calls it. The last path component.
+    pub name: String,
+    pub conversations: usize,
+    pub turns: usize,
+    pub minutes: usize,
+    /// Unix millis of the earliest conversation, and the latest.
+    pub started: i64,
+    pub touched: i64,
+}
+
+/// What the conversations in a project were called, newest first.
+///
+/// Titles are already written by the assistants themselves — "Pricing page
+/// copy", "Notch placement on the pill" — and they are the cheapest honest
+/// answer to what a project has actually involved. Nothing is inferred: this is
+/// a list of names somebody or something else already chose.
+pub fn titles_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<String> {
+    let Ok(mut stmt) = conn.prepare(
+        // Grouped, because assistants reuse a title across separate
+        // conversations — "Long conversation handling in SIDQ" was four of the
+        // twelve rows here. The same name four times is not four things.
+        "SELECT title, MAX(ended_at) AS last FROM sessions
+          WHERE project_path = ?1 AND title <> ''
+          GROUP BY title ORDER BY last DESC LIMIT ?2",
+    ) else {
+        return Vec::new();
+    };
+    stmt.query_map(params![path, limit], |row| row.get(0))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
+/// Which assistants were used on one project.
+pub fn assistants_for_project(conn: &Connection, path: &str) -> Vec<String> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT DISTINCT source FROM sessions WHERE project_path = ?1 ORDER BY source",
+    ) else {
+        return Vec::new();
+    };
+    stmt.query_map([path], |row| row.get(0))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
+/// The conversations in one project, newest first, for reading their arcs.
+pub fn sessions_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<(String, String)> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT session_id, source FROM sessions
+          WHERE project_path = ?1 ORDER BY ended_at DESC LIMIT ?2",
+    ) else {
+        return Vec::new();
+    };
+    stmt.query_map(params![path, limit], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default()
+}
+
 pub fn own_turns(conn: &Connection, limit: usize) -> Vec<(String, String)> {
     let Ok(mut stmt) = conn.prepare(
         "SELECT m.session_id, m.body
@@ -682,6 +862,7 @@ pub fn put_session(
     source: &str,
     title: &str,
     project: &str,
+    project_path: &str,
     branch: &str,
     ended_at: i64,
     turns: u32,
@@ -689,10 +870,12 @@ pub fn put_session(
 ) -> Option<()> {
     conn.execute(
         "INSERT INTO sessions
-           (session_id, source, title, project, branch, ended_at, turns, active_minutes, indexed_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
+           (session_id, source, title, project, project_path, branch, ended_at, turns,
+            active_minutes, indexed_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
          ON CONFLICT(session_id) DO UPDATE SET
            source=excluded.source, title=excluded.title, project=excluded.project,
+           project_path=excluded.project_path,
            branch=excluded.branch, ended_at=excluded.ended_at, turns=excluded.turns,
            active_minutes=excluded.active_minutes, indexed_at=excluded.indexed_at",
         params![
@@ -700,6 +883,7 @@ pub fn put_session(
             source,
             title,
             project,
+            project_path,
             branch,
             ended_at,
             turns,
@@ -929,7 +1113,7 @@ pub(crate) mod tests {
     }
 
     fn seed(conn: &Connection, id: &str, ended_at: i64, body: &str) {
-        put_session(conn, id, "claude-code", "A conversation", "Sidq", "main", ended_at, 10, 30)
+        put_session(conn, id, "claude-code", "A conversation", "Sidq", "/w/Sidq", "main", ended_at, 10, 30)
             .unwrap();
         put_messages(conn, id, &[("You".into(), body.into())], "fp").unwrap();
     }
@@ -946,7 +1130,7 @@ pub(crate) mod tests {
          * conversation.
          */
         let conn = memory();
-        put_session(&conn, "s", "gemini", "A Friendly Greeting", "", "", 1, 4, 0).unwrap();
+        put_session(&conn, "s", "gemini", "A Friendly Greeting", "", "", "", 1, 4, 0).unwrap();
         put_messages(
             &conn,
             "s",
@@ -974,7 +1158,7 @@ pub(crate) mod tests {
         // The rule is positional, so it has to be exactly positional: an
         // assistant turn is furniture only when nothing was asked before it.
         let conn = memory();
-        put_session(&conn, "s", "gemini", "Fine", "", "", 1, 2, 0).unwrap();
+        put_session(&conn, "s", "gemini", "Fine", "", "", "", 1, 2, 0).unwrap();
         put_messages(
             &conn,
             "s",
@@ -993,7 +1177,7 @@ pub(crate) mod tests {
     #[test]
     fn the_repair_runs_once_and_says_so() {
         let conn = memory();
-        put_session(&conn, "s", "gemini", "x", "", "", 1, 2, 0).unwrap();
+        put_session(&conn, "s", "gemini", "x", "", "", "", 1, 2, 0).unwrap();
         put_messages(
             &conn,
             "s",

@@ -528,7 +528,7 @@ mod tests {
 
         for c in &conversations {
             crate::index_store::put_session(
-                &conn, &c.session_id, c.source, &c.title, c.source, "",
+                &conn, &c.session_id, c.source, &c.title, c.source, "", "",
                 c.ended_at, c.turns.len() as u32, 0,
             )
             .unwrap();
@@ -555,7 +555,7 @@ mod tests {
         // The session row too: search joins against it, so leaving it out makes
         // the query return nothing and the test pass for the wrong reason.
         crate::index_store::put_session(
-            &conn, &c.session_id, c.source, &c.title, c.source, "",
+            &conn, &c.session_id, c.source, &c.title, c.source, "", "",
             c.ended_at, c.turns.len() as u32, 0,
         )
         .unwrap();

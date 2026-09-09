@@ -101,7 +101,7 @@ const MIN_WORD_CHARS: usize = 4;
  * (HIG, MD)` and `use labels with icons (Material Design)` — lines out of a
  * design skill, presented back to the person as their own standing rules.
  */
-const INJECTED_MARKERS: [&str; 12] = [
+const INJECTED_MARKERS: [&str; 13] = [
     "<system-reminder>",
     "<command-name>",
     "<command-message>",
@@ -110,6 +110,16 @@ const INJECTED_MARKERS: [&str; 12] = [
     "Base directory for this skill:",
     "Contents of /",
     "This session is being continued from a previous conversation",
+    /*
+     * A project memory, delivered into a composer by Sidq itself.
+     *
+     * Exactly the loop below, one layer out: the memory is put in front of an
+     * assistant, the screen reader picks the composer up seconds later, and
+     * every line of it arrives attributed to the person who did not type any of
+     * it. Left unlisted, Sidq's own summary of a project becomes evidence about
+     * how somebody works, and feeds the next one.
+     */
+    crate::memory::HEADER,
     /*
      * ── Sidq's own handover, pasted back in ──────────────────────────────────
      *
@@ -177,11 +187,20 @@ pub struct Fact {
  *
  * Only what a person typed can be evidence of how that person works.
  */
+/// Machinery rather than something a person said.
+///
+/// Split out so the modules that generate machinery can assert their own output
+/// is recognised as such. A marker that stops matching is silent otherwise: the
+/// text simply starts counting as speech.
+pub(crate) fn is_injected(body: &str) -> bool {
+    INJECTED_MARKERS.iter().any(|m| body.contains(m))
+}
+
 pub(crate) fn is_typed(body: &str) -> bool {
     if body.chars().count() > MAX_TURN_CHARS {
         return false;
     }
-    if INJECTED_MARKERS.iter().any(|m| body.contains(m)) {
+    if is_injected(body) {
         return false;
     }
     /*

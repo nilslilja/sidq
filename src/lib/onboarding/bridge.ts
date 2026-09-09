@@ -102,6 +102,38 @@ export interface HandoverRecord {
   project: string;
 }
 
+/** One thing somebody is working on, and how much of it there is. */
+export interface ProjectRow {
+  /** Full path, which is the identity. Two folders called Sidq are two things. */
+  path: string;
+  /** What a person calls it. */
+  name: string;
+  conversations: number;
+  turns: number;
+  minutes: number;
+  started: number;
+  touched: number;
+}
+
+/**
+ * What Sidq knows about one project, quoted from the person's own words.
+ *
+ * Nothing here is generated. `decisions` carry the number of conversations they
+ * were said in, for the same reason the profile does: the count is the evidence.
+ */
+export interface ProjectMemory {
+  name: string;
+  path: string;
+  openedWith: string;
+  lastOn: string;
+  decisions: { text: string; conversations: number }[];
+  recentWork: string[];
+  assistants: string[];
+  conversations: number;
+  turns: number;
+  minutes: number;
+}
+
 export interface ProfileFact {
   text: string;
   conversations: number;
@@ -470,6 +502,16 @@ export interface OnboardingBridge {
     project: string;
     assistant: string;
   }) => Promise<void>;
+  /** Everything Sidq can see being worked on, busiest first. */
+  projects: () => Promise<ProjectRow[]>;
+  /** What it knows about one of them. */
+  projectMemory: (path: string) => Promise<ProjectMemory | null>;
+  /**
+   * Put a project's memory in front of an assistant.
+   *
+   * The difference from every handover before it: nothing had to be picked.
+   */
+  memoryInto: (path: string, assistant: string) => Promise<void>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -698,6 +740,12 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     handOverInto: async (args) => {
       await invoke("hand_over_into", { ...args });
+    },
+    projects: async () => ((await invoke("projects")) as ProjectRow[]) ?? [],
+    projectMemory: async (path: string) =>
+      ((await invoke("project_memory", { path })) as ProjectMemory | null) ?? null,
+    memoryInto: async (path: string, assistant: string) => {
+      await invoke("memory_into", { path, assistant });
     },
     finish: async () => {
       await invoke("finish_onboarding");

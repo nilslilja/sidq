@@ -30,6 +30,7 @@ mod redact;
 
 mod cursor_history;
 mod screen_reader;
+mod memory;
 mod selection;
 mod work_history;
 
@@ -986,7 +987,7 @@ fn absorb(conversation: &Conversation) {
 
     let _ = index_store::put_session(
         &conn, &session_id, &conversation.source, &title,
-        &conversation.source, "", now, kept as u32, 0,
+        &conversation.source, "", "", now, kept as u32, 0,
     );
 }
 
@@ -1392,6 +1393,46 @@ async fn hand_over_into(
     .ok_or("Could not read that conversation.")?;
 
     let (text, assistant) = text;
+    assistants::deliver(&app, &assistant, &text)
+}
+
+/// Everything Sidq can see somebody working on, busiest first.
+#[tauri::command]
+async fn projects() -> Vec<index_store::ProjectRow> {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open().map(|conn| index_store::projects(&conn, 40)).unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// What Sidq knows about one of them.
+#[tauri::command]
+async fn project_memory(path: String) -> Option<memory::Memory> {
+    tauri::async_runtime::spawn_blocking(move || {
+        memory::build(&index_store::open()?, &path)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/**
+ * Put a project's memory in front of an assistant.
+ *
+ * The difference between this and every handover before it: nothing had to be
+ * picked. You are working on a thing, the assistant is told what the thing is,
+ * and neither of you had to remember which conversation it was in.
+ */
+#[tauri::command]
+async fn memory_into(app: AppHandle, path: String, assistant: String) -> Result<(), String> {
+    let text = tauri::async_runtime::spawn_blocking(move || {
+        memory::build(&index_store::open()?, &path).map(|m| m.as_markdown())
+    })
+    .await
+    .map_err(|_| "Could not read that project.".to_string())?
+    .ok_or("Sidq has nothing on that project yet.")?;
+
     assistants::deliver(&app, &assistant, &text)
 }
 
@@ -1983,6 +2024,7 @@ async fn import_export(json: String) -> Result<usize, String> {
                 &c.title,
                 c.source,
                 "",
+                "",
                 c.ended_at,
                 c.turns.len() as u32,
                 0,
@@ -2245,7 +2287,10 @@ fn main() {
             set_onboarding_step,
             move_pill,
             aim_at,
-            hand_over_into
+            hand_over_into,
+            projects,
+            project_memory,
+            memory_into
         ])
         .setup(|app| {
             /*

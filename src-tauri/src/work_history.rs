@@ -749,7 +749,8 @@ fn read_session(path: &Path, source: &'static str) -> Option<WorkSession> {
         }
 
         if session.project.is_empty() {
-            if let Some(cwd) = value.get("cwd").and_then(|v| v.as_str()) {
+            if let Some(cwd) = value.get("cwd").and_then(|v| v.as_str()).filter(|c| !is_sandbox(c))
+            {
                 session.project = cwd.to_string();
                 session.project_name = Path::new(cwd)
                     .file_name()
@@ -831,6 +832,25 @@ const ACTIVE_GAP_MS: i64 = 30 * 60 * 1_000;
  * hours while holding about 19 hours of work. Gaps beyond a short pause are
  * excluded so this measures time at the keyboard.
  */
+/**
+ * A throwaway sandbox rather than somewhere work lives.
+ *
+ * Cowork runs every session in its own container at `/sessions/<name>`, where
+ * the name is generated per session: `epic-festive-tesla`, `loving-wonderful-
+ * gates`. Read as a project that produces one project per conversation, and on
+ * this machine that was ten of the twelve — a list of things that look like
+ * projects, group nothing, and push the real ones off the end.
+ *
+ * Worse than an empty project, because empty is honestly nothing and this is
+ * confidently wrong. The conversation is still read and still handed over; it
+ * simply is not filed under a place.
+ */
+pub(crate) fn is_sandbox(cwd: &str) -> bool {
+    // Exactly one level under /sessions. A real repo somebody happens to keep at
+    // /sessions/work/api is theirs and is left alone.
+    cwd.strip_prefix("/sessions/").is_some_and(|rest| !rest.contains('/'))
+}
+
 fn active_minutes(stamps: &mut [i64]) -> u32 {
     stamps.sort_unstable();
     /*
@@ -997,6 +1017,29 @@ mod tests {
     #[test]
     fn truncate_leaves_short_text_alone() {
         assert_eq!(truncate("  hello  ", 50), "hello");
+    }
+
+    /*
+     * ── Ten of twelve "projects" on this machine were sandboxes ──────────────
+     *
+     * Cowork gives every session its own container at /sessions/<generated
+     * name>. Filed as projects they are one project per conversation, which
+     * groups nothing and buries the two real repositories underneath a list of
+     * adjectives.
+     */
+    #[test]
+    fn a_cowork_sandbox_is_not_a_project() {
+        assert!(is_sandbox("/sessions/epic-festive-tesla"));
+        assert!(is_sandbox("/sessions/loving-wonderful-gates"));
+    }
+
+    #[test]
+    fn somewhere_a_person_actually_keeps_work_is_left_alone() {
+        assert!(!is_sandbox("/Users/nilslilja/Sidq"));
+        assert!(!is_sandbox("/Users/nilslilja/.claude"));
+        // Theirs, and nested, so not one of Cowork's.
+        assert!(!is_sandbox("/sessions/work/api"));
+        assert!(!is_sandbox("/sessions"));
     }
 
     #[test]

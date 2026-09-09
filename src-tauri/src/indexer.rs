@@ -122,6 +122,7 @@ pub fn sweep(conn: &Connection) -> usize {
             session.source,
             &session.title,
             &session.project_name,
+            &session.project,
             &session.branch,
             session.ended_at,
             session.turns,

@@ -985,7 +985,7 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
 
         let clean = title.split(" - ").next().unwrap_or(&title).trim().to_string();
         let _ = crate::index_store::put_session(
-            conn, &session_id, source, &clean, source, "", now, turns.len() as u32, 0,
+            conn, &session_id, source, &clean, source, "", "", now, turns.len() as u32, 0,
         );
 
         /*
@@ -1016,7 +1016,7 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
             // Again, now the merged length is known: the row above counted only
             // the turns this one read could see, and ranking reads that count.
             let _ = crate::index_store::put_session(
-                conn, &session_id, source, &clean, source, "", now, kept as u32, 0,
+                conn, &session_id, source, &clean, source, "", "", now, kept as u32, 0,
             );
             found.push(Found { source, title: clean, first_time });
         }

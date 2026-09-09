@@ -5,6 +5,8 @@ import {
   type PlanStatus,
   type InviteSummary,
   type ProfileFact,
+  type ProjectRow,
+  type ProjectMemory,
   type SearchHit,
   type FoundTeam,
   type SharedHandover,
@@ -42,7 +44,14 @@ import { SidqMark } from "@/components/SidqMark";
  */
 
 type Tab =
-  "overview" | "search" | "sources" | "profile" | "team" | "plan" | "invite";
+  | "overview"
+  | "search"
+  | "sources"
+  | "projects"
+  | "profile"
+  | "team"
+  | "plan"
+  | "invite";
 
 type IconName = Tab;
 
@@ -57,6 +66,14 @@ const TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] = [
   { id: "overview", label: "Overview", icon: "overview" },
   { id: "search", label: "Search", icon: "search" },
   { id: "sources", label: "Sources", icon: "sources" },
+  /*
+   * Beside "How you work", and the pair is the point.
+   *
+   * That one is what you keep telling every assistant, across everything. This
+   * is what you are telling them about one thing. Same evidence, same quoted
+   * lines with a count beside them, different question.
+   */
+  { id: "projects", label: "What you're on", icon: "projects" },
   { id: "profile", label: "How you work", icon: "profile" },
   { id: "team", label: "Your team", icon: "team" },
   { id: "plan", label: "Plan", icon: "plan", secondary: true },
@@ -517,6 +534,7 @@ export function Home() {
             {tab === "sources" && (
               <Sources sessions={sessions} bridge={bridge} />
             )}
+            {tab === "projects" && <Projects bridge={bridge} />}
             {tab === "profile" && <Profile bridge={bridge} />}
             {tab === "team" && <Team bridge={bridge} />}
             {tab === "plan" && <Plan bridge={bridge} plan={plan} />}
@@ -620,6 +638,11 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
         <rect x="10.5" y="2.5" width="5" height="5" rx="1.2" />
         <rect x="2.5" y="10.5" width="5" height="5" rx="1.2" />
         <rect x="10.5" y="10.5" width="5" height="5" rx="1.2" />
+      </>
+    ),
+    projects: (
+      <>
+        <path d="M2.5 5.5a1 1 0 0 1 1-1h3.2l1.4 1.6h6.4a1 1 0 0 1 1 1v6.4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1Z" />
       </>
     ),
     search: (
@@ -1538,6 +1561,206 @@ function Invite({
  * quotation with a count next to it rather than as a claim about you: the count
  * is the evidence, and you can see for yourself whether it is right.
  */
+/**
+ * What you are working on, per project.
+ *
+ * The sibling of "How you work". That one answers what you tell every assistant
+ * about everything; this answers what one thing has actually involved — and it
+ * is assembled the same way, out of sentences already on this machine, with the
+ * count beside each because the count is why the line is there.
+ *
+ * "Send to" is the difference from a handover. Nothing has to be picked: you are
+ * working on a thing, and the assistant is told what the thing is.
+ */
+function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [rows, setRows] = useState<ProjectRow[] | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [memory, setMemory] = useState<ProjectMemory | null>(null);
+  const [assistants, setAssistants] = useState<{ id: string; label: string }[]>(
+    [],
+  );
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.projects().then((found) => {
+      setRows(found);
+      setChosen((was) => was ?? found[0]?.path ?? null);
+    });
+    void bridge.assistantList().then(setAssistants);
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge || !chosen) return;
+    setMemory(null);
+    void bridge.projectMemory(chosen).then(setMemory);
+  }, [bridge, chosen]);
+
+  const heading = <PanelHead title="What you're on" />;
+
+  if (rows === null) {
+    return (
+      <>
+        {heading}
+        <p className="mt-4 text-[0.875rem] text-[var(--w-text-4)]">
+          Reading your conversations&hellip;
+        </p>
+      </>
+    );
+  }
+
+  /*
+   * Empty says empty, and says why.
+   *
+   * A browser conversation has no project — it is filed under the assistant,
+   * which is not a place — so this fills up from work done in an editor or a
+   * terminal. Somebody who only uses ChatGPT should be told that rather than
+   * left wondering what is broken.
+   */
+  if (rows.length === 0) {
+    return (
+      <>
+        {heading}
+        <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
+          Nothing yet. This fills up from work done somewhere with a folder
+          &mdash; Claude Code, Cursor, Codex. Conversations in a browser are
+          filed under the assistant rather than a project, so they do not appear
+          here.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {heading}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {rows.map((row) => (
+          <button
+            key={row.path}
+            onClick={() => setChosen(row.path)}
+            title={row.path}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+              "cursor-pointer transition-colors duration-150",
+              row.path === chosen
+                ? "bg-[var(--w-invert)] text-[var(--w-on-invert)]"
+                : "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)] hover:bg-[var(--w-line)]",
+            )}
+          >
+            {row.name}
+            <span className="ml-2 tabular-nums opacity-60">
+              {row.conversations}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {memory && (
+        <div className="mt-7">
+          <p className="text-[0.875rem] text-[var(--w-text-3)]">
+            {memory.conversations} conversations, {memory.turns.toLocaleString()}{" "}
+            exchanges, about {Math.round(memory.minutes / 60)} hours
+            {memory.assistants.length > 0 && ` in ${memory.assistants.join(", ")}`}
+            .
+          </p>
+
+          {memory.openedWith && (
+            <Quoted label="It started with" text={memory.openedWith} />
+          )}
+          {memory.lastOn && (
+            <Quoted label="Where it got to" text={memory.lastOn} />
+          )}
+
+          {memory.recentWork.length > 0 && (
+            <>
+              <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
+                What has been worked on
+              </p>
+              <ul className="mt-2 space-y-px">
+                {memory.recentWork.map((title) => (
+                  <li
+                    key={title}
+                    className="truncate rounded-[10px] px-3 py-2 text-[0.875rem] text-[var(--w-text)]"
+                  >
+                    {title}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {memory.decisions.length > 0 && (
+            <>
+              <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
+                Decided along the way
+              </p>
+              <ul className="mt-2 space-y-px">
+                {memory.decisions.map((d) => (
+                  <li
+                    key={d.text}
+                    className="flex items-baseline gap-4 rounded-[10px] px-3 py-2.5"
+                  >
+                    <span className="min-w-0 flex-1 text-[0.875rem] text-[var(--w-text)]">
+                      {d.text}
+                    </span>
+                    <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
+                      {d.conversations}&times;
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {assistants.length > 0 && (
+            <div className="mt-7 border-t border-[var(--w-line)] pt-5">
+              <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+                Put this in front of an AI
+              </p>
+              <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+                It opens in Sidq with everything above already in the box.
+                Nothing is sent until you press return.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {assistants.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() =>
+                      chosen && void bridge?.memoryInto(chosen, a.id)
+                    }
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+                      "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
+                      "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)]",
+                    )}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** One quoted line with what it is, for the two ends of a project's arc. */
+function Quoted({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="mt-4">
+      <p className="text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
+        {label}
+      </p>
+      <p className="mt-1.5 max-w-[64ch] text-[0.875rem] leading-relaxed text-[var(--w-text)]">
+        {text}
+      </p>
+    </div>
+  );
+}
+
 function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [facts, setFacts] = useState<ProfileFact[] | null>(null);
   const [preamble, setPreamble] = useState("");
