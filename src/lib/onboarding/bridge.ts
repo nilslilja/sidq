@@ -539,6 +539,14 @@ export interface OnboardingBridge {
    * the memory itself, so "what was I working on" is answered without anybody
    * carrying anything.
    */
+  /*
+   * Counting how the app is used. Off unless somebody ticks the box, and the
+   * list is readable in Settings so the promise can be checked rather than
+   * taken on trust.
+   */
+  counting: () => Promise<boolean>;
+  setCounting: (on: boolean) => Promise<void>;
+  countedEvents: () => Promise<string[]>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -781,6 +789,11 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
+    counting: async () => ((await invoke("counting")) as boolean) ?? false,
+    setCounting: async (on: boolean) => {
+      await invoke("set_counting", { on });
+    },
+    countedEvents: async () => ((await invoke("counted_events")) as string[]) ?? [],
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

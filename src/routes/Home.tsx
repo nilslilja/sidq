@@ -1119,7 +1119,94 @@ function Overview({
           )}
         </aside>
       </div>
+
+      <Counting bridge={bridge} />
     </>
+  );
+}
+
+/**
+ * What Sidq counts, and the switch that stops it.
+ *
+ * ── Why the list is printed rather than summarised ───────────────────────────
+ *
+ * Every app with a privacy toggle says "usage data" and expects to be believed.
+ * This product's entire argument is that you do not have to believe it, so the
+ * events are named, in full, in the window, and the list comes from Rust rather
+ * than being typed here — a hand-written copy would start lying the moment an
+ * event was added, and it would lie in the one place somebody went to check.
+ *
+ * The section is absent until the first read returns, rather than rendering an
+ * off switch that might be wrong. Showing "off" to somebody who turned it on is
+ * a privacy control giving the wrong answer, which is worse than none.
+ */
+function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [events, setEvents] = useState<string[]>([]);
+  const [showing, setShowing] = useState(false);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.counting().then(setOn);
+    void bridge.countedEvents().then(setEvents);
+  }, [bridge]);
+
+  if (on === null) return null;
+
+  return (
+    <section className="mt-10 border-t border-[var(--w-line)] pt-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+            Counting how you use Sidq
+          </p>
+          <p className="mt-1.5 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+            {on
+              ? "On. Numbers only, with no text of any kind in them: never a conversation, a title, a prompt or a filename. Turning it off also deletes anything not yet sent."
+              : "Off. Nothing about how you use Sidq leaves this Mac."}
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            const next = !on;
+            setOn(next);
+            void bridge?.setCounting(next);
+          }}
+          className={cn(
+            "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+            "cursor-pointer transition-colors duration-150",
+            on
+              ? "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)] hover:bg-[var(--w-line)]"
+              : "bg-[var(--w-invert)] text-[var(--w-on-invert)] hover:opacity-90",
+          )}
+        >
+          {on ? "Turn it off" : "Turn it on"}
+        </button>
+      </div>
+
+      {events.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowing((was) => !was)}
+            className="mt-3 cursor-pointer text-[0.8125rem] text-[var(--w-text-3)] underline underline-offset-4 hover:text-[var(--w-text)]"
+          >
+            {showing ? "Hide the list" : `Everything it can count (${events.length})`}
+          </button>
+          {showing && (
+            <ul className="mt-3 space-y-1">
+              {events.map((name) => (
+                <li
+                  key={name}
+                  className="font-mono text-[0.75rem] text-[var(--w-text-3)]"
+                >
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

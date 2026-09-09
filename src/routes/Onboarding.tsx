@@ -108,6 +108,15 @@ export default function Onboarding() {
   const [taps, setTaps] = useState<[string, string]>(["right ⌘", "left ⌃"]);
   const [discovery, setDiscovery] = useState<string | null>(null);
   /*
+   * Whether to count how the app is used. Starts false and the box starts
+   * empty, which is the whole basis of the claim the privacy policy makes.
+   *
+   * On this screen rather than its own, deliberately. Setup is where people
+   * give up, and adding a step in order to measure where people give up would
+   * cost more of them than the measurement is worth.
+   */
+  const [counting, setCounting] = useState(false);
+  /*
    * Handovers made, polled while the handover step is up. The step advances
    * when this goes above zero, so it is gated on the thing actually happening
    * rather than on a button that says it did.
@@ -349,8 +358,15 @@ export default function Onboarding() {
     } catch {
       /* private mode; losing an analytics answer is not worth a dead end */
     }
+    /*
+     * Written whichever way it was answered, so that "no" is a recorded no
+     * rather than an absent yes. It changes nothing today — absent already
+     * means off — and it means a later default can never silently reinterpret
+     * somebody who declined.
+     */
+    void bridge?.setCounting(counting);
     advance();
-  }, [discovery, advance]);
+  }, [discovery, counting, bridge, advance]);
 
   if (!readTrust) {
     return (
@@ -394,7 +410,31 @@ export default function Onboarding() {
               selected={discovery ? [discovery] : []}
               onToggle={setDiscovery}
             />
-            <div className="mt-7">
+            {/*
+              * Unticked, and it stays unticked unless somebody acts.
+              *
+              * The wording says what is counted rather than asking to "help
+              * improve Sidq", which is what every one of these says and which
+              * tells nobody anything. The honest version of the ask is that
+              * without it there is no way to tell nobody downloading it from
+              * everybody giving up on this exact screen.
+              */}
+            <label className="mt-7 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={counting}
+                onChange={(e) => setCounting(e.target.checked)}
+                className="mt-0.5 size-4 shrink-0 cursor-pointer accent-lilac"
+              />
+              <span className="text-[0.8125rem] leading-relaxed text-white/55">
+                Count how I use Sidq. Which screens I reach and which buttons I
+                press, as numbers with no text in them. Never a conversation, a
+                title or a filename. You can read the full list and switch it
+                off inside Sidq at any time.
+              </span>
+            </label>
+
+            <div className="mt-6">
               <PrimaryAction label="Start using Sidq" onClick={saveDiscovery} />
             </div>
             <p className="mt-4 text-[0.75rem] leading-relaxed text-white/30">
