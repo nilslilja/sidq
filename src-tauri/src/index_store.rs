@@ -284,6 +284,17 @@ pub fn put_setting(conn: &Connection, key: &str, value: &str) -> Option<()> {
     .map(|_| ())
 }
 
+/**
+ * Forget one remembered fact.
+ *
+ * Absent and empty are different things for some of these — a share secret
+ * that is present but blank would be sent as a blank secret — so this removes
+ * the row rather than writing "" over it.
+ */
+pub fn forget_setting(conn: &Connection, key: &str) -> Option<()> {
+    conn.execute("DELETE FROM settings WHERE key = ?1", [key]).ok().map(|_| ())
+}
+
 /// Record that a conversation was handed over, at a moment in seconds.
 /**
  * Whether this conversation has been seen before.

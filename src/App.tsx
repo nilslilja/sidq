@@ -24,6 +24,9 @@ const Home = lazy(() =>
 // First run. Its own window in the desktop app, its own chunk everywhere, since
 // it is seen exactly once per install and never again.
 const Onboarding = lazy(() => import("@/routes/Onboarding"));
+// A published project memory. Lazy because almost nobody who loads the site
+// ever opens one, and whoever does arrived by link rather than by browsing.
+const SharedMemory = lazy(() => import("@/routes/SharedMemory"));
 
 // The desktop sign-in hand-off. Its own chunk and its own route, deliberately
 // not linked from anywhere on the site: it is the middle of a round trip that
@@ -178,6 +181,16 @@ function Shell() {
       <div className="relative min-h-[100dvh]">
         <Routes>
           <Route path="/" element={<Landing />} />
+          {/* Someone else's memory, on a link they sent. Not prerendered: the
+              content is fetched per id and there is no fixed page to build. */}
+          <Route
+            path="/m/:id"
+            element={
+              <Suspense fallback={<Blank />}>
+                <SharedMemory />
+              </Suspense>
+            }
+          />
           <Route
             path="/build"
             element={

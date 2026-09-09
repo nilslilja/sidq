@@ -28,7 +28,7 @@ mod pill_window;
 use sidq::{
     capture, codex_history, compiler, cursor_history, double_tap, entitlement, imports,
     index_store, invites, login_item, mcp_setup, memory, profile, quick_grab, screen_reader,
-    telemetry,
+    sharing, telemetry,
     team_context, work_history,
 };
 
@@ -1521,6 +1521,63 @@ async fn counted_events() -> Vec<(String, String)> {
 }
 
 /**
+ * Where a published memory can be read, if this build has a backend at all.
+ *
+ * Returns both halves because every caller needs both: the endpoint to talk to
+ * and the origin the link is printed against. A local build has neither and
+ * publishing is simply unavailable there rather than silently broken.
+ */
+fn share_endpoint() -> Option<(String, String, String)> {
+    let url = option_env!("VITE_SUPABASE_URL")?.to_string();
+    let key = option_env!("VITE_SUPABASE_ANON_KEY")?.to_string();
+    Some((url, key, web_origin()?))
+}
+
+/**
+ * Publish a project's memory and return the link to it.
+ *
+ * The one command in this app that deliberately sends something somewhere. It
+ * runs only when a person pressed publish on one named project, having been
+ * told in the window what leaves the Mac.
+ */
+#[tauri::command]
+async fn share_memory(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (url, key, origin) = share_endpoint()?;
+        let conn = index_store::open()?;
+        let id = sharing::publish(&conn, &url, &key, &path)?;
+        Some(format!("{origin}/m/{id}"))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Take a published memory down. True when the server confirmed it.
+#[tauri::command]
+async fn unshare_memory(path: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some((url, key, _)) = share_endpoint() else { return false };
+        index_store::open().map(|c| sharing::unpublish(&c, &url, &key, &path)).unwrap_or(false)
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// The link this project is already published under, if any.
+#[tauri::command]
+async fn memory_link(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let (_, _, origin) = share_endpoint()?;
+        let conn = index_store::open()?;
+        sharing::published(&conn, &path).map(|id| format!("{origin}/m/{id}"))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/**
  * Count a setup step, by name.
  *
  * The name is looked up, never converted: `telemetry::setup_step` returns
@@ -2492,6 +2549,9 @@ fn main() {
             counted_events,
             count_setup_step,
             count_ready,
+            share_memory,
+            unshare_memory,
+            memory_link,
             share_project,
             team_projects,
             read_team_project

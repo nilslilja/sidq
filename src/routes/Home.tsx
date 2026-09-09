@@ -1685,6 +1685,16 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [clients, setClients] = useState<[string, string, boolean][]>([]);
   const [connected, setConnected] = useState<string | null>(null);
 
+  /*
+   * The public link for the chosen project, when it has one.
+   *
+   * `undefined` while unknown and `null` for "not published", because those are
+   * different and rendering "Publish" at a project that is already public would
+   * be the window lying about where somebody's work is.
+   */
+  const [link, setLink] = useState<string | null | undefined>(undefined);
+  const [publishing, setPublishing] = useState(false);
+
   useEffect(() => {
     if (!bridge) return;
     void bridge.teamProjects().then(setTeam);
@@ -1699,7 +1709,9 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   useEffect(() => {
     if (!bridge || !chosen) return;
     setMemory(null);
+    setLink(undefined);
     void bridge.projectMemory(chosen).then(setMemory);
+    void bridge.memoryLink(chosen).then(setLink);
   }, [bridge, chosen]);
 
   const heading = <PanelHead title="What you're on" />;
@@ -1942,6 +1954,75 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                   {sharedWith === chosen ? "Shared with team" : "Share with team"}
                 </button>
               </div>
+
+              {/*
+                * ── Publishing to a link, which is the one thing that leaves ───
+                *
+                * Kept apart from the row of assistants and from the team
+                * button, both of which stay on this machine or inside a folder
+                * the team already syncs. This one puts text on the internet, so
+                * it says so in the sentence next to it rather than in a tooltip
+                * or a policy nobody opens, and it never happens without a press.
+                *
+                * Hidden entirely while the link is unknown. Offering "Publish"
+                * to a project that turns out to already be public is the one
+                * mistake this control must not make.
+                */}
+              {link !== undefined && (
+                <div className="mt-4 border-t border-[var(--w-line)] pt-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <p className="max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
+                      {link
+                        ? "This memory is on the internet. Anyone with the link can read it, and taking it down removes the page."
+                        : "Put this memory on a link you can send. It leaves your Mac, so read it first — nothing else here does."}
+                    </p>
+                    <button
+                      disabled={publishing}
+                      onClick={() => {
+                        if (!chosen) return;
+                        setPublishing(true);
+                        const done = () => setPublishing(false);
+                        if (link) {
+                          void bridge
+                            ?.unshareMemory(chosen)
+                            .then(() => setLink(null))
+                            .finally(done);
+                        } else {
+                          void bridge
+                            ?.shareMemory(chosen)
+                            .then((made) => {
+                              setLink(made);
+                              // Straight to the clipboard. The reason to make a
+                              // link is to send it, and a link you then have to
+                              // go and select is a second step for no reason.
+                              if (made) void navigator.clipboard?.writeText(made);
+                            })
+                            .finally(done);
+                        }
+                      }}
+                      className={cn(
+                        "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+                        "cursor-pointer transition-colors duration-150 disabled:opacity-50",
+                        link
+                          ? "border border-[var(--w-line)] text-[var(--w-text-3)] hover:border-[var(--w-text)] hover:text-[var(--w-text)]"
+                          : "bg-[var(--w-invert)] text-[var(--w-on-invert)] hover:opacity-90",
+                      )}
+                    >
+                      {publishing
+                        ? "Working\u2026"
+                        : link
+                          ? "Unpublish"
+                          : "Publish to a link"}
+                    </button>
+                  </div>
+
+                  {link && (
+                    <p className="mt-2 truncate font-mono text-[0.75rem] text-[var(--w-text-5)]">
+                      {link}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

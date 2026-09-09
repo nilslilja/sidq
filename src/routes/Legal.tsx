@@ -116,6 +116,23 @@ export function Privacy() {
         ]}
       />
 
+      <H>Sharing a project memory, if you choose to</H>
+      <P>
+        Sidq can publish one project&rsquo;s memory to a link so you can send it to
+        somebody. It is off for every project until you press publish on that project,
+        and what goes is the memory only: the name of the project, what you asked first
+        and last, and the rules that kept coming up. Never a conversation, and never the
+        folder path, because a path carries your name and the shape of your disk.
+      </P>
+      <List
+        items={[
+          'You can read the whole thing in the window before you publish it, because it is the same text Sidq shows you.',
+          'Anyone with the link can read it. The link is 22 random characters, so it cannot be found by guessing, but it is not a password either — treat it as public.',
+          'You can unpublish at any time from the same button, and the page goes. A link that has been taken down looks exactly like a link that never existed.',
+          'Publishing needs an account, so that nothing can be posted through Sidq anonymously.',
+        ]}
+      />
+
       <H>Counting, if you turn it on</H>
       <P>
         The desktop app can count how it is used. It is off unless you switch it on,

@@ -556,6 +556,17 @@ export interface OnboardingBridge {
    */
   countSetupStep: (step: string) => Promise<void>;
   countReady: () => Promise<void>;
+  /**
+   * Publish one project's memory and get the link back.
+   *
+   * The only call in this interface that sends anything anywhere. Null when
+   * the build has no backend, when nobody is signed in, or when it failed —
+   * the window says the same thing for all three, because the answer is.
+   */
+  shareMemory: (path: string) => Promise<string | null>;
+  unshareMemory: (path: string) => Promise<boolean>;
+  /** The link this project is already published under, if any. */
+  memoryLink: (path: string) => Promise<string | null>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -810,6 +821,12 @@ export function desktopBridge(): OnboardingBridge | null {
     countReady: async () => {
       await invoke("count_ready");
     },
+    shareMemory: async (path: string) =>
+      ((await invoke("share_memory", { path })) as string | null) ?? null,
+    unshareMemory: async (path: string) =>
+      ((await invoke("unshare_memory", { path })) as boolean) ?? false,
+    memoryLink: async (path: string) =>
+      ((await invoke("memory_link", { path })) as string | null) ?? null,
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>
