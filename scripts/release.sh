@@ -35,11 +35,47 @@ for f in ('src-tauri/tauri.conf.json', 'package.json'):
 p = pathlib.Path('src/lib/releases.ts'); s = p.read_text()
 import re
 p.write_text(re.sub(r"RELEASE_VERSION = '[^']+'", f"RELEASE_VERSION = '{version}'", s))
+
+# Cargo.toml too, which sat at 0.1.0 through every release until sidq-mcp
+# started reporting CARGO_PKG_VERSION to MCP clients on every handshake.
+# Nothing read it before, so nothing noticed it was wrong.
+p = pathlib.Path('src-tauri/Cargo.toml'); s = p.read_text()
+p.write_text(re.sub(r'^version = "[^"]+"', f'version = "{version}"', s, count=1, flags=re.M))
 PY
 
+# ── The MCP sidecar, built first because the app bundles it ──────────────────
+#
+# `externalBin` wants a file per target triple, named with the triple, sitting in
+# src-tauri/binaries. Tauri copies it into Contents/MacOS and signs it with the
+# app, which is what lets Claude Desktop launch it without Gatekeeper refusing.
+#
+# Built before the app rather than alongside it: a missing sidecar fails the
+# bundle step with a path error that says nothing about why.
+echo "── building the MCP sidecar"
+mkdir -p src-tauri/binaries
+( cd src-tauri
+  cargo build --release --bin sidq-mcp
+  cargo build --release --bin sidq-mcp --target x86_64-apple-darwin
+  cp target/release/sidq-mcp binaries/sidq-mcp-aarch64-apple-darwin
+  cp target/x86_64-apple-darwin/release/sidq-mcp binaries/sidq-mcp-x86_64-apple-darwin
+) >/dev/null
+
+# ── Why externalBin is passed here and not in tauri.conf.json ────────────────
+#
+# Tauri's build script resolves externalBin at compile time and fails the build
+# if the file is absent. The file is produced by compiling this same crate, so
+# putting it in the committed config makes `cargo build` and `tauri dev` depend
+# on output they cannot produce until they have run. Circular, and it breaks
+# every developer checkout rather than just this script.
+#
+# So the bundle gets it as an overlay. Dev builds carry no sidecar and do not
+# need one: mcp_setup::sidecar looks beside the running executable, which in dev
+# is target/debug/sidq-mcp.
+SIDECAR='{"bundle":{"externalBin":["binaries/sidq-mcp"]}}'
+
 echo "── building both Macs"
-npm run tauri build -- --bundles app >/dev/null
-npm run tauri build -- --bundles app --target x86_64-apple-darwin >/dev/null
+npm run tauri build -- --bundles app --config "$SIDECAR" >/dev/null
+npm run tauri build -- --bundles app --target x86_64-apple-darwin --config "$SIDECAR" >/dev/null
 
 mkdir -p release
 rm -f release/*.dmg

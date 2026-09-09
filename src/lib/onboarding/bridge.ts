@@ -531,6 +531,17 @@ export interface OnboardingBridge {
   shareProject: (path: string) => Promise<boolean>;
   /** A project's memory as text, for the clipboard. */
   memoryText: (path: string) => Promise<string | null>;
+  /*
+   * Connecting Sidq to an assistant's MCP config.
+   *
+   * The difference this makes: every other way the memory reaches an AI needs
+   * somebody to press a key and paste. Once a client is connected it asks for
+   * the memory itself, so "what was I working on" is answered without anybody
+   * carrying anything.
+   */
+  mcpClients: () => Promise<[string, string, boolean][]>;
+  connectMcp: (client: string) => Promise<string | null>;
+  mcpConfigBlock: () => Promise<string | null>;
   /** Every project anybody on the team has shared. */
   teamProjects: () => Promise<SharedProject[]>;
   /** Read one back, to put in front of an assistant. */
@@ -770,6 +781,12 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
+    mcpClients: async () =>
+      ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
+    connectMcp: async (client: string) =>
+      ((await invoke("connect_mcp", { client })) as string | null) ?? null,
+    mcpConfigBlock: async () =>
+      ((await invoke("mcp_config_block")) as string | null) ?? null,
     memoryText: async (path: string) =>
       ((await invoke("memory_text", { path })) as string | null) ?? null,
     shareProject: async (path: string) =>

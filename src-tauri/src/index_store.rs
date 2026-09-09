@@ -39,7 +39,7 @@ use std::path::PathBuf;
  * the whole batch is skipped once user_version has caught up, so a new table
  * only reaches an existing install if this number moves.
  */
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -117,6 +117,28 @@ fn migrate(conn: &Connection) -> Option<()> {
         );
 
         CREATE INDEX IF NOT EXISTS sessions_ended ON sessions(ended_at DESC);
+
+        -- ── Things an assistant recorded, kept apart from things you said ────
+        --
+        -- Deliberately not a column on any existing table and never merged into
+        -- the quoted decisions the memory builds. Those are sentences the person
+        -- typed, returned verbatim, with the number of conversations they appear
+        -- in beside them, and the count is the entire evidence. A line written
+        -- by a model has no such count and cannot be given one honestly.
+        --
+        -- Keeping them in their own table is what makes the memory's claim
+        -- survive a write tool: no query that reads `messages` can accidentally
+        -- pick one up, so the quoted section stays quoted by construction rather
+        -- than by remembering to filter.
+        CREATE TABLE IF NOT EXISTS noted (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_path TEXT NOT NULL,
+            text         TEXT NOT NULL,
+            source       TEXT NOT NULL DEFAULT '',
+            recorded_at  INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS noted_project ON noted(project_path, recorded_at DESC);
 
         -- Contentless would halve the size but cannot return snippets, and a
         -- search result without the matching line is not a search result.
@@ -209,6 +231,12 @@ fn migrate(conn: &Connection) -> Option<()> {
     if version < 4 {
         let _ = conn.execute("ALTER TABLE sessions ADD COLUMN project_path TEXT NOT NULL DEFAULT ''", []);
     }
+
+    /*
+     * 5 adds `noted`. CREATE TABLE IF NOT EXISTS above covers a fresh database
+     * and an upgrade equally, so unlike the project_path column at 4 there is
+     * nothing to ALTER — a table can be added by the batch, a column cannot.
+     */
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION).ok()?;
     Some(())
@@ -353,6 +381,79 @@ pub fn handovers_since(conn: &Connection, since: i64) -> u32 {
  * project, and what comes back is what you kept saying while building that
  * thing rather than how you work in general.
  */
+/// One thing an assistant recorded about a project, and when.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Noted {
+    pub text: String,
+    /// Which assistant recorded it, so the memory can say who is talking.
+    pub source: String,
+    pub recorded_at: i64,
+}
+
+/**
+ * Record something an assistant worked out about a project.
+ *
+ * Separate from every path that writes `messages`, and that separation is the
+ * point rather than an implementation detail. See the comment on the table.
+ *
+ * Deduped on the exact text, because an assistant asked the same question twice
+ * in a session will record the same conclusion twice, and a memory that repeats
+ * itself reads as padded whoever wrote it.
+ */
+pub fn note(conn: &Connection, project_path: &str, text: &str, source: &str) -> Option<()> {
+    let text = text.trim();
+    if text.is_empty() || project_path.is_empty() {
+        return None;
+    }
+
+    let already: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM noted WHERE project_path = ?1 AND text = ?2",
+            params![project_path, text],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    if already > 0 {
+        return Some(());
+    }
+
+    conn.execute(
+        "INSERT INTO noted (project_path, text, source, recorded_at) VALUES (?1, ?2, ?3, ?4)",
+        params![project_path, text, source, now_millis()],
+    )
+    .ok()?;
+    Some(())
+}
+
+/// What assistants have recorded about a project, newest first.
+pub fn noted_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<Noted> {
+    let Ok(mut stmt) = conn.prepare(
+        "SELECT text, source, recorded_at FROM noted
+          WHERE project_path = ?1
+          ORDER BY recorded_at DESC
+          LIMIT ?2",
+    ) else {
+        return Vec::new();
+    };
+
+    stmt.query_map(params![path, limit], |row| {
+        Ok(Noted { text: row.get(0)?, source: row.get(1)?, recorded_at: row.get(2)? })
+    })
+    .map(|rows| rows.filter_map(Result::ok).collect())
+    .unwrap_or_default()
+}
+
+/// Remove one recorded line. The person has to be able to take it back.
+pub fn forget_note(conn: &Connection, path: &str, text: &str) -> Option<()> {
+    conn.execute(
+        "DELETE FROM noted WHERE project_path = ?1 AND text = ?2",
+        params![path, text],
+    )
+    .ok()?;
+    Some(())
+}
+
 pub fn own_turns_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<(String, String)> {
     let Ok(mut stmt) = conn.prepare(
         "SELECT m.session_id, m.body

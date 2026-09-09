@@ -27,7 +27,7 @@ mod pill_window;
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
     capture, codex_history, compiler, cursor_history, double_tap, entitlement, imports,
-    index_store, invites, login_item, memory, profile, quick_grab, screen_reader,
+    index_store, invites, login_item, mcp_setup, memory, profile, quick_grab, screen_reader,
     team_context, work_history,
 };
 
@@ -1414,6 +1414,59 @@ async fn project_memory(path: String) -> Option<memory::Memory> {
     .flatten()
 }
 
+/**
+ * Which assistants on this Mac can be connected to Sidq's MCP server.
+ *
+ * Only ones actually installed. Offering Cursor to somebody who does not have
+ * it produces a button that writes a config file for an app that will never
+ * read it, and no way to tell that is what happened.
+ */
+#[tauri::command]
+async fn mcp_clients() -> Vec<(String, String, bool)> {
+    tauri::async_runtime::spawn_blocking(|| {
+        mcp_setup::CLIENTS
+            .iter()
+            .filter(|c| mcp_setup::installed(c))
+            .map(|c| (c.id.to_string(), c.label.to_string(), true))
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/**
+ * Add Sidq to one assistant's MCP config.
+ *
+ * Returns the file written so the window can name it, because "done" with no
+ * path is indistinguishable from "done nothing" when the client then has to be
+ * restarted before anything visibly changes.
+ */
+#[tauri::command]
+async fn connect_mcp(client: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = mcp_setup::CLIENTS.iter().find(|c| c.id == client)?;
+        mcp_setup::connect(target).map(|p| p.to_string_lossy().to_string())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// The config block, for anyone who would rather paste it themselves.
+#[tauri::command]
+async fn mcp_config_block() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let binary = mcp_setup::sidecar()?;
+        let block = serde_json::json!({
+            "mcpServers": { "sidq": mcp_setup::config_block(&binary) }
+        });
+        serde_json::to_string_pretty(&block).ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// A project's memory as text, for the clipboard.
 #[tauri::command]
 async fn memory_text(path: String) -> Option<String> {
@@ -2345,6 +2398,9 @@ fn main() {
             project_memory,
             memory_into,
             memory_text,
+            mcp_clients,
+            connect_mcp,
+            mcp_config_block,
             share_project,
             team_projects,
             read_team_project

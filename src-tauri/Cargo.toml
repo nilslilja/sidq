@@ -1,6 +1,6 @@
 [package]
 name = "sidq"
-version = "0.1.0"
+version = "0.9.4"
 description = "One clear day, every morning."
 edition = "2021"
 # 1.82 for `Option::is_none_or`, which the transcript readers already used

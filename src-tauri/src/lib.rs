@@ -41,6 +41,8 @@ pub mod index_store;
 pub mod indexer;
 pub mod invites;
 pub mod login_item;
+pub mod mcp;
+pub mod mcp_setup;
 pub mod memory;
 pub mod profile;
 pub mod quick_grab;

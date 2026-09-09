@@ -40,6 +40,15 @@ const TURN_BUDGET: usize = 4_000;
 /// Decisions carried. More than a profile's, because this is one subject.
 const MOST_DECISIONS: usize = 10;
 
+/*
+ * Recorded lines carried. Fewer than the quoted ones, on purpose.
+ *
+ * The quoted section is the product. If an assistant can fill a page, the
+ * memory slowly becomes a record of what models concluded rather than of what
+ * the person decided, and it gets there one reasonable-looking note at a time.
+ */
+const MOST_NOTED: usize = 6;
+
 /// What Sidq knows about one thing somebody is building.
 #[derive(Debug, Clone, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,6 +68,19 @@ pub struct Memory {
     /// on a real 6,428-turn project this found one. That is the honest number,
     /// and `recent_work` is what carries the rest.
     pub decisions: Vec<Decided>,
+    /*
+     * What an assistant recorded, kept in its own field and its own section.
+     *
+     * The memory's claim is that every line is a sentence the person typed,
+     * quoted, with the number of conversations it came from beside it. A write
+     * tool breaks that the moment a generated line can land in the same list.
+     *
+     * So it does not. These come from their own table, render under their own
+     * heading, and never carry a count — because the thing a count means here
+     * is "you said this in six conversations", and no honest number exists for
+     * a line a model wrote once.
+     */
+    pub noted: Vec<crate::index_store::Noted>,
     /// What the conversations were called, newest first.
     pub recent_work: Vec<String>,
     /// Which assistants this was built in.
@@ -149,6 +171,7 @@ pub fn build(conn: &rusqlite::Connection, path: &str) -> Option<Memory> {
      * Claude's format. The digest has the answer for every source the picker can
      * list, which is all of them.
      */
+    memory.noted = crate::index_store::noted_for_project(conn, path, MOST_NOTED);
     memory.last_on = clip(&crate::index_store::last_prompt_for_project(conn, path));
     if let Some((oldest, _)) = sessions.last() {
         memory.opened_with = first_typed(&transcript(oldest));
@@ -348,9 +371,30 @@ impl Memory {
             out.push('\n');
         }
 
+        /*
+         * Under the quoted decisions, never inside them, and labelled.
+         *
+         * The closing sentence below used to say everything above was quoted.
+         * With a write tool that would be false, and it is the one sentence in
+         * the file a reader is trusting, so the section is named and the
+         * closing line now says which part the promise covers.
+         */
+        if !self.noted.is_empty() {
+            out.push_str(
+                "## Recorded by an assistant\n\nNot their words. An AI working on this \
+                 project wrote these down, and they carry no count because there is no \
+                 honest one to give.\n\n",
+            );
+            for n in &self.noted {
+                let who = if n.source.is_empty() { "an assistant" } else { &n.source };
+                out.push_str(&format!("- {} ({who})\n", n.text));
+            }
+            out.push('\n');
+        }
+
         out.push_str(
-            "Nothing above was generated. Every line is quoted from conversations already \
-             on this machine.\n",
+            "Everything above the recorded section is quoted, word for word, from \
+             conversations already on this machine. None of it was generated.\n",
         );
         out
     }
@@ -367,6 +411,7 @@ mod tests {
             opened_with: "build the whole thing".into(),
             last_on: "ship the release".into(),
             decisions: vec![Decided { text: "never use em dashes".into(), conversations: 4 }],
+            noted: Vec::new(),
             recent_work: vec!["Pricing page copy".into()],
             assistants: vec!["claude-code".into()],
             conversations: 13,
@@ -490,9 +535,73 @@ mod tests {
     }
 
     #[test]
-    fn it_says_it_is_quoted_rather_than_written() {
+    fn it_says_which_part_is_quoted_rather_than_written() {
+        /*
+         * This asserted "Nothing above was generated", which was true until an
+         * assistant could write into the memory and would have quietly become a
+         * lie the day the MCP write tool shipped. It is the one sentence in the
+         * file a reader is trusting, so it now scopes itself to the part it can
+         * actually promise.
+         */
         let out = a_memory().as_markdown();
-        assert!(out.contains("Nothing above was generated"));
+        assert!(out.contains("is quoted, word for word"));
+        assert!(out.contains("None of it was generated"));
+    }
+
+    fn a_note(text: &str) -> crate::index_store::Noted {
+        crate::index_store::Noted {
+            text: text.into(),
+            source: "claude".into(),
+            recorded_at: 0,
+        }
+    }
+
+    #[test]
+    fn a_recorded_line_never_lands_among_the_quoted_ones() {
+        /*
+         * The whole reason writes go to their own table. A generated sentence
+         * sitting in the quoted list with a count beside it is the memory
+         * claiming a model's words are the person's, which is the one failure
+         * that would make every other line in the file untrustworthy.
+         */
+        let memory = Memory {
+            noted: vec![a_note("the retry path should be idempotent")],
+            ..a_memory()
+        };
+        let out = memory.as_markdown();
+
+        let quoted = out.find("## Decided along the way").unwrap();
+        let recorded = out.find("## Recorded by an assistant").unwrap();
+        let note = out.find("the retry path should be idempotent").unwrap();
+
+        assert!(quoted < recorded, "quoted decisions come first");
+        assert!(note > recorded, "a note is under its own heading, not the quoted one");
+    }
+
+    #[test]
+    fn a_recorded_line_is_never_given_a_count() {
+        // A count here means "you said this in six conversations". There is no
+        // honest number for a line a model wrote once, so it does not get one.
+        let memory = Memory { noted: vec![a_note("use the folder")], ..a_memory() };
+        let out = memory.as_markdown();
+
+        assert!(out.contains("- use the folder (claude)"));
+        assert!(!out.contains("use the folder (1x)"));
+    }
+
+    #[test]
+    fn it_says_who_recorded_a_line() {
+        // Reading "an AI decided this" is different from reading "you decided
+        // this", and different again from not knowing which assistant it was.
+        let memory = Memory { noted: vec![a_note("ship it")], ..a_memory() };
+        assert!(memory.as_markdown().contains("(claude)"));
+    }
+
+    #[test]
+    fn a_memory_with_no_notes_says_nothing_about_them() {
+        // The heading is a claim that an assistant has been writing here. On a
+        // machine where none has, printing an empty section says otherwise.
+        assert!(!a_memory().as_markdown().contains("Recorded by an assistant"));
     }
 
     #[test]

@@ -57,3 +57,6 @@ dist-extension/
 # copy of its own installers inside itself. The DMG went from 6MB to 25MB and
 # nothing said why. scripts/copy-web-assets.mjs puts them in dist for the web
 # build only.
+
+# Sidecar build output. Rebuilt by release.sh; see src-tauri/binaries/README.md
+src-tauri/binaries/sidq-mcp-*

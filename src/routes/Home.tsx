@@ -1587,6 +1587,14 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
    */
   const [sharedWith, setSharedWith] = useState<string | null>(null);
   const [team, setTeam] = useState<SharedProject[]>([]);
+  /*
+   * The assistants that can be wired to Sidq's MCP server, and the one just
+   * wired. Only clients actually installed come back, so this is empty on a
+   * machine with none and the whole block stays off the screen rather than
+   * offering to configure software nobody has.
+   */
+  const [clients, setClients] = useState<[string, string, boolean][]>([]);
+  const [connected, setConnected] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bridge) return;
@@ -1596,6 +1604,7 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       setChosen((was) => was ?? found[0]?.path ?? null);
     });
     void bridge.assistantList().then(setAssistants);
+    void bridge.mcpClients().then(setClients);
   }, [bridge]);
 
   useEffect(() => {
@@ -1642,6 +1651,65 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   return (
     <>
       {heading}
+
+      {/*
+        * ── Connecting an assistant, above the projects rather than inside one ──
+        *
+        * Everything below this is per project and ends in a person pressing a
+        * key. This is the one control that changes how all of it is reached: a
+        * connected client asks Sidq for the memory itself, so nobody carries
+        * anything. It is set up once and then never touched, which is exactly
+        * why it cannot live behind a project picker.
+        *
+        * Hidden entirely when no supported client is installed. A button that
+        * writes a config file for software somebody does not have is a button
+        * that appears to work and does nothing.
+        */}
+      {clients.length > 0 && (
+        <div className="mt-5 rounded-[12px] border border-[var(--w-line)] bg-[var(--w-raised)] p-4">
+          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+            Let an AI ask for this itself
+          </p>
+          <p className="mt-1.5 max-w-[58ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+            Connect an assistant and it can read the memory below on its own,
+            with nothing pressed and nothing pasted. It runs on this Mac and
+            talks to Sidq directly, so nothing is uploaded and it still works
+            with the wifi off.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {clients.map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  void bridge?.connectMcp(id).then((where) => {
+                    if (where) setConnected(label);
+                  });
+                }}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+                  "bg-[var(--w-bg)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
+                  "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)]",
+                )}
+              >
+                Connect {label}
+              </button>
+            ))}
+          </div>
+          {/*
+            * The restart line is the whole reason this says anything at all.
+            * Every MCP client reads its config once at launch, so a successful
+            * connection looks identical to a failed one until the app is
+            * restarted — and somebody who does not know that concludes it
+            * did not work.
+            */}
+          {connected && (
+            <p className="mt-3 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+              Added to {connected}. Quit and reopen it, then ask it what you are
+              working on.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {rows.map((row) => (
