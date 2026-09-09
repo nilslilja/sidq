@@ -34,6 +34,18 @@ const COLUMNS = [
     ],
   },
   {
+    /*
+     * The guides column, which is here for two readers.
+     *
+     * A person who arrived from a search for one of these gets the others, and
+     * a crawler gets a link to a page that would otherwise be an orphan —
+     * reachable only from the sitemap, which is a request to look rather than
+     * a reason to. Sitewide, so every page passes something to it.
+     */
+    heading: "Guides",
+    links: [{ label: "ChatGPT to Claude", to: "/chatgpt-to-claude" }],
+  },
+  {
     heading: "Account",
     links: [
       { label: "Sign in", to: "/signin" },

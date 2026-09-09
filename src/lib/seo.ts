@@ -67,6 +67,19 @@ export const PAGES: Record<string, PageMeta> = {
     canonical: `${SITE}/faq`,
     ogTitle: "The questions people actually ask",
   },
+  /*
+   * The title is the query, not a headline.
+   *
+   * A result is scanned for the line that repeats what was just typed, so this
+   * one leads with the words rather than with a claim about the category.
+   */
+  "/chatgpt-to-claude": {
+    title: "How to move a ChatGPT conversation into Claude",
+    description:
+      "Four ways to carry a ChatGPT conversation into Claude, worst to best: summarise it, copy and paste it, export your data, or hand it over in one keystroke. Three are free.",
+    canonical: `${SITE}/chatgpt-to-claude`,
+    ogTitle: "How to move a ChatGPT conversation into Claude",
+  },
   "/privacy": {
     title: "Privacy. Your conversations never leave your Mac.",
     description:

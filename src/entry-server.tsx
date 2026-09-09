@@ -26,7 +26,14 @@ import "./styles/global.css";
  * for exactly that reason: it detects the machine as it renders, which is right
  * for a page reached by clicking Download and wrong for one built in advance.
  */
-export const ROUTES = ["/", "/pricing", "/faq", "/privacy", "/terms"] as const;
+export const ROUTES = [
+  "/",
+  "/pricing",
+  "/faq",
+  "/chatgpt-to-claude",
+  "/privacy",
+  "/terms",
+] as const;
 
 /*
  * Re-exported so the prerenderer reads the same table the site does.
