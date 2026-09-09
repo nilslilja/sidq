@@ -39,7 +39,7 @@ use std::path::PathBuf;
  * the whole batch is skipped once user_version has caught up, so a new table
  * only reaches an existing install if this number moves.
  */
-const SCHEMA_VERSION: i64 = 5;
+const SCHEMA_VERSION: i64 = 6;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -140,6 +140,26 @@ fn migrate(conn: &Connection) -> Option<()> {
 
         CREATE INDEX IF NOT EXISTS noted_project ON noted(project_path, recorded_at DESC);
 
+        -- ── Counters waiting to be sent, if counting was turned on ───────────
+        --
+        -- A queue rather than a request per event, for two reasons. It works
+        -- offline, which this app is explicitly built to do. And one request at
+        -- the moment each thing happens would make the timing of the requests a
+        -- description of somebody's session, even though the contents say
+        -- nothing — which is the sort of leak that is invisible in a payload
+        -- review and obvious in a packet capture.
+        --
+        -- `detail` only ever holds a string literal from the Event enum in
+        -- telemetry.rs. No column here can hold conversation text, because
+        -- nothing that writes to this table accepts any.
+        CREATE TABLE IF NOT EXISTS counted (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            name   TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            count  INTEGER NOT NULL DEFAULT 0,
+            at     INTEGER NOT NULL DEFAULT 0
+        );
+
         -- Contentless would halve the size but cannot return snippets, and a
         -- search result without the matching line is not a search result.
         CREATE VIRTUAL TABLE IF NOT EXISTS messages USING fts5(
@@ -233,9 +253,10 @@ fn migrate(conn: &Connection) -> Option<()> {
     }
 
     /*
-     * 5 adds `noted`. CREATE TABLE IF NOT EXISTS above covers a fresh database
-     * and an upgrade equally, so unlike the project_path column at 4 there is
-     * nothing to ALTER — a table can be added by the batch, a column cannot.
+     * 5 adds `noted`, 6 adds `counted`. CREATE TABLE IF NOT EXISTS above covers
+     * a fresh database and an upgrade equally, so unlike the project_path
+     * column at 4 there is nothing to ALTER — a table can be added by the
+     * batch, a column cannot.
      */
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION).ok()?;

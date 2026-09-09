@@ -12,6 +12,22 @@ rust-version = "1.82"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# ── Two binaries, both named explicitly ──────────────────────────────────────
+#
+# `sidq-mcp` under src/bin would be auto-discovered, and auto-discovery is what
+# broke the bundle: with two binaries and nothing saying which is the app, the
+# Tauri bundler picked sidq-mcp. The result had CFBundleExecutable = sidq-mcp,
+# no main binary and no frontend in it, and it built and signed without a single
+# warning. tauri.conf.json now sets mainBinaryName as well; this half makes the
+# ordering explicit rather than incidental.
+[[bin]]
+name = "sidq"
+path = "src/main.rs"
+
+[[bin]]
+name = "sidq-mcp"
+path = "src/bin/sidq-mcp.rs"
+
 [dependencies]
 # NOT "devtools". That feature ships the WebKit inspector in release builds and
 # took the binary from 7MB to 66MB, which both blew past storage limits and

@@ -50,4 +50,5 @@ pub mod redact;
 pub mod screen_reader;
 pub mod selection;
 pub mod team_context;
+pub mod telemetry;
 pub mod work_history;

@@ -1,0 +1,23 @@
+# ── Build settings for the machine this is actually built on ─────────────────
+#
+# This crate was built on a 2-core-equivalent budget by accident and it took the
+# machine down twice. Cargo defaults to one rustc job per core; on eight cores,
+# with a crate that links Tauri and WebKit, each job peaks somewhere between one
+# and three gigabytes. Eight of those is roughly twenty gigabytes of demand on a
+# machine with eight gigabytes of RAM and swap disabled, and macOS responds to
+# that by falling over rather than by scheduling around it.
+#
+# Two jobs is slower and finishes. Raise it only on a machine with the memory to
+# match: the rule of thumb is about 3GB of RAM per job for this crate.
+[build]
+jobs = 2
+
+# Debug info is the other half of the same problem. It is what made target/
+# reach 7.6GB, and it costs memory during linking as well as disk. Line tables
+# are enough to read a backtrace, which is all it was ever used for here.
+[profile.dev]
+debug = 1
+
+# Test builds link the whole crate repeatedly. Same reasoning, same fix.
+[profile.test]
+debug = 1

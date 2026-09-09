@@ -111,10 +111,38 @@ export function Privacy() {
         items={[
           'We do not sell your data, because we sell software.',
           'We do not train any model on your conversations.',
-          'We do not use advertising or analytics trackers on the desktop app.',
+          'We do not use advertising trackers, and nothing about you is sold, shared or joined to anything.',
           'We do not put your conversations in your account. Signing in stores an email address and a subscription status, nothing else; what Sidq reads stays on your Mac.',
         ]}
       />
+
+      <H>Counting, if you turn it on</H>
+      <P>
+        The desktop app can count how it is used. It is off unless you switch it on,
+        we ask once during setup, and the answer defaults to no. This paragraph used to
+        say there were no analytics on the desktop app at all, which was true and is why
+        it is being replaced rather than quietly reworded.
+      </P>
+      <P>
+        What is counted is a fixed list of events with no text in them: the app was
+        opened, setup reached a step, a handover was made, a memory was taken, an
+        assistant was connected, how many conversations are indexed, the free weekly
+        limit was reached, the plans were opened. Each one carries a name from that list,
+        a number, and nothing else.
+      </P>
+      <List
+        items={[
+          'No conversation text, ever. Not a title, not a prompt, not a folder name, not a filename. The events are a fixed set in the code and none of them can hold text you wrote.',
+          'A random identifier for this copy of the app, made on your machine. It is not your email, your account, your hostname or your hardware, so it cannot be matched to you by anybody holding it, including us.',
+          'Nothing is sent while it is off, and turning it off deletes anything not yet sent.',
+        ]}
+      />
+      <P>
+        You can see the full list and switch it off at any time inside Sidq. The point of
+        it is narrow and worth stating plainly: without it we cannot tell the difference
+        between nobody downloading the app and everybody giving up during setup, and
+        those two need opposite fixes.
+      </P>
 
       <H>Deleting your data</H>
       <P>
