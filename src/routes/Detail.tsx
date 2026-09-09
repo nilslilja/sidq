@@ -66,7 +66,7 @@ function Page({ children }: { children: React.ReactNode }) {
 export function PricingPage() {
   return (
     <Page>
-      <Pricing />
+      <Pricing top />
     </Page>
   );
 }
@@ -74,7 +74,7 @@ export function PricingPage() {
 export function FaqPage() {
   return (
     <Page>
-      <Faq />
+      <Faq top />
     </Page>
   );
 }

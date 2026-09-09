@@ -81,7 +81,72 @@ await build({
   },
 });
 
-const { render, ROUTES } = await import(`../${SSR_OUT}/entry-server.js`);
+const { render, ROUTES, metaFor } = await import(`../${SSR_OUT}/entry-server.js`);
+
+/** Escape for an HTML attribute. Copy is written by people and contains quotes. */
+function attr(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/*
+ * Give each route its own head.
+ *
+ * Every page used to ship the shell's, which meant one <title> across the site
+ * and — much worse — `<link rel="canonical" href="https://www.sidq.tech/">` on
+ * all five. A canonical is an instruction, not a hint: four of the five URLs in
+ * sitemap.xml were telling Google they were duplicates of the homepage and
+ * should be dropped, while the sitemap asked for them to be indexed.
+ *
+ * Replaced rather than appended. Two canonicals on one page is the same as
+ * none, because a crawler that finds a contradiction ignores both.
+ */
+function withMeta(html, route) {
+  const meta = metaFor(route);
+  const swaps = [
+    [/<title>[\s\S]*?<\/title>/, `<title>${attr(meta.title)}</title>`],
+    [
+      /<link rel="canonical"[^>]*>/,
+      `<link rel="canonical" href="${attr(meta.canonical)}" />`,
+    ],
+    [
+      /<meta property="og:url"[^>]*>/,
+      `<meta property="og:url" content="${attr(meta.canonical)}" />`,
+    ],
+    [
+      /<meta property="og:title"[^>]*>/,
+      `<meta property="og:title" content="${attr(meta.ogTitle ?? meta.title)}" />`,
+    ],
+    [
+      /<meta\s+property="og:description"[\s\S]*?\/>/,
+      `<meta property="og:description" content="${attr(meta.description)}" />`,
+    ],
+  ];
+
+  let out = html;
+  for (const [pattern, replacement] of swaps) {
+    if (!pattern.test(out)) {
+      throw new Error(
+        `prerender: nothing matched ${pattern} in the shell. The head changed ` +
+          `and this route would have silently shipped the homepage's tag.`,
+      );
+    }
+    out = out.replace(pattern, replacement);
+  }
+
+  /*
+   * The description is added rather than swapped, because the shell never had
+   * one. Google writes its own snippet without it, out of whatever text it
+   * finds first, which on this site is the nav.
+   */
+  return out.replace(
+    "</head>",
+    `  <meta name="description" content="${attr(meta.description)}" />\n  </head>`,
+  );
+}
 
 /*
  * The shell is cached outside dist/ so this script can be run twice.
@@ -116,7 +181,7 @@ for (const route of ROUTES) {
   const rendered = await renderSettled(render, route);
   const { hoisted, rest } = liftHoistedTags(rendered);
 
-  const page = shell
+  const page = withMeta(shell, route)
     .replace("</head>", `${hoisted.join("\n    ")}\n  </head>`)
     .replace(ROOT, `<div id="root">${rest}</div>`);
   const file =

@@ -18,20 +18,30 @@ import { cn } from "@/lib/cn";
  * every hard rule and heavy border on this page.
  */
 
-export function Pricing() {
+/*
+ * The heading level is a prop because this component has two homes.
+ *
+ * On the landing page it is a section under the hero's h1 and must be an h2.
+ * On its own route it is the top of the document, and shipping an h2 there
+ * left /pricing and /faq with no h1 at all — a hierarchy starting at level two,
+ * which is the first thing an on-page audit flags and the strongest signal on
+ * the page simply absent.
+ */
+export function Pricing({ top = false }: { top?: boolean } = {}) {
+  const Heading = top ? "h1" : "h2";
   return (
     <section
       className="mx-auto max-w-[84rem] px-6 py-24"
       aria-labelledby="pricing"
     >
-      <h2
+      <Heading
         id="pricing"
         className="scroll-mt-24 max-w-[18ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] leading-[0.94] tracking-[-0.04em]"
       >
         Free until it works.
         <br />
         <span className="ink-quiet">Then twenty.</span>
-      </h2>
+      </Heading>
 
       {/*
        * Rounded and lifted rather than a hard hairline box.

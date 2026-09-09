@@ -28,6 +28,15 @@ import "./styles/global.css";
  */
 export const ROUTES = ["/", "/pricing", "/faq", "/privacy", "/terms"] as const;
 
+/*
+ * Re-exported so the prerenderer reads the same table the site does.
+ *
+ * The build script cannot import a .ts file directly, and a second copy of the
+ * titles living in the script is how a page ends up with a canonical nobody
+ * remembers writing. `ROUTES` and `PAGES` are asserted to agree in seo.test.ts.
+ */
+export { metaFor, PAGES } from "@/lib/seo";
+
 export function render(url: string): string {
   return renderToString(
     <StrictMode>

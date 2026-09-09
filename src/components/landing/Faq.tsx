@@ -98,18 +98,28 @@ export const FAQS = [
  * install rather than research. The first few answer the questions that decide
  * it; the rest are one click away.
  */
-export function Faq({ limit }: { limit?: number } = {}) {
+/*
+ * The heading level is a prop because this component has two homes.
+ *
+ * On the landing page it is a section under the hero's h1 and must be an h2.
+ * On its own route it is the top of the document, and shipping an h2 there
+ * left /pricing and /faq with no h1 at all — a hierarchy starting at level two,
+ * which is the first thing an on-page audit flags and the strongest signal on
+ * the page simply absent.
+ */
+export function Faq({ limit, top = false }: { limit?: number; top?: boolean } = {}) {
+  const Heading = top ? "h1" : "h2";
   const [open, setOpen] = useState<number | null>(0);
   const shown = limit ? FAQS.slice(0, limit) : FAQS;
 
   return (
     <section className="mx-auto max-w-[64rem] px-6 py-24" aria-labelledby="faq">
-      <h2
+      <Heading
         id="faq"
         className="scroll-mt-24 font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
       >
         The questions people actually ask
-      </h2>
+      </Heading>
 
       <dl className="mt-12 border-t border-ink/12">
         {shown.map((item, i) => {

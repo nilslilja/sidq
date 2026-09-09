@@ -83,6 +83,15 @@
       an invented review count is the one thing that gets structured data
       ignored permanently, so there are none.
     -->
+    <!--
+      No softwareVersion in the block below. It read 0.1.67 for eight minor
+      releases, because it was the one version string release.sh never rewrote.
+      It is not a ranking or rich-result factor, so a field that is only ever
+      true by accident is worse than no field at all.
+
+      Nothing but JSON may go inside the script tag. An HTML comment in there
+      is a parse error, and a parse error voids the whole block silently.
+    -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -91,8 +100,7 @@
         "url": "https://www.sidq.tech/",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS",
-        "description": "Sidq carries a whole conversation from one AI into another. It reads your conversations off your own Mac and compiles any of them into a single handover you drop into a different assistant. Nothing is uploaded.",
-        "softwareVersion": "0.1.67",
+        "description": "Sidq keeps a memory of each thing you are working on, assembled from your own words across every AI on your Mac, and gives it to whichever assistant you open. It also carries any single conversation into any other AI, word for word. Nothing is uploaded.",
         "offers": {
           "@type": "Offer",
           "price": "0",
