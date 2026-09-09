@@ -170,6 +170,7 @@ export const PLANS: Plan[] = [
     features: [
       "Unlimited seats, one invoice",
       "One house-rules file: your standards ride along in every AI conversation your team has",
+      "Project memory shared across the team: what it started as, where it got to, what was decided",
       "Shared standing instructions across everyone, synced through your own drive",
       "Nothing is uploaded, so there is no vendor to put through security review",
       "Works with the wifi off, on locked down machines",
@@ -227,6 +228,7 @@ export const PLANS: Plan[] = [
       "$15 a person, against $19.99 each",
       "Your standing instructions, shared: every handover knows how the team works",
       "Hand a whole conversation to a teammate when you choose to, never automatically",
+      "Share what you know about a project, so the next person does not have to ask you",
       "They pick it up in their own AI, with their own conventions applied",
       "Through a folder you already sync, so still nothing uploaded",
       "One bill, one subscription to cancel",

@@ -334,6 +334,30 @@ mod diagnostics {
      * that is right until somebody reads it. This is the only way to read it
      * before it is put in front of an assistant.
      */
+    /// How long assembling one is, on this machine.
+    ///
+    /// `cargo test --bin sidq how_long_a_memory_takes -- --ignored --nocapture`
+    ///
+    /// Measured before deciding whether it needs storing. A cache is a second
+    /// copy of the truth and a way for it to go stale; if the thing is fast
+    /// enough to build on demand, not having one is the better product.
+    #[test]
+    #[ignore]
+    fn how_long_a_memory_takes() {
+        let Some(conn) = crate::index_store::open() else { return };
+        let projects = crate::index_store::projects(&conn, 5);
+        for row in &projects {
+            let started = std::time::Instant::now();
+            let built = super::build(&conn, &row.path);
+            println!(
+                "  {:>6}ms  {:>4} conversations  {}",
+                started.elapsed().as_millis(),
+                built.map(|m| m.conversations).unwrap_or(0),
+                row.name,
+            );
+        }
+    }
+
     #[test]
     #[ignore]
     fn real_memory() {

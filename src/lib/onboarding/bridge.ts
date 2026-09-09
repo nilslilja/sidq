@@ -172,6 +172,15 @@ export interface FoundTeam {
   members: string[];
 }
 
+/** A project somebody on the team put in the shared folder. */
+export interface SharedProject {
+  who: string;
+  name: string;
+  when: number;
+  path: string;
+  mine: boolean;
+}
+
 /** A conversation somebody on the team put in the shared folder. */
 export interface SharedHandover {
   /** Who shared it. */
@@ -512,6 +521,18 @@ export interface OnboardingBridge {
    * The difference from every handover before it: nothing had to be picked.
    */
   memoryInto: (path: string, assistant: string) => Promise<void>;
+  /**
+   * Put a project's memory in the team folder.
+   *
+   * What one person knows about a piece of work stops living only on their
+   * laptop. Somebody joining reads what it started as and what was decided,
+   * without having to ask them.
+   */
+  shareProject: (path: string) => Promise<boolean>;
+  /** Every project anybody on the team has shared. */
+  teamProjects: () => Promise<SharedProject[]>;
+  /** Read one back, to put in front of an assistant. */
+  readTeamProject: (path: string) => Promise<string | null>;
   /** Closes first run and brings the card up. */
   finish: () => Promise<void>;
 }
@@ -747,6 +768,12 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
+    shareProject: async (path: string) =>
+      ((await invoke("share_project", { path })) as boolean) ?? false,
+    teamProjects: async () =>
+      ((await invoke("team_projects")) as SharedProject[]) ?? [],
+    readTeamProject: async (path: string) =>
+      ((await invoke("read_team_project", { path })) as string | null) ?? null,
     finish: async () => {
       await invoke("finish_onboarding");
     },

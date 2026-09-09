@@ -250,6 +250,123 @@ pub fn members(folder: &Path, mine: &str) -> Vec<(String, usize)> {
 /// Where shared handovers live inside the folder. Kept apart from the rule files.
 pub const HANDOVERS_DIR: &str = "handovers";
 
+/**
+ * Where shared project memories live. Also kept apart, and for a sharper reason.
+ *
+ * `read_others` treats every `- ` line in any `*.sidq-context.md` as a standing
+ * rule. A project memory is full of them — conversation titles, decisions — and
+ * dropped in beside the rule files it would arrive in every teammate's next
+ * handover as "the team says: Pricing page copy".
+ *
+ * Its own directory, read only when asked for, the same way handovers are.
+ */
+pub const PROJECTS_DIR: &str = "projects";
+
+/// A project somebody on the team has put in the folder.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedProject {
+    pub who: String,
+    /// What the project is called, from the header rather than the filename.
+    pub name: String,
+    pub when: i64,
+    pub path: String,
+    pub mine: bool,
+}
+
+/**
+ * Put what you know about a project into the folder for the rest of the team.
+ *
+ * ── The thing an organisation is actually buying ─────────────────────────────
+ *
+ * House rules say how the team works. This says what the work *is*: somebody
+ * joining a project reads what it started as, where it got to, what has been
+ * done and what was decided, in the words of the people who decided it — and
+ * then hands that to whichever assistant they use.
+ *
+ * Which is the part that has never been possible. That knowledge exists today
+ * in one person's transcripts on one laptop, and the only way to get it is to
+ * ask them. Nothing is uploaded to make this work: it is a Markdown file in a
+ * folder the team already syncs, legible before it goes.
+ */
+pub fn share_project(folder: &Path, who: &str, name: &str, text: &str) -> Option<PathBuf> {
+    let dir = folder.join(PROJECTS_DIR);
+    fs::create_dir_all(&dir).ok()?;
+
+    let stem = file_stem_for(name);
+    let stem = if stem.is_empty() { "project".to_string() } else { stem };
+
+    /*
+     * Named after the project, not after the person, and deliberately.
+     *
+     * A handover is one person's conversation and belongs to them, so it is
+     * filed under them. A project is the team's, and two people publishing the
+     * same one should land on the same file rather than leaving the folder with
+     * four differing copies of what one thing is. Last writer wins, which is
+     * the correct answer for a shared picture of a shared thing.
+     */
+    let path = dir.join(format!("{stem}.sidq-project.md"));
+
+    let header = format!(
+        "---\nproject: {name}\nfrom: {who}\nshared: {at}\n---\n\n",
+        name = name.replace('\n', " "),
+        who = who,
+        at = crate::index_store::now_millis(),
+    );
+    fs::write(&path, format!("{header}{text}")).ok()?;
+    Some(path)
+}
+
+/// Every project anybody on the team has put in the folder, newest first.
+pub fn shared_projects(folder: &Path, who: &str) -> Vec<SharedProject> {
+    let dir = folder.join(PROJECTS_DIR);
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+
+    let mine = file_stem_for(who);
+    let mut out: Vec<SharedProject> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let stem = path.file_name()?.to_str()?.strip_suffix(".sidq-project.md")?;
+            let head = fs::read_to_string(&path).map(|t| split_shared(&t)).ok();
+            let from = head.as_ref().and_then(|h| h.from.clone());
+
+            Some(SharedProject {
+                mine: from.as_deref().map(file_stem_for) == Some(mine.clone()),
+                who: from.unwrap_or_default(),
+                name: head
+                    .as_ref()
+                    .and_then(|h| h.project.clone())
+                    .unwrap_or_else(|| stem.replace('-', " ")),
+                when: entry
+                    .metadata()
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(0),
+                path: path.to_string_lossy().to_string(),
+            })
+        })
+        .collect();
+
+    out.sort_by_key(|p| std::cmp::Reverse(p.when));
+    out.truncate(MAX_SHARED);
+    out
+}
+
+/// Read one back, to put in front of an assistant.
+pub fn read_shared_project(folder: &Path, path: &str) -> Option<String> {
+    let dir = folder.join(PROJECTS_DIR).canonicalize().ok()?;
+    let wanted = PathBuf::from(path).canonicalize().ok()?;
+    if !wanted.starts_with(&dir) {
+        return None;
+    }
+    fs::read_to_string(wanted).ok().map(|t| split_shared(&t).body)
+}
+
 /// A conversation somebody on the team put in the folder.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -351,6 +468,8 @@ fn fingerprint(session_id: &str) -> String {
 pub struct SharedFile {
     pub title: Option<String>,
     pub from: Option<String>,
+    /// What a shared project calls itself. Absent on a shared conversation.
+    pub project: Option<String>,
     pub body: String,
 }
 
@@ -363,10 +482,10 @@ pub struct SharedFile {
  */
 pub fn split_shared(text: &str) -> SharedFile {
     let Some(rest) = text.strip_prefix("---\n") else {
-        return SharedFile { title: None, from: None, body: text.to_string() };
+        return SharedFile { title: None, from: None, project: None, body: text.to_string() };
     };
     let Some((head, body)) = rest.split_once("\n---\n") else {
-        return SharedFile { title: None, from: None, body: text.to_string() };
+        return SharedFile { title: None, from: None, project: None, body: text.to_string() };
     };
 
     let field = |key: &str| -> Option<String> {
@@ -379,6 +498,7 @@ pub fn split_shared(text: &str) -> SharedFile {
     SharedFile {
         title: field("title"),
         from: field("from"),
+        project: field("project"),
         body: body.trim_start_matches('\n').to_string(),
     }
 }
@@ -837,6 +957,64 @@ mod tests {
         publish(&dir, "Sam", &["prefers tabs".to_string()]).unwrap();
 
         assert_eq!(read_others(&dir, "nils.sidq-context.md")[0].who, "House");
+    }
+
+    /*
+     * ── What an organisation is buying ───────────────────────────────────────
+     *
+     * One person's picture of a project, in a folder the team already syncs, so
+     * the next person to touch that work does not have to ask them what it is.
+     */
+    #[test]
+    fn a_project_is_shared_under_its_own_name_not_under_a_persons() {
+        let dir = scratch("shareproject");
+        share_project(&dir, "Nils", "Sidq", "# What I am working on: Sidq\n\nthe whole thing")
+            .unwrap();
+
+        let found = shared_projects(&dir, "Sam");
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "Sidq");
+        assert_eq!(found[0].who, "Nils");
+        assert!(!found[0].mine, "Sam did not share this one");
+    }
+
+    #[test]
+    fn two_people_sharing_one_project_do_not_leave_two_pictures_of_it() {
+        // A handover belongs to whoever had the conversation. A project belongs
+        // to the team, so the second write replaces the first rather than
+        // leaving the folder disagreeing with itself about what one thing is.
+        let dir = scratch("projectcollide");
+        share_project(&dir, "Nils", "Sidq", "mine").unwrap();
+        share_project(&dir, "Sam", "Sidq", "and then Sam's").unwrap();
+
+        let found = shared_projects(&dir, "Nils");
+        assert_eq!(found.len(), 1, "one project, one file");
+        assert_eq!(found[0].who, "Sam", "the later picture stands");
+    }
+
+    #[test]
+    fn a_shared_project_never_becomes_a_team_rule() {
+        /*
+         * The reason projects have their own directory. `read_others` reads
+         * every `- ` line in a context file as a standing instruction, and a
+         * project memory is full of them — conversation titles, decisions. Left
+         * beside the rule files, "Pricing page copy" would arrive in every
+         * teammate's next handover as something the team insists on.
+         */
+        let dir = scratch("projectleak");
+        share_project(&dir, "Nils", "Sidq", "- Pricing page copy\n- Refund wording\n").unwrap();
+
+        let rules = read_others(&dir, "sam.sidq-context.md");
+        assert!(rules.is_empty(), "a project is not a pile of team rules");
+    }
+
+    #[test]
+    fn nothing_outside_the_projects_folder_can_be_read_back() {
+        let dir = scratch("projectescape");
+        let path = share_project(&dir, "Nils", "Sidq", "the real one").unwrap();
+        assert_eq!(read_shared_project(&dir, &path.to_string_lossy()).unwrap(), "the real one");
+
+        assert!(read_shared_project(&dir, "/etc/hosts").is_none());
     }
 
     #[test]

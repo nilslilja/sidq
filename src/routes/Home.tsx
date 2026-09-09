@@ -7,6 +7,7 @@ import {
   type ProfileFact,
   type ProjectRow,
   type ProjectMemory,
+  type SharedProject,
   type SearchHit,
   type FoundTeam,
   type SharedHandover,
@@ -1579,9 +1580,17 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [assistants, setAssistants] = useState<{ id: string; label: string }[]>(
     [],
   );
+  /*
+   * Whether there is a team folder at all, asked once rather than per project.
+   * Rust refuses the call either way, so a wrong answer costs a button that
+   * does nothing rather than a project somewhere it should not be.
+   */
+  const [sharedWith, setSharedWith] = useState<string | null>(null);
+  const [team, setTeam] = useState<SharedProject[]>([]);
 
   useEffect(() => {
     if (!bridge) return;
+    void bridge.teamProjects().then(setTeam);
     void bridge.projects().then((found) => {
       setRows(found);
       setChosen((was) => was ?? found[0]?.path ?? null);
@@ -1722,7 +1731,7 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                 It opens in Sidq with everything above already in the box.
                 Nothing is sent until you press return.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {assistants.map((a) => (
                   <button
                     key={a.id}
@@ -1738,7 +1747,68 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                     {a.label}
                   </button>
                 ))}
+
+                {/*
+                 * Sharing a project is a different act from putting it in front
+                 * of an assistant, so it is a different button rather than one
+                 * more entry in the same row of AIs. It also only ever happens
+                 * because somebody pressed it — nothing publishes on a timer.
+                 */}
+                <button
+                  onClick={() => {
+                    if (!chosen) return;
+                    void bridge?.shareProject(chosen).then((ok) => {
+                      if (!ok) return;
+                      setSharedWith(chosen);
+                      void bridge?.teamProjects().then(setTeam);
+                    });
+                  }}
+                  className={cn(
+                    "ml-auto rounded-lg border border-[var(--w-line)] px-3 py-1.5",
+                    "text-[0.8125rem] text-[var(--w-text-3)]",
+                    "cursor-pointer transition-colors duration-150 hover:border-[var(--w-text)] hover:text-[var(--w-text)]",
+                  )}
+                >
+                  {sharedWith === chosen ? "Shared with team" : "Share with team"}
+                </button>
               </div>
+            </div>
+          )}
+
+          {team.length > 0 && (
+            <div className="mt-7 border-t border-[var(--w-line)] pt-5">
+              <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+                From your team
+              </p>
+              <ul className="mt-3 space-y-px">
+                {team.map((row) => (
+                  <li
+                    key={row.path}
+                    className="flex items-baseline gap-4 rounded-[10px] px-3 py-2.5"
+                  >
+                    <span className="min-w-0 flex-1 text-[0.875rem] text-[var(--w-text)]">
+                      {row.name}
+                      <span className="ml-2 text-[var(--w-text-5)]">
+                        {row.mine ? "you" : row.who}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() =>
+                        void bridge?.readTeamProject(row.path).then((text) => {
+                          if (text) void navigator.clipboard.writeText(text);
+                        })
+                      }
+                      className={cn(
+                        "shrink-0 rounded-md px-2 py-1 text-[0.75rem]",
+                        "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
+                        "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
+                      )}
+                    >
+                      Copy
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

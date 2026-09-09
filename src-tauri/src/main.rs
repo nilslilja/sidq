@@ -1436,6 +1436,51 @@ async fn memory_into(app: AppHandle, path: String, assistant: String) -> Result<
     assistants::deliver(&app, &assistant, &text)
 }
 
+/**
+ * Put a project's memory in the team folder.
+ *
+ * The B2B half of the memory. What one person knows about a piece of work stops
+ * living only in their transcripts on their laptop, and somebody joining reads
+ * what it started as, where it got to and what was decided — then hands that to
+ * whichever assistant they use. No server, no upload, no cost per seat.
+ */
+#[tauri::command]
+async fn share_project(path: String) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(folder) = duo_folder() else { return false };
+        let Some(conn) = index_store::open() else { return false };
+        let Some(built) = memory::build(&conn, &path) else { return false };
+
+        team_context::share_project(&folder, &team_name(), &built.name, &built.as_markdown())
+            .is_some()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Every project anybody on the team has put in the folder, newest first.
+#[tauri::command]
+async fn team_projects() -> Vec<team_context::SharedProject> {
+    tauri::async_runtime::spawn_blocking(|| {
+        duo_folder()
+            .map(|folder| team_context::shared_projects(&folder, &team_name()))
+            .unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Read one back, so it can go in front of an assistant.
+#[tauri::command]
+async fn read_team_project(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        team_context::read_shared_project(&duo_folder()?, &path)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// Every conversation anybody on the team has put in the folder, newest first.
 #[tauri::command]
 async fn team_handovers() -> Vec<team_context::SharedHandover> {
@@ -2290,7 +2335,10 @@ fn main() {
             hand_over_into,
             projects,
             project_memory,
-            memory_into
+            memory_into,
+            share_project,
+            team_projects,
+            read_team_project
         ])
         .setup(|app| {
             /*
