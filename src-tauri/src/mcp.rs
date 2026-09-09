@@ -224,7 +224,16 @@ fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<V
 
     Ok(match name {
         "list_projects" => list_projects(conn),
-        "get_memory" => get_memory(conn, arg("project_path")),
+        "get_memory" => {
+            // The other half of memory_taken. An assistant asking for it is a
+            // different act from a person copying it, and the whole point of
+            // the MCP server is to find out which one people actually use.
+            crate::telemetry::record(
+                conn,
+                crate::telemetry::Event::MemoryTaken { by_assistant: true },
+            );
+            get_memory(conn, arg("project_path"))
+        }
         "search_history" => match arg("query") {
             Some(q) => search(conn, &q),
             None => failed("search_history needs a query."),

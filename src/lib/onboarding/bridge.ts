@@ -548,6 +548,14 @@ export interface OnboardingBridge {
   setCounting: (on: boolean) => Promise<void>;
   /** Each event's name on the wire, and what it means, from Rust. */
   countedEvents: () => Promise<[string, string][]>;
+  /**
+   * Say a setup step was reached, by name.
+   *
+   * Rust looks the name up against its own list and drops anything it does not
+   * recognise, so this cannot be used to write free text into the queue.
+   */
+  countSetupStep: (step: string) => Promise<void>;
+  countReady: () => Promise<void>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -796,6 +804,12 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     countedEvents: async () =>
       ((await invoke("counted_events")) as [string, string][]) ?? [],
+    countSetupStep: async (step: string) => {
+      await invoke("count_setup_step", { step });
+    },
+    countReady: async () => {
+      await invoke("count_ready");
+    },
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

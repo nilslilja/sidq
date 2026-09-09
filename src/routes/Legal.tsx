@@ -125,7 +125,8 @@ export function Privacy() {
       </P>
       <P>
         What is counted is a fixed list of events with no text in them: the app was
-        opened, setup reached a step, a handover was made, a memory was taken, an
+        opened, setup reached a step, setup was finished, a handover was made, a memory was
+        taken, an
         assistant was connected, how many conversations are indexed, the free weekly
         limit was reached, the plans were opened. Each one carries a name from that list,
         a number, and nothing else.

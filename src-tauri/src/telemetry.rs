@@ -654,6 +654,40 @@ mod tests {
     }
 
     #[test]
+    fn every_event_is_actually_counted_somewhere() {
+        /*
+         * The state this module spent a whole day in: built, tested, and wired
+         * to nothing at all. Every other test in here passed while the app
+         * emitted not one row, because they all check this file against itself
+         * and this file is not where the counting is decided.
+         *
+         * So the callers get read. A variant nothing records is either dead or
+         * forgotten, and there is no third option worth shipping.
+         */
+        let callers =
+            concat!(include_str!("main.rs"), include_str!("background.rs"), include_str!("mcp.rs"));
+
+        for event in EVERY_EVENT {
+            let variant = format!("{event:?}");
+            let name = variant.split_whitespace().next().unwrap_or(&variant).to_string();
+
+            // `Setup` is the one variant a caller never names. It is built by
+            // `setup_step` out of a string the window sent, deliberately, so
+            // that the lookup is the only way in. Calling that is counting it.
+            let reached = if name == "Setup" {
+                callers.contains("setup_step(")
+            } else {
+                callers.contains(&format!("Event::{name}"))
+            };
+
+            assert!(reached, "{name} can be counted and nothing ever counts it");
+        }
+
+        // And a queue nothing drains is a queue that only ever grows.
+        assert!(callers.contains("send_queued("), "nothing ever sends what is queued");
+    }
+
+    #[test]
     fn every_event_has_a_name_and_no_name_is_empty() {
         // A blank name arrives as a row nobody can attribute, which is worse
         // than not sending it: it inflates every total it lands in.

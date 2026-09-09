@@ -164,6 +164,18 @@ export default function Onboarding() {
 
   const index = stepIndex(step);
   const current = STEPS[index];
+
+  /*
+   * Count the step, every time one is reached.
+   *
+   * On `step` rather than inside `advance`, because `back` moves between steps
+   * too and a funnel that only counts forwards reports a flow nobody walked.
+   * Silent when counting is off: Rust checks consent before the row is written,
+   * so there is nothing to check here.
+   */
+  useEffect(() => {
+    void bridge?.countSetupStep(step);
+  }, [step, bridge]);
   const advance = useCallback(() => {
     const next = nextStep(step);
     if (next) {
@@ -172,8 +184,12 @@ export default function Onboarding() {
     }
     // End of the flow. On the desktop this closes this window and brings the
     // card up; in a browser tab there is no window to close, so it just routes.
-    if (bridge) void bridge.finish();
-    else navigate("/today");
+    if (bridge) {
+      // The far end of the funnel. Counted before `finish`, which closes this
+      // window: after that call there is no guarantee this code runs again.
+      void bridge.countReady();
+      void bridge.finish();
+    } else navigate("/today");
   }, [step, navigate, bridge]);
 
   const back = index > 0 ? () => setStep(STEPS[index - 1].id) : undefined;

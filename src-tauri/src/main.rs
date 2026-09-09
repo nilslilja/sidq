@@ -342,6 +342,7 @@ async fn save_transcript(
         if let Some(conn) = conn.as_ref() {
             if !entitlement::may_hand_over(conn, plan) {
                 let (used, cap) = entitlement::handover_allowance(conn, plan);
+                telemetry::record(conn, telemetry::Event::HitTheLimit);
                 return HandoverResult { path: None, limited: true, used, cap, words: 0 };
             }
         }
@@ -354,6 +355,7 @@ async fn save_transcript(
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
             let _ = index_store::record_handover(conn, &session_id, stamp);
+            telemetry::record(conn, telemetry::Event::HandedOver { attached: true });
 
             // The window is open and showing a number that has just changed.
             announce(&app);
@@ -524,7 +526,14 @@ async fn handover_text(
     project: String,
 ) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        build_handover(&session_id, &source, &resume_point, &when, &project)
+        // The clipboard half of the same act. Counted here rather than in the
+        // window, so that both ways out of the picker are counted in one place
+        // and neither depends on the page remembering to say so.
+        let text = build_handover(&session_id, &source, &resume_point, &when, &project);
+        if text.is_some() {
+            telemetry::count(telemetry::Event::HandedOver { attached: false });
+        }
+        text
     })
     .await
     .ok()
@@ -1446,7 +1455,11 @@ async fn mcp_clients() -> Vec<(String, String, bool)> {
 async fn connect_mcp(client: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
         let target = mcp_setup::CLIENTS.iter().find(|c| c.id == client)?;
-        mcp_setup::connect(target).map(|p| p.to_string_lossy().to_string())
+        let written = mcp_setup::connect(target).map(|p| p.to_string_lossy().to_string());
+        if written.is_some() {
+            telemetry::count(telemetry::Event::Connected);
+        }
+        written
     })
     .await
     .ok()
@@ -1507,11 +1520,43 @@ async fn counted_events() -> Vec<(String, String)> {
     telemetry::catalogue()
 }
 
+/**
+ * Count a setup step, by name.
+ *
+ * The name is looked up, never converted: `telemetry::setup_step` returns
+ * nothing for anything that is not one of the seven screens, so a renamed step
+ * costs a number rather than turning the queue into somewhere the window can
+ * write arbitrary text.
+ */
+#[tauri::command]
+async fn count_setup_step(step: String) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(event) = telemetry::setup_step(&step) {
+            telemetry::count(event);
+        }
+    })
+    .await
+    .ok();
+}
+
+/// Setup finished. The far end of the funnel this whole feature exists to see.
+#[tauri::command]
+async fn count_ready() {
+    tauri::async_runtime::spawn_blocking(|| telemetry::count(telemetry::Event::Ready))
+        .await
+        .ok();
+}
+
 /// A project's memory as text, for the clipboard.
 #[tauri::command]
 async fn memory_text(path: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || {
-        memory::build(&index_store::open()?, &path).map(|m| m.as_markdown())
+        let conn = index_store::open()?;
+        let text = memory::build(&conn, &path).map(|m| m.as_markdown());
+        if text.is_some() {
+            telemetry::record(&conn, telemetry::Event::MemoryTaken { by_assistant: false });
+        }
+        text
     })
     .await
     .ok()
@@ -2249,6 +2294,7 @@ fn open_upgrade(app: AppHandle) -> Result<(), String> {
     let origin = web_origin().ok_or_else(|| {
         "No web address is configured for this build, so the plans cannot open.".to_string()
     })?;
+    telemetry::count(telemetry::Event::SawThePlans);
     app.opener()
         .open_url(format!("{}/upgrade", origin), None::<&str>)
         .map_err(|e| e.to_string())
@@ -2444,6 +2490,8 @@ fn main() {
             counting,
             set_counting,
             counted_events,
+            count_setup_step,
+            count_ready,
             share_project,
             team_projects,
             read_team_project

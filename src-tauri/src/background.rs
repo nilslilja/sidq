@@ -9,7 +9,7 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{index_store, indexer, screen_reader};
+use sidq::{index_store, indexer, screen_reader, telemetry};
 use std::time::Duration;
 
 /// How often to look. Conversations do not change on a scale that needs faster.
@@ -63,10 +63,27 @@ pub fn spawn(app: tauri::AppHandle) {
             return;
         };
 
+        // Once per run. This thread is the first thing holding a connection,
+        // and it reaches here exactly once, which is what "opened" means.
+        telemetry::record(&conn, telemetry::Event::Opened);
+
         loop {
             if indexer::sweep(&conn) > 0 {
                 crate::announce(&disk);
+                telemetry::record(
+                    &conn,
+                    telemetry::Event::Indexed { conversations: index_store::counts(&conn).0 },
+                );
             }
+
+            /*
+             * The only place anything is sent, and it rides this clock rather
+             * than one of its own so that counting never wakes the machine on
+             * its own account. Returns immediately when consent is off or no
+             * endpoint was compiled in, so the common case costs a branch.
+             */
+            telemetry::send_queued(&conn);
+
             std::thread::sleep(SWEEP_INTERVAL);
         }
     });
