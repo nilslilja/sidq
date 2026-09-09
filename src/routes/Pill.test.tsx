@@ -57,6 +57,44 @@ const bridge: Partial<OnboardingBridge> = {
       source: 'chatgpt',
     },
   ]),
+  /*
+   * One project, which is what the picker's first row is.
+   *
+   * The pill asks for the whole list and takes the busiest, so the mock returns
+   * a second one to prove it does not just render everything it is given.
+   */
+  projects: vi.fn(async () => [
+    {
+      path: '/Users/x/Sidq',
+      name: 'Sidq',
+      conversations: 9,
+      turns: 400,
+      minutes: 800,
+      started: Date.now() - 86_400_000 * 14,
+      touched: Date.now(),
+    },
+    {
+      path: '/Users/x/Other',
+      name: 'Other',
+      conversations: 2,
+      turns: 20,
+      minutes: 30,
+      started: Date.now() - 86_400_000,
+      touched: Date.now() - 86_400_000,
+    },
+  ]),
+  memoryText: vi.fn(async () => '# What I am working on\n\nSidq'),
+  /*
+   * Present so the project row can be proved not to reach it. An undefined
+   * method passes `not.toHaveBeenCalled()` for the wrong reason.
+   */
+  saveTranscript: vi.fn(async () => ({
+    path: '/tmp/x.md',
+    words: 10,
+    used: 1,
+    cap: 5,
+    limited: false,
+  })),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
@@ -139,10 +177,64 @@ describe('the pill, across the two states', () => {
     await settle();
 
     await resizeTo(EXPANDED_WIDTH);
-    expect(bridge.aimAt).toHaveBeenCalledWith('abc');
+    /*
+     * Null on open, because the row that opens selected is the project, and the
+     * project is not a conversation. Rust falls back to the newest conversation
+     * on a null, which is what this used to report anyway — so the gesture
+     * lands on the same conversation it always did.
+     */
+    expect(bridge.aimAt).toHaveBeenLastCalledWith(null);
+
+    // One row down is the first conversation, and now it aims.
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' });
+    await settle();
+    expect(bridge.aimAt).toHaveBeenLastCalledWith('abc');
 
     await resizeTo(COLLAPSED_WIDTH);
     expect(bridge.aimAt).toHaveBeenLastCalledWith(null);
+  });
+
+  test('the first row is what you are working on, and Enter carries it', async () => {
+    /*
+     * The repositioning, asserted. Open, press Enter, and what is on the
+     * clipboard is the memory of the project rather than a conversation
+     * somebody had to recognise from a title.
+     */
+    const written = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText: written } });
+
+    render(<Pill />);
+    await settle();
+    await resizeTo(EXPANDED_WIDTH);
+
+    expect(screen.getByText('Sidq')).toBeTruthy();
+    // The busiest project, not every project it was handed.
+    expect(screen.queryByText('Other')).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    await settle();
+
+    expect(bridge.memoryText).toHaveBeenCalledWith('/Users/x/Sidq');
+    expect(written).toHaveBeenCalledWith('# What I am working on\n\nSidq');
+    // Never the transcript path: the memory is not a conversation handover.
+    expect(bridge.saveTranscript).not.toHaveBeenCalled();
+  });
+
+  test('typing hands the top row back to the conversations', async () => {
+    /*
+     * A query is somebody hunting one conversation. The project sitting above
+     * their best match is a row that does not match what they typed, and Enter
+     * on it would copy something they did not search for.
+     */
+    render(<Pill />);
+    await settle();
+    await resizeTo(EXPANDED_WIDTH);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'notch' } });
+    await settle();
+
+    expect(screen.queryByText('Sidq')).toBeNull();
+    expect(screen.getByText('Notch placement on the pill')).toBeTruthy();
   });
 
   test('renders the picker once the window is the picker\'s size', async () => {

@@ -1417,6 +1417,17 @@ async fn project_memory(path: String) -> Option<memory::Memory> {
     .flatten()
 }
 
+/// A project's memory as text, for the clipboard.
+#[tauri::command]
+async fn memory_text(path: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        memory::build(&index_store::open()?, &path).map(|m| m.as_markdown())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /**
  * Put a project's memory in front of an assistant.
  *
@@ -2336,6 +2347,7 @@ fn main() {
             projects,
             project_memory,
             memory_into,
+            memory_text,
             share_project,
             team_projects,
             read_team_project

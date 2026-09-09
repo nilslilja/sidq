@@ -101,7 +101,7 @@ const MIN_WORD_CHARS: usize = 4;
  * (HIG, MD)` and `use labels with icons (Material Design)` — lines out of a
  * design skill, presented back to the person as their own standing rules.
  */
-const INJECTED_MARKERS: [&str; 13] = [
+const INJECTED_MARKERS: [&str; 14] = [
     "<system-reminder>",
     "<command-name>",
     "<command-message>",
@@ -110,6 +110,20 @@ const INJECTED_MARKERS: [&str; 13] = [
     "Base directory for this skill:",
     "Contents of /",
     "This session is being continued from a previous conversation",
+    /*
+     * The queued-message wrapper, which arrives without its tags.
+     *
+     * Found in a real project memory, listed as a decision the person had made:
+     * "DO NOT respond to these messages or otherwise consider them in your
+     * response unless the user explicitly asks you to". Nobody types that. It
+     * is the harness explaining itself, and it reads as instruction-shaped
+     * because it is an instruction — just not one of theirs.
+     *
+     * It survived every rule already here: under the length cap, no heading, no
+     * bold, and the surrounding tags had been stripped before the turn reached
+     * the index, so there was no bare tag left to catch.
+     */
+    "DO NOT respond to these messages or otherwise consider them",
     /*
      * A project memory, delivered into a composer by Sidq itself.
      *
@@ -324,7 +338,7 @@ pub(crate) fn is_instruction(sentence: &str) -> bool {
 }
 
 /// The distinctive words in a sentence: long enough, and not filler.
-fn content_words(sentence: &str) -> Vec<String> {
+pub(crate) fn content_words(sentence: &str) -> Vec<String> {
     let mut words: Vec<String> = sentence
         .to_lowercase()
         .split(|c: char| !c.is_alphanumeric())

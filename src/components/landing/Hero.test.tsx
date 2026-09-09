@@ -81,9 +81,27 @@ describe("the sub-line", () => {
     // still has to know what Sidq is and what it does for them.
     render(<Hero />);
     const sub = screen.getByText(/Sidq is the one that remembers/);
-    expect(sub.textContent).toMatch(
-      /carried word for word into whichever AI you open next/,
-    );
+    expect(sub.textContent).toMatch(/whichever AI you open next/);
+  });
+
+  /*
+   * The headline promises a memory. For a while the line under it answered with
+   * a transfer — "carried word for word into whichever AI you open next" — so
+   * the page set up a memory and delivered a clipboard, and the product's best
+   * thing was not stated anywhere on it.
+   *
+   * What is asserted is the substance rather than the wording: the line has to
+   * name what is remembered, and it has to say the words are the person's own.
+   * "In your own words" is the doctrine, not decoration — memory.rs quotes and
+   * counts and never summarises, and a hero that implies otherwise is selling
+   * something the app refuses to do.
+   */
+  test("promises the memory the headline sets up, not a paste", () => {
+    render(<Hero />);
+    const sub = screen.getByText(/Sidq is the one that remembers/);
+    expect(sub.textContent).toMatch(/what you decided/i);
+    expect(sub.textContent).toMatch(/in your own words/i);
+    expect(sub.textContent).not.toMatch(/summar/i);
   });
 });
 

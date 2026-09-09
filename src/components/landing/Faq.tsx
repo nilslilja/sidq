@@ -28,7 +28,11 @@ const FREE = entitlementsFor("free");
 export const FAQS = [
   {
     q: "What does it actually do?",
-    a: "You are in the middle of something with one AI and you want to carry it to another, because that one is better at this part, or you have run out, or you simply prefer it. Normally you re-explain everything and get a worse version of what you already had. Sidq puts the conversation into the new one, word for word, from a single keystroke. It drops the greetings and the ok-thanks. If the conversation is bigger than the window it is going into, it carries what matters and names what it left, in the file, where the next AI reads it. Nothing is ever summarised.",
+    a: [
+      "It keeps a memory of each thing you are working on, and gives it to whichever AI you open. Not a folder of chats — a record: what the project opened with, what you decided along the way, what you already tried and ruled out, where it got to yesterday. Built from your own sentences across every assistant you use, with the number of conversations each line came from printed beside it.",
+      "So you stop being the one carrying the context. You press one key and the AI in front of you knows the project, including the parts you worked out three weeks ago in a different assistant you have since stopped paying for.",
+      "It also hands over any single conversation, word for word, when that is what you want. It drops the greetings and the ok-thanks, and if the conversation is bigger than the window it is going into it carries what matters and names what it left, in the file, where the next AI reads it. Nothing is ever summarised.",
+    ],
   },
   {
     q: "Which AIs does it work with?",
@@ -58,8 +62,8 @@ export const FAQS = [
   {
     q: "What does Duo actually share between two people?",
     a: [
-      'Standing instructions, and only those. The lines on your "How you work" tab are sentences you have typed to assistants more than once: how you want things done, what stack you are on, the conventions you keep repeating. On Duo those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
-      "Your conversations are not shared, and will not be. Nothing crosses except one small Markdown file of those rules, which you can open and read in full before anybody else sees it.",
+      'Two things automatically, and one only when you say so. The automatic ones are standing instructions and nothing else: the lines on your "How you work" tab are sentences you have typed to assistants more than once — how you want things done, what stack you are on, the conventions you keep repeating. Those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
+      "The one you choose is a project: its memory — what it started as, what was decided, what was ruled out — published to the team as a Markdown file you can read in full first. Somebody joining picks up months of decisions without booking time with the person who made them. Nothing goes until you press the button on that project, nothing is on a timer, and no conversation of yours is shared because a folder was set up once.",
       "It works through a folder you already sync, whether that is iCloud Drive, Dropbox or a git repo. Sidq writes its file there and reads the ones your teammates wrote. It still uploads nothing and still opens no connection, which also means it works between people in different countries rather than two laptops on one wifi.",
     ],
   },

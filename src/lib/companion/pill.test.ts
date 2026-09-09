@@ -1,8 +1,10 @@
 import { describe, test, expect } from 'vitest';
 import {
   ANY_SOURCE,
+  conversationAt,
   filterSessions,
   moveSelection,
+  rowsIn,
   sourceOf,
   sourcesIn,
   statusLine,
@@ -258,5 +260,49 @@ describe('empty because it is looking, versus empty because it is empty', () => 
 
   test('settled defaults to true, so existing callers keep their meaning', () => {
     expect(statusLine(0, 0, '')).toBe('Nothing here yet. Open any AI and it lands in this list.');
+  });
+});
+
+describe('the project above the conversations', () => {
+  test('the project takes row zero and pushes the conversations down one', () => {
+    const rows = rowsIn(true, '', 5);
+    expect(rows).toEqual({ showProject: true, count: 6 });
+    expect(conversationAt(0, rows.showProject)).toBe(-1);
+    expect(conversationAt(1, rows.showProject)).toBe(0);
+    expect(conversationAt(5, rows.showProject)).toBe(4);
+  });
+
+  test('typing takes the project away, and the first row is a conversation again', () => {
+    const rows = rowsIn(true, 'auth', 5);
+    expect(rows).toEqual({ showProject: false, count: 5 });
+    expect(conversationAt(0, rows.showProject)).toBe(0);
+  });
+
+  test('whitespace is not a query', () => {
+    expect(rowsIn(true, '   ', 5).showProject).toBe(true);
+  });
+
+  test('a machine with no project on disk gets the picker it always had', () => {
+    const rows = rowsIn(false, '', 5);
+    expect(rows).toEqual({ showProject: false, count: 5 });
+    expect(conversationAt(0, rows.showProject)).toBe(0);
+  });
+
+  /*
+   * The clamp reads `count`, so the project has to be counted or the row is
+   * unreachable: one project and no conversations would clamp every selection
+   * to 0 rows and the only thing on screen could never be pressed.
+   */
+  test('the project alone is still a row you can land on', () => {
+    const rows = rowsIn(true, '', 0);
+    expect(rows.count).toBe(1);
+    expect(moveSelection(0, 1, rows.count)).toBe(0);
+    expect(conversationAt(0, rows.showProject)).toBe(-1);
+  });
+
+  test('arrows wrap around the whole list, project included', () => {
+    const rows = rowsIn(true, '', 2);
+    expect(moveSelection(2, 1, rows.count)).toBe(0);
+    expect(moveSelection(0, -1, rows.count)).toBe(2);
   });
 });

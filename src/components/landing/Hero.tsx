@@ -182,12 +182,28 @@ export function Hero() {
          * higher in the darker sky and measures 5.04:1, which clears 4.5:1
          * on its own.
          */}
+        {/*
+         * ── What this line promises, and why it changed ──────────────────────
+         *
+         * It used to say "every conversation you have ever had, carried word
+         * for word into whichever AI you open next". True, and a description of
+         * a pipe. The headline above it promises the models remember everything
+         * except you — a memory — and the line under it answered with a
+         * transfer, so the page set up a memory and delivered a clipboard.
+         *
+         * What Sidq holds now is the thing itself: per project, what it opened
+         * with, what got decided, where it reached, assembled from the person's
+         * own sentences across every assistant. "In your own words" is not a
+         * flourish, it is the doctrine — memory.rs quotes and counts, and
+         * nothing on this page may claim a summary the product refuses to make.
+         */}
         <p
           className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
           style={{ animationDelay: "160ms" }}
         >
-          Sidq is the one that remembers. Every conversation you have ever had,
-          carried word for word into whichever AI you open next.
+          Sidq is the one that remembers. What you are working on and what you
+          decided about it, in your own words, ready for whichever AI you open
+          next.
         </p>
 
         {/* The line somebody repeats, directly over the button. */}

@@ -380,12 +380,19 @@ describe("what Duo promises", () => {
 
   /*
    * Duo shares standing instructions through a folder the team already syncs.
-   * It does not share conversations, and it is not going to: the only thing
-   * that crosses is a small Markdown file of rules the person can read first.
    *
-   * "Shared context" is exactly the phrase somebody hears as "my co-founder can
-   * see my chats". If that reading is ever available on this page, the plan is
-   * mis-sold to the people most likely to buy it.
+   * This used to say conversations never cross and never would. That stopped
+   * being true when `share_handover` and then `share_project` shipped, and the
+   * assertion below outlived it by weeks — the page said one thing and the
+   * pricing card the other, which is the shape of a claim nobody has checked.
+   *
+   * The line that actually protects the buyer is not "never" but "never on its
+   * own": rules publish themselves, and a conversation or a project memory
+   * moves only because somebody pressed the button on that one thing. So what
+   * is guarded here is the automatic reading. "Shared context" is exactly the
+   * phrase somebody hears as "my co-founder can see my chats", and if that
+   * reading is available anywhere on this page the plan is mis-sold to the
+   * people most likely to buy it.
    */
   test("it never suggests conversations cross between the two seats", () => {
     const text = [
@@ -423,7 +430,15 @@ describe("what Duo promises", () => {
     const text = (Array.isArray(answer?.a) ? answer.a.join(" ") : (answer?.a ?? "")).toLowerCase();
 
     expect(text).toContain("uploads nothing");
-    expect(text).toContain("not shared");
+
+    /*
+     * The two guarantees a security-minded buyer is actually reading for: that
+     * nothing moves on a schedule, and that a folder configured once is not
+     * consent for everything after it. Both are enforced in team_context —
+     * there is no timer and no walk of the index — so the page may state them.
+     */
+    expect(text).toContain("nothing is on a timer");
+    expect(text).toContain("because a folder was set up once");
   });
 });
 

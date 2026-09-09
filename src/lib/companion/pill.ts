@@ -119,6 +119,39 @@ export function moveSelection(index: number, delta: number, length: number): num
 }
 
 /**
+ * What the picker's rows are, once the project sits above the conversations.
+ *
+ * Kept out of the component because it is arithmetic with an off-by-one in it,
+ * and the two regressions shipped into Pill.tsx this week were both arithmetic
+ * nobody could write a test against. Every index the picker holds is a row in
+ * this list; `conversationAt` converts one back to a position in the
+ * conversation array, and returns -1 for the project.
+ */
+export interface Rows {
+  /** Whether row zero is the project rather than a conversation. */
+  showProject: boolean;
+  /** Everything selectable, project included. */
+  count: number;
+}
+
+export function rowsIn(hasProject: boolean, query: string, conversations: number): Rows {
+  /*
+   * A query hides the project.
+   *
+   * Typing is somebody looking for one specific conversation. A project pinned
+   * to the top of their search results is a row that does not match what they
+   * typed, sitting where the best match should be.
+   */
+  const showProject = hasProject && !query.trim();
+  return { showProject, count: conversations + (showProject ? 1 : 0) };
+}
+
+/** Which conversation a row index means, or -1 when the row is the project. */
+export function conversationAt(selected: number, showProject: boolean): number {
+  return showProject ? selected - 1 : selected;
+}
+
+/**
  * The header count.
  *
  * Takes the total, not the number of visible rows. Reporting the slice told

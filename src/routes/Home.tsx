@@ -1704,6 +1704,19 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
               <p className="mt-6 text-[0.75rem] uppercase tracking-[0.16em] text-[var(--w-text-5)]">
                 Decided along the way
               </p>
+              {/*
+               * What the number beside each line means.
+               *
+               * It went unlabelled while every decision had to appear in two
+               * conversations to be listed at all. Now that one is enough, a 1
+               * sits next to a 4 with nothing saying they are the same kind of
+               * thing measured — and an unexplained number next to somebody's
+               * own sentence reads like a score being given to it.
+               */}
+              <p className="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+                Your sentences, newest first, never reworded. The number is how
+                many separate conversations you said it in.
+              </p>
               <ul className="mt-2 space-y-px">
                 {memory.decisions.map((d) => (
                   <li

@@ -529,6 +529,8 @@ export interface OnboardingBridge {
    * without having to ask them.
    */
   shareProject: (path: string) => Promise<boolean>;
+  /** A project's memory as text, for the clipboard. */
+  memoryText: (path: string) => Promise<string | null>;
   /** Every project anybody on the team has shared. */
   teamProjects: () => Promise<SharedProject[]>;
   /** Read one back, to put in front of an assistant. */
@@ -768,6 +770,8 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
+    memoryText: async (path: string) =>
+      ((await invoke("memory_text", { path })) as string | null) ?? null,
     shareProject: async (path: string) =>
       ((await invoke("share_project", { path })) as boolean) ?? false,
     teamProjects: async () =>

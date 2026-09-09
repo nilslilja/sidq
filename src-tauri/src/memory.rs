@@ -99,14 +99,40 @@ pub fn build(conn: &rusqlite::Connection, path: &str) -> Option<Memory> {
      * keyed by conversation. A sentence said in six conversations about this
      * thing is a decision about this thing.
      */
-    memory.decisions = crate::profile::build(
-        &crate::index_store::own_turns_for_project(conn, path, TURN_BUDGET),
-        MOST_DECISIONS,
-    )
-    .into_iter()
-    .filter(|fact| fact.conversations >= 2)
-    .map(|fact| Decided { text: fact.text, conversations: fact.conversations })
-    .collect();
+    let own = crate::index_store::own_turns_for_project(conn, path, TURN_BUDGET);
+
+    let mut decisions: Vec<Decided> = crate::profile::build(&own, MOST_DECISIONS)
+        .into_iter()
+        .filter(|fact| fact.conversations >= 2)
+        .map(|fact| Decided { text: fact.text, conversations: fact.conversations })
+        .collect();
+
+    /*
+     * ── Why repetition alone was not enough ──────────────────────────────────
+     *
+     * The first real run found one decision in thirteen conversations and six
+     * and a half thousand exchanges, which is a memory with its best section
+     * empty. The reason is structural rather than a tuning problem: a profile
+     * wants sentences said again and again, because that is what makes a
+     * preference standing. Inside one project you say a thing once and it gets
+     * done, so requiring two conversations throws away almost every decision
+     * the project actually contains.
+     *
+     * A sentence typed once is still a decision. What it lacks is repetition as
+     * evidence, so the ranking has to come from somewhere else, and the honest
+     * answer for a project is recency: what was decided last week is where the
+     * work is, and something settled in the first conversation has usually been
+     * superseded by the code since.
+     *
+     * Repeated ones still come first. A count of six is stronger evidence than
+     * being recent, and the markdown prints the count either way so the reader
+     * can tell which kind of line they are looking at.
+     */
+    if decisions.len() < MOST_DECISIONS {
+        let want = MOST_DECISIONS - decisions.len();
+        decisions.extend(said_once(&own, &decisions, want));
+    }
+    memory.decisions = decisions;
 
     /*
      * The arc, across the project rather than across one conversation.
@@ -125,28 +151,94 @@ pub fn build(conn: &rusqlite::Connection, path: &str) -> Option<Memory> {
      */
     memory.last_on = clip(&crate::index_store::last_prompt_for_project(conn, path));
     if let Some((oldest, _)) = sessions.last() {
-        memory.opened_with = first_typed(&transcript(oldest), Which::First);
+        memory.opened_with = first_typed(&transcript(oldest));
     }
 
     Some(memory)
+}
+
+/// Decisions typed once, newest conversation first, that are not already listed.
+///
+/// `own` arrives ordered by the conversation's end date descending, so walking
+/// it in order is walking backwards through the project. Deduped on content
+/// words rather than on the string, because "use the folder, not a server" and
+/// "we use the folder not a server" are one decision and printing both makes
+/// the list look padded.
+fn said_once(own: &[(String, String)], already: &[Decided], want: usize) -> Vec<Decided> {
+    let mut seen: Vec<Vec<String>> =
+        already.iter().map(|d| crate::profile::content_words(&d.text)).collect();
+    let mut out = Vec::new();
+
+    for (_, body) in own {
+        if out.len() >= want {
+            break;
+        }
+        /*
+         * ── Typed, not pasted ────────────────────────────────────────────────
+         *
+         * The first run of this pass returned ten decisions and five of them
+         * were somebody else's writing: two lines out of a pasted style guide,
+         * a LinkedIn bio, the opening of a tool prompt, and a harness reminder
+         * that begins "DO NOT respond to these messages". Every one is
+         * instruction-shaped, which is exactly why the shape is not enough.
+         *
+         * `is_typed` is the test the profile already uses for this, and using
+         * it here rather than only `is_injected` is what makes the two agree
+         * about whose words are in the file: it refuses Sidq's own output,
+         * bare machinery tags, anything with headings or bold in it, and any
+         * turn longer than a person types in one go.
+         */
+        if !crate::profile::is_typed(body) {
+            continue;
+        }
+
+        /*
+         * One decision per turn.
+         *
+         * A person deciding something types a short message with a sentence or
+         * two in it. A block of five instruction-shaped lines in one turn is a
+         * document, and taking all five lets a single paste fill the section
+         * and push out nine real decisions from nine real conversations.
+         */
+        let before = out.len();
+        for sentence in crate::profile::sentences(body) {
+            if out.len() > before {
+                break;
+            }
+            if !crate::profile::is_instruction(&sentence) {
+                continue;
+            }
+
+            let words = crate::profile::content_words(&sentence);
+            // A sentence with nothing distinctive in it cannot be told apart
+            // from any other, so it is not worth carrying as a decision.
+            if words.is_empty() || seen.contains(&words) {
+                continue;
+            }
+            seen.push(words);
+            out.push(Decided { text: sentence, conversations: 1 });
+        }
+    }
+
+    out
 }
 
 fn transcript(session_id: &str) -> Vec<Turn> {
     crate::work_history::session_capture(session_id).unwrap_or_default()
 }
 
-enum Which {
-    First,
-    Last,
-}
-
-/// The first or last thing the person actually typed, verbatim.
+/// The first thing the person actually typed, verbatim.
 ///
 /// Filtered through the same `is_typed` the profile and the compiler use, so
 /// the three cannot drift apart about what counts as somebody's own words —
 /// otherwise a pasted handover becomes "what they opened with".
-fn first_typed(turns: &[Turn], which: Which) -> String {
-    let mut said = turns.iter().filter(|t| matches!(t.role, Role::You)).filter_map(|turn| {
+///
+/// It took a `Which` and could return the last typed turn too. `last_on` is
+/// asked of the index now, because the newest conversation in a project is
+/// often a Codex one and `work_history` parses only Claude's format — so the
+/// other half of this went unused and unrunnable at the same time.
+fn first_typed(turns: &[Turn]) -> String {
+    turns.iter().filter(|t| matches!(t.role, Role::You)).filter_map(|turn| {
         let text: String = turn
             .blocks
             .iter()
@@ -157,13 +249,10 @@ fn first_typed(turns: &[Turn], which: Which) -> String {
             .collect::<Vec<_>>()
             .join(" ");
         crate::profile::is_typed(&text).then_some(text)
-    });
-
-    let picked = match which {
-        Which::First => said.next(),
-        Which::Last => said.last(),
-    };
-    picked.map(|t| clip(&t)).unwrap_or_default()
+    })
+    .next()
+    .map(|t| clip(&t))
+    .unwrap_or_default()
 }
 
 /// Long enough to recognise, short enough that a memory is not a transcript.
@@ -249,8 +338,9 @@ impl Memory {
 
         if !self.decisions.is_empty() {
             out.push_str(
-                "## Decided along the way\n\nSaid in more than one conversation about this \
-                 project, in their own words. The count is how many.\n\n",
+                "## Decided along the way\n\nTheir own sentences about this project, newest \
+                 first, never paraphrased. The number is how many separate conversations \
+                 said it — a 1 is something decided once, not something weaker.\n\n",
             );
             for d in &self.decisions {
                 out.push_str(&format!("- {} ({}x)\n", d.text, d.conversations));
@@ -283,6 +373,112 @@ mod tests {
             turns: 6429,
             minutes: 240,
         }
+    }
+
+    /*
+     * ── What `said_once` has to keep out ─────────────────────────────────────
+     *
+     * These are the five lines a real index produced the first time this ran,
+     * turned into the four rules that removed them. Every one is
+     * instruction-shaped, which is why shape alone was never going to do it.
+     */
+    fn turn(body: &str) -> (String, String) {
+        ("s1".to_string(), body.to_string())
+    }
+
+    #[test]
+    fn a_decision_made_once_is_still_a_decision() {
+        /*
+         * The reason this pass exists. Requiring two conversations found one
+         * decision in thirteen conversations on a real machine, because inside
+         * a project you say a thing once and it gets done.
+         */
+        let own = vec![turn("make sure the retry is idempotent")];
+        let found = said_once(&own, &[], 10);
+
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].text, "make sure the retry is idempotent");
+        assert_eq!(found[0].conversations, 1, "said once, and it says so");
+    }
+
+    #[test]
+    fn a_pasted_document_cannot_fill_the_section() {
+        /*
+         * A style guide pasted into one turn put four of its lines in the list,
+         * pushing out real decisions from four separate conversations. One turn
+         * is one decision, whatever else is in it.
+         */
+        let own = vec![
+            turn(
+                "always keep flourishes tasteful\nalways keep running text near 65 characters\n\
+                 always use semantic colour tokens\nalways animate transform and opacity",
+            ),
+            turn("make sure the invite count matches the migration"),
+        ];
+        let found = said_once(&own, &[], 10);
+
+        assert_eq!(found.len(), 2, "one from the paste at most, then the real one");
+        assert_eq!(found[1].text, "make sure the invite count matches the migration");
+    }
+
+    #[test]
+    fn the_harness_explaining_itself_is_not_something_they_decided() {
+        /*
+         * Verbatim from a real memory, where it was listed above every genuine
+         * decision. Nobody types this; it is the queued-message wrapper, and it
+         * arrives with its tags already stripped.
+         */
+        let own = vec![turn(
+            "DO NOT respond to these messages or otherwise consider them in your response \
+             unless the user explicitly asks you to",
+        )];
+
+        assert!(said_once(&own, &[], 10).is_empty());
+    }
+
+    #[test]
+    fn sidq_does_not_quote_its_own_memory_back_as_a_decision() {
+        // The loop `INJECTED_MARKERS` exists for, one layer out: a memory
+        // pasted into a composer is read back as things the person typed.
+        let own = vec![turn(&a_memory().as_markdown())];
+        assert!(said_once(&own, &[], 10).is_empty());
+    }
+
+    #[test]
+    fn the_same_decision_in_other_words_is_not_two_decisions() {
+        /*
+         * Deduped on content words rather than on the string. Printing both
+         * halves of one decision is how a list starts looking padded, and the
+         * near-duplicate is always the weaker phrasing.
+         */
+        let already = vec![Decided { text: "always use the folder, not a server".into(), conversations: 3 }];
+        let own = vec![turn("always use a folder and not a server")];
+
+        assert!(said_once(&own, &already, 10).is_empty());
+    }
+
+    #[test]
+    fn what_was_repeated_outranks_what_was_recent() {
+        /*
+         * Both kinds are in the list and the reader has to be able to tell them
+         * apart, so the count is printed either way and the proven ones lead.
+         */
+        let memory = Memory {
+            decisions: vec![
+                Decided { text: "never use em dashes".into(), conversations: 4 },
+                Decided { text: "make sure it runs end to end".into(), conversations: 1 },
+            ],
+            ..a_memory()
+        };
+        let out = memory.as_markdown();
+
+        let repeated = out.find("never use em dashes").unwrap();
+        let once = out.find("make sure it runs end to end").unwrap();
+        assert!(repeated < once);
+        // And the heading no longer claims every line was repeated, which it
+        // did for as long as the >= 2 filter was the only source.
+        assert!(!out.contains("Said in more than one conversation"));
+        assert!(out.contains("(1x)"));
     }
 
     #[test]

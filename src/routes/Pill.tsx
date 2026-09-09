@@ -3,7 +3,9 @@ import { rankSessions } from '@/lib/companion/rank-sessions';
 import {
   ANY_SOURCE,
   filterSessions,
+  conversationAt,
   moveSelection,
+  rowsIn,
   sourceOf,
   sourcesIn,
   statusLine,
@@ -11,7 +13,7 @@ import {
 import { sourceLabel } from '@/lib/companion/sources';
 import { playCue } from '@/lib/companion/sound';
 import { desktopBridge } from '@/lib/onboarding/bridge';
-import type { PillState } from '@/lib/onboarding/bridge';
+import type { PillState, ProjectRow } from '@/lib/onboarding/bridge';
 import type { WorkSession } from '@/lib/companion/work-history';
 import { cn } from '@/lib/cn';
 import { SidqMark } from '@/components/SidqMark';
@@ -140,6 +142,16 @@ export function Pill() {
    */
   const [beat, setBeat] = useState(0);
   const [source, setSource] = useState(ANY_SOURCE);
+  /*
+   * The thing being worked on, above the conversations that make it up.
+   *
+   * The picker has always asked "which conversation", which is the right
+   * question only when you already know. Most of the time the answer is a
+   * project spread over nine of them, and no single row is it. The busiest
+   * project goes first and the conversations sit underneath, which is the
+   * order somebody actually thinks in.
+   */
+  const [project, setProject] = useState<ProjectRow | null>(null);
   const [picking, setPicking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -167,6 +179,9 @@ export function Pill() {
   );
   const visible = useMemo(() => filterSessions(ranked, query, source), [ranked, query, source]);
 
+  const { showProject, count: rowCount } = rowsIn(project !== null, query, visible.length);
+  const offset = showProject ? 1 : 0;
+
   /*
    * The filter, built from the list rather than from the list of AIs we support.
    *
@@ -193,7 +208,8 @@ export function Pill() {
    * to the second item, type one more letter to narrow it, and the selection
    * jumps back to the first.
    */
-  const selected = Math.min(index, Math.max(0, visible.length - 1));
+  const selected = Math.min(index, Math.max(0, rowCount - 1));
+  const pickedRow = conversationAt(selected, showProject);
 
   /*
    * Tell the app which conversation is under the pointer.
@@ -210,9 +226,9 @@ export function Pill() {
   useEffect(() => {
     if (!bridge) return;
     const aimed =
-      mode === 'expanded' ? (visible[selected]?.session.sessionId ?? null) : null;
+      mode === 'expanded' ? (visible[pickedRow]?.session.sessionId ?? null) : null;
     void bridge.aimAt(aimed);
-  }, [bridge, mode, visible, selected]);
+  }, [bridge, mode, visible, pickedRow]);
 
   /*
    * Reload every time it opens, not once at launch.
@@ -229,6 +245,19 @@ export function Pill() {
       // Settled on failure too. A read that errored has finished looking, and
       // leaving it saying "reading…" forever is worse than saying it is empty.
       .finally(() => setSettled(true));
+
+    /*
+     * The busiest project, which is the one `projects()` returns first.
+     *
+     * Failure is silence, not an error row. The picker's job is the list; a
+     * machine with no project on disk — anyone whose AI use is all browser —
+     * gets exactly the picker they had before, with nothing missing-looking
+     * where the memory would have been.
+     */
+    void bridge
+      .projects()
+      .then((rows) => setProject(rows[0] ?? null))
+      .catch(() => setProject(null));
   }, [bridge, mode]);
 
   /*
@@ -383,8 +412,36 @@ export function Pill() {
    * which is the only change here that meaningfully lowers what a handover
    * costs, and it does it without dropping a single word.
    */
+  /*
+   * The memory, on the clipboard.
+   *
+   * The conversation rows offer a file because a transcript pasted inline costs
+   * its full length on every following turn. The memory is a page — what the
+   * project opened with, what was decided, where it got to — so the objection
+   * that made a file the right default does not apply, and a paste is one
+   * keystroke closer than an attachment.
+   */
+  const carryProject = useCallback(async () => {
+    if (!project || phase.kind === 'working') return;
+
+    setPhase({ kind: 'working' });
+    try {
+      const text = await bridge?.memoryText(project.path);
+      if (!text) {
+        setPhase({ kind: 'failed' });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      playCue('done');
+      setPhase({ kind: 'done' });
+      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
+    } catch {
+      setPhase({ kind: 'failed' });
+    }
+  }, [bridge, phase.kind, project]);
+
   const saveFile = useCallback(async () => {
-    const target = visible[selected];
+    const target = visible[pickedRow];
     if (!target?.session.sessionId || phase.kind === 'working') return;
 
     setPhase({ kind: 'working' });
@@ -428,10 +485,10 @@ export function Pill() {
     } catch {
       setPhase({ kind: 'failed' });
     }
-  }, [bridge, phase.kind, selected, visible]);
+  }, [bridge, phase.kind, pickedRow, visible]);
 
   const handOver = useCallback(async () => {
-    const target = visible[selected];
+    const target = visible[pickedRow];
     if (!target || phase.kind === 'working') return;
 
     setPhase({ kind: 'working' });
@@ -469,7 +526,7 @@ export function Pill() {
     } catch {
       setPhase({ kind: 'failed' });
     }
-  }, [bridge, phase.kind, selected, visible]);
+  }, [bridge, phase.kind, pickedRow, visible]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     /*
@@ -513,7 +570,7 @@ export function Pill() {
     }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, visible.length));
+      setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, rowCount));
       return;
     }
     /*
@@ -541,7 +598,8 @@ export function Pill() {
        * carries the instruction with it, attaches to any assistant, and is
        * still there tomorrow.
        */
-      if (e.metaKey) void handOver();
+      if (pickedRow < 0) void carryProject();
+      else if (e.metaKey) void handOver();
       else void saveFile();
     }
   };
@@ -958,25 +1016,81 @@ export function Pill() {
           */}
         {phase.kind !== 'saved' && phase.kind !== 'limited' && (
         <ul className="max-h-[17rem] space-y-0.5 overflow-y-auto px-2 pb-2">
+          {/*
+            * The project, above the conversations it is made of.
+            *
+            * It is row zero rather than a shortcut somewhere else, because a
+            * shortcut is a feature and being the first thing under the cursor
+            * is a repositioning. Press the key, press Enter, and what you are
+            * working on is on the clipboard without picking anything.
+            */}
+          {showProject && project && (
+            <li key={project.path}>
+              <button
+                onClick={() => {
+                  setIndex(0);
+                  void carryProject();
+                }}
+                onMouseEnter={() => setIndex(0)}
+                className={cn(
+                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left',
+                  'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                  selected === 0 ? 'row-glass-on' : 'hover:row-glass',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'size-1.5 shrink-0 rounded-full bg-lilac transition-shadow duration-150',
+                    selected === 0 && 'shadow-[0_0_8px_rgba(184,166,255,0.8)]',
+                  )}
+                />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      'block truncate text-[0.875rem] leading-tight transition-colors duration-150',
+                      selected === 0 ? 'text-white' : 'text-white/85',
+                    )}
+                  >
+                    {project.name}
+                  </span>
+                  {/*
+                    * The counts, because the count is the evidence.
+                    *
+                    * Same rule the memory itself follows: nothing here is a
+                    * summary, so the line says how much it was built from
+                    * rather than characterising it.
+                    */}
+                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                    Everything you decided · {project.conversations}{' '}
+                    {project.conversations === 1 ? 'conversation' : 'conversations'}
+                  </span>
+                </span>
+                <span className="chip-glass shrink-0 rounded-[6px] px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap text-lilac/80">
+                  memory
+                </span>
+              </button>
+            </li>
+          )}
           {visible.map((row, i) => (
             <li key={row.session.sessionId}>
               <button
                 onClick={() => {
-                  setIndex(i);
+                  setIndex(i + offset);
                   void saveFile();
                 }}
-                onMouseEnter={() => setIndex(i)}
+                onMouseEnter={() => setIndex(i + offset)}
                 className={cn(
                   'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left',
                   'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
-                  i === selected ? 'row-glass-on' : 'hover:row-glass',
+                  i === pickedRow ? 'row-glass-on' : 'hover:row-glass',
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     'size-1.5 shrink-0 rounded-full transition-colors duration-150',
-                    i === selected
+                    i === pickedRow
                       ? 'bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]'
                       : 'bg-white/20',
                   )}
@@ -985,7 +1099,7 @@ export function Pill() {
                   <span
                     className={cn(
                       'block truncate text-[0.875rem] leading-tight transition-colors duration-150',
-                      i === selected ? 'text-white' : 'text-white/85',
+                      i === pickedRow ? 'text-white' : 'text-white/85',
                     )}
                   >
                     {row.session.title || row.session.lastPrompt}
@@ -1016,7 +1130,8 @@ export function Pill() {
             {phase.kind === 'saved' && 'Ready to attach'}
             {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
             {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' && '↵ attach · ⌘↵ copy'}
+            {phase.kind === 'browsing' &&
+              (pickedRow < 0 ? '↵ copy what you are working on' : '↵ attach · ⌘↵ copy')}
           </span>
           <button
             onClick={() => {
