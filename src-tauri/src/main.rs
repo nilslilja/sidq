@@ -1,38 +1,35 @@
-// Sidq desktop companion.
+// Sidq desktop companion: the application shell.
 //
-// A small always-on-top card that knows what you are working on. It does three
-// things and nothing else: shows the current task, notices when the window in front
-// of you stopped matching it, and tells you when to stop.
+// The header here used to describe a day planner — "shows the current task,
+// notices when the window in front of you stopped matching it, and tells you
+// when to stop". That product was removed a long time ago and the comment
+// outlived it, which is the exact failure the rest of this codebase writes
+// comments to avoid.
 //
-// Design rule throughout: the failure mode for an always-on overlay is not missing
-// a distraction, it is being annoying enough to get quit. Everything here errs
-// toward silence and toward staying out of the way.
+// What this file is now: the Tauri commands, the tray, the windows, and the
+// glue between them. Everything about conversations — reading them, indexing
+// them, compiling a handover, building a memory — lives in the library beside
+// it, so that `sidq-mcp` can use all of it without linking an application.
+//
+// Design rule throughout: the failure mode for an always-on overlay is not
+// missing something, it is being annoying enough to get quit. Everything here
+// errs toward silence and toward staying out of the way.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// The four modules that genuinely need an app: a window, an AppHandle, or the
+// event bus. Everything else is in the library.
 mod assistants;
+mod background;
 mod browser_bridge;
-mod index_store;
-mod entitlement;
-mod indexer;
-mod invites;
 mod pill_window;
-mod profile;
-mod quick_grab;
-mod team_context;
-mod capture;
-mod imports;
-mod compiler;
-mod double_tap;
-mod codex_history;
-mod login_item;
-mod redact;
 
-mod cursor_history;
-mod screen_reader;
-mod memory;
-mod selection;
-mod work_history;
+// The library, imported by name so the call sites below did not have to change.
+use sidq::{
+    capture, codex_history, compiler, cursor_history, double_tap, entitlement, imports,
+    index_store, invites, login_item, memory, profile, quick_grab, screen_reader,
+    team_context, work_history,
+};
 
 
 use tauri_plugin_notification::NotificationExt;
@@ -2574,7 +2571,7 @@ fn main() {
             // Keeps the index current in the background. Search reads from it;
             // the picker still works without it, so a failure here costs a
             // feature rather than the app.
-            indexer::spawn(app.handle().clone());
+            background::spawn(app.handle().clone());
 
             if !has_onboarded(&app.handle().clone()) {
                 if let Some(welcome) = app.get_webview_window("welcome") {

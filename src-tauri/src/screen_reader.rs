@@ -548,9 +548,16 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
  * with a bold phrase in the middle arrives as three. Joining all of them with a
  * newline shattered ordinary prose across three lines each:
  *
- *     Bro for
- *     2 flat whites a day + consistency + small kitchen
- *     , I would not overcomplicate this.
+ * ```text
+ * Bro for
+ * 2 flat whites a day + consistency + small kitchen
+ * , I would not overcomplicate this.
+ * ```
+ *
+ * (Fenced as `text` deliberately. An indented block in a doc comment is a Rust
+ * doctest to rustdoc, and this one is a scraped chat message. It compiled for
+ * the first time the day this crate grew a library, because a binary crate
+ * never runs doctests at all.)
  *
  * The receiving model reads that perfectly well, which is why it survived this
  * long. A person opening the file sees a scrape.
