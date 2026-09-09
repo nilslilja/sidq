@@ -115,7 +115,7 @@ fn call(conn: &Connection, function: &str, body: &str) -> Result<serde_json::Val
         return Err("Sign in to get your invite code.".into());
     };
 
-    let out = Command::new("/usr/bin/curl")
+    let out = Command::new(crate::net::CURL)
         .args([
             "--silent",
             "--fail-with-body",

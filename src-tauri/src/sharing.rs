@@ -69,7 +69,7 @@ pub fn publish(
     })
     .to_string();
 
-    let out = Command::new("/usr/bin/curl")
+    let out = Command::new(crate::net::CURL)
         .args([
             "--silent",
             "--fail",
@@ -128,7 +128,7 @@ pub fn unpublish(
             let body = serde_json::json!({ "action": "unpublish", "id": id, "secret": secret })
                 .to_string();
 
-            Command::new("/usr/bin/curl")
+            Command::new(crate::net::CURL)
                 .args([
                     "--silent",
                     "--fail",

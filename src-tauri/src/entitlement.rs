@@ -125,7 +125,7 @@ fn now() -> i64 {
  * which is to fall back rather than to assume the best.
  */
 fn fetch_tier(url: &str, anon_key: &str, token: &str) -> Option<String> {
-    let out = Command::new("/usr/bin/curl")
+    let out = Command::new(crate::net::CURL)
         .args([
             "--silent",
             "--fail",
@@ -258,7 +258,7 @@ pub fn last_known(conn: &Connection) -> Plan {
  * must never be what a slow network makes somebody wait for.
  */
 fn mark_seen(url: &str, key: &str, token: &str) {
-    let _ = Command::new("/usr/bin/curl")
+    let _ = Command::new(crate::net::CURL)
         .args([
             "--silent",
             "--output",

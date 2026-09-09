@@ -50,6 +50,7 @@ pub mod redact;
 pub mod screen_reader;
 pub mod selection;
 pub mod team_context;
+pub mod net;
 pub mod sharing;
 pub mod telemetry;
 pub mod work_history;

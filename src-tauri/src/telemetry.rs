@@ -37,7 +37,6 @@
 //! in Settings of exactly what is counted, and the policy rewritten to name it.
 
 use crate::index_store;
-use std::io::Read;
 use std::process::Command;
 
 /// The setting that decides. Absent means off, which is the default forever.
@@ -234,27 +233,15 @@ pub fn install_id(conn: &rusqlite::Connection) -> String {
         return existing;
     }
 
-    // Sixteen bytes, asked for by number.
-    //
-    // This read used to be `fs::read("/dev/urandom")`, which is a bug that ends
-    // in a dead machine rather than a wrong id. `/dev/urandom` is a character
-    // device and never reaches EOF; `fs::read` reads *to* EOF, so it does not
-    // return, and the Vec it is filling doubles until the kernel kills whatever
-    // is running. It killed the test binary at 10.8GB, 11.1GB and 18.9GB on an
-    // 8GB machine before anybody looked at this line.
-    //
-    // `read_exact` into a fixed array is the whole fix: the size is stated, so
-    // there is no growth to run away with, and no way to reintroduce one
-    // without changing the array. A test below holds the shape of this.
-    let mut bytes = [0u8; 16];
-    let id = match std::fs::File::open("/dev/urandom")
-        .and_then(|mut urandom| urandom.read_exact(&mut bytes))
-    {
-        Ok(()) => bytes.iter().map(|b| format!("{b:02x}")).collect::<String>(),
-        // The clock is weak entropy and a fine last resort. It only has to
-        // differ between two installs, and no id at all would cost every count
-        // this module exists to take.
-        Err(_) => format!("{:032x}", index_store::now_millis()),
+    // Sixteen bytes, asked for by number. `net::random_bytes` is where the
+    // reading happens and why it is done that way; the short version is that
+    // this line used to be `fs::read("/dev/urandom")` and that does not return.
+    let id = match crate::net::random_bytes() {
+        Some(bytes) => bytes.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+        // The clock is weak entropy and a fine last resort, and on a platform
+        // with no urandom it is the only one to hand. It has to differ between
+        // two installs; no id at all would cost every count this module takes.
+        None => format!("{:032x}", index_store::now_millis()),
     };
     let _ = index_store::put_setting(conn, INSTALL_KEY, &id);
     id
@@ -373,7 +360,7 @@ pub fn flush(conn: &rusqlite::Connection, url: &str, anon_key: &str, plan: &str)
         &rows.iter().map(|(_, c)| c.clone()).collect::<Vec<_>>(),
     );
 
-    let sent = Command::new("/usr/bin/curl")
+    let sent = Command::new(crate::net::CURL)
         .args([
             "--silent",
             "--fail",
@@ -566,8 +553,13 @@ mod tests {
             );
         }
 
-        // And the positive half: the device that is read is read by size.
-        assert!(code.contains("read_exact"), "the urandom read no longer states a size");
+        // And the positive half. The reading itself now lives in `net`, which
+        // carries the same scan over its own source, so what this file has to
+        // prove is that it still delegates rather than growing its own copy.
+        assert!(
+            code.contains("net::random_bytes()"),
+            "install_id no longer gets its bytes from net, so check how it does now"
+        );
     }
 
     #[test]

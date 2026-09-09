@@ -664,7 +664,7 @@ async fn download_extension(app: tauri::AppHandle) -> Result<String, String> {
     let zip = dir.join("sidq-extension.zip");
     let out = dir.join("sidq-extension");
 
-    let status = std::process::Command::new("/usr/bin/curl")
+    let status = std::process::Command::new(sidq::net::CURL)
         .args(["--silent", "--fail", "--location", "--max-time", "30", "--output"])
         .arg(&zip)
         .arg(format!("{origin}/sidq-extension.zip"))
