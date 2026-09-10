@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { DownloadButton } from "@/components/landing/DownloadButton";
+import { guideFor, type Guide } from "@/lib/guides";
 
 /*
  * ── Why this page exists ─────────────────────────────────────────────────────
@@ -286,4 +287,125 @@ export function ChatgptToClaude() {
       <SiteFooter />
     </div>
   );
+}
+
+
+/*
+ * ── The other guides, sharing this page's layout and none of its words ───────
+ *
+ * The comment at the top of this file argues against twenty near-identical
+ * pages and that argument still holds. What it did not cover is that an editor
+ * is a different article from a browser assistant: when the transcript is
+ * already on the disk, the whole "export it first" half of the advice does not
+ * apply, and the page that pretends otherwise is wrong rather than merely thin.
+ *
+ * So the layout is shared here and every word is written per pair in
+ * `src/lib/guides.ts`. Four pages, not ninety. If a fifth ever earns a URL it
+ * earns it by having something of its own to say.
+ */
+function GuidePage({ guide }: { guide: Guide }) {
+  return (
+    <div className="bg-paper">
+      <header className="border-b border-ink/10">
+        <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
+          <Link
+            to="/"
+            className="inline-flex min-h-11 items-center font-display text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
+          >
+            Sidq
+          </Link>
+          <nav className="flex items-center gap-6 sm:gap-7">
+            <Link
+              to="/pricing"
+              className="inline-flex min-h-11 items-center text-[0.875rem] transition-opacity duration-150 hover:opacity-60 sm:min-h-0"
+            >
+              Pricing
+            </Link>
+            <Link
+              to="/faq"
+              className="inline-flex min-h-11 items-center text-[0.875rem] transition-opacity duration-150 hover:opacity-60 sm:min-h-0"
+            >
+              Questions
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex min-h-11 items-center rounded-[10px] bg-ink px-4 text-[0.875rem] font-medium text-paper transition-opacity duration-150 hover:opacity-90 sm:min-h-9"
+            >
+              Download
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[76rem] px-6 py-16 lg:py-24">
+        {/* The h1 is the query, near enough word for word. See above. */}
+        <h1 className="max-w-[24ch] font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]">
+          {guide.title}
+        </h1>
+
+        <p className="ink-muted mt-6 max-w-[62ch] text-[1.0625rem] leading-relaxed">
+          {guide.intro}
+        </p>
+
+        <h2 className="mt-16 font-display text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
+          The four ways, worst to best
+        </h2>
+
+        <ol className="mt-8 space-y-10">
+          {guide.steps.map((step, i) => (
+            <Step key={step.title} n={i + 1} title={step.title}>
+              {step.body.map((paragraph) => (
+                <p key={paragraph.slice(0, 24)}>{paragraph}</p>
+              ))}
+            </Step>
+          ))}
+        </ol>
+
+        {/* The download sits at the end. Three of the four answers are free. */}
+        <div className="mt-20 max-w-[62ch] rounded-[16px] border border-ink/12 bg-ink/[0.03] p-8">
+          <h2 className="font-display text-[1.5rem] leading-tight tracking-[-0.035em]">
+            If you do this more than once a week
+          </h2>
+          <p className="mt-3 text-[1rem] leading-relaxed text-ink/70">
+            Sidq is free for five handovers a week, with no card. It reads
+            ChatGPT, Claude, Gemini, Grok and DeepSeek in your own browser, and
+            Claude Code, Cursor, Windsurf and VS Code straight off the disk,
+            including everything you did before you installed it.
+          </p>
+          <div className="mt-6">
+            <DownloadButton />
+          </div>
+          <p className="mt-3 text-[0.8125rem] text-ink/50">
+            Mac app. Free, no card, about a minute to set up.
+          </p>
+        </div>
+
+        <p className="mt-12 text-[0.875rem] text-ink/50">
+          More questions:{" "}
+          <Link to="/faq" className={cn("underline underline-offset-4", "hover:opacity-60")}>
+            how Sidq reads each assistant
+          </Link>{" "}
+          &middot;{" "}
+          <Link to="/pricing" className={cn("underline underline-offset-4", "hover:opacity-60")}>
+            what it costs
+          </Link>
+        </p>
+      </main>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+/**
+ * One component for every generated guide, picking its content by path.
+ *
+ * Renders nothing for a path with no guide rather than throwing. The route
+ * table and `GUIDES` come from the same array so that cannot happen in the app,
+ * and a blank page is a better failure than a crashed one if it ever does.
+ */
+export function PairGuide() {
+  const guide = guideFor(useLocation().pathname);
+  if (!guide) return null;
+  return <GuidePage guide={guide} />;
 }

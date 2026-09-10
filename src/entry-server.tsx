@@ -1,3 +1,4 @@
+import { GUIDES } from "@/lib/guides";
 /*
  * The build-time renderer.
  *
@@ -31,9 +32,13 @@ export const ROUTES = [
   "/pricing",
   "/faq",
   "/chatgpt-to-claude",
+  // The rest of the guides, from the same array that holds their words. A
+  // route table typed out by hand beside a content table is how a page ends up
+  // prerendered with somebody else's title.
+  ...GUIDES.map((g) => g.route),
   "/privacy",
   "/terms",
-] as const;
+] as const satisfies readonly string[];
 
 /*
  * Re-exported so the prerenderer reads the same table the site does.

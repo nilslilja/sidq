@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { GUIDES } from "@/lib/guides";
 import { Analytics } from "@vercel/analytics/react";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -60,6 +61,9 @@ const Backdrop = lazy(() =>
 );
 const PricingPage = lazy(() =>
   import("@/routes/Detail").then((m) => ({ default: m.PricingPage })),
+);
+const PairGuide = lazy(() =>
+  import("@/routes/Guide").then((m) => ({ default: m.PairGuide })),
 );
 const ChatgptToClaude = lazy(() =>
   import("@/routes/Guide").then((m) => ({ default: m.ChatgptToClaude })),
@@ -230,6 +234,20 @@ function Shell() {
               </Suspense>
             }
           />
+          {/* The rest, from the same array that holds their words. Each has
+              content written for that pair; see the note in lib/guides.ts on
+              why there are four of these and not ninety. */}
+          {GUIDES.map((guide) => (
+            <Route
+              key={guide.route}
+              path={guide.route}
+              element={
+                <Suspense fallback={<Blank />}>
+                  <PairGuide />
+                </Suspense>
+              }
+            />
+          ))}
           <Route
             path="/privacy"
             element={

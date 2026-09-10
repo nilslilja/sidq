@@ -1,3 +1,4 @@
+import { GUIDES } from "@/lib/guides";
 /*
  * What each page tells a search engine it is.
  *
@@ -45,7 +46,7 @@ export interface PageMeta {
 
 const SITE = "https://www.sidq.tech";
 
-export const PAGES: Record<string, PageMeta> = {
+const HAND_WRITTEN: Record<string, PageMeta> = {
   "/": {
     title: "Carry an AI conversation from ChatGPT into Claude. Mac app.",
     description:
@@ -94,6 +95,28 @@ export const PAGES: Record<string, PageMeta> = {
     canonical: `${SITE}/terms`,
     ogTitle: "Sidq terms of service",
   },
+};
+
+/*
+ * The generated guides, merged in from one source.
+ *
+ * Their titles and descriptions live beside their content in `src/lib/guides.ts`
+ * so a page cannot end up with a canonical, a title and a body that disagree —
+ * which is the failure this whole file exists because of.
+ */
+export const PAGES: Record<string, PageMeta> = {
+  ...HAND_WRITTEN,
+  ...Object.fromEntries(
+    GUIDES.map((guide) => [
+      guide.route,
+      {
+        title: guide.title,
+        description: guide.description,
+        canonical: `${SITE}${guide.route}`,
+        ogTitle: guide.title,
+      },
+    ]),
+  ),
 };
 
 /** A route's metadata, or the homepage's if the route is somehow unknown. */
