@@ -30,7 +30,9 @@ here is what i think is actually happening on this app. everybody is posting and
 
 so i am telling you the number instead of the highlight, and i will tell you next month's too, whatever it says.
 
-if you think the product is the problem, download it and tell me exactly where it loses you. i answer every comment, including that one. especially that one.
+so cook it. the product, the pricing, the positioning, the name, me. tell me why it will not work and be as brutal as you like, because a stranger being honest in public is worth more to me than ten people being polite in my inbox. i will reply to every single one and i will not delete a word of it.
+
+and the first person who pays me anything gets it straight back. all of it, keeps the product forever, and picks the next thing i build. one person. after that everybody pays like everybody else.
 
 i am going to be driving a GT3 RS and i am not going to explain when.
 
