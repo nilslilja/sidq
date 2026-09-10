@@ -528,6 +528,37 @@ export function Pill() {
     }
   }, [bridge, phase.kind, pickedRow, visible]);
 
+  /*
+   * ── ⌘ and an arrow moves the window, from anywhere in it ──────────────────
+   *
+   * This used to live in `onKeyDown` below, which is bound to a div. React
+   * bubbles keydown from whatever has focus, so that handler only ever ran
+   * while the picker was open and the search field focused. Collapsed there is
+   * nothing focusable inside the card at all, the keydown goes to document.body
+   * and never passes the div on its way — so the bar, which is the thing people
+   * actually want to move, could not be moved.
+   *
+   * On the window it fires either way. Still not a global shortcut: registering
+   * ⌘+arrow system-wide takes "move to the end of the line" away from every
+   * text field on the machine, which docs/state-of-play.md records as a thing
+   * never to do again. This only listens while the pill window is the one with
+   * the keyboard.
+   */
+  useEffect(() => {
+    const move = (e: KeyboardEvent) => {
+      if (!e.metaKey || !NUDGES[e.key]) return;
+      e.preventDefault();
+      // Stops the div handler seeing it too, which would walk the selection at
+      // the same time as moving the window.
+      e.stopPropagation();
+      const [dx, dy] = NUDGES[e.key];
+      void bridge?.movePill(dx, dy);
+    };
+
+    window.addEventListener("keydown", move, { capture: true });
+    return () => window.removeEventListener("keydown", move, { capture: true });
+  }, [bridge]);
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     /*
      * While the menu is open it owns the keyboard.
@@ -551,23 +582,13 @@ export function Pill() {
       return;
     }
     /*
-     * ⌘ and an arrow moves the window. The only way to move it.
+     * ⌘ and an arrow is handled on the window, not here. See the effect below.
      *
-     * Checked before the plain arrows below, which take the selection: with the
-     * order the other way round, holding ⌘ would still walk the list and the
-     * window would never move.
-     *
-     * It is deliberately not a global shortcut. Registering ⌘+arrow globally
-     * takes "move to the end of the line" away from every text field on the
-     * machine — recorded in docs/state-of-play.md as a thing never to do again —
-     * so it lives here, where the picker is open, focused, and visible to aim.
+     * It is still checked before the plain arrows in this handler's order,
+     * because the window listener runs first and stops the event: with it the
+     * other way round, holding ⌘ would walk the list as well as move the
+     * window.
      */
-    if (e.metaKey && NUDGES[e.key]) {
-      e.preventDefault();
-      const [dx, dy] = NUDGES[e.key];
-      void bridge?.movePill(dx, dy);
-      return;
-    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, rowCount));

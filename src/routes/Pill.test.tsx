@@ -435,3 +435,58 @@ describe('a conversation arriving', () => {
     expect(announceFound).toBeDefined();
   });
 });
+
+describe("moving the window", () => {
+  beforeEach(() => {
+    window.innerWidth = COLLAPSED_WIDTH;
+    vi.clearAllMocks();
+  });
+
+  /*
+   * ⌘+arrow used to be handled on a div, which React only reaches by bubbling
+   * from whatever has focus. Collapsed there is nothing focusable inside the
+   * card, so the keydown went to document.body, never passed the div, and the
+   * bar — the thing people actually want to move — could not be moved.
+   *
+   * These fire at `window` with nothing focused, which is the case that was
+   * broken and the case the old handler could never have covered.
+   */
+  test("an arrow with the meta key moves it, with nothing focused", async () => {
+    render(<Pill />);
+    await settle();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft", metaKey: true });
+    await settle();
+
+    expect(bridge.movePill).toHaveBeenCalledWith(-1, 0);
+  });
+
+  test("each arrow sends its own direction", async () => {
+    render(<Pill />);
+    await settle();
+
+    fireEvent.keyDown(window, { key: "ArrowRight", metaKey: true });
+    fireEvent.keyDown(window, { key: "ArrowUp", metaKey: true });
+    fireEvent.keyDown(window, { key: "ArrowDown", metaKey: true });
+    await settle();
+
+    expect((bridge.movePill as ReturnType<typeof vi.fn>).mock.calls).toEqual([
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]);
+  });
+
+  test("an arrow on its own never moves the window", async () => {
+    // Plain arrows walk the list. If these moved it too, every selection
+    // change would drag the window across the screen.
+    render(<Pill />);
+    await settle();
+
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowUp" });
+    await settle();
+
+    expect(bridge.movePill).not.toHaveBeenCalled();
+  });
+});
