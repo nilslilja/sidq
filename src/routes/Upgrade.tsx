@@ -46,15 +46,29 @@ export function Upgrade() {
     };
   }, []);
 
+  /*
+   * Which card is waiting for an answer.
+   *
+   * The error used to be one string at the bottom of the page. On a 900px
+   * screen the Subscribe button sits at 654 and that paragraph rendered at
+   * 2652 — seventeen hundred pixels below the fold, on a page that already
+   * scrolls. Pressing the button and being told nothing is how a payment
+   * button gets read as broken, which is the worst thing this page can be.
+   */
+  const [failed, setFailed] = useState<string | null>(null);
+
   const go = async (plan: PaidPlanId, interval: BillingInterval) => {
-    setBusy(`${plan}:${interval}`);
+    const key = `${plan}:${interval}`;
+    setBusy(key);
     setError(null);
+    setFailed(null);
     try {
       await startCheckout(plan, interval);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Checkout could not start.",
       );
+      setFailed(key);
       setBusy(null);
     }
   };
@@ -86,6 +100,8 @@ export function Upgrade() {
             key={plan.id}
             plan={plan}
             busy={busy === `${plan.id}:monthly`}
+            signedIn={signedIn}
+            problem={failed === `${plan.id}:monthly` ? error : null}
             onSubscribe={() => go(plan.id as PaidPlanId, "monthly")}
           />
         ))}
@@ -103,27 +119,14 @@ export function Upgrade() {
           : "Or pay yearly, $192, two months free"}
       </button>
 
-      {signedIn === false && (
-        <div className="mt-8 rounded-(--radius) border border-line bg-accent-soft/60 p-4">
-          <p className="text-[0.875rem] leading-relaxed">
-            <strong className="font-medium">Sign in first.</strong> A
-            subscription has to land on an account, or there is nothing to
-            attach it to.
-          </p>
-          <Link
-            to="/signin"
-            className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-accent transition-opacity duration-(--duration-fast) hover:opacity-70"
-          >
-            Sign in, then come back
-          </Link>
-        </div>
-      )}
-
-      {error && (
-        <p role="alert" className="mt-6 text-sm text-muted">
-          {error}
-        </p>
-      )}
+      {/*
+        * Both of these used to live here: a "sign in first" panel and the error
+        * line. They were correct and they were at the bottom of a 2,763px page,
+        * which on a 900px screen put them 1,750px below the button that caused
+        * them. Each now renders inside the card that was pressed, where the
+        * person is already looking, and there is exactly one of each so that
+        * `role="alert"` names one thing.
+        */}
 
       <p className="mt-8 text-xs leading-relaxed text-muted">
         Your free plan keeps working either way. Nothing you have made goes
@@ -136,10 +139,16 @@ export function Upgrade() {
 function PlanCard({
   plan,
   busy,
+  signedIn,
+  problem,
   onSubscribe,
 }: {
   plan: Plan;
   busy: boolean;
+  /** `null` until the session has been read. See the note on `signedIn`. */
+  signedIn: boolean | null;
+  /** Why this card's last attempt failed, shown inside the card. */
+  problem: string | null;
   onSubscribe: () => void;
 }) {
   return (
@@ -237,14 +246,52 @@ function PlanCard({
           {plan.cta}
         </Button>
       ) : (
-        <Button
-          className="mt-6 w-full"
-          variant={plan.featured ? "accent" : "outline"}
-          onClick={onSubscribe}
-          disabled={busy}
-        >
-          {busy ? "Opening checkout…" : plan.cta}
-        </Button>
+        /*
+         * Signed out, the button says what it will actually do.
+         *
+         * It used to say Subscribe, attempt checkout, fail, and put the reason
+         * at the bottom of a page nobody had scrolled. Naming the next step on
+         * the button removes the dead press entirely rather than explaining it
+         * afterwards, and it is still one click to the same place.
+         *
+         * Only once the session has been read. `null` means unknown, and a
+         * button that reads "Sign in to subscribe" at somebody who is already
+         * signed in is its own small insult.
+         */
+        <>
+          {signedIn === false ? (
+            <Button
+              className="mt-6 w-full"
+              variant={plan.featured ? "accent" : "outline"}
+              onClick={() => {
+                window.location.href = "/signin";
+              }}
+            >
+              Sign in to subscribe
+            </Button>
+          ) : (
+            <Button
+              className="mt-6 w-full"
+              variant={plan.featured ? "accent" : "outline"}
+              onClick={onSubscribe}
+              disabled={busy}
+            >
+              {busy ? "Opening checkout…" : plan.cta}
+            </Button>
+          )}
+
+          {signedIn === false && (
+            <p className="mt-2 text-center text-xs text-muted">
+              A subscription has to land on an account.
+            </p>
+          )}
+
+          {problem && (
+            <p role="alert" className="mt-3 text-center text-sm text-muted">
+              {problem}
+            </p>
+          )}
+        </>
       )}
     </section>
   );
