@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
    * were invisible either way.
    */
 
-  type Tier = 'free' | 'pro' | 'duo';
+  type Tier = 'free' | 'pro' | 'duo' | 'team';
 
   /*
    * Which tier a subscription grants is decided by the price it was bought at,
@@ -66,12 +66,31 @@ Deno.serve(async (req: Request) => {
    * this: the alternative is taking the client's word for what it paid for.
    */
   const tierForPrice = (priceId: string | undefined): Tier => {
-    if (priceId && priceId === Deno.env.get('STRIPE_PRICE_DUO')) return 'duo';
+    if (!priceId) return 'pro';
+    if (priceId === Deno.env.get('STRIPE_PRICE_DUO')) return 'duo';
+    if (
+      priceId === Deno.env.get('STRIPE_PRICE_TEAM_SEAT') ||
+      priceId === Deno.env.get('STRIPE_PRICE_TEAM_SEAT_ANNUAL')
+    ) {
+      return 'team';
+    }
     return 'pro';
   };
 
-  const setTier = async (customerId: string, tier: Tier) => {
-    const { error } = await admin.from('profiles').update({ plan_tier: tier }).eq('stripe_customer_id', customerId);
+  /*
+   * Team is priced per seat, so the quantity is the seat count and it is read
+   * off the Stripe object rather than taken from the request. Everything else
+   * is one seat by definition, and writing 1 rather than leaving the column
+   * alone is what makes a downgrade from Team actually reduce the seats.
+   */
+  const seatsFor = (tier: Tier, quantity: number | null | undefined): number =>
+    tier === 'team' ? Math.max(1, quantity ?? 1) : tier === 'free' ? 0 : 1;
+
+  const setTier = async (customerId: string, tier: Tier, seats: number) => {
+    const { error } = await admin
+      .from('profiles')
+      .update({ plan_tier: tier, team_seats: seats })
+      .eq('stripe_customer_id', customerId);
     if (error) console.error('Failed to set plan tier', error);
   };
 
@@ -87,12 +106,17 @@ Deno.serve(async (req: Request) => {
         // The session does not carry the price, so it is fetched rather than
         // assumed. Guessing here is how someone gets the top tier for $19.99.
         const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
-        const tier = tierForPrice(lineItems.data[0]?.price?.id);
+        const line = lineItems.data[0];
+        const tier = tierForPrice(line?.price?.id);
+        const seats = seatsFor(tier, line?.quantity);
 
         if (userId) {
-          await admin.from('profiles').update({ plan_tier: tier, stripe_customer_id: customerId }).eq('id', userId);
+          await admin
+            .from('profiles')
+            .update({ plan_tier: tier, team_seats: seats, stripe_customer_id: customerId })
+            .eq('id', userId);
         } else if (customerId) {
-          await setTier(customerId, tier);
+          await setTier(customerId, tier, seats);
         }
         break;
       }
@@ -103,17 +127,20 @@ Deno.serve(async (req: Request) => {
         // past_due keeps access — dunning is Stripe's job, and yanking the product
         // over a card that expired is how you lose a customer who wanted to stay.
         const active = ['active', 'trialing', 'past_due'].includes(sub.status);
-        await setTier(
-          customerId,
-          active ? tierForPrice(sub.items.data[0]?.price?.id) : 'free',
-        );
+        const item = sub.items.data[0];
+        const tier = active ? tierForPrice(item?.price?.id) : 'free';
+        // Seat count moves with the subscription, so adding or removing seats
+        // in Stripe changes how many codes the buyer can mint. Cancelling takes
+        // it to zero, which makes every unredeemed code useless without any
+        // membership list to go and tidy.
+        await setTier(customerId, tier, seatsFor(tier, item?.quantity));
         break;
       }
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
         const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
-        await setTier(customerId, 'free');
+        await setTier(customerId, 'free', 0);
         break;
       }
 

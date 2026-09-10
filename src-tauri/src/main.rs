@@ -1308,6 +1308,48 @@ async fn team_settings() -> TeamSettings {
  * merely stopping you reading theirs.
  */
 /**
+ * The seat codes this account has paid for.
+ *
+ * Empty rather than an error when the account has none, because "you have no
+ * seats" is a state the panel renders rather than a failure it reports.
+ */
+#[tauri::command]
+async fn team_seats() -> Vec<invites::Seat> {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open().and_then(|conn| invites::seats(&conn).ok()).unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/**
+ * Use a seat code somebody sent, which puts this account on Team.
+ *
+ * Returns the sentence the database raised on failure, because those are
+ * written to be read by whoever just typed the code in — "somebody has already
+ * used that code" is a different problem from "that code does not exist" and
+ * they need different next moves.
+ */
+#[tauri::command]
+async fn redeem_team_seat(code: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        /*
+         * Written long rather than with `?`, deliberately.
+         *
+         * `None` is success here, so `index_store::open()?` would report a
+         * machine that cannot open its own index as a redeemed seat — the one
+         * wrong answer this command can give, and the one that looks fine.
+         */
+        let Some(conn) = index_store::open() else {
+            return Some("Sidq cannot open its index on this Mac.".to_string());
+        };
+        invites::redeem_seat(&conn, code.trim()).err()
+    })
+    .await
+    .unwrap_or(Some("Could not reach your account just now.".into()))
+}
+
+/**
  * Start a team and get the code that lets anybody join it.
  *
  * The folder's name *is* the code, so joining never involves reading a path
@@ -2710,6 +2752,8 @@ fn main() {
             share_memory,
             unshare_memory,
             memory_link,
+            team_seats,
+            redeem_team_seat,
             start_team,
             join_team,
             team_code,

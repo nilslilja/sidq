@@ -240,6 +240,67 @@ pub fn summary(conn: &Connection) -> Summary {
 }
 
 /// Use somebody else's code. Returns the new bonus, or a sentence to show.
+/// One seat on somebody's Team subscription, as the window lists them.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Seat {
+    pub code: String,
+    /// Whether somebody has already used it.
+    pub taken: bool,
+}
+
+/**
+ * The codes this account has paid for, minting any it has not got yet.
+ *
+ * Tops up to the seat count rather than adding to it, so pressing the button
+ * twice does not double a team. The count itself is written by billing and
+ * guarded in the database, which is what keeps this from being a way to grant
+ * yourself seats.
+ */
+pub fn seats(conn: &Connection) -> Result<Vec<Seat>, String> {
+    let value = call(conn, "team_seat_codes", "{}")?;
+    Ok(value
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| {
+                    Some(Seat {
+                        code: row.get("code")?.as_str()?.to_string(),
+                        taken: row.get("taken").and_then(serde_json::Value::as_bool)
+                            .unwrap_or(false),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+/**
+ * Use a seat code, which puts this account on Team.
+ *
+ * The tier is set by the database function, never here: `plan_tier` is guarded
+ * so only the service role can write it, and a client that could set its own
+ * would make every price on the site optional. This asks, and reports what it
+ * was told.
+ *
+ * The error is the sentence the function raised, which is written to be read by
+ * whoever just typed the code in.
+ */
+pub fn redeem_seat(conn: &Connection, code: &str) -> Result<(), String> {
+    let body = serde_json::json!({ "code": code }).to_string();
+    call(conn, "redeem_team_seat", &body)?;
+
+    /*
+     * Forget the cached tier so the next check asks the server.
+     *
+     * `entitlement::current` trusts its cache until it goes stale, and the
+     * whole point of redeeming is that the answer just changed. Leaving the old
+     * one would mean somebody redeems a seat and Sidq keeps refusing them for
+     * however long the cache had left.
+     */
+    let _ = index_store::forget_setting(conn, "tier_checked_at");
+    Ok(())
+}
+
 pub fn redeem(conn: &Connection, code: &str) -> Result<u32, String> {
     let body = serde_json::json!({ "code": code }).to_string();
     let value = call(conn, "redeem_invite", &body)?;
