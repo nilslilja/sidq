@@ -16,7 +16,7 @@ import { join } from 'node:path';
 
 const SOURCE = 'release';
 const TARGETS = [
-  { match: (f) => f.endsWith('.dmg') || f.endsWith('.exe'), into: 'dist/downloads' },
+  { match: (f) => f.endsWith('.dmg'), into: 'dist/downloads' },
   { match: (f) => f.endsWith('.mp4') || f.endsWith('.webm'), into: 'dist/video' },
 ];
 
@@ -61,14 +61,7 @@ for (const file of await readdir(SOURCE)) {
 const base = process.env.VITE_RELEASE_BASE ?? '/downloads';
 if (base.startsWith('/')) {
   const version = (await readFile('package.json', 'utf8').then(JSON.parse)).version;
-  const wanted = [
-    `Sidq_${version}_aarch64.dmg`,
-    `Sidq_${version}_x64.dmg`,
-    // Windows is offered on the site now, so a build without it ships a button
-    // that 404s for every Windows visitor — which is the exact failure this
-    // guard was written for, on the platform with the most people behind it.
-    `Sidq_${version}_x64-setup.exe`,
-  ];
+  const wanted = [`Sidq_${version}_aarch64.dmg`, `Sidq_${version}_x64.dmg`];
   const missing = wanted.filter((f) => !copied.includes(f));
 
   if (missing.length) {
