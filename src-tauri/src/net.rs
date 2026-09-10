@@ -51,6 +51,54 @@ pub fn random_bytes() -> Option<[u8; 16]> {
         .map(|()| bytes)
 }
 
+/**
+ * This person's home directory.
+ *
+ * ── Why this is not `env::var_os("HOME")` ────────────────────────────────────
+ *
+ * Because Windows does not set it. It sets `USERPROFILE`, and every one of the
+ * eleven places in this crate that reached for `HOME` directly would have
+ * returned `None` there — which is not a crash and not an error. It is Sidq
+ * opening on Windows, finding no sources at all, and looking exactly like an
+ * app that works and has nothing to show you.
+ *
+ * `HOME` first, because a unix machine that sets both means the first one, and
+ * because it is what a test or a sandbox overrides when it wants to be asked
+ * somewhere else.
+ */
+pub fn home() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
+}
+
+/**
+ * Where applications keep their per-user data on this platform.
+ *
+ * macOS puts it in `~/Library/Application Support`, Windows in
+ * `%APPDATA%` (which is `~/AppData/Roaming`), Linux in `~/.local/share` unless
+ * `XDG_DATA_HOME` says otherwise. The assistants Sidq reads follow their
+ * platform's convention, so reading them means following it too.
+ */
+pub fn app_data() -> Option<std::path::PathBuf> {
+    if cfg!(target_os = "macos") {
+        return Some(home()?.join("Library/Application Support"));
+    }
+
+    if cfg!(target_os = "windows") {
+        return std::env::var_os("APPDATA")
+            .map(std::path::PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .or_else(|| Some(home()?.join("AppData/Roaming")));
+    }
+
+    std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
+        .or_else(|| Some(home()?.join(".local/share")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,6 +179,35 @@ mod tests {
         // asserting that the port silently invented entropy.
         if let (Some(a), Some(b)) = (random_bytes(), random_bytes()) {
             assert_ne!(a, b, "the random source repeated itself");
+        }
+    }
+
+    #[test]
+    fn a_home_is_found_the_way_this_platform_names_it() {
+        /*
+         * The bug this exists for: eleven places reached for HOME directly, and
+         * Windows does not set it. Every one would have returned None there —
+         * not a crash, not an error, just Sidq opening with no sources and
+         * looking like an app that works and has nothing to show.
+         */
+        assert!(home().is_some(), "no home on the platform running this test");
+
+        // Empty is not a home. An empty PathBuf joins into a relative path and
+        // every source would then be looked for in the working directory.
+        assert!(!home().unwrap().as_os_str().is_empty());
+    }
+
+    #[test]
+    fn app_data_follows_the_platform_rather_than_this_one() {
+        let dir = app_data().expect("somewhere to look");
+        let shown = dir.to_string_lossy().to_string();
+
+        if cfg!(target_os = "macos") {
+            assert!(shown.ends_with("Library/Application Support"), "{shown}");
+        } else if cfg!(target_os = "windows") {
+            assert!(shown.contains("AppData"), "{shown}");
+        } else {
+            assert!(shown.contains(".local/share") || shown.contains("XDG"), "{shown}");
         }
     }
 }

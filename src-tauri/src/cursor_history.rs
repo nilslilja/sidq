@@ -37,7 +37,7 @@ const ACTIVE_GAP_MS: i64 = 30 * 60 * 1_000;
 const EDITORS: [&str; 3] = ["Cursor", "Windsurf", "Code"];
 
 fn support_dir() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
+    let home = crate::net::home()?;
     Some(PathBuf::from(home).join("Library").join("Application Support"))
 }
 

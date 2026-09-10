@@ -126,7 +126,7 @@ pub use imp::{disable, enable, is_enabled, unregister_stale_agent};
 /// Shells out, so never call it on the setup thread.
 #[cfg(target_os = "macos")]
 pub fn remove_legacy_agent() {
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(home) = crate::net::home() else {
         return;
     };
     let path = std::path::PathBuf::from(home)

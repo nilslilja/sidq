@@ -495,7 +495,7 @@ pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
  *       exactly like the one above, so the same parser reads both.
  */
 fn project_roots() -> Vec<(PathBuf, &'static str)> {
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(home) = crate::net::home() else {
         return Vec::new();
     };
     let home = PathBuf::from(home);
@@ -511,11 +511,15 @@ fn project_roots() -> Vec<(PathBuf, &'static str)> {
      * walks rather than globs: workspace, then account, then one directory per
      * conversation, each containing a full .claude/projects tree of its own.
      */
-    let cowork = home
-        .join("Library")
-        .join("Application Support")
-        .join("Claude")
-        .join("local-agent-mode-sessions");
+    // Through `net::app_data`, because "Library/Application Support" is macOS's
+    // answer to a question every platform has. Windows keeps it in AppData and
+    // Linux under .local/share, and hardcoding one of the three is how this
+    // reader finds nothing on the other two.
+    let Some(cowork) = crate::net::app_data().map(|d| {
+        d.join("Claude").join("local-agent-mode-sessions")
+    }) else {
+        return roots;
+    };
 
     for workspace in read_dirs(&cowork) {
         for account in read_dirs(&workspace) {
@@ -541,7 +545,7 @@ fn project_roots() -> Vec<(PathBuf, &'static str)> {
  */
 fn cowork_titles() -> std::collections::HashMap<String, String> {
     let mut out = std::collections::HashMap::new();
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(home) = crate::net::home() else {
         return out;
     };
 

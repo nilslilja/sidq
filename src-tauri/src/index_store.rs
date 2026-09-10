@@ -55,7 +55,7 @@ pub struct SearchHit {
 }
 
 fn db_path() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
+    let home = crate::net::home()?;
     let dir = PathBuf::from(home)
         .join("Library")
         .join("Application Support")

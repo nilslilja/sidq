@@ -34,7 +34,7 @@ use std::path::{Path, PathBuf};
 pub const SOURCE: &str = "codex";
 
 fn sessions_dir() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
+    let home = crate::net::home()?;
     let dir = PathBuf::from(home).join(".codex").join("sessions");
     dir.is_dir().then_some(dir)
 }

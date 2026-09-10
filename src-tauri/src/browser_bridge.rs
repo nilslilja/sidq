@@ -45,7 +45,7 @@ struct Incoming {
 
 /// Where captured conversations live, alongside the readers' own sources.
 fn capture_dir() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
+    let home = sidq::net::home()?;
     let dir = PathBuf::from(home)
         .join("Library")
         .join("Application Support")

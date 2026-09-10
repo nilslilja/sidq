@@ -28,22 +28,52 @@ const SERVER_KEY: &str = "sidq";
 pub struct Client {
     pub id: &'static str,
     pub label: &'static str,
-    /// Relative to the home directory.
+    /// Relative to `anchor`, never absolute.
     path: &'static str,
+    /// Which directory `path` hangs off.
+    anchor: Anchor,
+}
+
+/**
+ * Where a client's config lives, said in a way that is true on every platform.
+ *
+ * "Library/Application Support/Claude" is macOS's answer to a question Windows
+ * answers with AppData and Linux with .local/share. Writing the macOS answer
+ * into a constant meant this list was correct on exactly one platform, and
+ * silently wrong on the others — the connect button would write a config file
+ * to a path nothing reads.
+ */
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Anchor {
+    /// Dotfiles, which sit in the home directory on every platform.
+    Home,
+    /// Per-user application data, wherever this platform keeps it.
+    AppData,
 }
 
 pub const CLIENTS: [Client; 3] = [
     Client {
         id: "claude-desktop",
         label: "Claude Desktop",
-        path: "Library/Application Support/Claude/claude_desktop_config.json",
+        path: "Claude/claude_desktop_config.json",
+        anchor: Anchor::AppData,
     },
-    Client { id: "claude-code", label: "Claude Code", path: ".claude.json" },
-    Client { id: "cursor", label: "Cursor", path: ".cursor/mcp.json" },
+    // Dotfiles, and the same place on every platform.
+    Client { id: "claude-code", label: "Claude Code", path: ".claude.json", anchor: Anchor::Home },
+    Client { id: "cursor", label: "Cursor", path: ".cursor/mcp.json", anchor: Anchor::Home },
 ];
 
+/// Where this client keeps its config on this machine.
+fn config_path(client: &Client) -> Option<PathBuf> {
+    let root = match client.anchor {
+        Anchor::Home => home()?,
+        Anchor::AppData => crate::net::app_data()?,
+    };
+    Some(root.join(client.path))
+}
+
 fn home() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from)
+    crate::net::home()
 }
 
 /**
@@ -70,7 +100,7 @@ pub fn config_block(binary: &std::path::Path) -> serde_json::Value {
 
 /// Whether a client's config file exists, so the UI can offer only real ones.
 pub fn installed(client: &Client) -> bool {
-    home().map(|h| h.join(client.path)).is_some_and(|p| p.exists())
+    config_path(client).is_some_and(|p| p.exists())
 }
 
 /**
@@ -84,7 +114,7 @@ pub fn installed(client: &Client) -> bool {
  */
 pub fn connect(client: &Client) -> Option<PathBuf> {
     let binary = sidecar()?;
-    let path = home()?.join(client.path);
+    let path = config_path(client)?;
 
     let mut root: serde_json::Value = match std::fs::read_to_string(&path) {
         Ok(existing) if !existing.trim().is_empty() => serde_json::from_str(&existing).ok()?,

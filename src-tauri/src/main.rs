@@ -627,7 +627,7 @@ fn write_handover(
          */
         let words = text.split_whitespace().count();
 
-        let home = std::env::var_os("HOME")?;
+        let home = sidq::net::home()?;
         let dir = std::path::PathBuf::from(home).join("Downloads");
 
         // The title becomes a filename, so anything that is not plainly safe in
@@ -723,7 +723,7 @@ async fn stale_sources() -> Vec<String> {
 #[tauri::command]
 async fn download_extension(app: tauri::AppHandle) -> Result<String, String> {
     let origin = web_origin().ok_or("No web address is configured for this build.")?;
-    let home = std::env::var_os("HOME").ok_or("No home directory.")?;
+    let home = sidq::net::home().ok_or("No home directory.")?;
     let dir = std::path::PathBuf::from(home).join("Downloads");
     let zip = dir.join("sidq-extension.zip");
     let out = dir.join("sidq-extension");
@@ -1183,7 +1183,7 @@ struct TeamSettings {
  * places that will actually work, detected rather than explained.
  */
 fn sync_roots() -> Vec<(String, std::path::PathBuf)> {
-    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+    let Some(home) = sidq::net::home() else {
         return Vec::new();
     };
 
