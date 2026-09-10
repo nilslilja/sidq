@@ -37,8 +37,16 @@ const ACTIVE_GAP_MS: i64 = 30 * 60 * 1_000;
 const EDITORS: [&str; 3] = ["Cursor", "Windsurf", "Code"];
 
 fn support_dir() -> Option<PathBuf> {
-    let home = crate::net::home()?;
-    Some(PathBuf::from(home).join("Library").join("Application Support"))
+    /*
+     * Through `net::app_data`, not "Library/Application Support".
+     *
+     * The editors this reader covers — Cursor, Windsurf, the VS Code forks —
+     * are the ones that exist on Windows and are the reason to run Sidq there
+     * at all. Hardcoding macOS's directory meant a Windows build would have
+     * found none of them, which is the whole product missing rather than one
+     * source.
+     */
+    crate::net::app_data()
 }
 
 /**
