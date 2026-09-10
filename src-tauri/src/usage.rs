@@ -86,7 +86,15 @@ pub fn report(conn: &Connection) -> Report {
     let (conversations, exchanges) = totals(conn);
     let (since, until) = span(conn);
 
-    Report { conversations, exchanges, hours: hours(conn), since, until, sources: sources(conn), projects: projects(conn) }
+    Report {
+        conversations,
+        exchanges,
+        hours: hours(conn),
+        since,
+        until,
+        sources: sources(conn),
+        projects: projects(conn),
+    }
 }
 
 fn totals(conn: &Connection) -> (usize, usize) {
