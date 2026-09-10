@@ -55,11 +55,12 @@ pub struct SearchHit {
 }
 
 fn db_path() -> Option<PathBuf> {
-    let home = crate::net::home()?;
-    let dir = PathBuf::from(home)
-        .join("Library")
-        .join("Application Support")
-        .join("app.sidq.desktop");
+    // Through `net::app_data`, like every other reader. This one still worked
+    // off macOS because it creates the directory it names, so it would have put
+    // the index in a "Library/Application Support" folder invented inside a
+    // Windows user profile. Working and in the wrong place is harder to notice
+    // than not working.
+    let dir = crate::net::app_data()?.join("app.sidq.desktop");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("index.sqlite"))
 }
