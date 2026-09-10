@@ -39,7 +39,7 @@ use std::path::PathBuf;
  * the whole batch is skipped once user_version has caught up, so a new table
  * only reaches an existing install if this number moves.
  */
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -196,6 +196,42 @@ fn migrate(conn: &Connection) -> Option<()> {
         );
 
         CREATE INDEX IF NOT EXISTS handovers_made ON handovers(made_at DESC);
+
+        /*
+         * ── One conversation, however many assistants it passed through ─────
+         *
+         * `handovers` records that something was carried and when. It has never
+         * recorded where it went, so there was no way to know that the Cursor
+         * session somebody is in now *is* the Claude Code session they were in
+         * an hour ago. Two rows, unrelated, in a list.
+         *
+         * A thread is that relation. Sessions join one; the thread is the
+         * conversation and the assistants are heads on it.
+         *
+         * `awaiting` is how a continuation is caught without the model having
+         * to cooperate: a handover marks its thread as expecting one, and the
+         * next unseen session in the same project claims it. Cleared once
+         * claimed, so a thread cannot quietly swallow every session that
+         * follows it.
+         */
+        CREATE TABLE IF NOT EXISTS threads (
+            thread_id  TEXT PRIMARY KEY,
+            started_at INTEGER NOT NULL DEFAULT 0,
+            title      TEXT NOT NULL DEFAULT '',
+            project    TEXT NOT NULL DEFAULT '',
+            awaiting   INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS thread_members (
+            thread_id  TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            source     TEXT NOT NULL DEFAULT '',
+            joined_at  INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (thread_id, session_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS thread_members_session
+            ON thread_members(session_id);
 
         /*
          * ── What the picker already worked out about a transcript ──────────

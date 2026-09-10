@@ -60,5 +60,7 @@ pub mod team_context;
 pub mod net;
 pub mod sharing;
 pub mod telemetry;
+pub mod thread;
 pub mod usage;
+pub mod wall;
 pub mod work_history;
