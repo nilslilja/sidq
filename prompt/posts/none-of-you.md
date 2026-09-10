@@ -14,9 +14,7 @@
 
 I HAVE MADE $0 THIS MONTH AND I AM STILL AHEAD OF MOST OF YOU.
 
-not a joke, not humility, not a hook.
-
-i think most of the people posting on this app are running a content business and calling it a startup.
+most of the people posting on this app are running a content business and calling it a startup.
 
 you have a waitlist.
 
@@ -32,15 +30,15 @@ it is free, it works, it is on my website right now, and 65,000 people have scro
 
 that is my number. $0. i will say it every month.
 
-here is the difference between me and the average post in your feed: you cannot check theirs.
+you can check my number. you cannot check a single one of theirs.
 
 nobody on this app has ever shown you the dashboard. they show you the graph that goes up and the word "excited" and a photo of a laptop in a cafe, and you have no idea whether any of it is a company or a personality.
 
 i am telling you it is zero because zero is checkable and because a founder who will not say a bad number will absolutely make up a good one.
 
-somebody built a $120m AI company on this exact strategy and then admitted the revenue he announced was invented. that is what happens at the end of the road you are all posting your way down.
+somebody built a $120m AI company doing exactly this and then admitted the revenue he had announced was made up. that is where this ends.
 
-so here is the whole thing, and none of it flatters me.
+the rest of it, since nobody posts this part.
 
 my grades are bad enough that a diploma is a genuine question.
 
@@ -54,11 +52,11 @@ and in the middle of all that i shipped every day, found a security hole in my o
 
 that is a company with no revenue.
 
-what most of you have is a personal brand with a product attached, and the product is the part that never ships.
+a lot of what is on this app is a personal brand with a product bolted on, and the product is the part that never ships.
 
 so cook it. the product, the pricing, the positioning, the name, me.
 
-be as brutal as you want, publicly, where everyone can see it. a stranger being honest in public is worth more to me than ten people being polite in my inbox.
+be as brutal as you want, publicly, where everyone can see it. i would rather one stranger tell me the truth here than ten people be polite in my inbox.
 
 i will answer every single one and i will not delete a word.
 
