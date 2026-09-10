@@ -360,7 +360,7 @@ fn is_an_icon(described: &str) -> bool {
 pub fn collect(root: AXUIElementRef) -> Vec<Node> {
     let mut out = Vec::new();
     let mut budget = MAX_NODES;
-    walk(root, 0, &mut budget, &mut out, &String::new());
+    walk(root, 0, &mut budget, &mut out, "");
     out
 }
 

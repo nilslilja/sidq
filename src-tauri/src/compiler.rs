@@ -232,7 +232,7 @@ so it can carry on here. "
     if !brief.project.is_empty() {
         out.push_str(&format!(", working on {}", brief.project));
     }
-    out.push_str(".");
+    out.push('.');
     out.push_str(contents);
     out.push_str(
         "\n\nThey were there for all of it. Do not summarise it back to them; \
