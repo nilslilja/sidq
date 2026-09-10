@@ -245,9 +245,6 @@ pub fn members(folder: &Path, mine: &str) -> Vec<(String, usize)> {
     out
 }
 
-/* ── Whole conversations, when somebody chooses to hand one over ─────────── */
-
-/// Where shared handovers live inside the folder. Kept apart from the rule files.
 /*
  * ── Joining a team, without a server and without describing a path ──────────
  *
@@ -362,6 +359,9 @@ pub fn code_of(folder: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
+/* ── Whole conversations, when somebody chooses to hand one over ─────────── */
+
+/// Where shared handovers live inside the folder. Kept apart from the rule files.
 pub const HANDOVERS_DIR: &str = "handovers";
 
 /**
