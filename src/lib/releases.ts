@@ -69,6 +69,24 @@ const ARTIFACTS: Partial<Record<Platform, ReleaseArtifact>> = {
     size: '3.2 MB',
   },
   /*
+   * Windows, built on Windows.
+   *
+   * A Tauri app cannot be cross-compiled from a Mac — it needs MSVC and links
+   * against WebView2 — so this comes out of .github/workflows/windows.yml,
+   * which runs on a rented Windows machine. The file is Tauri's own NSIS
+   * output name, kept as it comes so the workflow and this table cannot
+   * disagree about it.
+   *
+   * `platform.ts` has described Windows as supported for a long time. What was
+   * missing was only this entry, so `artifactFor('windows')` returned null and
+   * every Windows visitor fell through to the email form.
+   */
+  windows: {
+    url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_x64-setup.exe`,
+    filename: `Sidq ${RELEASE_VERSION} setup.exe`,
+    size: '0.9 MB',
+  },
+  /*
    * There is no Windows or Linux entry, and that is not an oversight.
    *
    * This map used to carry a `.exe` at "~7 MB" and an `.AppImage` at "~80 MB".
