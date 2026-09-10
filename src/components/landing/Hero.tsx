@@ -90,7 +90,26 @@ export function Hero() {
         />
       </svg>
 
-      <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[8vh] pt-28 sm:pb-[7vh] lg:pt-32">
+      {/*
+        * ── Why the top padding is short and grows, rather than tall and shrinks ─
+        *
+        * Measured, not chosen. At pt-28/lg:pt-32 the headline started at 218px
+        * and the download button landed at 738 — below the fold on a 720px
+        * viewport, which is a MacBook Air with a browser open, which is what
+        * most people arriving from a post are holding. The primary call to
+        * action was invisible without scrolling on the most common screen there
+        * is, and adding the line above made it worse.
+        *
+        * So the padding grows with the viewport's *height*, which took two
+        * goes. The first used `lg:`, and Tailwind's breakpoints are widths — at
+        * 1440x720, which is exactly the laptop in question, `lg` applied and
+        * handed the padding straight back. A wide screen is not a tall one.
+        *
+        * These are height queries. Short screens keep the button above the
+        * fold; tall ones get the air back, which is where it was always meant
+        * to be spent.
+        */}
+      <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[5vh] pt-10 sm:pb-[6vh] [@media(min-height:780px)]:pt-20 [@media(min-height:880px)]:pt-28 [@media(min-height:1000px)]:pt-32">
         {/*
          * `w-full`, and it is load-bearing.
          *
@@ -124,7 +143,16 @@ export function Hero() {
          */}
         <h1
           id="hero"
-          className="animate-rise w-full text-center font-display text-[clamp(2.375rem,7.4vw,5rem)] leading-[0.94] tracking-[-0.05em] text-[#F4F1FF]"
+          /*
+           * The size is clamped on width and capped again on height.
+           *
+           * `7.4vw` is a width measure, so on a wide-but-short screen — a 13"
+           * laptop with a bookmarks bar, 1440x640 — it renders the headline at
+           * its 5rem maximum on a viewport with no room for it, and the
+           * download button ends up 54px under the fold. Two lines of display
+           * type is most of a short screen.
+           */
+          className="animate-rise w-full text-center font-display text-[clamp(2.375rem,7.4vw,5rem)] [@media(max-height:700px)]:text-[clamp(2rem,5vw,3.25rem)] leading-[0.94] tracking-[-0.05em] text-[#F4F1FF]"
           style={{ animationDelay: "80ms" }}
         >
           The models remember everything{" "}
@@ -197,9 +225,31 @@ export function Hero() {
          * flourish, it is the doctrine — memory.rs quotes and counts, and
          * nothing on this page may claim a summary the product refuses to make.
          */}
+        {/*
+          * ── The moment, before the promise ──────────────────────────────────
+          *
+          * The headline and the line below it are both about a memory, which is
+          * the right thing to sell and the wrong thing to open with: somebody
+          * three seconds into this page has not yet agreed they have a problem.
+          * A memory is an abstraction. Hitting a limit four hours into something
+          * is a Tuesday.
+          *
+          * So this names the moment first, in the three forms it actually takes,
+          * and the paragraph under it answers with what Sidq holds. Recognition,
+          * then the promise — the other way round is a page that describes a
+          * product to somebody still deciding whether to care.
+          */}
         <p
-          className="animate-rise mt-7 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
-          style={{ animationDelay: "160ms" }}
+          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[42ch] text-balance text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-snug text-white/70"
+          style={{ animationDelay: "150ms" }}
+        >
+          You hit the limit. You switch to a better model. You open a new chat.
+          Every time, you start from nothing.
+        </p>
+
+        <p
+          className="animate-rise mt-5 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
+          style={{ animationDelay: "230ms" }}
         >
           Sidq is the one that remembers. What you are working on and what you
           decided about it, in your own words, ready for whichever AI you open
@@ -208,15 +258,15 @@ export function Hero() {
 
         {/* The line somebody repeats, directly over the button. */}
         <p
-          className="animate-rise mt-10 w-full text-center font-display text-[clamp(1.125rem,2.4vw,1.75rem)] tracking-[-0.03em] text-white"
-          style={{ animationDelay: "240ms" }}
+          className="animate-rise mt-8 [@media(max-height:700px)]:mt-5 w-full text-center font-display text-[clamp(1.125rem,2.4vw,1.75rem)] tracking-[-0.03em] text-white"
+          style={{ animationDelay: "310ms" }}
         >
           Stop introducing yourself to robots.
         </p>
 
         <div
-          className="animate-rise mt-7 flex justify-center"
-          style={{ animationDelay: "320ms" }}
+          className="animate-rise mt-6 flex justify-center"
+          style={{ animationDelay: "390ms" }}
         >
           <DownloadButton size="lg" />
         </div>

@@ -33,6 +33,30 @@ describe("the headline", () => {
     );
   });
 
+  /*
+   * Recognition before the promise.
+   *
+   * The headline and the line under it are both about a memory, which is what
+   * Sidq is and not what somebody three seconds into this page has agreed they
+   * need. A memory is an abstraction; hitting a limit four hours into something
+   * is a Tuesday. If this line ever moves below the promise, or goes, the page
+   * is describing a product to somebody still deciding whether to care.
+   */
+  test("the moment is named before the memory is promised", () => {
+    render(<Hero />);
+
+    const moment = screen.getByText(/You hit the limit/);
+    const promise = screen.getByText(/Sidq is the one that remembers/);
+
+    expect(moment).toBeVisible();
+    // Three forms of the same moment, because people recognise their own.
+    expect(moment.textContent).toMatch(/switch to a better model/i);
+    expect(moment.textContent).toMatch(/start from nothing/i);
+
+    // Node.DOCUMENT_POSITION_FOLLOWING: the promise comes after the moment.
+    expect(moment.compareDocumentPosition(promise) & 4).toBeTruthy();
+  });
+
   test('holds "except you" together with a real non-breaking space', () => {
     /*
      * At 375 the container binds before the 22ch measure does, and the line
