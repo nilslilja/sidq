@@ -10,6 +10,11 @@ Nothing is uploaded.
 This repository is both halves: the desktop app and the marketing site at
 sidq.tech are one React codebase, and which one you get is decided by the route.
 
+It also ships **[`sidq-mcp`](docs/mcp-server.md)**, an MCP server that gives any
+assistant the conversations and project memories already on this machine —
+seven tools plus each project's memory as a resource, over stdio, with no
+network client compiled into it at all.
+
 ---
 
 ## Run it
