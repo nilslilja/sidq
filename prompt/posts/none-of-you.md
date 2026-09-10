@@ -12,58 +12,60 @@
 
 ---
 
-I HAVE MADE $0 THIS MONTH AND I AM STILL AHEAD OF MOST OF YOU.
+I HAVE MADE $0 THIS MONTH AND I AM STILL AHEAD OF MOST OF YOU
 
-most of the people posting on this app are running a content business and calling it a startup.
+$0. zero. nothing. not one person.
 
-you have a waitlist.
+and i'd still rather be me than half this feed lmao
 
-you have a landing page with a gradient and a form.
+most of you are running a content business and calling it a startup
 
-you have a "we're building something big" post every tuesday and a logo somebody made you in an afternoon.
+YOU HAVE A WAITLIST
 
-what you do not have is a thing a stranger can download and use tonight.
+you have a gradient, an email box, a "building something big 👀" post every tuesday, and a logo somebody made you in an afternoon
 
-i do.
+what you do not have is a thing a stranger can download and open tonight
 
-it is free, it works, it is on my website right now, and 65,000 people have scrolled past it in two weeks without one of them paying me a cent.
+i do
 
-that is my number. $0. i will say it every month.
+it's free, it's on my site right now, and 65,000 of you scrolled past it in two weeks without one of you paying me a cent
 
-you can check my number. you cannot check a single one of theirs.
+that's my number and i'll say it every single month
 
-nobody on this app has ever shown you the dashboard. they show you the graph that goes up and the word "excited" and a photo of a laptop in a cafe, and you have no idea whether any of it is a company or a personality.
+SHOW ME YOURS
 
-i am telling you it is zero because zero is checkable and because a founder who will not say a bad number will absolutely make up a good one.
+you can't. nobody on this app has ever shown you a dashboard. it's the graph going up, the word "excited", a laptop in a cafe, and you genuinely cannot tell whether it's a company or a personality
 
-somebody built a $120m AI company doing exactly this and then admitted the revenue he had announced was made up. that is where this ends.
+a founder who won't say a bad number will 100% make up a good one
 
-the rest of it, since nobody posts this part.
+the rest of it, since nobody posts this bit
 
-my grades are bad enough that a diploma is a genuine question.
+my grades are bad enough that the diploma is a real question
 
-i negotiated a six figure offer so hard that somebody else got the chair.
+i negotiated a six figure offer so hard that somebody else got the chair 💀
 
-the app i want you to trust is signed under my mum's apple developer account, because i have not earned the money to move it to mine.
+the app i want you to trust is signed under my MUM'S apple developer account because i have not earned the money to move it to mine
 
-last week i wrote one line of code that ate eighteen gigabytes and killed my computer three times before i worked out it was me.
+and last week i wrote ONE LINE of code that ate eighteen gigabytes and killed my computer three times before i worked out it was me
 
-and in the middle of all that i shipped every day, found a security hole in my own work before anybody else could, and fixed a bug that would have taken a customer's money and quietly left them on the free plan.
+through all of it i shipped every single day, found a security hole in my own work before anybody else could, and killed a bug that would have taken a customer's money and quietly left them on the free plan
 
-that is a company with no revenue.
+THAT IS A COMPANY WITH NO REVENUE
 
-a lot of what is on this app is a personal brand with a product bolted on, and the product is the part that never ships.
+a lot of what is on this app is a personal brand with a product bolted on, and the product is the part that never ships
 
-so cook it. the product, the pricing, the positioning, the name, me.
+so COOK IT
 
-be as brutal as you want, publicly, where everyone can see it. i would rather one stranger tell me the truth here than ten people be polite in my inbox.
+the product, the pricing, the name, me. publicly, where everyone can see it. i would rather one stranger tell me the truth here than ten people be polite in my dms
 
-i will answer every single one and i will not delete a word.
+i will answer every single one and i will not delete a word
 
-and the first person who pays me anything gets it straight back. all of it, keeps the product forever, and picks the next thing i build. one person. after that everybody pays like everybody else.
+and the first person who pays me anything gets it straight back. all of it. keeps the product forever. picks what i build next
 
-i am going to be driving a GT3 RS and i am not going to explain when.
+one person. then everybody pays like everybody else
 
-MOST OF YOU WILL POST ABOUT THIS INSTEAD OF SHIPPING TODAY.
+GT3 RS. not explaining when.
+
+MOST OF YOU WILL POST ABOUT THIS INSTEAD OF SHIPPING TODAY
 
 still $0. ask me next month.
