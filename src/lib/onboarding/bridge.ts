@@ -584,6 +584,21 @@ export interface OnboardingBridge {
   joinTeam: (code: string) => Promise<{ joined: boolean; understood: boolean }>;
   /** The code for the team this Mac is in, if any. */
   teamCode: () => Promise<string | null>;
+  /**
+   * The seats this account has paid for, minting any not yet created.
+   *
+   * Empty when the account has none, which is a state to render rather than a
+   * failure to report.
+   */
+  teamSeats: () => Promise<{ code: string; taken: boolean }[]>;
+  /**
+   * Use a seat somebody sent. Resolves to the reason it failed, or null.
+   *
+   * The reason is the sentence the database raised, written for whoever just
+   * typed the code in: "already used" and "does not exist" need different next
+   * moves.
+   */
+  redeemTeamSeat: (code: string) => Promise<string | null>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -851,6 +866,10 @@ export function desktopBridge(): OnboardingBridge | null {
         understood: boolean;
       },
     teamCode: async () => ((await invoke("team_code")) as string | null) ?? null,
+    teamSeats: async () =>
+      ((await invoke("team_seats")) as { code: string; taken: boolean }[]) ?? [],
+    redeemTeamSeat: async (code: string) =>
+      ((await invoke("redeem_team_seat", { code })) as string | null) ?? null,
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

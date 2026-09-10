@@ -2301,6 +2301,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
    * them which one", which is the step this removes.
    */
   const [code, setCode] = useState<string | null>(null);
+  const [seats, setSeats] = useState<{ code: string; taken: boolean }[]>([]);
+  const [seatCode, setSeatCode] = useState("");
+  const [seatProblem, setSeatProblem] = useState<string | null>(null);
   const [joining, setJoining] = useState("");
   const [joinProblem, setJoinProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -2321,7 +2324,24 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     void bridge?.teamFolderOptions().then(setOptions);
     void bridge?.teamNearby().then(setNearby);
     void bridge?.teamCode().then(setCode);
+    void bridge?.teamSeats().then(setSeats);
   }, [bridge, load]);
+
+  const useSeat = () => {
+    if (!bridge || !seatCode.trim()) return;
+    setBusy(true);
+    setSeatProblem(null);
+    void bridge
+      .redeemTeamSeat(seatCode.trim())
+      .then((why) => {
+        setSeatProblem(why);
+        if (!why) {
+          setSeatCode("");
+          load();
+        }
+      })
+      .finally(() => setBusy(false));
+  };
 
   const start = () => {
     if (!bridge || !name.trim()) return;
@@ -2516,6 +2536,114 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     </div>
   ) : null;
 
+  /**
+   * Seats, for the account that bought them and for the person handed one.
+   *
+   * Two halves of the same thing on purpose. A buyer opening this sees the
+   * codes they are paying for and which are spoken for; anybody else sees one
+   * field, because being given a code is the only way most people will ever
+   * meet this feature.
+   *
+   * The buyer's half is absent when the account has no seats rather than
+   * rendering an empty list with a heading, which would read as a feature that
+   * is broken instead of one that was never bought.
+   */
+  const seatSection = (
+    <section className="mt-8 border-t border-[var(--w-line)] pt-6">
+      {seats.length > 0 && (
+        <>
+          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+            Your seats
+          </p>
+          <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
+            One code each. Sending one puts that person on Team; it stops
+            working once somebody has used it.
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {seats.map((seat) => (
+              <li key={seat.code} className="flex items-center gap-3">
+                <code
+                  className={cn(
+                    "font-mono text-[0.875rem] tracking-widest",
+                    seat.taken
+                      ? "text-[var(--w-text-5)] line-through"
+                      : "text-[var(--w-text)]",
+                  )}
+                >
+                  {seat.code}
+                </code>
+                {seat.taken ? (
+                  <span className="text-[0.75rem] text-[var(--w-text-5)]">taken</span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(seat.code);
+                      setCopied(seat.code);
+                    }}
+                    className="cursor-pointer text-[0.8125rem] text-[var(--w-text-3)] underline underline-offset-4 hover:text-[var(--w-text)]"
+                  >
+                    {copied === seat.code ? "Copied" : "Copy"}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <p
+        className={cn(
+          "text-[0.875rem] font-medium text-[var(--w-text)]",
+          seats.length > 0 && "mt-6",
+        )}
+      >
+        Given a seat?
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={seatCode}
+          onChange={(e) => {
+            setSeatCode(e.target.value);
+            setSeatProblem(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") useSeat();
+          }}
+          placeholder="paste the code"
+          spellCheck={false}
+          autoCapitalize="off"
+          aria-label="Seat code"
+          className={cn(
+            "w-[12rem] rounded-lg px-3 py-1.5 font-mono text-[0.875rem]",
+            "border border-[var(--w-line)] bg-[var(--w-surface)] text-[var(--w-text)]",
+            "outline-none focus:border-[var(--w-text-4)]",
+          )}
+        />
+        <button
+          onClick={useSeat}
+          disabled={busy || !seatCode.trim()}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+            "bg-[var(--w-invert)] text-[var(--w-on-invert)]",
+            "cursor-pointer transition-opacity duration-150 hover:opacity-90",
+            "disabled:cursor-default disabled:opacity-40",
+          )}
+        >
+          Use it
+        </button>
+      </div>
+
+      {seatProblem && (
+        <p
+          role="alert"
+          className="mt-3 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]"
+        >
+          {seatProblem}
+        </p>
+      )}
+    </section>
+  );
+
   const choose = (path: string | null) => {
     if (!bridge) return;
     const settle = path
@@ -2657,6 +2785,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
         </div>
 
         {codeSection}
+        {seatSection}
       </>
     );
   }
@@ -2701,6 +2830,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
          * folder inside the drive, which is where this used to fail silently.
          */}
         {codeBanner}
+        {seatSection}
         {/*
          * The one step Sidq cannot do: a folder has to be shared with a
          * person, and sharing is macOS's own sheet on the folder itself.

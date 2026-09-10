@@ -103,6 +103,8 @@ const bridge: Partial<OnboardingBridge> = {
    * returning a code here would hide the branch most existing teams are in.
    */
   teamCode: vi.fn(async () => null),
+  teamSeats: vi.fn(async () => [] as { code: string; taken: boolean }[]),
+  redeemTeamSeat: vi.fn(async () => null as string | null),
   startTeam: vi.fn(async () => "k7fm3q"),
   joinTeam: vi.fn(async () => ({ joined: true, understood: true })),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
@@ -546,6 +548,8 @@ describe("your team", () => {
      * which is a failure that looks like the feature and is not.
      */
     bridge.teamCode = vi.fn(async () => null);
+    bridge.teamSeats = vi.fn(async () => []);
+    bridge.redeemTeamSeat = vi.fn(async () => null);
     bridge.joinTeam = vi.fn(async () => ({ joined: true, understood: true }));
   }
 
@@ -613,6 +617,47 @@ describe("your team", () => {
     await open("Your team");
 
     expect(await screen.findByText("k7fm3q")).toBeVisible();
+  });
+
+  test("an account with no seats is not shown an empty list of them", async () => {
+    /*
+     * A heading over nothing reads as a broken feature. Not having bought
+     * seats is not a failure, so the buyer's half is simply absent and only
+     * the half that matters to everybody else stays.
+     */
+    withTeam({ allowed: true, folder: null });
+    await open("Your team");
+
+    expect(await screen.findByText(/given a seat\?/i)).toBeVisible();
+    expect(screen.queryByText(/your seats/i)).toBeNull();
+  });
+
+  test("a buyer sees each code and which are spoken for", async () => {
+    withTeam({ allowed: true, folder: null });
+    bridge.teamSeats = vi.fn(async () => [
+      { code: "aaa111", taken: false },
+      { code: "bbb222", taken: true },
+    ]);
+    await open("Your team");
+
+    expect(await screen.findByText("aaa111")).toBeVisible();
+    expect(screen.getByText("bbb222")).toBeVisible();
+    // A code somebody has used cannot be handed to a second person.
+    expect(screen.getByText(/taken/i)).toBeVisible();
+  });
+
+  test("a refused seat says why, in the words the server used", async () => {
+    withTeam({ allowed: true, folder: null });
+    bridge.redeemTeamSeat = vi.fn(async () => "Somebody has already used that code.");
+    await open("Your team");
+
+    const field = await screen.findByRole("textbox", { name: /seat code/i });
+    fireEvent.change(field, { target: { value: "bbb222" } });
+    fireEvent.click(screen.getByRole("button", { name: /use it/i }));
+
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /already used that code/i,
+    );
   });
 
   test("a plan without Duo is told what Duo would do, not shown the setup", async () => {
