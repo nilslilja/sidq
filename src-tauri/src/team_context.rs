@@ -248,6 +248,120 @@ pub fn members(folder: &Path, mine: &str) -> Vec<(String, usize)> {
 /* ── Whole conversations, when somebody chooses to hand one over ─────────── */
 
 /// Where shared handovers live inside the folder. Kept apart from the rule files.
+/*
+ * ── Joining a team, without a server and without describing a path ──────────
+ *
+ * Discovery already finds a team folder that has synced onto this Mac, and it
+ * is genuinely good when it works. What it cannot do is tell somebody *which*
+ * of the folders it found is theirs, and it cannot help at all before the first
+ * person has decided where to put one. In practice that left the answer to
+ * "how do we set this up" as a sentence somebody had to say out loud:
+ * "make a folder in the shared Drive, call it something, I'll look for it".
+ *
+ * So the folder's name is the join code. Creating a team makes
+ * `sidq-team-<code>` inside a drive the person already syncs, and joining is
+ * typing those characters: every member's Sidq looks for that exact directory
+ * name among their own sync roots and finds it or says which drive to accept.
+ *
+ * No server, nothing uploaded, and no path to read down a phone. The code is
+ * not a secret — anyone who can already see the shared drive can see the folder
+ * — so it does not pretend to be one. What it does is remove the only step in
+ * this feature that needed two people to agree on a string.
+ */
+
+/// Prefix that marks a directory as a Sidq team. The rest is the join code.
+pub const TEAM_DIR_PREFIX: &str = "sidq-team-";
+
+/**
+ * Characters a code is made from.
+ *
+ * No vowels, so it cannot spell anything; no 0/O or 1/l/I, because this gets
+ * read aloud and typed by somebody who heard it.
+ */
+const CODE_ALPHABET: &[u8] = b"bcdfghjkmnpqrstvwxyz23456789";
+
+/// How long a code is. Six is ~2^28 combinations and still says in one breath.
+const CODE_LEN: usize = 6;
+
+/// A new join code, from the platform's randomness.
+pub fn new_code() -> Option<String> {
+    let bytes = crate::net::random_bytes()?;
+    Some(
+        bytes
+            .iter()
+            .take(CODE_LEN)
+            .map(|b| CODE_ALPHABET[*b as usize % CODE_ALPHABET.len()] as char)
+            .collect(),
+    )
+}
+
+/// Whether a string could be one of ours, before touching the disk.
+pub fn is_code(code: &str) -> bool {
+    let code = code.trim();
+    code.len() == CODE_LEN
+        && code.bytes().all(|b| CODE_ALPHABET.contains(&b.to_ascii_lowercase()))
+}
+
+/**
+ * Make the team folder for a code inside a drive the person already syncs.
+ *
+ * Returns the folder. Existing is success, not a conflict: two people pressing
+ * create on the same synced drive should end up in the same place rather than
+ * with a second team nobody can see the first from.
+ */
+pub fn create_team(root: &Path, code: &str) -> Option<PathBuf> {
+    if !is_code(code) {
+        return None;
+    }
+    let dir = root.join(format!("{TEAM_DIR_PREFIX}{}", code.trim().to_ascii_lowercase()));
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
+/**
+ * Find the folder for a code among the drives this Mac syncs.
+ *
+ * Looks at each root and one level inside it, which is the same reach
+ * `discover` has and covers both "shared with me at the top level" and "inside
+ * the company folder".
+ *
+ * `None` means the drive holding it has not synced here yet, which is a
+ * different problem from a wrong code and the window says so.
+ */
+pub fn find_team(roots: &[(String, PathBuf)], code: &str) -> Option<PathBuf> {
+    if !is_code(code) {
+        return None;
+    }
+    let wanted = format!("{TEAM_DIR_PREFIX}{}", code.trim().to_ascii_lowercase());
+
+    for (_, root) in roots {
+        let direct = root.join(&wanted);
+        if direct.is_dir() {
+            return Some(direct);
+        }
+
+        if let Ok(entries) = fs::read_dir(root) {
+            for entry in entries.flatten().take(40) {
+                let nested = entry.path().join(&wanted);
+                if nested.is_dir() {
+                    return Some(nested);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The code a folder belongs to, if it is one of ours.
+pub fn code_of(folder: &Path) -> Option<String> {
+    folder
+        .file_name()?
+        .to_str()?
+        .strip_prefix(TEAM_DIR_PREFIX)
+        .filter(|rest| is_code(rest))
+        .map(str::to_string)
+}
+
 pub const HANDOVERS_DIR: &str = "handovers";
 
 /**
@@ -688,6 +802,101 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    // ── Join codes ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn a_code_cannot_spell_anything_or_be_misheard() {
+        /*
+         * This gets read down a call and typed by somebody who heard it. No
+         * vowels means it cannot arrive as a word whose spelling gets guessed,
+         * and no 0/O or 1/l/I means the characters people actually mistype are
+         * simply not in the alphabet.
+         */
+        for _ in 0..64 {
+            let code = new_code().expect("a code");
+            assert_eq!(code.len(), 6);
+            for c in code.chars() {
+                assert!(!"aeiou".contains(c), "{code} can spell things");
+                assert!(!"01lIO".contains(c), "{code} has a character people mistype");
+            }
+            assert!(is_code(&code));
+        }
+    }
+
+    #[test]
+    fn two_codes_are_not_the_same_code() {
+        // A generator that repeats itself puts two teams in one folder.
+        assert_ne!(new_code().unwrap(), new_code().unwrap());
+    }
+
+    #[test]
+    fn nothing_that_is_not_a_code_reaches_the_disk() {
+        /*
+         * `find_team` turns a typed string into a directory name, so checking
+         * the shape first is what stops it being "look wherever I say". Six
+         * characters from a fixed alphabet; everything else is refused before a
+         * path is built at all.
+         */
+        for bad in ["", "abc", "../../etc", "sidq-team-x", "aeiou1", "toolongcode", "bcdfg/"] {
+            assert!(!is_code(bad), "{bad} was accepted as a code");
+            assert_eq!(find_team(&[], bad), None);
+            assert_eq!(create_team(&std::env::temp_dir(), bad), None);
+        }
+    }
+
+    #[test]
+    fn creating_then_joining_finds_the_same_folder() {
+        let drive = scratch("join");
+        let roots = vec![("Test Drive".to_string(), drive.clone())];
+        let code = new_code().unwrap();
+
+        let made = create_team(&drive, &code).expect("a team folder");
+        assert_eq!(find_team(&roots, &code).as_deref(), Some(made.as_path()));
+
+        // The folder knows its own code, so the window never keeps a second
+        // copy that can drift out of step with the directory it describes.
+        assert_eq!(code_of(&made), Some(code.clone()));
+    }
+
+    #[test]
+    fn a_team_one_level_inside_a_drive_is_still_found() {
+        // "Shared with me" lands things in a company folder rather than at the
+        // top of a drive, which is where most of these will actually live.
+        let drive = scratch("nested");
+        let inner = drive.join("Acme Ltd");
+        fs::create_dir_all(&inner).unwrap();
+
+        let code = new_code().unwrap();
+        let made = create_team(&inner, &code).unwrap();
+        let roots = vec![("Test Drive".to_string(), drive.clone())];
+
+        assert_eq!(find_team(&roots, &code).as_deref(), Some(made.as_path()));
+    }
+
+    #[test]
+    fn a_code_whose_drive_has_not_synced_is_absent_rather_than_wrong() {
+        /*
+         * The common failure is not a mistyped code, it is a drive the person
+         * has not accepted yet. Those need different sentences in the window,
+         * so they have to be different answers here.
+         */
+        let drive = scratch("unsynced");
+        let roots = vec![("Test Drive".to_string(), drive.clone())];
+        let code = new_code().unwrap();
+
+        assert!(is_code(&code), "the code itself is fine");
+        assert_eq!(find_team(&roots, &code), None, "the folder is simply not here yet");
+    }
+
+    #[test]
+    fn creating_the_same_code_twice_lands_in_one_place() {
+        // Two people pressing create against one synced drive must end up in
+        // the same folder, not in a second team neither can see the other from.
+        let drive = scratch("twice");
+        let code = new_code().unwrap();
+        assert_eq!(create_team(&drive, &code), create_team(&drive, &code));
     }
 
     #[test]

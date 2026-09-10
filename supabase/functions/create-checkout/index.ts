@@ -41,10 +41,16 @@ Deno.serve(async (req: Request) => {
     'pro:monthly': 'STRIPE_PRICE_MONTHLY',
     'pro:annual': 'STRIPE_PRICE_ANNUAL',
     'duo:monthly': 'STRIPE_PRICE_DUO',
-    // Team. Absent from the environment means the tier is still a conversation
-    // rather than a checkout, and the guard below refuses it by name.
-    'team:monthly': 'STRIPE_PRICE_TEAM',
-    'team:annual': 'STRIPE_PRICE_TEAM_ANNUAL',
+    /*
+     * Team, priced per seat.
+     *
+     * The price id points at a per-unit Stripe price and the quantity is the
+     * seat count, so the tier scales with the organisation instead of being a
+     * flat number that is wrong at both ends. Absent from the environment means
+     * the tier is still a conversation, and the guard below refuses it by name.
+     */
+    'team:monthly': 'STRIPE_PRICE_TEAM_SEAT',
+    'team:annual': 'STRIPE_PRICE_TEAM_SEAT_ANNUAL',
   };
 
   const envName = priceEnv[`${plan}:${interval}`];

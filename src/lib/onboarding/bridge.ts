@@ -567,6 +567,23 @@ export interface OnboardingBridge {
   unshareMemory: (path: string) => Promise<boolean>;
   /** The link this project is already published under, if any. */
   memoryLink: (path: string) => Promise<string | null>;
+  /**
+   * Start a team and get the code people join with.
+   *
+   * The team folder's name is the code, so joining never involves reading a
+   * path down a phone. `null` when this Mac syncs no drive at all, which is the
+   * one case the window has to explain rather than retry.
+   */
+  startTeam: () => Promise<string | null>;
+  /**
+   * Join by code.
+   *
+   * `understood` separates a mistyped code from a drive that has not synced
+   * here yet. They need opposite advice, so they are not one boolean.
+   */
+  joinTeam: (code: string) => Promise<{ joined: boolean; understood: boolean }>;
+  /** The code for the team this Mac is in, if any. */
+  teamCode: () => Promise<string | null>;
   mcpClients: () => Promise<[string, string, boolean][]>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
@@ -827,6 +844,13 @@ export function desktopBridge(): OnboardingBridge | null {
       ((await invoke("unshare_memory", { path })) as boolean) ?? false,
     memoryLink: async (path: string) =>
       ((await invoke("memory_link", { path })) as string | null) ?? null,
+    startTeam: async () => ((await invoke("start_team")) as string | null) ?? null,
+    joinTeam: async (code: string) =>
+      (await invoke("join_team", { code })) as {
+        joined: boolean;
+        understood: boolean;
+      },
+    teamCode: async () => ((await invoke("team_code")) as string | null) ?? null,
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

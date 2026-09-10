@@ -23,14 +23,19 @@ import { entitlementsFor } from "./entitlements";
 export type PlanId = "free" | "pro" | "duo" | "team";
 
 /**
- * What Team costs, when it costs anything.
+ * What one Team seat costs a month, when it costs anything.
  *
- * Absent by default and deliberately: see the note on the Team plan below.
- * Written as it should appear, e.g. "$99", because the display string and the
- * Stripe price are two different decisions and only one of them lives here.
+ * Per seat rather than a flat fee, because a tier sold to organisations has to
+ * scale with the organisation: a number that is right for four people is
+ * absurd for forty in one direction or the other, and the flat version means
+ * every real conversation starts by renegotiating it.
+ *
+ * Absent by default and deliberately — see the note on the Team plan below.
+ * Written as it should appear, e.g. "$12", because the display string and the
+ * Stripe price are two decisions and only one of them lives here.
  */
-const TEAM_PRICE: string | undefined =
-  (import.meta.env?.VITE_TEAM_PRICE as string | undefined) || undefined;
+const TEAM_SEAT: string | undefined =
+  (import.meta.env?.VITE_TEAM_SEAT_PRICE as string | undefined) || undefined;
 
 export interface Plan {
   id: PlanId;
@@ -187,17 +192,18 @@ export const PLANS: Plan[] = [
      * today. A wrong number on a live pricing page is worse than no number,
      * because somebody can buy at it.
      */
-    price: TEAM_PRICE ?? "Let's talk",
-    cadence: TEAM_PRICE ? "/ month" : null,
+    price: TEAM_SEAT ?? "Let's talk",
+    cadence: TEAM_SEAT ? "/ seat, month" : null,
     promise:
       "Your whole team working from the same context, on machines nothing leaves.",
     inherits: "Duo",
-    cta: TEAM_PRICE ? "Subscribe" : "Talk to us",
-    ctaHref: TEAM_PRICE
+    cta: TEAM_SEAT ? "Subscribe" : "Talk to us",
+    ctaHref: TEAM_SEAT
       ? undefined
       : "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
     features: [
-      "Unlimited seats, one invoice",
+      "Every seat on one invoice, priced per seat",
+      "Join with a six-character code: no paths to send, no folder to describe",
       "One house-rules file: your standards ride along in every AI conversation your team has",
       "Project memory shared across the team: what it started as, where it got to, what was decided",
       "Shared standing instructions across everyone, synced through your own drive",

@@ -1307,6 +1307,92 @@ async fn team_settings() -> TeamSettings {
  * sharing off actually takes you out of your teammates' handovers rather than
  * merely stopping you reading theirs.
  */
+/**
+ * Start a team and get the code that lets anybody join it.
+ *
+ * The folder's name *is* the code, so joining never involves reading a path
+ * down a phone. Created in the first drive this Mac already syncs, because a
+ * team folder somewhere unsynced is a team of one.
+ *
+ * `None` when there is no synced drive at all, which the window has to say
+ * plainly: this feature is built on a drive the team already shares, and
+ * without one there is nothing to put the folder in.
+ */
+#[tauri::command]
+async fn start_team() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let (_, root) = sync_roots().into_iter().next()?;
+        let code = team_context::new_code()?;
+        let dir = team_context::create_team(&root, &code)?;
+
+        let conn = index_store::open()?;
+        index_store::put_setting(&conn, team_context::FOLDER_KEY, &dir.to_string_lossy())?;
+        team_context::publish(&dir, &team_name(), &[]);
+        Some(code)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// What the window shows when somebody types a code.
+#[derive(serde::Serialize)]
+struct JoinResult {
+    /// True when the folder was found and this Mac is now in that team.
+    joined: bool,
+    /**
+     * Whether the code itself was well formed.
+     *
+     * A mistyped code and a drive that has not synced yet are the two failures
+     * here and they need opposite advice — "check the code" against "accept the
+     * share and try again" — so the window is told which one happened rather
+     * than being left to guess from a single false.
+     */
+    understood: bool,
+}
+
+/// Join the team a code names, if the drive holding it has reached this Mac.
+#[tauri::command]
+async fn join_team(code: String) -> JoinResult {
+    tauri::async_runtime::spawn_blocking(move || {
+        if !team_context::is_code(&code) {
+            return JoinResult { joined: false, understood: false };
+        }
+
+        let Some(dir) = team_context::find_team(&sync_roots(), &code) else {
+            return JoinResult { joined: false, understood: true };
+        };
+
+        let joined = index_store::open()
+            .and_then(|conn| {
+                index_store::put_setting(
+                    &conn,
+                    team_context::FOLDER_KEY,
+                    &dir.to_string_lossy(),
+                )
+            })
+            .is_some();
+
+        if joined {
+            // Publish immediately, so the person who shared the code sees them
+            // arrive rather than wondering whether it worked.
+            team_context::publish(&dir, &team_name(), &[]);
+        }
+        JoinResult { joined, understood: true }
+    })
+    .await
+    .unwrap_or(JoinResult { joined: false, understood: true })
+}
+
+/// The code for the team this Mac is in, if it is in one of ours.
+#[tauri::command]
+async fn team_code() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(|| team_context::code_of(&team_folder()?))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[tauri::command]
 async fn set_team_folder(path: Option<String>) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
@@ -2624,6 +2710,9 @@ fn main() {
             share_memory,
             unshare_memory,
             memory_link,
+            start_team,
+            join_team,
+            team_code,
             share_project,
             team_projects,
             read_team_project
