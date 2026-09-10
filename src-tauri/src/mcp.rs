@@ -164,14 +164,36 @@ pub fn handle(conn: Option<&rusqlite::Connection>, request: &Value) -> Option<Va
     let result = match method {
         "initialize" => Ok(json!({
             "protocolVersion": PROTOCOL,
-            "capabilities": { "tools": { "listChanged": false } },
+            "capabilities": {
+                "tools": { "listChanged": false },
+                /*
+                 * ── Why resources and not only tools ─────────────────────────
+                 *
+                 * A tool is something the model decides to call. That decision
+                 * is the last press left in this product: everything else can
+                 * happen without a person, and then the memory still waits on a
+                 * model choosing to ask for it.
+                 *
+                 * A resource is something the client can attach on its own, so
+                 * a project's memory can be in context before the first token
+                 * is generated and nobody chose anything. Support varies by
+                 * client, which is why the tools stay exactly as they were —
+                 * the worst case is today's behaviour and the best case is no
+                 * call at all.
+                 */
+                "resources": { "subscribe": false, "listChanged": false }
+            },
             "serverInfo": { "name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION") },
             "instructions": "Sidq holds this person's AI conversations and a memory of each \
-                             project, on their own machine. Call get_memory before working on \
-                             something they have worked on before, and how_i_work before writing \
-                             anything in their voice or their codebase."
+                             project, on their own machine. Their project memories are available \
+                             as resources — read the one matching the project being worked on \
+                             before answering, rather than asking them to repeat it. Otherwise \
+                             call get_memory, and how_i_work before writing anything in their \
+                             voice or their codebase."
         })),
         "tools/list" => Ok(json!({ "tools": tools() })),
+        "resources/list" => Ok(json!({ "resources": resources(conn) })),
+        "resources/read" => read_resource(conn, request.get("params")),
         "tools/call" => call(conn, request.get("params")),
         // ping is in the spec and clients use it as a liveness check.
         "ping" => Ok(json!({})),
@@ -253,6 +275,97 @@ fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<V
         },
         other => return Err(format!("unknown tool: {other}")),
     })
+}
+
+/// The scheme for a project memory. One per project, addressed by path.
+///
+/// No trailing slash: a project path is already absolute, so carrying one here
+/// produced `sidq://memory//Users/...` with a doubled separator in every uri a
+/// client would ever display.
+const MEMORY_SCHEME: &str = "sidq://memory";
+
+/**
+ * Every project memory, as something a client can attach without being asked.
+ *
+ * Named for the project rather than the path, because the name is what appears
+ * in a client's resource picker and `/Users/<somebody>/code/thing` is not a
+ * label. The path is still the identity and still the URI.
+ *
+ * Empty rather than an error when there is no index: a fresh install has no
+ * projects and that is a normal state, not a failure to report at handshake.
+ */
+fn resources(conn: Option<&rusqlite::Connection>) -> Value {
+    let Some(conn) = conn else { return json!([]) };
+
+    let rows = index_store::projects(conn, PROJECT_LIMIT);
+    let listed: Vec<Value> = rows
+        .iter()
+        .map(|p| {
+            json!({
+                "uri": format!("{MEMORY_SCHEME}{}", p.path),
+                "name": format!("{} — project memory", p.name),
+                "description": format!(
+                    "What {} is, what was asked first and last, and the rules that kept coming \
+                     up. Built from {} conversations already on this machine.",
+                    p.name, p.conversations
+                ),
+                "mimeType": "text/markdown"
+            })
+        })
+        .collect();
+
+    json!(listed)
+}
+
+/**
+ * One memory, read by URI.
+ *
+ * The URI is the only input, and it is matched against the scheme rather than
+ * parsed loosely: anything that is not one of ours is refused by name instead
+ * of being treated as a path. `memory::build` then only ever sees a project
+ * path, which is the same thing `get_memory` hands it.
+ */
+fn read_resource(
+    conn: Option<&rusqlite::Connection>,
+    params: Option<&Value>,
+) -> Result<Value, String> {
+    /*
+     * The uri is checked before anything else, including before the index.
+     *
+     * A malformed uri is malformed whether or not this machine has an index,
+     * and answering "no index yet" to `file:///etc/passwd` would be the wrong
+     * refusal for the right reason — it reads as "ask again later" rather than
+     * "that is not a thing I will ever read".
+     */
+    let uri = params
+        .and_then(|p| p.get("uri"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| "resources/read needs a uri".to_string())?;
+
+    let path = uri
+        .strip_prefix(MEMORY_SCHEME)
+        .ok_or_else(|| format!("{uri} is not a Sidq resource"))?;
+
+    let conn = conn.ok_or_else(|| "No index on this machine yet.".to_string())?;
+
+    let built = crate::memory::build(conn, path)
+        .ok_or_else(|| format!("No project at {path}."))?;
+
+    // Counted the same way `get_memory` is. A client attaching this on its own
+    // is still an assistant taking the memory, and the whole point of counting
+    // it separately from a person copying it is to find out which one happens.
+    crate::telemetry::record(
+        conn,
+        crate::telemetry::Event::MemoryTaken { by_assistant: true },
+    );
+
+    Ok(json!({
+        "contents": [{
+            "uri": uri,
+            "mimeType": "text/markdown",
+            "text": built.as_markdown()
+        }]
+    }))
 }
 
 fn list_projects(conn: &rusqlite::Connection) -> Value {
@@ -449,6 +562,71 @@ mod tests {
             assert!(tool["description"].as_str().is_some_and(|d| d.len() > 40));
             assert_eq!(tool["inputSchema"]["type"], "object");
         }
+    }
+
+    #[test]
+    fn the_handshake_offers_resources_as_well_as_tools() {
+        /*
+         * The whole point of the resources work. A tool is something the model
+         * decides to call, and that decision was the last press left in this
+         * product: everything else can happen without a person and then the
+         * memory still waited on a model choosing to ask.
+         *
+         * A client cannot attach what the server never said it had, so if this
+         * key goes missing the feature is silently off and every other test
+         * here still passes.
+         */
+        let out = handle(None, &json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }))
+            .expect("initialize answers");
+
+        assert!(
+            out["result"]["capabilities"]["resources"].is_object(),
+            "the handshake no longer advertises resources"
+        );
+        assert!(out["result"]["capabilities"]["tools"].is_object(), "tools went missing");
+    }
+
+    #[test]
+    fn a_uri_that_is_not_ours_is_refused_by_name() {
+        /*
+         * `resources/read` takes a string from another program and turns it
+         * into a path. Stripping a known scheme rather than trusting the rest
+         * of the string is what keeps that from being "read any file you can
+         * name at me", and the refusal says which uri so a client can tell a
+         * typo from a missing project.
+         */
+        for bad in ["file:///etc/passwd", "/Users/nils/Sidq", "sidq://other/thing", ""] {
+            let out = handle(
+                None,
+                &json!({
+                    "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+                    "params": { "uri": bad }
+                }),
+            )
+            .expect("a reply");
+            assert!(out["error"].is_object(), "{bad} was not refused");
+        }
+    }
+
+    #[test]
+    fn reading_a_resource_needs_a_uri_at_all() {
+        let out = handle(
+            None,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {} }),
+        )
+        .expect("a reply");
+        assert!(out["error"].is_object(), "a missing uri was treated as a request");
+    }
+
+    #[test]
+    fn an_empty_index_lists_no_resources_rather_than_failing() {
+        // A fresh install has no projects. That is a normal state and must not
+        // arrive at a client as an error during its first handshake.
+        let out = handle(None, &json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list" }))
+            .expect("a reply");
+
+        assert!(out["error"].is_null(), "an empty index reported an error");
+        assert_eq!(out["result"]["resources"].as_array().map(Vec::len), Some(0));
     }
 
     #[test]
