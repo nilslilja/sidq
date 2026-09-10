@@ -26,11 +26,22 @@ mod pill_window;
 
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
-    capture, codex_history, compiler, cursor_history, double_tap, entitlement, imports,
-    index_store, invites, login_item, mcp_setup, memory, profile, quick_grab, screen_reader,
-    sharing, telemetry,
-    team_context, work_history,
+    capture, codex_history, compiler, cursor_history, entitlement, imports, index_store,
+    invites, login_item, mcp_setup, memory, profile, sharing, telemetry, team_context,
+    work_history,
 };
+
+/*
+ * The three that only exist on macOS, imported under the same gate.
+ *
+ * `screen_reader` is the Accessibility API, `quick_grab` reads the frontmost
+ * window through it, and `double_tap` needs NSEvent to see a modifier press
+ * with no key attached. Each says why at the top of its own file. Absent rather
+ * than stubbed, so the call sites had to be gated too and none of them is
+ * quietly doing nothing.
+ */
+#[cfg(target_os = "macos")]
+use sidq::{double_tap, quick_grab, screen_reader};
 
 
 use tauri_plugin_notification::NotificationExt;
@@ -293,6 +304,59 @@ fn announce(app: &AppHandle) {
  * recorded. Somebody who denied the permission, or is in a Focus mode, has said
  * what they want. Nothing here is worth an error.
  */
+/*
+ * ── The two gestures, named on every platform ────────────────────────────────
+ *
+ * macOS reads a modifier double-tap through NSEvent. Nowhere else can: seeing a
+ * modifier press with no key attached needs a low-level keyboard hook, and a
+ * background process installing one of those is a keylogger to every security
+ * product on the machine. So the other platforms get an ordinary chord through
+ * Tauri's global-shortcut plugin, and these two functions are where the
+ * difference is absorbed rather than spread through the tray code.
+ */
+#[cfg(target_os = "macos")]
+fn chosen_taps() -> (u64, u64) {
+    index_store::open()
+        .map(|conn| double_tap::chosen(&conn))
+        .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::LEFT_CONTROL))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn chosen_taps() -> (u64, u64) {
+    (0, 0)
+}
+
+#[cfg(target_os = "macos")]
+fn tap_label(mask: u64) -> String {
+    double_tap::label_for(mask).to_string()
+}
+
+/**
+ * Nothing to name yet, and saying so beats inventing one.
+ *
+ * This returned "Ctrl+Shift+K" for a while, which is a chord that exists and
+ * does something else entirely — it opens the picker. A label naming a key that
+ * does not perform the action next to it is worse than an empty one: somebody
+ * presses it, something unrelated happens, and the feature looks broken rather
+ * than absent.
+ */
+#[cfg(not(target_os = "macos"))]
+fn tap_label(_mask: u64) -> String {
+    String::new()
+}
+
+/// One whole menu label, so the platform difference is decided in one place.
+#[cfg(target_os = "macos")]
+fn gesture_hint(action: &str, mask: u64) -> String {
+    format!("{action}   ·   double-tap {}", tap_label(mask))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn gesture_hint(action: &str, _mask: u64) -> String {
+    format!("{action}   ·   macOS only for now")
+}
+
+#[cfg(target_os = "macos")]
 fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
     let _ = app.emit("sidq:found", found);
 
@@ -1332,7 +1396,17 @@ async fn share_handover(
          * ask it.
          */
         let resume_point = if resume_point.trim().is_empty() {
-            quick_grab::by_id(&session_id).map(|s| s.last_prompt).unwrap_or_default()
+            // Only macOS can look the session up this way; elsewhere the shared
+            // handover arrives without a "pick up from here" line rather than
+            // not arriving, which is the smaller loss.
+            #[cfg(target_os = "macos")]
+            {
+                quick_grab::by_id(&session_id).map(|s| s.last_prompt).unwrap_or_default()
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                String::new()
+            }
         } else {
             resume_point
         };
@@ -1759,13 +1833,8 @@ async fn read_team_handover(path: String) -> Option<String> {
 #[tauri::command]
 async fn tap_keys() -> (String, String) {
     tauri::async_runtime::spawn_blocking(|| {
-        let (grab, drop) = index_store::open()
-            .map(|conn| double_tap::chosen(&conn))
-            .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::LEFT_CONTROL));
-        (
-            double_tap::label_for(grab).to_string(),
-            double_tap::label_for(drop).to_string(),
-        )
+        let (grab, drop) = chosen_taps();
+        (tap_label(grab), tap_label(drop))
     })
     .await
     .unwrap_or_else(|_| ("right ⌘".into(), "left ⌃".into()))
@@ -1866,6 +1935,7 @@ fn quit_deliberately(app: &AppHandle) {
  * routinely the one thing this cannot grab — which is the exact case the
  * shortcut exists for.
  */
+#[cfg(target_os = "macos")]
 fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
     if let Some(conn) = index_store::open() {
         for found in screen_reader::sweep_into(&conn) {
@@ -1955,6 +2025,7 @@ fn label_for(source: &str) -> &str {
  * It says where to put it rather than what happened, because "grabbed" is not
  * an instruction and the next move is the part worth knowing.
  */
+#[cfg(target_os = "macos")]
 fn grab_and_announce(app: &AppHandle) {
     let Some(grabbed) = grab_now(app) else {
         notify(
@@ -1987,6 +2058,7 @@ fn grab_and_announce(app: &AppHandle) {
  * else at least once. Without this, arriving with the wrong thing on the
  * clipboard means going back and doing the whole grab again.
  */
+#[cfg(target_os = "macos")]
 fn drop_last(app: &AppHandle) {
     let last = LAST_GRAB.lock().ok().and_then(|t| t.clone());
 
@@ -2621,9 +2693,7 @@ fn main() {
              * must agree: a menu that names a key the app is not listening for
              * is worse than no menu.
              */
-            let (grab_key, drop_key) = index_store::open()
-                .map(|conn| double_tap::chosen(&conn))
-                .unwrap_or((double_tap::RIGHT_COMMAND, double_tap::LEFT_CONTROL));
+            let (grab_key, drop_key) = chosen_taps();
 
             /*
              * A menu bar item, so quitting is deliberate.
@@ -2656,20 +2726,14 @@ fn main() {
                 let grab_hint = MenuItem::with_id(
                     app,
                     "grab_hint",
-                    &format!(
-                        "Grab this conversation   ·   double-tap {}",
-                        double_tap::label_for(grab_key)
-                    ),
+                    &gesture_hint("Grab this conversation", grab_key),
                     false,
                     None::<&str>,
                 )?;
                 let drop_hint = MenuItem::with_id(
                     app,
                     "drop_hint",
-                    &format!(
-                        "Put the last one back   ·   double-tap {}",
-                        double_tap::label_for(drop_key)
-                    ),
+                    &gesture_hint("Put the last one back", drop_key),
                     false,
                     None::<&str>,
                 )?;
@@ -2944,7 +3008,23 @@ fn main() {
              * discoverable by reasoning about it, which is the argument for
              * this being changeable without a release.
              */
+            /*
+             * The gesture, where there is one.
+             *
+             * Everything inside this block is NSEvent, so grabbing and putting
+             * back are macOS-only for now. The global shortcut registered above
+             * is not a substitute: it opens the picker, which is a different
+             * action, and the two tap gestures have no counterpart on Windows
+             * or Linux yet.
+             *
+             * Seeing a modifier press with no key attached needs a low-level
+             * keyboard hook off macOS, and a background process installing one
+             * is a keylogger to every security product on the machine. Whatever
+             * replaces this has to be a chord people opt into, not a hook.
+             */
+            #[cfg(target_os = "macos")]
             let taps = app.handle().clone();
+            #[cfg(target_os = "macos")]
             double_tap::watch(vec![grab_key, drop_key], move |mask| {
                     let app = taps.clone();
                     /*
@@ -3111,6 +3191,10 @@ fn main() {
              * nobody handles it. From the outside that is an app that opened
              * once and then stopped responding to its own icon.
              */
+            // Reopen is a macOS run event: it is what a Dock click on a
+            // running app produces, and neither Windows nor Linux has the
+            // concept, so the variant does not exist in RunEvent there.
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 if let Some(w) = app.get_webview_window("pill") {
                     let _ = show_pill(&w);

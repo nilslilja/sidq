@@ -128,6 +128,7 @@ static NOTCH_HEIGHT: AtomicU64 = AtomicU64::new(0);
  */
 static NOTCH_MEASURED: AtomicBool = AtomicBool::new(false);
 
+#[cfg(target_os = "macos")]
 fn measure_notch(ns_window: *mut objc::runtime::Object) {
     // SAFETY: `ns_window` is a live NSWindow, the thread is checked below, and
     // `screen` returns nil when the window is off-screen, which `mainScreen`
@@ -230,6 +231,7 @@ const UNMEASURED_NOTCH: f64 = 32.0;
  *
  * Called from setup, on the main thread, before the pill is ever shown.
  */
+#[cfg(target_os = "macos")]
 pub fn measure_from_setup(w: &WebviewWindow) {
     // One watcher for the life of the app; see follow_cursor.
     follow_cursor(w);
@@ -237,6 +239,12 @@ pub fn measure_from_setup(w: &WebviewWindow) {
     if let Ok(handle) = w.ns_window() {
         measure_notch(handle as *mut objc::runtime::Object);
     }
+}
+
+/// No notch to measure anywhere else, and the cursor watcher is portable.
+#[cfg(not(target_os = "macos"))]
+pub fn measure_from_setup(w: &WebviewWindow) {
+    follow_cursor(w);
 }
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
@@ -522,6 +530,7 @@ static CLICK_MONITOR: AtomicUsize = AtomicUsize::new(0);
 /// monitor's own handler, by way of `collapse`, and releasing a monitor while
 /// its block is mid-call would free the block underneath itself. Posting the
 /// removal means it lands after the handler has returned.
+#[cfg(target_os = "macos")]
 fn watch_for_outside_clicks(w: &WebviewWindow, on: bool) {
     let window = w.clone();
     let _ = w.run_on_main_thread(move || {
@@ -533,6 +542,20 @@ fn watch_for_outside_clicks(w: &WebviewWindow, on: bool) {
     });
 }
 
+/**
+ * Left to the window manager everywhere else.
+ *
+ * The macOS version installs a global event monitor, which is a thing only a
+ * trusted process may do and which every other platform treats as keylogging.
+ * Tauri emits a focus-lost event on Windows and Linux and the pill collapses on
+ * that instead — a click straight into another window's chrome without focusing
+ * it will not dismiss the picker, which is a smaller gap than asking somebody
+ * to grant a background app a keyboard hook.
+ */
+#[cfg(not(target_os = "macos"))]
+fn watch_for_outside_clicks(_w: &WebviewWindow, _on: bool) {}
+
+#[cfg(target_os = "macos")]
 fn start_watching(w: &WebviewWindow) {
     use block2::RcBlock;
     use objc2::rc::Retained;
@@ -577,6 +600,7 @@ fn start_watching(w: &WebviewWindow) {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn stop_watching() {
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
@@ -661,9 +685,31 @@ const COLLECTION_BEHAVIOUR: u64 = (1 << 0) | (1 << 4) | (1 << 8);
  * app without switching out of one. The bar must not: it sits in the menu bar
  * strip all day and would be stealing every keystroke on the machine.
  */
+#[cfg(target_os = "macos")]
 pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool) {
     let window = w.clone();
     let _ = w.run_on_main_thread(move || raise_now(&window, level, take_key));
+}
+
+/**
+ * The same intent, with what the other platforms actually offer.
+ *
+ * `level` has no counterpart: it is an NSWindow window-level number, and
+ * always-on-top elsewhere is a boolean with no ordering above it. Taking it
+ * anyway keeps one signature, and the argument being ignored is the honest
+ * shape of the difference rather than two call sites that drift.
+ *
+ * The fullscreen half does not survive either. Drawing over another app's
+ * fullscreen window is a macOS Spaces behaviour; on Windows a topmost window
+ * is below a fullscreen exclusive one and there is no flag that changes it.
+ * The pill is still there the moment that app is not fullscreen.
+ */
+#[cfg(not(target_os = "macos"))]
+pub fn raise_above_everything(w: &WebviewWindow, _level: i64, take_key: bool) {
+    let _ = w.set_always_on_top(true);
+    if take_key {
+        let _ = w.set_focus();
+    }
 }
 
 /**
@@ -682,6 +728,7 @@ pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool) {
  *
  * Registered once. Registering a class name twice aborts the process.
  */
+#[cfg(target_os = "macos")]
 fn sidq_panel_class() -> *const objc::runtime::Class {
     use objc::declare::ClassDecl;
     use objc::runtime::{Object, Sel, BOOL, NO, YES};
@@ -718,6 +765,7 @@ fn sidq_panel_class() -> *const objc::runtime::Class {
     address as *const objc::runtime::Class
 }
 
+#[cfg(target_os = "macos")]
 fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
     let Ok(handle) = w.ns_window() else { return };
     if handle.is_null() {
@@ -822,6 +870,7 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
  * is the product, it lives in the menu bar, and there is already a tray menu
  * for opening the window and quitting.
  */
+#[cfg(target_os = "macos")]
 pub fn become_accessory() {
     // Called from setup, which is already the main thread. AppKit from anywhere
     // else is what crashed this app once already.
@@ -834,6 +883,21 @@ pub fn become_accessory() {
         let _: bool = msg_send![app, setActivationPolicy: 1i64];
     }
 }
+
+/**
+ * Nothing to do here, and the reason is worth writing down.
+ *
+ * Accessory is an application-wide activation policy, which is a macOS concept:
+ * one call and the app leaves the Dock and the app switcher while its windows
+ * keep working. Windows and Linux have no application-level equivalent — the
+ * closest thing is per-window, `skipTaskbar`, which belongs in the window's own
+ * configuration rather than in a function that is handed no window.
+ *
+ * A no-op rather than an absent function, because every caller wants the same
+ * thing on every platform and there is nothing for them to decide.
+ */
+#[cfg(not(target_os = "macos"))]
+pub fn become_accessory() {}
 
 /// Which of the two the window is currently in, read off its own width.
 ///

@@ -9,7 +9,13 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{index_store, indexer, screen_reader, telemetry};
+use sidq::{index_store, indexer, telemetry};
+
+// The browser reader is the macOS Accessibility API and exists nowhere else.
+// Imported under the same gate as the thread that uses it, so that the absence
+// is a compile-time fact rather than a runtime branch.
+#[cfg(target_os = "macos")]
+use sidq::screen_reader;
 use std::time::Duration;
 
 /// How often to look. Conversations do not change on a scale that needs faster.

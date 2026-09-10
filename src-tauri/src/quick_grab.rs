@@ -1,3 +1,16 @@
+#![cfg(target_os = "macos")]
+//!
+//! ── Why this module does not exist off macOS ─────────────────────────────────
+//!
+//! It reads the frontmost window through `screen_reader`, which is the macOS
+//! Accessibility API and has no equivalent anywhere else — Windows UI Automation
+//! can read a native control tree but not the contents of a web view, which is
+//! where every browser assistant lives.
+//!
+//! Absent rather than stubbed. A quick grab that returns nothing looks identical
+//! to one that found an empty window, and shipping that would make the feature
+//! appear broken instead of unavailable.
+
 /*!
 Grab a conversation without opening anything.
 

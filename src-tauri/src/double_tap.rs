@@ -1,3 +1,18 @@
+#![cfg(target_os = "macos")]
+//!
+//! ── Why this module does not exist off macOS ─────────────────────────────────
+//!
+//! Double-tapping a modifier is not a shortcut any OS offers as a concept. It
+//! works here because NSEvent will report a modifier press on its own, with no
+//! key attached, which Windows and Linux do not do without a low-level keyboard
+//! hook — and a background process installing one of those is indistinguishable
+//! from a keylogger to every security product on the machine.
+//!
+//! So the gesture is macOS-only and the other platforms get an ordinary global
+//! shortcut through Tauri's plugin, which is a worse gesture and an honest one.
+//! The module is absent rather than stubbed so that a caller has to decide what
+//! to do instead, rather than calling something that silently never fires.
+
 /*!
 Two taps on a modifier, and nothing else.
 

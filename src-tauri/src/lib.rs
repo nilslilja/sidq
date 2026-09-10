@@ -26,9 +26,16 @@
 //! `indexer::sweep` is here for the same reason; only the timer around it that
 //! announces to the UI stayed behind, as `background::spawn`.
 //!
-//! Some modules here are macOS-only (`screen_reader`, `double_tap`,
-//! `quick_grab`, `login_item` all call into objc2). That is a platform bound,
-//! not an application bound, and it is the thing a Windows port has to answer.
+//! `screen_reader`, `double_tap` and `quick_grab` are macOS-only and say so at
+//! the top of each file: they are absent off this platform rather than stubbed,
+//! so a caller has to decide what to do instead of calling something that
+//! silently never works. `login_item` is gated internally because it has a real
+//! answer on every platform.
+//!
+//! That is a platform bound rather than an application bound. Everything the
+//! product is actually about — reading transcripts off disk, compiling a
+//! handover, the project memory, the MCP server — is portable, and is why
+//! `cargo check --target x86_64-pc-windows-gnu` passes for this library.
 
 pub mod capture;
 pub mod codex_history;
