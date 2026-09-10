@@ -10,7 +10,10 @@ edition = "2021"
 rust-version = "1.82"
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+# Optional for the same reason `tauri` is: without the app feature the build
+# script never calls it, and a build dependency that is never used should not
+# be compiled to find that out.
+tauri-build = { version = "2", features = [], optional = true }
 
 # ── Two binaries, both named explicitly ──────────────────────────────────────
 #
@@ -23,35 +26,66 @@ tauri-build = { version = "2", features = [] }
 [[bin]]
 name = "sidq"
 path = "src/main.rs"
+required-features = ["app"]
 
 [[bin]]
 name = "sidq-mcp"
 path = "src/bin/sidq-mcp.rs"
+
+# ── Why Tauri is optional ────────────────────────────────────────────────────
+#
+# The crate was split so that something other than the app could use its
+# modules, and the sidecar contains no Tauri code at all. It still could not be
+# built for Linux or Windows, because an unconditional `tauri` dependency drags
+# Tauri's system libraries into every target in the crate — on Linux that is
+# GTK and glib, which is where `cargo check --target x86_64-unknown-linux-gnu`
+# stopped: "failed to run custom build command for glib-sys".
+#
+# So the app is a feature, on by default, and `sidq` requires it. Building the
+# sidecar for another platform is then:
+#
+#     cargo build --release --no-default-features --bin sidq-mcp
+#
+# which needs no GTK, no WebKit and no Xcode, because it needs no Tauri.
+[features]
+default = ["app"]
+app = [
+  "dep:tauri-build",
+  "dep:tauri",
+  "dep:tauri-plugin-global-shortcut",
+  "dep:tauri-plugin-notification",
+  "dep:tauri-plugin-shell",
+  "dep:tauri-plugin-autostart",
+  "dep:tauri-plugin-deep-link",
+  "dep:tauri-plugin-opener",
+]
 
 [dependencies]
 # NOT "devtools". That feature ships the WebKit inspector in release builds and
 # took the binary from 7MB to 66MB, which both blew past storage limits and
 # destroyed the size advantage over Electron that is a real selling point.
 # Debug builds get devtools automatically without it.
-tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
-tauri-plugin-global-shortcut = "2"
-tauri-plugin-notification = "2"
-tauri-plugin-shell = "2"
-tauri-plugin-autostart = "2"
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"], optional = true }
+tauri-plugin-global-shortcut = { version = "2", optional = true }
+tauri-plugin-notification = { version = "2", optional = true }
+tauri-plugin-shell = { version = "2", optional = true }
+tauri-plugin-autostart = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Bundled so there is no system SQLite to depend on and no version to match.
 # Cursor, Windsurf and the VS Code forks all keep their chat history in SQLite.
 rusqlite = { version = "0.32", features = ["bundled"] }
-tauri-plugin-deep-link = "2"
-tauri-plugin-opener = "2"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSArray"] }
+tauri-plugin-deep-link = { version = "2", optional = true }
+tauri-plugin-opener = { version = "2", optional = true }
 
 # Reading assistant windows through macOS Accessibility, which is what makes
 # Sidq work with no extension, no store and no sign-in. Thin bindings over
 # ApplicationServices rather than hand-rolled FFI: CoreFoundation ownership
 # rules are exactly the kind of thing to get wrong once and never notice.
 [target.'cfg(target_os = "macos")'.dependencies]
+# Was in the portable list, which is wrong for a crate that only exists on this
+# platform: it made every non-macOS target fail before it reached any code.
+objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSArray"] }
 accessibility-sys = "0.1"
 core-foundation = "0.10"
 # Setting the window level and collection behaviour directly. Tauri's

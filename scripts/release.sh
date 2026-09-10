@@ -53,9 +53,12 @@ PY
 # bundle step with a path error that says nothing about why.
 echo "── building the MCP sidecar"
 mkdir -p src-tauri/binaries
+# --no-default-features drops Tauri from the sidecar's build entirely. It has
+# never contained a line of Tauri code, and building it with the app's feature
+# set pulled 1,260 crates to produce a binary that needs 34 of them.
 ( cd src-tauri
-  cargo build --release --bin sidq-mcp
-  cargo build --release --bin sidq-mcp --target x86_64-apple-darwin
+  cargo build --release --no-default-features --bin sidq-mcp
+  cargo build --release --no-default-features --bin sidq-mcp --target x86_64-apple-darwin
   cp target/release/sidq-mcp binaries/sidq-mcp-aarch64-apple-darwin
   cp target/x86_64-apple-darwin/release/sidq-mcp binaries/sidq-mcp-x86_64-apple-darwin
 ) >/dev/null

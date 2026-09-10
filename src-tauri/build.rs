@@ -55,10 +55,27 @@ fn load_dotenv() {
 fn main() {
     load_dotenv();
 
+    // The build script runs on the host, so the target has to be asked for
+    // rather than assumed with cfg!.
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
     // SMAppService lives in the ServiceManagement framework, which a Tauri app
     // does not link by default. Without this line `class!(SMAppService)` finds
-    // nothing at runtime and autostart registration silently no-ops.
-    println!("cargo:rustc-link-lib=framework=ServiceManagement");
+    // nothing at runtime and autostart registration silently no-ops. It is also
+    // a macOS framework, so naming it on any other target fails the link.
+    if target_os == "macos" {
+        println!("cargo:rustc-link-lib=framework=ServiceManagement");
+    }
 
-    tauri_build::build()
+    /*
+     * Only the app needs the generated context.
+     *
+     * Running this unconditionally is what made the sidecar unbuildable
+     * anywhere Tauri's system libraries are missing, which is every platform
+     * this has not shipped on yet. Build scripts are compiled with the crate's
+     * feature cfgs, so the call disappears along with the dependency rather
+     * than being skipped at runtime.
+     */
+    #[cfg(feature = "app")]
+    tauri_build::build();
 }

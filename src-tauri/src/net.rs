@@ -95,6 +95,36 @@ mod tests {
     }
 
     #[test]
+    fn the_sidecar_can_still_be_built_without_the_app() {
+        /*
+         * The crate was split so something other than the app could use these
+         * modules, and for a while that was not actually true: `tauri` was an
+         * unconditional dependency, so building the MCP sidecar for Linux
+         * pulled GTK and glib and stopped there. 1,260 crates to produce a
+         * binary that needs 34.
+         *
+         * Checked against the manifest, because nothing else would notice.
+         * Dropping `optional` builds perfectly well on this Mac and quietly
+         * makes the sidecar unshippable everywhere else.
+         */
+        let manifest = include_str!("../Cargo.toml");
+
+        assert!(manifest.contains("default = [\"app\"]"), "the app feature is gone");
+        for line in manifest.lines() {
+            let is_tauri_dep = line.starts_with("tauri = ")
+                || line.starts_with("tauri-build = ")
+                || line.starts_with("tauri-plugin-");
+            if is_tauri_dep {
+                assert!(
+                    line.contains("optional = true"),
+                    "{} is unconditional, which makes the sidecar need Tauri again",
+                    line.split_whitespace().next().unwrap_or(line)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn two_reads_do_not_return_the_same_bytes() {
         // Only where there is a source to read. On a platform without one the
         // right answer is None, and a test asserting otherwise would be
