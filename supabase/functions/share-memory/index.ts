@@ -31,6 +31,9 @@ import { json, fail, preflight } from '../_shared/http.ts';
  */
 const MAX_MARKDOWN = 128 * 1024;
 
+/** Well above anybody's real project count, well below a storage problem. */
+const MAX_PER_AUTHOR = 200;
+
 /** Long enough that the URL is not guessable, short enough to paste in chat. */
 const ID_CHARS = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -98,6 +101,24 @@ Deno.serve(async (req: Request) => {
   if (markdown.length > MAX_MARKDOWN) return fail(req, 400, 'That memory is too large to share');
   // A path would put somebody's name and disk layout on a public page.
   if (project.includes('/')) return fail(req, 400, 'Send the project name, not its path');
+
+  /*
+   * A ceiling per account.
+   *
+   * Publishing needs an account, which removes the drive-by case, and leaves
+   * the one where a single account is used to park a lot of text. Nobody
+   * legitimately shares hundreds of project memories, and an account that hits
+   * this is telling us something worth knowing before storage does.
+   */
+  const { count, error: counted } = await admin()
+    .from('shared_memories')
+    .select('id', { count: 'exact', head: true })
+    .eq('author', user.id);
+
+  if (counted) return fail(req, 500, 'Could not publish that', counted);
+  if ((count ?? 0) >= MAX_PER_AUTHOR) {
+    return fail(req, 429, 'You have a lot of memories published already. Unpublish one first.');
+  }
 
   const id = randomId(22);
   const secret = randomId(43);

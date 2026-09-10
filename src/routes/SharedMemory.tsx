@@ -87,13 +87,18 @@ export default function SharedMemory() {
     }
 
     let cancelled = false;
+    /*
+     * Through the function, never the table.
+     *
+     * A readable table is a list endpoint in PostgREST, and a list of every
+     * memory anybody published is exactly what this feature must not have. The
+     * function takes one id and can only return the row matching it.
+     */
     void supabase
-      .from("shared_memories")
-      .select("project, markdown, created_at")
-      .eq("id", id)
-      .maybeSingle()
-      .then(({ data, error }) => {
+      .rpc("shared_memory", { share_id: id })
+      .then(({ data: rows, error }) => {
         if (cancelled) return;
+        const data = Array.isArray(rows) ? rows[0] : null;
         /*
          * A deleted link and a broken one look the same on purpose. Saying
          * "this was unpublished" would confirm to anybody holding an old link

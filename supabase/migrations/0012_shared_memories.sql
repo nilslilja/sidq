@@ -48,15 +48,44 @@ create index if not exists shared_memories_author on public.shared_memories (aut
 alter table public.shared_memories enable row level security;
 
 /*
- * Read is open, because a share link that needs an account is not a share link.
- * The id is 22 random characters, so "open" means "open to whoever was given
- * the link" rather than open to enumeration.
+ * No policy, and that is the point: nothing reads this table through PostgREST.
+ *
+ * The first version of this migration gave anon a `using (true)` select policy
+ * and relied on the id being 22 random characters. That stops somebody guessing
+ * a link and does nothing about the endpoint PostgREST derives from any
+ * readable table:
+ *
+ *     GET /rest/v1/shared_memories?select=id,project,markdown
+ *
+ * which hands back every memory anybody ever published, to anyone holding the
+ * anon key — and the anon key ships inside the app and the website, so that is
+ * everyone. Unguessable is not the same as unlistable, and a share feature that
+ * leaks the other shares is worse than no share feature.
+ *
+ * So reads go through one function that takes an id and can only ever return
+ * the row matching it. There is no shape of request to it that means "all".
  */
-drop policy if exists shared_memories_readable on public.shared_memories;
-create policy shared_memories_readable
-  on public.shared_memories for select
-  to anon, authenticated
-  using (true);
+create or replace function public.shared_memory(share_id text)
+returns table (id text, project text, markdown text, created_at timestamptz)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select m.id, m.project, m.markdown, m.created_at
+    from public.shared_memories m
+   where m.id = share_id;
+$$;
 
+-- `secret` and `author` are not in the return type and cannot be reached from
+-- here. The function is the only door and it is a narrow one.
+revoke all on function public.shared_memory(text) from public;
+grant execute on function public.shared_memory(text) to anon, authenticated;
+
+/*
+ * Writes never come through PostgREST either. The share-memory function holds
+ * the service role, which is also where the size cap, the signed-in check and
+ * the per-author limit live — a public endpoint that accepts arbitrary text
+ * from strangers is a pastebin wearing our domain.
+ */
 revoke all on public.shared_memories from anon, authenticated;
-grant select (id, project, markdown, created_at) on public.shared_memories to anon, authenticated;
