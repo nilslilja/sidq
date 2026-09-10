@@ -12,6 +12,7 @@ import {
   ConnectModelsPreview,
 } from "@/components/onboarding/ConnectModels";
 import { HowItGoes } from "@/components/onboarding/HowItGoes";
+import { LetAiAsk } from "@/components/onboarding/LetAiAsk";
 import { PoweredByClaude } from "@/components/landing/PoweredByClaude";
 import { useShortcutGate } from "@/lib/onboarding/use-shortcut-gate";
 import type { Combo } from "@/lib/onboarding/use-shortcut-gate";
@@ -531,6 +532,12 @@ export default function Onboarding() {
         return (
           <Instruction title={current.title} subtitle={current.subtitle}>
             <ConnectModels found={claudeSessions} onContinue={advance} />
+            {/*
+              * The other direction, on the step that is already about what
+              * talks to what. Renders nothing when no supported client is
+              * installed. See LetAiAsk for why this is not a step of its own.
+              */}
+            <LetAiAsk bridge={bridge} />
             <div className="mt-8">
               <HowReadingWorks read={claudeSessions} />
             </div>
