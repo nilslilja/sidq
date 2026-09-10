@@ -2291,6 +2291,20 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [name, setName] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
+  /*
+   * ── The code, for when nothing is discoverable ───────────────────────────
+   *
+   * Discovery is the good path and it only works once somebody else's file has
+   * already synced onto this Mac. That leaves the two cases that actually
+   * happen first: being the person who starts the team, and being on a drive
+   * the other person is not on. Both used to end at "pick a folder and tell
+   * them which one", which is the step this removes.
+   */
+  const [code, setCode] = useState<string | null>(null);
+  const [joining, setJoining] = useState("");
+  const [joinProblem, setJoinProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
   const load = useCallback(() => {
     if (!bridge) return;
     void bridge.teamSettings().then((next) => {
@@ -2306,7 +2320,49 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
     load();
     void bridge?.teamFolderOptions().then(setOptions);
     void bridge?.teamNearby().then(setNearby);
+    void bridge?.teamCode().then(setCode);
   }, [bridge, load]);
+
+  const start = () => {
+    if (!bridge || !name.trim()) return;
+    setBusy(true);
+    void bridge
+      .setTeamName(name.trim())
+      .then(() => bridge.startTeam())
+      .then((made) => {
+        setCode(made);
+        load();
+      })
+      .finally(() => setBusy(false));
+  };
+
+  const join = () => {
+    if (!bridge || !name.trim()) return;
+    setBusy(true);
+    setJoinProblem(null);
+    void bridge
+      .setTeamName(name.trim())
+      .then(() => bridge.joinTeam(joining.trim()))
+      .then((result) => {
+        if (result.joined) {
+          setJoining("");
+          void bridge.teamCode().then(setCode);
+          load();
+          return;
+        }
+        /*
+         * Two different failures, two different sentences. A mistyped code is
+         * the person's to fix; a drive that has not synced is not, and telling
+         * them to check the code would send them looking in the wrong place.
+         */
+        setJoinProblem(
+          result.understood
+            ? "That code is fine, but the drive holding it has not reached this Mac yet. Accept the shared folder and try again."
+            : "Six characters, no vowels. Check it and try again.",
+        );
+      })
+      .finally(() => setBusy(false));
+  };
 
   const heading = <PanelHead eyebrow="Duo" title="Your team" />;
 
@@ -2354,6 +2410,112 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
    * other's rules — the worst kind of bug here, because it looks like it is
    * working and the folder only ever holds one of them.
    */
+  /**
+   * Start a team, or join one, with six characters.
+   *
+   * Rendered in the branch where no folder is set, under whatever discovery
+   * managed to find. It is not an alternative to discovery so much as the half
+   * discovery cannot do: somebody has to be first, and two people are often on
+   * drives that have never met.
+   */
+  const codeSection = (
+    <section className="mt-8 border-t border-[var(--w-line)] pt-6">
+      <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
+        Or use a code
+      </p>
+      <p className="mt-1.5 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
+        Six characters, said out loud. Nothing is uploaded: the code is the name
+        of a folder in a drive you already share.
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input
+          value={joining}
+          onChange={(e) => {
+            setJoining(e.target.value);
+            setJoinProblem(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") join();
+          }}
+          placeholder="k7fm3q"
+          spellCheck={false}
+          autoCapitalize="off"
+          aria-label="Team code"
+          className={cn(
+            "w-[9rem] rounded-lg px-3 py-1.5 font-mono text-[0.875rem] tracking-widest",
+            "border border-[var(--w-line)] bg-[var(--w-surface)] text-[var(--w-text)]",
+            "outline-none focus:border-[var(--w-text-4)]",
+          )}
+        />
+        <button
+          onClick={join}
+          disabled={busy || !joining.trim() || !name.trim()}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+            "bg-[var(--w-invert)] text-[var(--w-on-invert)]",
+            "cursor-pointer transition-opacity duration-150 hover:opacity-90",
+            "disabled:cursor-default disabled:opacity-40",
+          )}
+        >
+          Join
+        </button>
+
+        <span className="px-1 text-[0.8125rem] text-[var(--w-text-5)]">or</span>
+
+        <button
+          onClick={start}
+          disabled={busy || !name.trim()}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+            "border border-[var(--w-line)] text-[var(--w-text-3)]",
+            "cursor-pointer transition-colors duration-150 hover:border-[var(--w-text)] hover:text-[var(--w-text)]",
+            "disabled:cursor-default disabled:opacity-40",
+          )}
+        >
+          Start a team
+        </button>
+      </div>
+
+      {joinProblem && (
+        <p
+          role="alert"
+          className="mt-3 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]"
+        >
+          {joinProblem}
+        </p>
+      )}
+    </section>
+  );
+
+  /**
+   * The code this team is joined by, once it has one.
+   *
+   * Shown wherever the team already exists so it can be passed to the next
+   * person without anybody going back to look for the folder. Absent for a
+   * team set up the old way, by pointing at a folder — those still work and
+   * simply have no code to show.
+   */
+  const codeBanner = code ? (
+    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[12px] border border-[var(--w-line)] bg-[var(--w-raised)] px-4 py-3">
+      <span className="text-[0.8125rem] text-[var(--w-text-4)]">
+        Anyone joins with
+      </span>
+      <code className="font-mono text-[0.9375rem] tracking-widest text-[var(--w-text)]">
+        {code}
+      </code>
+      <button
+        onClick={() => {
+          void navigator.clipboard?.writeText(code);
+          setCopied(code);
+        }}
+        className="cursor-pointer text-[0.8125rem] text-[var(--w-text-3)] underline underline-offset-4 hover:text-[var(--w-text)]"
+      >
+        {copied === code ? "Copied" : "Copy"}
+      </button>
+    </div>
+  ) : null;
+
   const choose = (path: string | null) => {
     if (!bridge) return;
     const settle = path
@@ -2493,6 +2655,8 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             Use this
           </button>
         </div>
+
+        {codeSection}
       </>
     );
   }
@@ -2529,6 +2693,14 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             )}
           />
         </label>
+        {/*
+         * The code, above the Finder button rather than instead of it.
+         *
+         * Sharing the drive is still macOS's own sheet and Sidq cannot do it.
+         * What the code removes is the step after that one — describing which
+         * folder inside the drive, which is where this used to fail silently.
+         */}
+        {codeBanner}
         {/*
          * The one step Sidq cannot do: a folder has to be shared with a
          * person, and sharing is macOS's own sheet on the folder itself.

@@ -95,6 +95,16 @@ const bridge: Partial<OnboardingBridge> = {
     ["opened", "Sidq was opened."],
     ["handed_over", "A conversation was handed over."],
   ] as [string, string][]),
+  /*
+   * The team code, which the panel reads on mount.
+   *
+   * `null` by default, because that is a team set up the old way by pointing
+   * at a folder — those still work and simply have no code to show. A mock
+   * returning a code here would hide the branch most existing teams are in.
+   */
+  teamCode: vi.fn(async () => null),
+  startTeam: vi.fn(async () => "k7fm3q"),
+  joinTeam: vi.fn(async () => ({ joined: true, understood: true })),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   planStatus: vi.fn(async () => PLAN),
   recentHandovers: vi.fn(async () => []),
@@ -530,6 +540,13 @@ describe("your team", () => {
       ["iCloud Drive", "/Users/x/iCloud/Sidq Team"] as [string, string],
     ]);
     bridge.teamNearby = vi.fn(async () => []);
+    /*
+     * Reset per test, because these are assigned onto one shared bridge object.
+     * A code left behind by an earlier test renders a banner in a later one,
+     * which is a failure that looks like the feature and is not.
+     */
+    bridge.teamCode = vi.fn(async () => null);
+    bridge.joinTeam = vi.fn(async () => ({ joined: true, understood: true }));
   }
 
   /*
@@ -537,6 +554,67 @@ describe("your team", () => {
    * regardless of what this window draws, so the panel renders what it was
    * told rather than deciding for itself.
    */
+  /*
+   * ── Joining by code ─────────────────────────────────────────────────────
+   *
+   * Discovery only works once somebody else's file has already synced onto
+   * this Mac, which leaves the two cases that actually happen first: being the
+   * person who starts the team, and being on a drive the other person is not
+   * on. Both used to end at "pick a folder and tell them which one".
+   */
+  test("a code is offered even when nothing is discoverable", async () => {
+    withTeam({ allowed: true, folder: null });
+    await open("Your team");
+
+    expect(
+      await screen.findByRole("textbox", { name: /team code/i }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /^join$/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /start a team/i })).toBeVisible();
+  });
+
+  test("a mistyped code and an unsynced drive do not get the same advice", async () => {
+    /*
+     * The reason join_team answers with `understood` as well as `joined`. One
+     * of these is the person's to fix and the other is not, and telling
+     * somebody to check a code that is already correct sends them looking in
+     * exactly the wrong place.
+     */
+    withTeam({ allowed: true, folder: null });
+    bridge.joinTeam = vi.fn(async () => ({ joined: false, understood: false }));
+    await open("Your team");
+
+    const field = await screen.findByRole("textbox", { name: /team code/i });
+    fireEvent.change(field, { target: { value: "aeiou1" } });
+    fireEvent.click(screen.getByRole("button", { name: /^join$/i }));
+
+    const mistyped = await screen.findByRole("alert");
+    expect(mistyped.textContent).toMatch(/check it/i);
+    expect(mistyped.textContent).not.toMatch(/drive/i);
+  });
+
+  test("a code that is fine but has not synced says so, and does not blame the code", async () => {
+    withTeam({ allowed: true, folder: null });
+    bridge.joinTeam = vi.fn(async () => ({ joined: false, understood: true }));
+    await open("Your team");
+
+    const field = await screen.findByRole("textbox", { name: /team code/i });
+    fireEvent.change(field, { target: { value: "k7fm3q" } });
+    fireEvent.click(screen.getByRole("button", { name: /^join$/i }));
+
+    const waiting = await screen.findByRole("alert");
+    expect(waiting.textContent).toMatch(/has not reached this Mac/i);
+    expect(waiting.textContent).toMatch(/that code is fine/i);
+  });
+
+  test("a team that already has a code shows it, so it can be passed on", async () => {
+    withTeam({ allowed: true, folder: "/Users/x/iCloud/sidq-team-k7fm3q" });
+    bridge.teamCode = vi.fn(async () => "k7fm3q");
+    await open("Your team");
+
+    expect(await screen.findByText("k7fm3q")).toBeVisible();
+  });
+
   test("a plan without Duo is told what Duo would do, not shown the setup", async () => {
     withTeam({ allowed: false });
     await open("Your team");
