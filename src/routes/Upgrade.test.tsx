@@ -126,3 +126,49 @@ describe("subscribing while signed in", () => {
     expect(alert.closest("section")).toBe(card);
   });
 });
+
+describe("the Team tier", () => {
+  /*
+   * Team has been on the pricing page since before it was implemented, with a
+   * mailto: behind it — so the tier most likely to convert is the one that
+   * cannot take money. Everything behind it works now; what is missing is a
+   * price, and a price is a decision rather than a value with a default.
+   *
+   * These two tests pin both halves of that so the tier cannot silently become
+   * a checkout at a placeholder number, which is the failure that costs real
+   * money rather than a sale.
+   */
+  test("stays a conversation while no price is configured", async () => {
+    token.mockResolvedValue("a-real-token");
+    const { PLANS } = await import("@/lib/plans");
+    const team = PLANS.find((p) => p.id === "team")!;
+
+    // VITE_TEAM_PRICE is unset in the test environment, which is the shipped
+    // default. If this flips, somebody can buy at a number nobody chose.
+    expect(team.ctaHref).toMatch(/^mailto:/);
+    expect(team.price).toBe("Let's talk");
+    expect(team.cadence).toBeNull();
+  });
+
+  test("its card never offers checkout while it is a conversation", async () => {
+    token.mockResolvedValue("a-real-token");
+    checkout.mockResolvedValue(undefined);
+    show();
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /sign in to subscribe/i }),
+      ).toBeNull(),
+    );
+
+    // The Team card's control is the mailto, so pressing anything on this page
+    // must never start a team checkout.
+    for (const button of screen.getAllByRole("button", { name: /subscribe/i })) {
+      fireEvent.click(button);
+    }
+    await waitFor(() => expect(checkout).toHaveBeenCalled());
+    for (const call of checkout.mock.calls) {
+      expect(call[0]).not.toBe("team");
+    }
+  });
+});

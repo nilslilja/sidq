@@ -41,6 +41,10 @@ Deno.serve(async (req: Request) => {
     'pro:monthly': 'STRIPE_PRICE_MONTHLY',
     'pro:annual': 'STRIPE_PRICE_ANNUAL',
     'duo:monthly': 'STRIPE_PRICE_DUO',
+    // Team. Absent from the environment means the tier is still a conversation
+    // rather than a checkout, and the guard below refuses it by name.
+    'team:monthly': 'STRIPE_PRICE_TEAM',
+    'team:annual': 'STRIPE_PRICE_TEAM_ANNUAL',
   };
 
   const envName = priceEnv[`${plan}:${interval}`];

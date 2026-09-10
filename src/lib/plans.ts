@@ -22,6 +22,16 @@ import { entitlementsFor } from "./entitlements";
 
 export type PlanId = "free" | "pro" | "duo" | "team";
 
+/**
+ * What Team costs, when it costs anything.
+ *
+ * Absent by default and deliberately: see the note on the Team plan below.
+ * Written as it should appear, e.g. "$99", because the display string and the
+ * Stripe price are two different decisions and only one of them lives here.
+ */
+const TEAM_PRICE: string | undefined =
+  (import.meta.env?.VITE_TEAM_PRICE as string | undefined) || undefined;
+
 export interface Plan {
   id: PlanId;
   name: string;
@@ -160,13 +170,32 @@ export const PLANS: Plan[] = [
   {
     id: "team",
     name: "Team",
-    price: "Let's talk",
-    cadence: null,
+    /*
+     * ── Why this tier is a conversation until a number exists ────────────────
+     *
+     * Team has been on the pricing page since before it was implemented and
+     * its button has always been a mailto:, which means the tier most likely to
+     * convert is the one that cannot take money. Everything behind it now
+     * works — the folder in team_context.rs does the sharing, mcp.rs gates
+     * publish_to_team on may_share_with_team, and create-checkout maps
+     * team:monthly to a price id.
+     *
+     * What is missing is a price, and a price is a decision rather than a
+     * value with a sensible default. So this reads the number from the build
+     * rather than carrying a placeholder: set VITE_TEAM_PRICE and the card
+     * becomes a checkout, leave it unset and it stays the conversation it is
+     * today. A wrong number on a live pricing page is worse than no number,
+     * because somebody can buy at it.
+     */
+    price: TEAM_PRICE ?? "Let's talk",
+    cadence: TEAM_PRICE ? "/ month" : null,
     promise:
       "Your whole team working from the same context, on machines nothing leaves.",
     inherits: "Duo",
-    cta: "Talk to us",
-    ctaHref: "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
+    cta: TEAM_PRICE ? "Subscribe" : "Talk to us",
+    ctaHref: TEAM_PRICE
+      ? undefined
+      : "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
     features: [
       "Unlimited seats, one invoice",
       "One house-rules file: your standards ride along in every AI conversation your team has",
