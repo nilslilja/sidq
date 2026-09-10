@@ -84,13 +84,21 @@ jobs:
         shell: bash
         run: npm run tauri build -- --config '{"bundle":{"externalBin":["binaries/sidq-mcp"]}}'
 
-      - name: Check both binaries are in the bundle
+      - name: Check the app and the sidecar both exist
         shell: bash
         run: |
           # The bundle bug that shipped an app with no main binary in it was
           # silent on macOS and would be silent here too. Assert rather than hope.
+          #
+          # The sidecar is checked in binaries/ rather than target/release/,
+          # because it is built with --no-default-features and the app is not:
+          # the differing feature set makes cargo clean the earlier artifact,
+          # so target/release/sidq-mcp.exe is gone by the time the app is built.
+          # The copy in binaries/ is the one Tauri actually bundles anyway.
           ls -la src-tauri/target/release/sidq.exe
-          ls -la src-tauri/target/release/sidq-mcp.exe
+          ls -la src-tauri/binaries/sidq-mcp-x86_64-pc-windows-msvc.exe
+          echo "── installers produced ──"
+          ls -la src-tauri/target/release/bundle/msi/ src-tauri/target/release/bundle/nsis/ 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         with:
