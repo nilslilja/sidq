@@ -258,9 +258,9 @@ export function Hero() {
           className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
           style={{ animationDelay: "150ms" }}
         >
-          Hit a limit, switch models, open a new chat — Sidq keeps it as one
-          conversation, in your own words, so whichever AI you open next already
-          knows what you decided.
+          Hit a limit, switch models, open a new chat. Sidq keeps it as one
+          conversation, in your own words, so whichever AI you open next
+          already knows what you decided.
         </p>
 
         {/* The line somebody repeats, directly over the button. */}

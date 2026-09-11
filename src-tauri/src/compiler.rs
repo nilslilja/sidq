@@ -221,7 +221,7 @@ fn instruction(brief: &Brief, contents: &str, arc: &str, has_reasoning: bool) ->
         "WHAT THIS IS\n\n\
 A record of a conversation that happened somewhere else, given to you so it can \
 carry on here. It was read from the page rather than from a file, so it holds \
-what was loaded at the time — if it seems to begin mid-thought, it does, and the \
+what was loaded at the time. If it seems to begin mid-thought, it does, and the \
 earlier part was never on screen to be read. Say so rather than guessing at it. "
     } else {
         "WHAT THIS IS\n\n\
@@ -612,15 +612,15 @@ fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
     let note = match (report.filler, report.overflow) {
         (0, 0) => None,
         (filler, 0) => Some(format!(
-            "{} that said nothing — greetings, acknowledgements — {} left out. \
+            "{} that said nothing, meaning greetings and acknowledgements, {} left out. \
 Everything else is here, word for word and in the order it happened.",
             turn_count(filler),
             if filler == 1 { "was" } else { "were" },
         )),
         _ => Some(format!(
             "This conversation was too long to carry whole, so {} of its {} are not \
-here. What is here is the conversation itself, word for word and in order — \
-nothing has been summarised or rewritten.",
+here. What is here is the conversation itself, word for word and in order.\
+Nothing has been summarised or rewritten.",
             turn_count(report.dropped()),
             turn_count(turns.len()),
         )),
@@ -679,11 +679,11 @@ fn closing(brief: &Brief) -> String {
      */
     let mut out = String::from(if read_from_a_screen(brief.source) {
         "That is as much as was on the page. Carry on from where it stops \
-rather than summarising it back — they were there for all of it, including \
+rather than summarising it back. They were there for all of it, including \
 whatever came before this."
     } else {
         "That was the whole of it. Carry on from where it stops rather than \
-summarising it back — they were there for all of it."
+summarising it back. They were there for all of it."
     });
 
     if !brief.resume_point.trim().is_empty() {
@@ -944,7 +944,7 @@ mod tests {
             "the opening is kept, not spent first"
         );
         assert!(
-            out.contains("nothing has been summarised or rewritten"),
+            out.contains("Nothing has been summarised or rewritten"),
             "what survived is still verbatim, and the note has to say which it is"
         );
     }

@@ -1570,7 +1570,7 @@ function Invite({
           term="This week"
           detail={
             summary.thisWeek >= summary.perWeek && summary.perWeek > 0
-              ? `${summary.thisWeek} of ${summary.perWeek} — full until one lapses`
+              ? `${summary.thisWeek} of ${summary.perWeek}, full until one lapses`
               : `${summary.thisWeek} of ${summary.perWeek}`
           }
         />
@@ -1984,7 +1984,7 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                     <p className="max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
                       {link
                         ? "This memory is on the internet. Anyone with the link can read it, and taking it down removes the page."
-                        : "Put this memory on a link you can send. It leaves your Mac, so read it first — nothing else here does."}
+                        : "Put this memory on a link you can send. It leaves your Mac, so read it first. Nothing else here does."}
                     </p>
                     <button
                       disabled={publishing}
@@ -2925,7 +2925,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       {settings.members.length === 0 && (
         <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
           Nobody else is in here yet. Share this folder with whoever you work
-          with — their Sidq finds it on its own and offers to join, so there is
+          with. Their Sidq finds it on its own and offers to join, so there is
           nothing for them to configure.
         </p>
       )}

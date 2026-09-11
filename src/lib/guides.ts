@@ -98,7 +98,7 @@ export const GUIDES: Guide[] = [
       {
         title: "Select all, copy, paste",
         body: [
-          "Keeps every word, which is the right instinct. The cost is that a browser conversation is a scrolling list of rendered messages, so you get the interface along with the text — the names, the button labels, the copy-code affordances — and the paste arrives without any of the structure that told you who said what.",
+          "Keeps every word, which is the right instinct. The cost is that a browser conversation is a scrolling list of rendered messages, so you get the interface along with the text: the names, the button labels, the copy-code affordances. The paste arrives without any of the structure that told you who said what.",
           "It also stops working exactly when it matters. A conversation long enough to be worth moving is usually long enough that pasting it fills most of what the next model can hold.",
         ],
       },
@@ -112,7 +112,7 @@ export const GUIDES: Guide[] = [
       {
         title: "Hand it over in one keystroke",
         body: [
-          "Sidq reads Claude in your own browser, as you use it, already signed in. Press the shortcut, pick the conversation, and it writes a file you attach in ChatGPT — the whole exchange, word for word, never summarised.",
+          "Sidq reads Claude in your own browser, as you use it, already signed in. Press the shortcut, pick the conversation, and it writes a file you attach in ChatGPT. The whole exchange, word for word, never summarised.",
           "Attaching rather than pasting is the part that matters at length: the file goes to retrieval instead of into the context window of every following turn.",
         ],
       },
@@ -137,7 +137,7 @@ export const GUIDES: Guide[] = [
       {
         title: "Copy the conversation and paste it into the chat",
         body: [
-          "Better, and it runs into the editor's own budget. Cursor is already spending context on your files, so a pasted transcript competes with the code it is supposed to be editing — and the transcript wins, which is not what you wanted.",
+          "Better, and it runs into the editor's own budget. Cursor is already spending context on your files, so a pasted transcript competes with the code it is supposed to be editing, and the transcript wins, which is not what you wanted.",
         ],
       },
       {
@@ -169,7 +169,7 @@ export const GUIDES: Guide[] = [
       {
         title: "Describe the problem again in Claude",
         body: [
-          "Starting clean is sometimes right — a fresh framing can be worth more than the history. It is not right when the useful part is everything you already ruled out, which is exactly the case when you have been going back and forth in an editor.",
+          "Starting clean is sometimes right, because a fresh framing can be worth more than the history. It is not right when the useful part is everything you already ruled out, which is exactly the case when you have been going back and forth in an editor.",
         ],
       },
       {
@@ -182,13 +182,13 @@ export const GUIDES: Guide[] = [
         title: "Find the transcript on disk yourself",
         body: [
           "It is genuinely there. Cursor keeps its chat history in a local database, so unlike a browser assistant nothing needs exporting and nothing needs waiting for.",
-          "Reading it by hand means locating the right file, understanding a schema nobody documented for you, and pulling one conversation out of it — for a conversation you wanted to move two minutes ago.",
+          "Reading it by hand means locating the right file, understanding a schema nobody documented for you, and pulling one conversation out of it, all for a conversation you wanted to move two minutes ago.",
         ],
       },
       {
         title: "Hand it over in one keystroke",
         body: [
-          "This is the case Sidq is easiest about, because the work is already done. Cursor writes to your disk, so Sidq has read it already — including everything from before you installed Sidq.",
+          "This is the case Sidq is easiest about, because the work is already done. Cursor writes to your disk, so Sidq has read it already, including everything from before you installed Sidq.",
           "Press the shortcut, pick the conversation, paste into Claude. Nothing is uploaded: the reading happens between two programs on your own machine.",
         ],
       },

@@ -36,7 +36,7 @@ export const FAQS = [
   {
     q: "What does it actually do?",
     a: [
-      "It keeps a memory of each thing you are working on, and gives it to whichever AI you open. Not a folder of chats — a record: what the project opened with, what you decided along the way, what you already tried and ruled out, where it got to yesterday. Built from your own sentences across every assistant you use, with the number of conversations each line came from printed beside it.",
+      "It keeps a memory of each thing you are working on, and gives it to whichever AI you open. Not a folder of chats but a record: what the project opened with, what you decided along the way, what you already tried and ruled out, where it got to yesterday. Built from your own sentences across every assistant you use, with the number of conversations each line came from printed beside it.",
       "So you stop being the one carrying the context. You press one key and the AI in front of you knows the project, including the parts you worked out three weeks ago in a different assistant you have since stopped paying for.",
       "It also hands over any single conversation, word for word, when that is what you want. It drops the greetings and the ok-thanks, and if the conversation is bigger than the window it is going into it carries what matters and names what it left, in the file, where the next AI reads it. Nothing is ever summarised.",
     ],
@@ -45,8 +45,8 @@ export const FAQS = [
     q: "Which AIs does it work with?",
     a: [
       "Two kinds, and neither asks you to remember anything.",
-      "The ones that keep their conversations on your Mac — Claude Code, Cowork, Cursor, Windsurf, VS Code — are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq.",
-      "The ones that live in a browser — ChatGPT, Claude, Gemini, Grok, DeepSeek — keep nothing readable on your computer. So you use them in your own browser, exactly as you do now, already signed in with your passkeys and password manager working, and Sidq reads them as you go. It never asks you to log in to an AI. For what you said in them before today, each one lets you download your history, and Sidq reads the file.",
+      "Claude Code, Cowork, Cursor, Windsurf and VS Code keep their conversations on your Mac, so they are read with nothing to connect and nothing to set up, including everything you did before you installed Sidq.",
+      "ChatGPT, Claude, Gemini, Grok and DeepSeek live in a browser and keep nothing readable on your computer. So you use them in your own browser, exactly as you do now, already signed in with your passkeys and password manager working, and Sidq reads them as you go. It never asks you to log in to an AI. For what you said in them before today, each one lets you download your history, and Sidq reads the file.",
       "Nothing is uploaded either way. The reading happens between two programs on your own Mac, on a connection that cannot leave it.",
     ],
   },
@@ -69,8 +69,8 @@ export const FAQS = [
   {
     q: "What does Duo actually share between two people?",
     a: [
-      'Two things automatically, and one only when you say so. The automatic ones are standing instructions and nothing else: the lines on your "How you work" tab are sentences you have typed to assistants more than once — how you want things done, what stack you are on, the conventions you keep repeating. Those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
-      "The one you choose is a project: its memory — what it started as, what was decided, what was ruled out — published to the team as a Markdown file you can read in full first. Somebody joining picks up months of decisions without booking time with the person who made them. Nothing goes until you press the button on that project, nothing is on a timer, and no conversation of yours is shared because a folder was set up once.",
+      'Two things automatically, and one only when you say so. The automatic ones are standing instructions and nothing else: the lines on your "How you work" tab are sentences you have typed to assistants more than once. How you want things done, what stack you are on, the conventions you keep repeating. Those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
+      "The one you choose is a project: its memory, meaning what it started as and what was decided and what was ruled out, published to the team as a Markdown file you can read in full first. Somebody joining picks up months of decisions without booking time with the person who made them. Nothing goes until you press the button on that project, nothing is on a timer, and no conversation of yours is shared because a folder was set up once.",
       "It works through a folder you already sync, whether that is iCloud Drive, Dropbox or a git repo. Sidq writes its file there and reads the ones your teammates wrote. It still uploads nothing and still opens no connection, which also means it works between people in different countries rather than two laptops on one wifi.",
     ],
   },

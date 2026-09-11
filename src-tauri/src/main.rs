@@ -2325,7 +2325,7 @@ fn grab_and_announce(app: &AppHandle) {
     notify(
         app,
         &format!("{} is on your clipboard", grabbed.source),
-        &format!("{} — press ⌘V to attach it anywhere.", grabbed.title),
+        &format!("{}. Press ⌘V to attach it anywhere.", grabbed.title),
     );
 }
 

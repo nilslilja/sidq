@@ -951,7 +951,7 @@ describe("the invite panel", () => {
     await open("Invite a friend");
 
     expect(
-      screen.getByText(/3 of 3 . full until one lapses/),
+      screen.getByText(/3 of 3, full until one lapses/),
     ).toBeInTheDocument();
   });
 

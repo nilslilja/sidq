@@ -186,7 +186,7 @@ pub fn handle(conn: Option<&rusqlite::Connection>, request: &Value) -> Option<Va
             "serverInfo": { "name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION") },
             "instructions": "Sidq holds this person's AI conversations and a memory of each \
                              project, on their own machine. Their project memories are available \
-                             as resources, alongside any live thread — one conversation that \
+                             as resources, alongside any live thread, which is one conversation that \
                              has already moved between assistants. Read the thread for this \
                              project if there is one and the memory otherwise, before answering, \
                              rather than asking them to repeat what was already decided. Also \
@@ -326,7 +326,7 @@ fn resources(conn: Option<&rusqlite::Connection>) -> Value {
         .map(|p| {
             json!({
                 "uri": format!("{MEMORY_SCHEME}{}", p.path),
-                "name": format!("{} — project memory", p.name),
+                "name": format!("{}: project memory", p.name),
                 "description": format!(
                     "What {} is, what was asked first and last, and the rules that kept coming \
                      up. Built from {} conversations already on this machine.",
@@ -362,7 +362,7 @@ fn resources(conn: Option<&rusqlite::Connection>) -> Value {
             .map(|t| {
                 json!({
                     "uri": format!("{THREAD_SCHEME}{}", t.thread_id),
-                    "name": format!("{} — live thread", t.title),
+                    "name": format!("{}: live thread", t.title),
                     "description": format!(
                         "Where this got to, across {}. Read it to carry on rather than asking them \
                          to explain what was already decided.",
@@ -436,7 +436,7 @@ fn read_resource(
                  */
                 return Err(
                     "One conversation carried across every model is on Pro. Handing a \
-                     conversation over by hand is free and always will be — press the Sidq \
+                     conversation over by hand is free and always will be. Press the Sidq \
                      key. Nothing was read."
                         .to_string(),
                 );

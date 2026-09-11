@@ -127,7 +127,7 @@ export function Privacy() {
       <List
         items={[
           'You can read the whole thing in the window before you publish it, because it is the same text Sidq shows you.',
-          'Anyone with the link can read it. The link is 22 random characters, so it cannot be found by guessing, but it is not a password either — treat it as public.',
+          'Anyone with the link can read it. The link is 22 random characters, so it cannot be found by guessing, but it is not a password either, so treat it as public.',
           'You can unpublish at any time from the same button, and the page goes. A link that has been taken down looks exactly like a link that never existed.',
           'Publishing needs an account, so that nothing can be posted through Sidq anonymously.',
         ]}

@@ -86,6 +86,52 @@ describe("what a visitor reads", () => {
     }
   });
 
+  it("has no em dashes anywhere a visitor can see", async () => {
+    /*
+     * Nils's rule, and he is right about it. An em dash between clauses is one
+     * of the loudest tells that a machine wrote the sentence, and this is a
+     * product sold to people who read machine output all day. They spot it.
+     *
+     * ── Why this reads the files instead of the exports ──────────────────────
+     *
+     * Most copy on this site is JSX text, not a string in a table: the hero,
+     * the legal pages, the onboarding steps. A test over FAQS and PLANS would
+     * have passed while the hero's own headline sentence carried one, which is
+     * precisely what happened before this was written.
+     *
+     * Comments are skipped. Prose *about* an em dash is not an em dash, and a
+     * scanner that cannot tell the difference gets deleted by whoever it next
+     * accuses.
+     */
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(entry) && !entry.includes(".test.")) files.push(full);
+      }
+    };
+    walk("src");
+
+    const offences: string[] = [];
+    for (const file of files) {
+      readFileSync(file, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) {
+            return;
+          }
+          if (/[—–]/.test(line)) offences.push(`${file}:${i + 1}  ${trimmed.slice(0, 70)}`);
+        });
+    }
+
+    expect(offences, `em dashes in copy:\n${offences.join("\n")}`).toHaveLength(0);
+  });
+
   it("does not charge for something the tier below already gives", () => {
     /*
      * Pro's two bullets were word for word what the free card listed directly

@@ -379,7 +379,7 @@ impl Memory {
             out.push_str(
                 "## Decided along the way\n\nTheir own sentences about this project, newest \
                  first, never paraphrased. The number is how many separate conversations \
-                 said it — a 1 is something decided once, not something weaker.\n\n",
+                 said it. A 1 is something decided once, not something weaker.\n\n",
             );
             for d in &self.decisions {
                 out.push_str(&format!("- {} ({}x)\n", d.text, d.conversations));

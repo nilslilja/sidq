@@ -143,7 +143,7 @@ export const PLANS: Plan[] = [
      * claimed that is not gated there.
      */
     features: [
-      "One conversation across Claude, Cursor, ChatGPT and the rest — not a file you carry between them",
+      "One conversation across Claude, Cursor, ChatGPT and the rest, not a file you carry between them",
       "Whichever one you open next already knows what was decided, what was ruled out, and where it stopped",
       "Sidq sees the moment your assistant hits its limit, and the continuation is open before you've stopped swearing",
       "Your assistants pull it themselves over MCP, with nobody asking them to",

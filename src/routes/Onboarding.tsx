@@ -1084,7 +1084,7 @@ function BrowserReads({
            * and neither is visible from here.
            */}
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/50">
-            Open a conversation you have already had rather than a new chat — an
+            Open a conversation you have already had rather than a new chat. An
             empty one has nothing in it to read. Sidq checks every 90 seconds,
             so give it a moment after you do.
           </p>
