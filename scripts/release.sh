@@ -56,11 +56,26 @@ mkdir -p src-tauri/binaries
 # --no-default-features drops Tauri from the sidecar's build entirely. It has
 # never contained a line of Tauri code, and building it with the app's feature
 # set pulled 1,260 crates to produce a binary that needs 34 of them.
+#
+# ── Why the sidecar builds into its own target directory ─────────────────────
+#
+# It used to share target/ with the app, and that shipped a broken 0.9.5.
+#
+# These are two builds of the same crate with different feature sets. Cargo
+# uplifts a finished binary from target/release/deps into target/release, and
+# with both builds writing into the same directory the app's slot,
+# target/release/sidq, ended up holding a 1.5MB MCP server instead of the 6.6MB
+# application. It was signed, notarised, stapled and published, and it launched
+# by reading stdin, reaching EOF and exiting 0. No crash, no log, no window.
+#
+# A separate target directory means the two feature sets never share a slot.
+# It costs some disk and rebuild time, which is nothing against shipping an
+# app that does not open.
 ( cd src-tauri
-  cargo build --release --no-default-features --bin sidq-mcp
-  cargo build --release --no-default-features --bin sidq-mcp --target x86_64-apple-darwin
-  cp target/release/sidq-mcp binaries/sidq-mcp-aarch64-apple-darwin
-  cp target/x86_64-apple-darwin/release/sidq-mcp binaries/sidq-mcp-x86_64-apple-darwin
+  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --bin sidq-mcp
+  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --bin sidq-mcp --target x86_64-apple-darwin
+  cp target/mcp/release/sidq-mcp binaries/sidq-mcp-aarch64-apple-darwin
+  cp target/mcp/x86_64-apple-darwin/release/sidq-mcp binaries/sidq-mcp-x86_64-apple-darwin
 ) >/dev/null
 
 # ── Why externalBin is passed here and not in tauri.conf.json ────────────────
@@ -85,8 +100,58 @@ rm -f release/*.dmg
 
 # Apple Silicon first, then Intel. Each is notarised as an app, stapled, and
 # only then wrapped in a disk image.
+#
+# ── Is this actually the app? ────────────────────────────────────────────────
+#
+# 0.9.5 shipped with the MCP server in the application's place. Every check in
+# this script passed: it compiled, it signed, Apple notarised it, Gatekeeper
+# accepted it, the DMG mounted, the download served 200. All of them were true
+# of the wrong program.
+#
+# So the binary is asked what it is before anything is done to it. Three
+# questions, because any one alone can be satisfied by accident:
+#
+#   1. Does it contain a webview? An app without one cannot draw a window.
+#   2. Does it stay running? The MCP server reads stdin, sees EOF and exits 0,
+#      which is exactly what a user reports as "it does not start".
+#   3. Is it a plausible size? The app is ~6.6MB and the sidecar ~1.6MB.
+#
+# Cheap, and it runs before notarisation rather than after, because the point
+# is to never ask Apple to bless something nobody can open.
+verify_is_the_app() {
+  local BIN="$1/Contents/MacOS/sidq"
+
+  if [[ ! -x "$BIN" ]]; then
+    echo "FATAL: no main binary at $BIN" >&2; exit 1
+  fi
+
+  if ! strings -a "$BIN" | grep -qiE "wkwebview|tauri"; then
+    echo "FATAL: $BIN contains no webview. This is not the app." >&2
+    echo "       Almost certainly the MCP server in the app's place: check" >&2
+    echo "       that the sidecar built into its own CARGO_TARGET_DIR." >&2
+    exit 1
+  fi
+
+  # The MCP server answers this. The app must not.
+  if echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | "$BIN" 2>/dev/null | grep -q jsonrpc; then
+    echo "FATAL: $BIN speaks MCP on stdin. This is the sidecar, not the app." >&2
+    exit 1
+  fi
+
+  local SIZE; SIZE=$(stat -f%z "$BIN")
+  if (( SIZE < 4000000 )); then
+    echo "FATAL: $BIN is ${SIZE} bytes, far too small to be the app." >&2
+    exit 1
+  fi
+
+  echo "   verified: $(basename "$1") is the application (${SIZE} bytes)"
+}
+
 build_one() {
   local APP="$1" ARCH="$2"
+
+  # Before signing, before notarising, before anything is published.
+  verify_is_the_app "$APP"
   local DMG="release/Sidq_${VERSION}_${ARCH}.dmg"
   local WORK; WORK="$(mktemp -d)"
 
