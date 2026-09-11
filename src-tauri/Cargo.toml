@@ -1,6 +1,6 @@
 [package]
 name = "sidq"
-version = "0.9.5"
+version = "0.9.6"
 description = "One clear day, every morning."
 edition = "2021"
 # 1.82 for `Option::is_none_or`, which the transcript readers already used
@@ -8,6 +8,9 @@ edition = "2021"
 # build on it, which is the wrong way round for a number whose only job is to
 # tell somebody whether their toolchain is new enough.
 rust-version = "1.82"
+
+# No auto-discovery. Every binary in this crate is declared below, on purpose.
+autobins = false
 
 [build-dependencies]
 # Optional for the same reason `tauri` is: without the app feature the build
@@ -28,9 +31,26 @@ name = "sidq"
 path = "src/main.rs"
 required-features = ["app"]
 
+#
+# ── Why the sidecar is behind a feature that is off by default ───────────────
+#
+# So that a default build produces exactly one binary and there is nothing for
+# anything to pick wrongly.
+#
+# Naming both bins explicitly was the previous fix for this, and it was not
+# enough. 0.9.6 shipped with the MCP server sitting in the application's slot:
+# `target/release/sidq` held a 1.5MB stdio server instead of the 6.6MB app, and
+# it was signed, notarised and published. Launched, it read stdin, reached EOF
+# and exited 0 — no window, no crash, no log, and a user reporting only that
+# "the application doesn't even start".
+#
+# Two binaries built together is the precondition for every version of that
+# bug. Now they cannot be: `cargo build` builds the app and nothing else, and
+# the sidecar is an explicit, separate act.
 [[bin]]
 name = "sidq-mcp"
 path = "src/bin/sidq-mcp.rs"
+required-features = ["mcp"]
 
 # ── Why Tauri is optional ────────────────────────────────────────────────────
 #
@@ -44,11 +64,14 @@ path = "src/bin/sidq-mcp.rs"
 # So the app is a feature, on by default, and `sidq` requires it. Building the
 # sidecar for another platform is then:
 #
-#     cargo build --release --no-default-features --bin sidq-mcp
+#     cargo build --release --no-default-features --features mcp --bin sidq-mcp
 #
 # which needs no GTK, no WebKit and no Xcode, because it needs no Tauri.
 [features]
 default = ["app"]
+# Carries no dependencies. It exists only to gate the sidecar binary out of a
+# default build, which is what keeps the two from ever being built together.
+mcp = []
 app = [
   "dep:tauri-build",
   "dep:tauri",

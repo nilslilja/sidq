@@ -75,7 +75,7 @@ macOS today. The server itself is portable — it carries no Tauri and no macOS
 frameworks, and builds for Linux and Windows with:
 
 ```bash
-cargo build --release --no-default-features --bin sidq-mcp
+cargo build --release --no-default-features --features mcp --bin sidq-mcp
 ```
 
 What is macOS-only is the reading of browser assistants, which uses the

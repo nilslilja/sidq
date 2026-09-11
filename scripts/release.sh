@@ -72,8 +72,8 @@ mkdir -p src-tauri/binaries
 # It costs some disk and rebuild time, which is nothing against shipping an
 # app that does not open.
 ( cd src-tauri
-  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --bin sidq-mcp
-  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --bin sidq-mcp --target x86_64-apple-darwin
+  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --features mcp --bin sidq-mcp
+  CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --features mcp --bin sidq-mcp --target x86_64-apple-darwin
   cp target/mcp/release/sidq-mcp binaries/sidq-mcp-aarch64-apple-darwin
   cp target/mcp/x86_64-apple-darwin/release/sidq-mcp binaries/sidq-mcp-x86_64-apple-darwin
 ) >/dev/null
