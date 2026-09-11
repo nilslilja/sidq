@@ -43,18 +43,30 @@ describe("the headline", () => {
    * is describing a product to somebody still deciding whether to care.
    */
   test("the moment is named before the memory is promised", () => {
+    /*
+     * This used to be two elements and compared their positions in the DOM.
+     * They are one sentence now — the hero said the same idea three times
+     * before it said anything new, so the moment became the opening clause of
+     * the line that answers it rather than a paragraph of its own.
+     *
+     * The doctrine is unchanged and so is what this guards: recognition first.
+     * A page that leads with the promise is describing a product to somebody
+     * still deciding whether they have the problem.
+     */
     render(<Hero />);
 
-    const moment = screen.getByText(/You hit the limit/);
-    const promise = screen.getByText(/Sidq is the one that remembers/);
+    const line = screen.getByText(/Hit a limit/);
+    expect(line).toBeVisible();
 
-    expect(moment).toBeVisible();
-    // Three forms of the same moment, because people recognise their own.
-    expect(moment.textContent).toMatch(/switch to a better model/i);
-    expect(moment.textContent).toMatch(/start from nothing/i);
+    const text = line.textContent ?? "";
+    // Still three forms of the moment, because people recognise their own.
+    expect(text).toMatch(/switch models/i);
+    expect(text).toMatch(/open a new chat/i);
 
-    // Node.DOCUMENT_POSITION_FOLLOWING: the promise comes after the moment.
-    expect(moment.compareDocumentPosition(promise) & 4).toBeTruthy();
+    expect(
+      text.indexOf("Hit a limit"),
+      "the promise now comes before the moment",
+    ).toBeLessThan(text.indexOf("Sidq keeps"));
   });
 
   test('holds "except you" together with a real non-breaking space', () => {
@@ -104,7 +116,7 @@ describe("the sub-line", () => {
     // The headline states the gap. Somebody who stops reading after two lines
     // still has to know what Sidq is and what it does for them.
     render(<Hero />);
-    const sub = screen.getByText(/Sidq is the one that remembers/);
+    const sub = screen.getByText(/Hit a limit/);
     expect(sub.textContent).toMatch(/whichever AI you open next/);
   });
 
@@ -122,7 +134,7 @@ describe("the sub-line", () => {
    */
   test("promises the memory the headline sets up, not a paste", () => {
     render(<Hero />);
-    const sub = screen.getByText(/Sidq is the one that remembers/);
+    const sub = screen.getByText(/Hit a limit/);
     expect(sub.textContent).toMatch(/what you decided/i);
     expect(sub.textContent).toMatch(/in your own words/i);
     expect(sub.textContent).not.toMatch(/summar/i);

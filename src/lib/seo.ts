@@ -48,9 +48,16 @@ const SITE = "https://www.sidq.tech";
 
 const HAND_WRITTEN: Record<string, PageMeta> = {
   "/": {
-    title: "Carry an AI conversation from ChatGPT into Claude. Mac app.",
+    /*
+     * Both of these described a transfer, which is what Sidq used to be: you
+     * pressed a key and it carried one conversation into one other assistant.
+     * It now keeps one conversation across all of them, and the destination
+     * fetches it over MCP with nobody pressing anything. A title that still
+     * promises a carry is selling the smaller half of the product.
+     */
+    title: "One AI conversation. Every model. Mac app.",
     description:
-      "Sidq reads every AI conversation already on your Mac and carries any of them into any other assistant, word for word. Nothing is uploaded and it works offline.",
+      "Sidq reads every AI conversation already on your Mac and keeps them as one, so whichever assistant you open next already knows what you decided. Nothing is uploaded.",
     canonical: `${SITE}/`,
     ogTitle: "Stop introducing yourself to robots.",
   },

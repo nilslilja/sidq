@@ -239,21 +239,28 @@ export function Hero() {
           * then the promise — the other way round is a page that describes a
           * product to somebody still deciding whether to care.
           */}
+        {/*
+          * ── One paragraph, not two ───────────────────────────────────────────
+          *
+          * There were two, and between them and the line under them the hero
+          * said the same thing three times before it said anything new: the
+          * moment ("you hit the limit, you switch, you start from nothing"),
+          * the promise ("Sidq is the one that remembers"), and the tagline.
+          * The first and the third are one idea in two registers.
+          *
+          * So the moment is now the opening clause of the sentence that answers
+          * it, rather than a drumbeat of its own. Recognition and promise in one
+          * breath, which is also the only version that fits: measured at
+          * 1440x720 the download button sat at 634 against a 720 fold, and the
+          * "Free. No card." line under it was off the screen entirely.
+          */}
         <p
-          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[42ch] text-balance text-center text-[clamp(1rem,1.5vw,1.25rem)] leading-snug text-white/70"
+          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
           style={{ animationDelay: "150ms" }}
         >
-          You hit the limit. You switch to a better model. You open a new chat.
-          Every time, you start from nothing.
-        </p>
-
-        <p
-          className="animate-rise mt-5 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
-          style={{ animationDelay: "230ms" }}
-        >
-          Sidq is the one that remembers. What you are working on and what you
-          decided about it, in your own words, ready for whichever AI you open
-          next.
+          Hit a limit, switch models, open a new chat — Sidq keeps it as one
+          conversation, in your own words, so whichever AI you open next already
+          knows what you decided.
         </p>
 
         {/* The line somebody repeats, directly over the button. */}
