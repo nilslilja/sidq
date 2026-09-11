@@ -118,6 +118,27 @@ rm -f release/*.dmg
 #
 # Cheap, and it runs before notarisation rather than after, because the point
 # is to never ask Apple to bless something nobody can open.
+#
+# Staple, saying what went wrong if it will not.
+#
+# The error is printed rather than swallowed, and a failure stops the release
+# rather than shipping something that cannot validate offline.
+staple_with_retries() {
+  local TARGET="$1" WHAT="$2" OUT
+  for ATTEMPT in 1 2 3 4 5; do
+    if OUT="$(xcrun stapler staple "$TARGET" 2>&1)"; then
+      echo "   stapled: $WHAT"
+      return 0
+    fi
+    echo "   staple attempt $ATTEMPT for $WHAT failed: $(echo "$OUT" | tail -1)"
+    sleep $(( ATTEMPT * 20 ))
+  done
+  echo "   REFUSING: could not staple $WHAT after 5 attempts." >&2
+  echo "   The ticket exists if notarisation said Accepted; this is the lookup." >&2
+  echo "   Re-run the release rather than shipping an unstapled build." >&2
+  exit 1
+}
+
 verify_is_the_app() {
   local BIN="$1/Contents/MacOS/sidq"
 
@@ -170,7 +191,18 @@ build_one() {
   xcrun notarytool submit "$WORK/app.zip" \
     --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
     --wait 2>&1 | grep -E "  status:" | tail -1
-  xcrun stapler staple "$APP" >/dev/null
+  #
+  # ── Why stapling retries, and why its errors are no longer hidden ──────────
+  #
+  # This line was `xcrun stapler staple "$APP" >/dev/null`, and when it failed
+  # `set -e` killed the release with no message at all. Three runs died here
+  # looking identical to a crash, and finding out why meant asking Apple for
+  # the notarisation log by hand.
+  #
+  # It also genuinely needs retrying. "Accepted" from notarytool means the
+  # ticket exists, not that the CDN stapler queries has it yet, and error 73 is
+  # what that looks like.
+  staple_with_retries "$APP" "the $ARCH app"
 
   # The check that matters, on the thing the user actually double-clicks.
   local ASSESS; ASSESS="$(spctl --assess --type execute -vv "$APP" 2>&1 | grep source= | tail -1)"
@@ -191,7 +223,7 @@ build_one() {
   xcrun notarytool submit "$DMG" \
     --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
     --wait 2>&1 | grep -E "  status:" | tail -1
-  xcrun stapler staple "$DMG" >/dev/null
+  staple_with_retries "$DMG" "the $ARCH disk image"
 
   ASSESS="$(spctl --assess --type open --context context:primary-signature -v "$DMG" 2>&1 | tail -1)"
   echo "   dmg: $ASSESS"
