@@ -2,17 +2,24 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { INVITE, entitlementsFor } from "@/lib/entitlements";
-
 /*
- * The numbers come from the code, never from memory.
+ * ── Why no numbers are interpolated here any more ────────────────────────────
  *
- * This page advertised ten rebuilds a week and two hours of companion while the
- * server enforced three and ninety minutes. Nobody noticed because a paragraph
- * of prose has nothing checking it. Interpolating the real values means the
- * claim cannot drift from the product again.
+ * They were, and for a good reason: this page once advertised ten rebuilds a
+ * week and two hours of companion while the server enforced three and ninety
+ * minutes, because a paragraph of prose has nothing checking it.
+ *
+ * Interpolation fixed that and then failed in a way it could not catch. Every
+ * meter came out of entitlement.rs, `FREE.handoffsPerWeek` became Infinity, and
+ * the live answer read "Infinity handovers a week, and search reaches back
+ * Infinity days" — while the test guarding it passed, because it compared the
+ * broken string against the same broken number.
+ *
+ * A generated claim survives its number changing value and does not survive its
+ * number changing shape. There are no quantities left in the free tier to keep
+ * in sync, so there is nothing here for a template to protect. What the visitor
+ * actually reads is checked in copy.test.ts instead.
  */
-const FREE = entitlementsFor("free");
 
 /*
  * FAQ.
@@ -81,7 +88,19 @@ export const FAQS = [
      * did not exist. And it contradicted the product: Sidq reads every AI on
      * the Mac with no connecting step at all, which is the whole pitch.
      */
-    a: `${FREE.handoffsPerWeek} handovers a week, and every AI on your Mac read with nothing to connect. Search reaches back ${FREE.historyDays} days on free and all the way on Pro. Nothing is behind a padlock, you simply run out. Inviting a friend adds ${INVITE.bonusPerWeek} more a week to both of you for ${INVITE.lastsDays} days, up to ${INVITE.perWeek} friends a week. That is the other way past it.`,
+    /*
+     * ── Why this is written out and not generated ────────────────────────────
+     *
+     * It interpolated `FREE.handoffsPerWeek` and `FREE.historyDays` so that the
+     * copy could never drift from the code. Then both became UNLIMITED, and the
+     * live page read "Infinity handovers a week, and search reaches back
+     * Infinity days" — for weeks, to everyone who opened the FAQ.
+     *
+     * A generated string survives its number changing value and does not
+     * survive its number changing shape. There is no quantity left to keep in
+     * sync here, so there is nothing for a template to protect.
+     */
+    a: "Everything. Every AI on your Mac read with nothing to connect, unlimited handovers, and search that reaches all the way back, including conversations you had before you installed it. No card and no countdown. What Pro buys is the part that happens without you: one conversation carried across every model, so whichever assistant you open next already knows where things got to. Doing it by hand is free and always will be.",
   },
   {
     q: "Is there a web version?",

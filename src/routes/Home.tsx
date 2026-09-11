@@ -451,7 +451,7 @@ export function Home() {
                   </p>
                   <p className="mt-1 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
                     You get {plan.handoversCap} a week on {plan.plan}. Invite a
-                    friend, or upgrade for unlimited.
+                    friend, or upgrade to stop counting.
                   </p>
                   <button
                     onClick={() => void bridge?.openUpgrade()}
@@ -1302,10 +1302,20 @@ function Plan({
           >
             See the plans
           </button>
+          {/*
+            * This said "raise the free limit without paying: every friend who
+            * joins with your code adds handovers to both of your weeks". There
+            * is no free limit left to raise — every meter came out of
+            * entitlement.rs — so it offered a reward for doing a favour that
+            * buys nothing, to a person who is not being limited.
+            *
+            * What free is missing now is not capacity, it is the automatic
+            * half, so that is what the line says.
+            */}
           <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
-            Or raise the free limit without paying: every friend who joins with
-            your code adds handovers to both of your weeks. That is the Invite
-            tab.
+            Everything here is yours already. What Pro adds is that you stop
+            doing it: one conversation carried across every model, so whichever
+            assistant you open next already knows where this got to.
           </p>
         </div>
       ) : (

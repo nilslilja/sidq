@@ -348,21 +348,33 @@ fn resources(conn: Option<&rusqlite::Connection>) -> Value {
      * Both are here because they answer different questions and a client
      * attaching either has saved somebody the same explaining.
      */
-    let threads: Vec<Value> = crate::thread::recent(conn, THREAD_LIMIT)
-        .iter()
-        .map(|t| {
-            json!({
-                "uri": format!("{THREAD_SCHEME}{}", t.thread_id),
-                "name": format!("{} — live thread", t.title),
-                "description": format!(
-                    "Where this got to, across {}. Read it to carry on rather than asking them \
-                     to explain what was already decided.",
-                    crate::thread::assistants(t)
-                ),
-                "mimeType": "text/markdown"
+    /*
+     * Offered only to an account that can read them.
+     *
+     * Listing a resource and then refusing the read is the worst version of a
+     * paywall: the assistant sees something it is told it can have, fetches it,
+     * gets an error, and reports that to the person as a broken tool rather
+     * than as a plan they are not on.
+     */
+    let threads: Vec<Value> = if crate::entitlement::current(conn).may_thread() {
+        crate::thread::recent(conn, THREAD_LIMIT)
+            .iter()
+            .map(|t| {
+                json!({
+                    "uri": format!("{THREAD_SCHEME}{}", t.thread_id),
+                    "name": format!("{} — live thread", t.title),
+                    "description": format!(
+                        "Where this got to, across {}. Read it to carry on rather than asking them \
+                         to explain what was already decided.",
+                        crate::thread::assistants(t)
+                    ),
+                    "mimeType": "text/markdown"
+                })
             })
-        })
-        .collect();
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     json!([listed, threads].concat())
 }
@@ -415,6 +427,21 @@ fn read_resource(
              * — which is how a number stops being usable for the decision it
              * exists to inform.
              */
+            if !crate::entitlement::current(conn).may_thread() {
+                /*
+                 * Named rather than merely refused. An assistant relaying "not
+                 * permitted" teaches the person nothing; relaying what the
+                 * thread would have been tells them exactly what they are
+                 * choosing between, which is the only honest way to ask.
+                 */
+                return Err(
+                    "One conversation carried across every model is on Pro. Handing a \
+                     conversation over by hand is free and always will be — press the Sidq \
+                     key. Nothing was read."
+                        .to_string(),
+                );
+            }
+
             let state = crate::thread::state(conn, thread_id)
                 .ok_or_else(|| format!("No thread at {thread_id}."))?;
 
@@ -648,9 +675,11 @@ mod tests {
         }
     }
 
-    /// A thread with something in it, in the real schema.
+    /// A thread with something in it, in the real schema, on a plan that may
+    /// read it. The gate is tested on its own below.
     fn threaded() -> rusqlite::Connection {
         let conn = crate::index_store::tests::memory();
+        on_plan(&conn, "pro");
         conn.execute(
             "INSERT INTO sessions (session_id, source) VALUES ('s1', 'claude-code')",
             [],
@@ -664,6 +693,18 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    /// Put this account on a tier without asking Supabase. A cached tier and a
+    /// fresh `tier_checked_at` is exactly what a signed-in machine holds.
+    fn on_plan(conn: &rusqlite::Connection, tier: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let _ = crate::index_store::put_setting(conn, "access_token", "test");
+        let _ = crate::index_store::put_setting(conn, "tier", tier);
+        let _ = crate::index_store::put_setting(conn, "tier_checked_at", &now.to_string());
     }
 
     fn only_thread(conn: &rusqlite::Connection) -> String {
@@ -769,6 +810,56 @@ mod tests {
             counted(&conn),
             before,
             "a thread read was counted as a memory taken"
+        );
+    }
+
+    #[test]
+    fn a_free_account_is_not_offered_a_thread_it_cannot_read() {
+        /*
+         * Listing it and then refusing the read is the worst possible paywall:
+         * the assistant fetches something it was told it could have, gets an
+         * error, and reports a broken tool to the person rather than a plan
+         * they are not on.
+         */
+        let conn = threaded();
+        let _ = crate::index_store::put_setting(&conn, "tier", "free");
+
+        let out = handle(Some(&conn), &request("resources/list", json!({}))).expect("a reply");
+        let listed = out["result"]["resources"].as_array().expect("an array");
+
+        assert!(
+            !listed.iter().any(|r| r["uri"]
+                .as_str()
+                .is_some_and(|u| u.starts_with(THREAD_SCHEME))),
+            "a free account was offered a thread"
+        );
+        // And the memories are still all there, because nothing Sidq *is* is sold.
+        assert!(!listed.is_empty() || crate::index_store::projects(&conn, 1).is_empty());
+    }
+
+    #[test]
+    fn a_refused_thread_says_what_it_would_have_been() {
+        /*
+         * An assistant relaying "not permitted" teaches the person nothing. It
+         * has to be able to say what they are choosing between, including that
+         * the manual way is free — otherwise the refusal reads as the product
+         * being broken.
+         */
+        let conn = threaded();
+        let uri = format!("{THREAD_SCHEME}{}", only_thread(&conn));
+        let _ = crate::index_store::put_setting(&conn, "tier", "free");
+
+        let out = handle(
+            Some(&conn),
+            &request("resources/read", json!({ "uri": uri })),
+        )
+        .expect("a reply");
+        let message = out["error"]["message"].as_str().expect("a refusal");
+
+        assert!(message.contains("Pro"), "{message}");
+        assert!(
+            message.contains("free"),
+            "the free way out is not mentioned: {message}"
         );
     }
 

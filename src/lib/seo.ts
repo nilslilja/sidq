@@ -55,9 +55,17 @@ const HAND_WRITTEN: Record<string, PageMeta> = {
     ogTitle: "Stop introducing yourself to robots.",
   },
   "/pricing": {
-    title: "Pricing. Free to start, $19.99 a month for unlimited.",
+    /*
+     * Both of these described a paywall that no longer exists, live, for weeks.
+     *
+     * "Five handovers a week free" — there is no cap and has not been one since
+     * the meters came out. "Pro removes every limit at $19.99" — Free has no
+     * limits to remove. A search result is the first sentence most people read
+     * about Sidq, and both of its claims were false.
+     */
+    title: "Pricing. Free on your Mac. Pay for what runs without you.",
     description:
-      "Five handovers a week free, forever, with no card. Pro removes every limit at $19.99 a month. Duo is $15 each for two people, and teams get one invoice.",
+      "Unlimited handovers and full search, free, no card. Pro is $19.99 for what you cannot do by hand: one conversation carried across every model. Teams, one invoice.",
     canonical: `${SITE}/pricing`,
     ogTitle: "Sidq pricing",
   },

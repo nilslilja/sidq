@@ -120,33 +120,33 @@ export const PLANS: Plan[] = [
     cadence: "/ month",
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
-    promise: "Every AI you use, holding one memory.",
+    promise: "One conversation. Every model. Nobody pressing anything.",
     inherits: "Starter",
     cta: "Subscribe",
     /*
-     * Two lines, because two things are actually different.
+     * ── What this card sold before, and why it was indefensible ─────────────
      *
-     * Pro removes the weekly handover cap and the seven-day reach on search.
-     * That is the entire difference `entitlement.rs` enforces, and padding the
-     * card past it is how a pricing page starts lying.
+     * "Unlimited handovers, every day" and "Search everything you have ever
+     * asked". Both were word-for-word what the free card listed directly above
+     * it, because every meter was removed from entitlement.rs and this card was
+     * not moved with them. The page charged $19.99 a month for nothing, live,
+     * and entitlement.rs had a test whose name said so.
      *
-     * Removed from here:
+     * The line now is effort rather than capacity. Everything Sidq *is* stays
+     * free — the index, the search, the memory, handing a conversation over by
+     * hand. What is paid for is the half that happens without anybody doing it,
+     * which is also the half a person genuinely cannot do themselves: you
+     * cannot move four thousand exchanges by hand, and you cannot be watching
+     * for the limit at the moment you hit it.
      *
-     *   "Learns what you actually finish, and plans to it" — the planner. It
-     *   was taken out of the product and its five edge functions deleted, and
-     *   the line stayed up on the paid card for weeks afterwards. A feature
-     *   that does not exist is the worst thing a pricing page can sell.
-     *
-     *   "Your whole history, however far back it goes" appeared twice, once at
-     *   each end of the list, so the card rendered it as two separate bullets.
-     *
-     * Rooms is still not listed. The engine and the UI both exist, but nothing
-     * renders the panel, so there is no way for a paying customer to reach it.
-     * Put it back the moment it has a way in.
+     * Every line below maps to `may_thread` in entitlement.rs. Nothing here is
+     * claimed that is not gated there.
      */
     features: [
-      "Unlimited handovers, every day",
-      "Search everything you have ever asked, however far back it goes",
+      "One conversation across Claude, Cursor, ChatGPT and the rest — not a file you carry between them",
+      "Whichever one you open next already knows what was decided, what was ruled out, and where it stopped",
+      "Sidq sees the moment your assistant hits its limit, and the continuation is open before you've stopped swearing",
+      "Your assistants pull it themselves over MCP, with nobody asking them to",
     ],
   },
   /*

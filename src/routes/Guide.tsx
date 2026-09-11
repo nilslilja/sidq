@@ -259,7 +259,7 @@ export function ChatgptToClaude() {
             If you do this more than once a week
           </h2>
           <p className="mt-3 text-[1rem] leading-relaxed text-ink/70">
-            Sidq is free for five handovers a week, with no card. It reads
+            Sidq is free, with no card and no weekly count. It reads
             ChatGPT, Claude, Gemini, Grok and DeepSeek in your own browser, and
             Claude Code, Cursor, Windsurf and VS Code straight off the disk,
             including everything you did before you installed it.
@@ -367,7 +367,7 @@ function GuidePage({ guide }: { guide: Guide }) {
             If you do this more than once a week
           </h2>
           <p className="mt-3 text-[1rem] leading-relaxed text-ink/70">
-            Sidq is free for five handovers a week, with no card. It reads
+            Sidq is free, with no card and no weekly count. It reads
             ChatGPT, Claude, Gemini, Grok and DeepSeek in your own browser, and
             Claude Code, Cursor, Windsurf and VS Code straight off the disk,
             including everything you did before you installed it.

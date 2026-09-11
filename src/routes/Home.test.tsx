@@ -851,14 +851,29 @@ describe("the plan panel", () => {
     expect(screen.getByText("7 days")).toBeInTheDocument();
   });
 
-  test("a free account is offered the plans, and the invite route to more", async () => {
+  test("a free account is told what paying adds, not what it is short of", async () => {
+    /*
+     * This asserted the panel offered "the invite route to more" — more
+     * handovers, earned by inviting somebody. Both halves stopped being true
+     * when the meters came out of entitlement.rs: there is no cap to be short
+     * of, and the invite bonus adds allowance to an allowance that is already
+     * unlimited.
+     *
+     * A free account is not missing capacity now. It is missing the automatic
+     * half, and that is what the panel has to say.
+     */
     await open("Plan");
 
     fireEvent.click(screen.getByRole("button", { name: /see the plans/i }));
     expect(bridge.openUpgrade).toHaveBeenCalled();
+
     expect(
-      screen.getByText(/every friend who joins with your code/i),
+      screen.getByText(/carried across every model/i),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/every friend who joins with your code/i),
+      "a reward that buys nothing is still being offered",
+    ).not.toBeInTheDocument();
   });
 
   test("a paid account is not shown a button that cannot do anything", async () => {

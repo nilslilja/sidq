@@ -133,12 +133,30 @@ describe("what the site says an invite is worth", () => {
   });
 
   test("the FAQ quotes the contract rather than a number typed into it", () => {
-    const free = entitlementsFor("free");
+    /*
+     * This used to check the free tier's handover and history numbers too, and
+     * that assertion is why the bug it was written to prevent shipped anyway.
+     *
+     * Both became UNLIMITED, so the generated copy read "Infinity handovers a
+     * week, and search reaches back Infinity days" — and this test went on
+     * passing, because it compared the broken string against the same broken
+     * number. A test that derives its expectation from the code under test
+     * agrees with the code under test whatever the code does.
+     *
+     * What is left here are figures that are still quantities. The rendered
+     * result is checked in copy.test.ts, against nothing but itself being
+     * readable English.
+     */
     const answers = FAQS.flatMap((f) => f.a).join(" ");
 
-    expect(answers).toContain(`${free.handoffsPerWeek} handovers a week`);
-    expect(answers).toContain(`${INVITE.bonusPerWeek} more a week`);
-    expect(answers).toContain(`${INVITE.perWeek} friends a week`);
+    /*
+     * The invite figures are gone from this answer along with the rest of it.
+     * They describe a reward that currently buys nothing: the bonus is extra
+     * handovers a week, and no plan has a weekly handover cap any more. An
+     * offer the site makes and the code cannot honour is worse than no offer,
+     * so it is not stated until it means something again.
+     */
+    expect(answers).not.toContain("more a week");
   });
 
   test("nothing on the site still claims a limit on how many AIs are read", () => {

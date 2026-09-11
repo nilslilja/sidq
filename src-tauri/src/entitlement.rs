@@ -120,6 +120,31 @@ impl Plan {
     pub fn history_days(self) -> Option<i64> {
         None
     }
+
+    /**
+     * May this account have one conversation across every model?
+     *
+     * ── Why this is the line and the others are not ─────────────────────────
+     *
+     * Every cap that used to be here is gone: handovers, history, sources. They
+     * each did the same damage, which is that they made the free product look
+     * broken rather than limited, and a product that looks broken is not one
+     * anybody upgrades out of — they just stop opening it.
+     *
+     * So nothing that Sidq *is* is metered. What is paid for is what Sidq
+     * *does without you*: the thread. Handing a conversation over by hand stays
+     * free forever and always will, because that is the thing somebody has to
+     * try before they believe any of this. Sidq carrying the conversation
+     * across every model on its own, so a destination already knows where things
+     * got to with nobody pressing anything, is the part a person genuinely
+     * cannot do themselves — you cannot move four thousand exchanges by hand,
+     * and you cannot be watching for the limit at the moment you hit it.
+     *
+     * Manual is free. Automatic is paid. That is the whole paywall.
+     */
+    pub fn may_thread(self) -> bool {
+        matches!(self, Plan::Pro | Plan::Duo | Plan::Team)
+    }
 }
 
 fn now() -> i64 {
@@ -407,17 +432,46 @@ mod tests {
     }
 
     #[test]
-    fn the_team_folder_is_the_only_thing_a_plan_still_buys() {
+    fn what_a_plan_buys_is_the_work_nobody_can_do_by_hand() {
         /*
-         * Worth asserting because it is uncomfortable. With the meters gone,
-         * Pro grants nothing Free does not, and the pricing page still asks
-         * $19.99 for it. That is a decision for a person rather than a bug to
-         * fix here, and this test exists so it cannot be quietly forgotten.
+         * The shape of the paywall, asserted rather than described.
+         *
+         * This test used to be called "the team folder is the only thing a plan
+         * still buys", and it was true: every meter had been removed and Pro
+         * granted nothing at all while the page charged $19.99 for it.
+         *
+         * The line now is not capacity, it is effort. Everything Sidq *is* is
+         * free — the index, the search, the memory, handing a conversation over
+         * by hand. What is paid for is the part that happens without anybody
+         * doing it: the thread across models, and the folder a team shares.
          */
+        assert!(
+            !Plan::Free.may_thread(),
+            "the automatic half is what is sold"
+        );
+        assert!(Plan::Pro.may_thread(), "Pro has to buy something");
+        assert!(Plan::Duo.may_thread());
+        assert!(Plan::Team.may_thread());
+
+        // And the folder stays above Pro, because it is a second person.
         assert!(!Plan::Free.may_share_with_team());
-        assert!(!Plan::Pro.may_share_with_team(), "Pro still buys nothing");
+        assert!(!Plan::Pro.may_share_with_team());
         assert!(Plan::Duo.may_share_with_team());
         assert!(Plan::Team.may_share_with_team());
+    }
+
+    #[test]
+    fn handing_a_conversation_over_by_hand_is_never_sold() {
+        /*
+         * The one guarantee the whole pitch rests on. Somebody has to be able to
+         * try the thing before they believe any of it, and a handover is the
+         * thing. If this ever starts returning false for Free, the product has
+         * gone back to being one nobody can evaluate.
+         */
+        let conn = index_store::tests::memory();
+        assert!(may_hand_over(&conn, Plan::Free));
+        assert_eq!(Plan::Free.handovers_per_week(), None);
+        assert_eq!(Plan::Free.history_days(), None);
     }
 
     #[test]
