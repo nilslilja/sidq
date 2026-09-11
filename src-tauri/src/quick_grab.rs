@@ -50,7 +50,6 @@ pub struct Grabbed {
     pub title: String,
     /// Which assistant it came from.
     pub source: String,
-
 }
 
 /**
@@ -113,7 +112,9 @@ pub fn most_recent() -> Option<work_history::WorkSession> {
  * sources as `most_recent` so a row that can be listed can always be grabbed.
  */
 pub fn by_id(session_id: &str) -> Option<work_history::WorkSession> {
-    everything().into_iter().find(|s| s.session_id == session_id)
+    everything()
+        .into_iter()
+        .find(|s| s.session_id == session_id)
 }
 
 /// Every conversation the picker would list, newest first.
@@ -122,16 +123,18 @@ fn everything() -> Vec<work_history::WorkSession> {
     all.extend(crate::cursor_history::recent_sessions(12));
 
     all.extend(index_store::open().into_iter().flat_map(|conn| {
-        index_store::recent_screen_sessions(&conn, 12).into_iter().map(
-            |(session_id, title, source, ended_at, turns)| work_history::WorkSession {
-                session_id,
-                title,
-                source: screen_reader::source_for(&source).unwrap_or("chatgpt"),
-                ended_at,
-                turns,
-                ..Default::default()
-            },
-        )
+        index_store::recent_screen_sessions(&conn, 12)
+            .into_iter()
+            .map(
+                |(session_id, title, source, ended_at, turns)| work_history::WorkSession {
+                    session_id,
+                    title,
+                    source: screen_reader::source_for(&source).unwrap_or("chatgpt"),
+                    ended_at,
+                    turns,
+                    ..Default::default()
+                },
+            )
     }));
 
     all.sort_by_key(|s| std::cmp::Reverse(s.ended_at));

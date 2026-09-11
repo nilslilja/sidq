@@ -186,8 +186,10 @@ pub fn handle(conn: Option<&rusqlite::Connection>, request: &Value) -> Option<Va
             "serverInfo": { "name": SERVER_NAME, "version": env!("CARGO_PKG_VERSION") },
             "instructions": "Sidq holds this person's AI conversations and a memory of each \
                              project, on their own machine. Their project memories are available \
-                             as resources — read the one matching the project being worked on \
-                             before answering, rather than asking them to repeat it. Otherwise \
+                             as resources, alongside any live thread — one conversation that \
+                             has already moved between assistants. Read the thread for this \
+                             project if there is one and the memory otherwise, before answering, \
+                             rather than asking them to repeat what was already decided. Also \
                              call get_memory, and how_i_work before writing anything in their \
                              voice or their codebase."
         })),
@@ -230,8 +232,14 @@ fn failed(body: impl Into<String>) -> Value {
 
 fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<Value, String> {
     let params = params.ok_or("tools/call needs params")?;
-    let name = params.get("name").and_then(Value::as_str).ok_or("no tool named")?;
-    let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or("no tool named")?;
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
     let Some(conn) = conn else {
         return Ok(failed(
@@ -241,7 +249,10 @@ fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<V
     };
 
     let arg = |key: &str| -> Option<String> {
-        args.get(key).and_then(Value::as_str).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+        args.get(key)
+            .and_then(Value::as_str)
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
     };
 
     Ok(match name {
@@ -285,6 +296,18 @@ fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<V
 const MEMORY_SCHEME: &str = "sidq://memory";
 
 /**
+ * The scheme for a live thread. One per thread, addressed by its id.
+ *
+ * A trailing slash here, unlike the memory scheme above, because a thread id is
+ * an opaque token rather than an absolute path and `sidq://threadf3a2…` is not
+ * a uri anybody can read.
+ */
+const THREAD_SCHEME: &str = "sidq://thread/";
+
+/// How many threads a client is offered. See `thread::recent`.
+const THREAD_LIMIT: usize = 12;
+
+/**
  * Every project memory, as something a client can attach without being asked.
  *
  * Named for the project rather than the path, because the name is what appears
@@ -314,7 +337,34 @@ fn resources(conn: Option<&rusqlite::Connection>) -> Value {
         })
         .collect();
 
-    json!(listed)
+    /*
+     * ── Why threads are listed beside memories ──────────────────────────────
+     *
+     * A memory is what a project is. A thread is what is happening in it right
+     * now — the conversation somebody was having twenty minutes ago in another
+     * assistant, which is the thing they would otherwise be re-typing into this
+     * one.
+     *
+     * Both are here because they answer different questions and a client
+     * attaching either has saved somebody the same explaining.
+     */
+    let threads: Vec<Value> = crate::thread::recent(conn, THREAD_LIMIT)
+        .iter()
+        .map(|t| {
+            json!({
+                "uri": format!("{THREAD_SCHEME}{}", t.thread_id),
+                "name": format!("{} — live thread", t.title),
+                "description": format!(
+                    "Where this got to, across {}. Read it to carry on rather than asking them \
+                     to explain what was already decided.",
+                    crate::thread::assistants(t)
+                ),
+                "mimeType": "text/markdown"
+            })
+        })
+        .collect();
+
+    json!([listed, threads].concat())
 }
 
 /**
@@ -342,14 +392,40 @@ fn read_resource(
         .and_then(Value::as_str)
         .ok_or_else(|| "resources/read needs a uri".to_string())?;
 
-    let path = uri
-        .strip_prefix(MEMORY_SCHEME)
+    /// Which of ours was asked for. Neither scheme is a prefix of the other.
+    enum Asked<'a> {
+        Thread(&'a str),
+        Memory(&'a str),
+    }
+
+    let asked = uri
+        .strip_prefix(THREAD_SCHEME)
+        .map(Asked::Thread)
+        .or_else(|| uri.strip_prefix(MEMORY_SCHEME).map(Asked::Memory))
         .ok_or_else(|| format!("{uri} is not a Sidq resource"))?;
 
     let conn = conn.ok_or_else(|| "No index on this machine yet.".to_string())?;
 
-    let built = crate::memory::build(conn, path)
-        .ok_or_else(|| format!("No project at {path}."))?;
+    let path = match asked {
+        Asked::Thread(thread_id) => {
+            /*
+             * No telemetry event here, deliberately. `MemoryTaken` counts a
+             * project memory leaving for an assistant, and counting a thread
+             * read under the same name would make that number mean two things
+             * — which is how a number stops being usable for the decision it
+             * exists to inform.
+             */
+            let state = crate::thread::state(conn, thread_id)
+                .ok_or_else(|| format!("No thread at {thread_id}."))?;
+
+            return Ok(json!({
+                "contents": [{ "uri": uri, "mimeType": "text/markdown", "text": state }]
+            }));
+        }
+        Asked::Memory(path) => path,
+    };
+
+    let built = crate::memory::build(conn, path).ok_or_else(|| format!("No project at {path}."))?;
 
     // Counted the same way `get_memory` is. A client attaching this on its own
     // is still an assistant taking the memory, and the whole point of counting
@@ -422,12 +498,19 @@ fn search(conn: &rusqlite::Connection, query: &str) -> Value {
         return text(format!("Nothing in any conversation matches \"{query}\"."));
     }
 
-    let mut out = format!("{total} conversations match \"{query}\". Showing {}:\n\n", hits.len());
+    let mut out = format!(
+        "{total} conversations match \"{query}\". Showing {}:\n\n",
+        hits.len()
+    );
     for h in &hits {
         out.push_str(&format!(
             "- [{}] {}\n  {}\n  session_id: {}\n",
             h.source,
-            if h.title.is_empty() { "(untitled)" } else { &h.title },
+            if h.title.is_empty() {
+                "(untitled)"
+            } else {
+                &h.title
+            },
             h.snippet.replace('\n', " "),
             h.session_id
         ));
@@ -464,7 +547,10 @@ fn how_i_work(conn: &rusqlite::Connection) -> Value {
 }
 
 fn note(conn: &rusqlite::Connection, path: &str, body: &str) -> Value {
-    if index_store::projects(conn, 200).iter().all(|p| p.path != path) {
+    if index_store::projects(conn, 200)
+        .iter()
+        .all(|p| p.path != path)
+    {
         return failed(format!(
             "No project at {path}, so there is nowhere to record that. Call list_projects first."
         ));
@@ -487,9 +573,7 @@ fn publish(conn: &rusqlite::Connection, path: &str) -> Value {
      * capability check that lives only in the window is not a capability check.
      */
     if !crate::entitlement::current(conn).may_share_with_team() {
-        return failed(
-            "Sharing with a team is on the Duo and Team plans. Nothing was published.",
-        );
+        return failed("Sharing with a team is on the Duo and Team plans. Nothing was published.");
     }
 
     let Some(folder) = index_store::setting(conn, crate::team_context::FOLDER_KEY)
@@ -564,6 +648,130 @@ mod tests {
         }
     }
 
+    /// A thread with something in it, in the real schema.
+    fn threaded() -> rusqlite::Connection {
+        let conn = crate::index_store::tests::memory();
+        conn.execute(
+            "INSERT INTO sessions (session_id, source) VALUES ('s1', 'claude-code')",
+            [],
+        )
+        .unwrap();
+        let id = crate::thread::start(&conn, "s1", "The index", "/Sidq").unwrap();
+        crate::thread::join(&conn, &id, "s2", "cursor").unwrap();
+        conn.execute(
+            "INSERT INTO messages (session_id, role, body) VALUES ('s1', 'Assistant', ?1)",
+            ["sqlite, because it ships inside the app"],
+        )
+        .unwrap();
+        conn
+    }
+
+    fn only_thread(conn: &rusqlite::Connection) -> String {
+        crate::thread::recent(conn, 1)
+            .first()
+            .unwrap()
+            .thread_id
+            .clone()
+    }
+
+    #[test]
+    fn a_live_thread_is_offered_next_to_the_memories() {
+        /*
+         * The press this removes. A memory says what a project is; a thread
+         * says what was happening in it twenty minutes ago in a different
+         * assistant, and a client that can attach it starts where the last one
+         * stopped without anybody pasting anything.
+         */
+        let conn = threaded();
+        let out = handle(Some(&conn), &request("resources/list", json!({}))).expect("a reply");
+        let listed = out["result"]["resources"].as_array().expect("an array");
+
+        let thread = listed
+            .iter()
+            .find(|r| {
+                r["uri"]
+                    .as_str()
+                    .is_some_and(|u| u.starts_with(THREAD_SCHEME))
+            })
+            .expect("no thread offered");
+
+        assert!(thread["name"].as_str().unwrap().contains("The index"));
+        // Named assistants, because "claude-code and cursor" is a column value.
+        assert!(thread["description"]
+            .as_str()
+            .unwrap()
+            .contains("Claude Code and Cursor"));
+        assert_eq!(thread["mimeType"], "text/markdown");
+    }
+
+    #[test]
+    fn reading_a_thread_returns_where_it_got_to() {
+        let conn = threaded();
+        let uri = format!("{THREAD_SCHEME}{}", only_thread(&conn));
+
+        let out = handle(
+            Some(&conn),
+            &request("resources/read", json!({ "uri": uri })),
+        )
+        .expect("a reply");
+        let text = out["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("some markdown");
+
+        assert!(text.contains("sqlite, because it ships inside the app"));
+        assert_eq!(out["result"]["contents"][0]["uri"], uri);
+    }
+
+    #[test]
+    fn a_thread_that_does_not_exist_is_refused_by_name() {
+        /*
+         * Distinct from "not a Sidq resource". A client that mangles an id
+         * should be told the id is wrong, not that the scheme is.
+         */
+        let conn = threaded();
+        let out = handle(
+            Some(&conn),
+            &request(
+                "resources/read",
+                json!({ "uri": format!("{THREAD_SCHEME}nope") }),
+            ),
+        )
+        .expect("a reply");
+
+        assert!(out["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("No thread"));
+    }
+
+    #[test]
+    fn reading_a_thread_is_not_counted_as_a_memory_leaving() {
+        /*
+         * Two different things sharing one number is how the number stops
+         * answering the question it was added for — whether assistants fetch
+         * memories on their own, or people still copy them by hand.
+         */
+        let conn = threaded();
+        let counted = |c: &rusqlite::Connection| -> i64 {
+            c.query_row("SELECT count(*) FROM counted", [], |r| r.get(0))
+                .unwrap()
+        };
+        let before = counted(&conn);
+
+        let uri = format!("{THREAD_SCHEME}{}", only_thread(&conn));
+        handle(
+            Some(&conn),
+            &request("resources/read", json!({ "uri": uri })),
+        )
+        .expect("a reply");
+
+        assert_eq!(
+            counted(&conn),
+            before,
+            "a thread read was counted as a memory taken"
+        );
+    }
+
     #[test]
     fn the_handshake_offers_resources_as_well_as_tools() {
         /*
@@ -576,14 +784,20 @@ mod tests {
          * key goes missing the feature is silently off and every other test
          * here still passes.
          */
-        let out = handle(None, &json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }))
-            .expect("initialize answers");
+        let out = handle(
+            None,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
+        )
+        .expect("initialize answers");
 
         assert!(
             out["result"]["capabilities"]["resources"].is_object(),
             "the handshake no longer advertises resources"
         );
-        assert!(out["result"]["capabilities"]["tools"].is_object(), "tools went missing");
+        assert!(
+            out["result"]["capabilities"]["tools"].is_object(),
+            "tools went missing"
+        );
     }
 
     #[test]
@@ -595,7 +809,12 @@ mod tests {
          * name at me", and the refusal says which uri so a client can tell a
          * typo from a missing project.
          */
-        for bad in ["file:///etc/passwd", "/Users/nils/Sidq", "sidq://other/thing", ""] {
+        for bad in [
+            "file:///etc/passwd",
+            "/Users/nils/Sidq",
+            "sidq://other/thing",
+            "",
+        ] {
             let out = handle(
                 None,
                 &json!({
@@ -615,15 +834,21 @@ mod tests {
             &json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/read", "params": {} }),
         )
         .expect("a reply");
-        assert!(out["error"].is_object(), "a missing uri was treated as a request");
+        assert!(
+            out["error"].is_object(),
+            "a missing uri was treated as a request"
+        );
     }
 
     #[test]
     fn an_empty_index_lists_no_resources_rather_than_failing() {
         // A fresh install has no projects. That is a normal state and must not
         // arrive at a client as an error during its first handshake.
-        let out = handle(None, &json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list" }))
-            .expect("a reply");
+        let out = handle(
+            None,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list" }),
+        )
+        .expect("a reply");
 
         assert!(out["error"].is_null(), "an empty index reported an error");
         assert_eq!(out["result"]["resources"].as_array().map(Vec::len), Some(0));
@@ -642,7 +867,9 @@ mod tests {
                 .find(|t| t["name"] == name)
                 .unwrap_or_else(|| panic!("{name} is missing"));
             assert!(
-                tool["inputSchema"]["required"].as_array().is_some_and(|r| !r.is_empty()),
+                tool["inputSchema"]["required"]
+                    .as_array()
+                    .is_some_and(|r| !r.is_empty()),
                 "{name} declares no required arguments"
             );
         }
@@ -662,8 +889,11 @@ mod tests {
          * Sidq app. A protocol error there reads as a broken server; a result
          * saying what to do reads as an answer, and the model can relay it.
          */
-        let out = handle(None, &request("tools/call", json!({ "name": "list_projects" })))
-            .expect("a reply");
+        let out = handle(
+            None,
+            &request("tools/call", json!({ "name": "list_projects" })),
+        )
+        .expect("a reply");
         assert_eq!(out["result"]["isError"], true);
         let body = out["result"]["content"][0]["text"].as_str().unwrap();
         assert!(body.contains("Open the Sidq app"));
@@ -690,7 +920,10 @@ mod tests {
          */
         let code = whole.split("#[cfg(test)]").next().unwrap_or(whole);
         for banned in ["reqwest", "ureq", "TcpStream", "TcpListener", "hyper::"] {
-            assert!(!code.contains(banned), "{banned} appeared in the MCP server");
+            assert!(
+                !code.contains(banned),
+                "{banned} appeared in the MCP server"
+            );
         }
     }
 }

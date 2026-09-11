@@ -61,7 +61,11 @@ pub enum Block {
     Did { tool: String, input: String },
     /// What came back, and whether it failed. A failure is often the most
     /// informative thing in a conversation and used to be discarded entirely.
-    Saw { tool_use_id: String, output: String, failed: bool },
+    Saw {
+        tool_use_id: String,
+        output: String,
+        failed: bool,
+    },
     /// The person stopped it mid-answer. A rejection, and the strongest signal
     /// in the file about what they did not want.
     Interrupted,
@@ -88,10 +92,7 @@ fn clamp(text: &str, limit: usize) -> String {
     }
 
     let head: String = text.chars().take(limit * 2 / 3).collect();
-    let tail: String = text
-        .chars()
-        .skip(count - limit / 3)
-        .collect::<String>();
+    let tail: String = text.chars().skip(count - limit / 3).collect::<String>();
 
     format!("{head}\n… {} characters trimmed …\n{tail}", count - limit)
 }
@@ -319,7 +320,9 @@ mod tests {
             { "type": "tool_result", "tool_use_id": "t3", "content": huge }
         ])));
 
-        let Block::Saw { output, .. } = &blocks[0] else { panic!("expected a result") };
+        let Block::Saw { output, .. } = &blocks[0] else {
+            panic!("expected a result")
+        };
         assert!(output.chars().count() < 800);
         assert!(output.contains("THE-END"), "the tail has to survive");
         assert!(output.contains("trimmed"), "and it must say it was trimmed");
@@ -361,7 +364,9 @@ mod tests {
         let blocks = blocks_of(&record(json!([
             { "type": "image", "source": { "type": "base64", "data": "…" } }
         ])));
-        let Block::Said(text) = &blocks[0] else { panic!("expected a marker") };
+        let Block::Said(text) = &blocks[0] else {
+            panic!("expected a marker")
+        };
 
         assert_eq!(text, "[an image was here, which Sidq cannot read]");
     }

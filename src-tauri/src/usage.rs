@@ -98,16 +98,20 @@ pub fn report(conn: &Connection) -> Report {
 }
 
 fn totals(conn: &Connection) -> (usize, usize) {
-    conn.query_row("SELECT COUNT(*), COALESCE(SUM(turns), 0) FROM sessions", [], |r| {
-        Ok((r.get::<_, i64>(0)? as usize, r.get::<_, i64>(1)? as usize))
-    })
+    conn.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(turns), 0) FROM sessions",
+        [],
+        |r| Ok((r.get::<_, i64>(0)? as usize, r.get::<_, i64>(1)? as usize)),
+    )
     .unwrap_or((0, 0))
 }
 
 fn hours(conn: &Connection) -> usize {
-    conn.query_row("SELECT COALESCE(SUM(active_minutes), 0) FROM sessions", [], |r| {
-        r.get::<_, i64>(0)
-    })
+    conn.query_row(
+        "SELECT COALESCE(SUM(active_minutes), 0) FROM sessions",
+        [],
+        |r| r.get::<_, i64>(0),
+    )
     .map(|m| (m.max(0) / 60) as usize)
     .unwrap_or(0)
 }
@@ -166,7 +170,11 @@ fn projects(conn: &Connection) -> Vec<ByProject> {
  * reader does not separate the two kinds of care.
  */
 fn plural(n: usize, word: &str) -> String {
-    if n == 1 { format!("1 {word}") } else { format!("{n} {word}s") }
+    if n == 1 {
+        format!("1 {word}")
+    } else {
+        format!("{n} {word}s")
+    }
 }
 
 /**
@@ -236,7 +244,15 @@ mod tests {
         conn
     }
 
-    fn add(conn: &Connection, id: &str, source: &str, project: &str, turns: i64, mins: i64, at: i64) {
+    fn add(
+        conn: &Connection,
+        id: &str,
+        source: &str,
+        project: &str,
+        turns: i64,
+        mins: i64,
+        at: i64,
+    ) {
         conn.execute(
             "INSERT INTO sessions (session_id, source, project, project_path, turns, active_minutes, ended_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -272,8 +288,14 @@ mod tests {
         assert_eq!(r.conversations, 3);
         assert_eq!(r.exchanges, 170);
         assert_eq!(r.hours, 3, "210 minutes is three hours, not two");
-        assert_eq!(r.sources.iter().map(|s| s.conversations).sum::<usize>(), r.conversations);
-        assert_eq!(r.sources.iter().map(|s| s.exchanges).sum::<usize>(), r.exchanges);
+        assert_eq!(
+            r.sources.iter().map(|s| s.conversations).sum::<usize>(),
+            r.conversations
+        );
+        assert_eq!(
+            r.sources.iter().map(|s| s.exchanges).sum::<usize>(),
+            r.exchanges
+        );
     }
 
     #[test]
@@ -284,7 +306,10 @@ mod tests {
         add(&conn, "c", "claude-code", "One", 5, 10, 3_000);
 
         let r = report(&conn);
-        assert_eq!(r.sources.first().map(|s| s.source.as_str()), Some("claude-code"));
+        assert_eq!(
+            r.sources.first().map(|s| s.source.as_str()),
+            Some("claude-code")
+        );
     }
 
     #[test]

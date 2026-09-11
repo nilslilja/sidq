@@ -265,7 +265,9 @@ pub fn current(conn: &Connection) -> Plan {
  * not a safer one.
  */
 pub fn last_known(conn: &Connection) -> Plan {
-    index_store::setting(conn, "tier").map(|t| Plan::from_tier(&t)).unwrap_or(Plan::Free)
+    index_store::setting(conn, "tier")
+        .map(|t| Plan::from_tier(&t))
+        .unwrap_or(Plan::Free)
 }
 
 /**
@@ -418,7 +420,6 @@ mod tests {
         assert!(Plan::Team.may_share_with_team());
     }
 
-
     #[test]
     fn invites_do_not_invent_a_limit_where_there_was_none() {
         // Pro has no cap. Adding a number to "no limit" would quietly create
@@ -459,7 +460,6 @@ mod tests {
         assert_eq!(parse_tier(r#"[{"plan_tier":"#), None);
     }
 
-
     #[test]
     fn four_this_week_still_leaves_one() {
         let conn = index_store::tests::memory();
@@ -470,7 +470,6 @@ mod tests {
 
         assert!(may_hand_over(&conn, Plan::Free));
     }
-
 
     #[test]
     fn the_week_rolls_rather_than_resetting() {
@@ -519,8 +518,12 @@ mod tests {
 
         // Confirmed a fortnight ago. The token will not verify here, so this
         // exercises the fallback, and the fallback goes down rather than up.
-        index_store::put_setting(&conn, "tier_checked_at", &(now() - 14 * 24 * 60 * 60).to_string())
-            .unwrap();
+        index_store::put_setting(
+            &conn,
+            "tier_checked_at",
+            &(now() - 14 * 24 * 60 * 60).to_string(),
+        )
+        .unwrap();
         assert_eq!(current(&conn), Plan::Free, "grace has to end somewhere");
     }
 
@@ -547,7 +550,10 @@ mod tests {
         let (used, cap) = handover_allowance(&conn, Plan::Free);
         assert_eq!(used, 50, "handovers are still counted");
         assert_eq!(cap, None, "and none of them is refused");
-        assert!(may_hand_over(&conn, Plan::Free), "the fifty-first is fine too");
+        assert!(
+            may_hand_over(&conn, Plan::Free),
+            "the fifty-first is fine too"
+        );
     }
 
     #[test]

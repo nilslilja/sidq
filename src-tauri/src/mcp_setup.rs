@@ -59,8 +59,18 @@ pub const CLIENTS: [Client; 3] = [
         anchor: Anchor::AppData,
     },
     // Dotfiles, and the same place on every platform.
-    Client { id: "claude-code", label: "Claude Code", path: ".claude.json", anchor: Anchor::Home },
-    Client { id: "cursor", label: "Cursor", path: ".cursor/mcp.json", anchor: Anchor::Home },
+    Client {
+        id: "claude-code",
+        label: "Claude Code",
+        path: ".claude.json",
+        anchor: Anchor::Home,
+    },
+    Client {
+        id: "cursor",
+        label: "Cursor",
+        path: ".cursor/mcp.json",
+        anchor: Anchor::Home,
+    },
 ];
 
 /// Where this client keeps its config on this machine.
@@ -157,7 +167,10 @@ mod tests {
             .or_insert_with(|| json!({}))
             .as_object_mut()
             .unwrap()
-            .insert(SERVER_KEY.to_string(), config_block(std::path::Path::new("/x/sidq-mcp")));
+            .insert(
+                SERVER_KEY.to_string(),
+                config_block(std::path::Path::new("/x/sidq-mcp")),
+            );
         root
     }
 
@@ -168,7 +181,8 @@ mod tests {
          * the person most likely to press this button, and a convenience that
          * eats their setup is worse than making them edit the file themselves.
          */
-        let before = r#"{"mcpServers":{"github":{"command":"gh-mcp"},"postgres":{"command":"pg"}}}"#;
+        let before =
+            r#"{"mcpServers":{"github":{"command":"gh-mcp"},"postgres":{"command":"pg"}}}"#;
         let after = merge_into(Some(before));
         let servers = after["mcpServers"].as_object().unwrap();
 
@@ -206,7 +220,9 @@ mod tests {
 
     #[test]
     fn the_block_is_shaped_the_way_a_client_expects() {
-        let block = config_block(std::path::Path::new("/Applications/Sidq.app/Contents/MacOS/sidq-mcp"));
+        let block = config_block(std::path::Path::new(
+            "/Applications/Sidq.app/Contents/MacOS/sidq-mcp",
+        ));
         assert!(block["command"].as_str().unwrap().ends_with("sidq-mcp"));
         assert!(block["args"].is_array());
     }
@@ -216,7 +232,11 @@ mod tests {
         // An absolute path here would join away the home directory entirely and
         // write into somebody's filesystem root.
         for client in &CLIENTS {
-            assert!(!client.path.starts_with('/'), "{} has an absolute path", client.id);
+            assert!(
+                !client.path.starts_with('/'),
+                "{} has an absolute path",
+                client.id
+            );
         }
     }
 }

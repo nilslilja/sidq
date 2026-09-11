@@ -78,7 +78,9 @@ pub fn spawn(app: tauri::AppHandle) {
                 crate::announce(&disk);
                 telemetry::record(
                     &conn,
-                    telemetry::Event::Indexed { conversations: index_store::counts(&conn).0 },
+                    telemetry::Event::Indexed {
+                        conversations: index_store::counts(&conn).0,
+                    },
                 );
             }
 

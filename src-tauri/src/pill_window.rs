@@ -379,12 +379,14 @@ fn on_screen(
     origin: (f64, f64),
     usable: (f64, f64),
 ) -> LogicalPosition<f64> {
-    let x = wanted
-        .0
-        .clamp(origin.0 - size.0 + KEEP_VISIBLE, origin.0 + usable.0 - KEEP_VISIBLE);
-    let y = wanted
-        .1
-        .clamp(origin.1 - size.1 + KEEP_VISIBLE, origin.1 + usable.1 - KEEP_VISIBLE);
+    let x = wanted.0.clamp(
+        origin.0 - size.0 + KEEP_VISIBLE,
+        origin.0 + usable.0 - KEEP_VISIBLE,
+    );
+    let y = wanted.1.clamp(
+        origin.1 - size.1 + KEEP_VISIBLE,
+        origin.1 + usable.1 - KEEP_VISIBLE,
+    );
     LogicalPosition::new(x, y)
 }
 
@@ -416,16 +418,25 @@ pub fn nudge(w: &WebviewWindow, dx: f64, dy: f64) {
     remember_offset();
 
     let expanded = is_expanded(w);
-    let (size, inset) =
-        if expanded { (EXPANDED, EXPANDED_INSET) } else { (COLLAPSED, GLOW_MARGIN) };
+    let (size, inset) = if expanded {
+        (EXPANDED, EXPANDED_INSET)
+    } else {
+        (COLLAPSED, GLOW_MARGIN)
+    };
     let _ = place(w, size, inset);
 }
 
 /// Read back where it was left last time.
 pub fn restore_offset() {
-    let Some(conn) = crate::index_store::open() else { return };
-    let Some(saved) = crate::index_store::setting(&conn, OFFSET_KEY) else { return };
-    let Some((x, y)) = saved.split_once(',') else { return };
+    let Some(conn) = crate::index_store::open() else {
+        return;
+    };
+    let Some(saved) = crate::index_store::setting(&conn, OFFSET_KEY) else {
+        return;
+    };
+    let Some((x, y)) = saved.split_once(',') else {
+        return;
+    };
     let (Ok(x), Ok(y)) = (x.parse::<f64>(), y.parse::<f64>()) else {
         return;
     };
@@ -440,7 +451,6 @@ fn remember_offset() {
         let _ = crate::index_store::put_setting(&conn, OFFSET_KEY, &format!("{x},{y}"));
     }
 }
-
 
 /**
  * Which edge the window hangs from, given the screen and the housing.
@@ -493,7 +503,6 @@ fn top_edge(screen_top: f64, work_top: f64, notch: f64) -> f64 {
         (screen_top + FLOAT_GAP).max(work_top)
     }
 }
-
 
 /*
  * ── Closing the picker by clicking somewhere else ────────────────────────────
@@ -586,9 +595,8 @@ fn start_watching(w: &WebviewWindow) {
         });
     });
 
-    let mask = NSEventMask::LeftMouseDown
-        | NSEventMask::RightMouseDown
-        | NSEventMask::OtherMouseDown;
+    let mask =
+        NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown | NSEventMask::OtherMouseDown;
 
     // SAFETY: main thread. The handler outlives the monitor: the block is
     // retained by AppKit for as long as the monitor is registered, and the
@@ -1014,8 +1022,12 @@ fn follow_cursor(w: &WebviewWindow) {
 
             if geometry.is_none() || last_read.elapsed().as_millis() > 700 {
                 // The window going away ends the loop rather than spinning.
-                let Ok(scale) = win.scale_factor() else { return };
-                let Ok(pos) = win.outer_position() else { return };
+                let Ok(scale) = win.scale_factor() else {
+                    return;
+                };
+                let Ok(pos) = win.outer_position() else {
+                    return;
+                };
                 geometry = Some((
                     pos.x as f64 / scale,
                     pos.y as f64 / scale,
@@ -1123,13 +1135,19 @@ mod tests {
     #[test]
     fn a_window_pushed_right_forever_keeps_an_edge_on_screen() {
         let at = on_screen((99_999.0, 100.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
-        assert!(at.x <= A_SCREEN.1 .0 - KEEP_VISIBLE, "it has not left the right edge");
+        assert!(
+            at.x <= A_SCREEN.1 .0 - KEEP_VISIBLE,
+            "it has not left the right edge"
+        );
     }
 
     #[test]
     fn a_window_pushed_down_forever_stays_within_the_screen() {
         let at = on_screen((100.0, 99_999.0), COLLAPSED, A_SCREEN.0, A_SCREEN.1);
-        assert!(at.y <= A_SCREEN.0 .1 + A_SCREEN.1 .1 - KEEP_VISIBLE, "still on the desktop");
+        assert!(
+            at.y <= A_SCREEN.0 .1 + A_SCREEN.1 .1 - KEEP_VISIBLE,
+            "still on the desktop"
+        );
     }
 
     /*
@@ -1149,7 +1167,10 @@ mod tests {
         let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
         let at = on_screen((640.0, anchor_y), COLLAPSED, (0.0, 0.0), (1440.0, 900.0));
 
-        assert_eq!(at.y, anchor_y, "the clamp moved the bar before anybody touched it");
+        assert_eq!(
+            at.y, anchor_y,
+            "the clamp moved the bar before anybody touched it"
+        );
     }
 
     #[test]
@@ -1157,7 +1178,12 @@ mod tests {
         // The failure this pins: KEEP_VISIBLE was larger than GLOW_MARGIN, so
         // the floor sat below the resting position and up was a no-op.
         let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
-        let at = on_screen((640.0, anchor_y - NUDGE), COLLAPSED, (0.0, 0.0), (1440.0, 900.0));
+        let at = on_screen(
+            (640.0, anchor_y - NUDGE),
+            COLLAPSED,
+            (0.0, 0.0),
+            (1440.0, 900.0),
+        );
 
         assert!(at.y < anchor_y, "⌘↑ has to actually move it");
     }
@@ -1251,7 +1277,10 @@ mod tests {
     #[test]
     fn a_housing_always_pushes_the_bar_clear_of_it() {
         let y = top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, NOTCH);
-        assert!(y >= WORK_TOP_NOTCHED - 0.01, "the bar would be behind the camera");
+        assert!(
+            y >= WORK_TOP_NOTCHED - 0.01,
+            "the bar would be behind the camera"
+        );
     }
 
     const SCREEN_TOP: f64 = 0.0;
@@ -1348,7 +1377,10 @@ mod tests {
          * puts the bar below the menu bar: worse on a Mac without a housing,
          * and visible on every Mac there is.
          */
-        assert!(UNMEASURED_NOTCH > 0.0, "an unmeasured screen must take the safe branch");
+        assert!(
+            UNMEASURED_NOTCH > 0.0,
+            "an unmeasured screen must take the safe branch"
+        );
         assert_eq!(
             top_edge(SCREEN_TOP, WORK_TOP_NOTCHED, UNMEASURED_NOTCH),
             (SCREEN_TOP + FLOAT_GAP).max(WORK_TOP_NOTCHED),

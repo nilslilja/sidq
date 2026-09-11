@@ -35,7 +35,10 @@ const TIMEOUT_SECS: &str = "10";
 
 /// Where a published id and its secret live, per project.
 fn keys(project_path: &str) -> (String, String) {
-    (format!("share.id.{project_path}"), format!("share.secret.{project_path}"))
+    (
+        format!("share.id.{project_path}"),
+        format!("share.secret.{project_path}"),
+    )
 }
 
 /// The id this project is published under, if it is published at all.
@@ -166,10 +169,8 @@ mod tests {
 
     fn db() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
-        )
-        .unwrap();
+        conn.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
+            .unwrap();
         conn
     }
 

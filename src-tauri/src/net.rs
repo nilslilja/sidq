@@ -27,7 +27,11 @@
  * or /bin depending on the distribution. A name that resolves is worth more
  * than a path that is right on one machine.
  */
-pub const CURL: &str = if cfg!(target_os = "macos") { "/usr/bin/curl" } else { "curl" };
+pub const CURL: &str = if cfg!(target_os = "macos") {
+    "/usr/bin/curl"
+} else {
+    "curl"
+};
 
 /**
  * Sixteen bytes of randomness, from whatever this platform has.
@@ -136,10 +140,17 @@ mod tests {
             let to_eof = line.contains("fs::read(")
                 || line.contains("read_to_end")
                 || line.contains("read_to_string");
-            assert!(!(to_eof && line.contains("/dev/")), "line {} reads a device to EOF", n + 1);
+            assert!(
+                !(to_eof && line.contains("/dev/")),
+                "line {} reads a device to EOF",
+                n + 1
+            );
         }
 
-        assert!(code.contains("read_exact"), "the random source no longer states a size");
+        assert!(
+            code.contains("read_exact"),
+            "the random source no longer states a size"
+        );
     }
 
     #[test]
@@ -157,7 +168,10 @@ mod tests {
          */
         let manifest = include_str!("../Cargo.toml");
 
-        assert!(manifest.contains("default = [\"app\"]"), "the app feature is gone");
+        assert!(
+            manifest.contains("default = [\"app\"]"),
+            "the app feature is gone"
+        );
         for line in manifest.lines() {
             let is_tauri_dep = line.starts_with("tauri = ")
                 || line.starts_with("tauri-build = ")
@@ -190,7 +204,10 @@ mod tests {
          * not a crash, not an error, just Sidq opening with no sources and
          * looking like an app that works and has nothing to show.
          */
-        assert!(home().is_some(), "no home on the platform running this test");
+        assert!(
+            home().is_some(),
+            "no home on the platform running this test"
+        );
 
         // Empty is not a home. An empty PathBuf joins into a relative path and
         // every source would then be looked for in the working directory.
@@ -207,7 +224,10 @@ mod tests {
         } else if cfg!(target_os = "windows") {
             assert!(shown.contains("AppData"), "{shown}");
         } else {
-            assert!(shown.contains(".local/share") || shown.contains("XDG"), "{shown}");
+            assert!(
+                shown.contains(".local/share") || shown.contains("XDG"),
+                "{shown}"
+            );
         }
     }
 }

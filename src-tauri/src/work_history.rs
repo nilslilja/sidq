@@ -436,14 +436,12 @@ pub fn recent_sessions(limit: usize) -> Vec<WorkSession> {
 
     let mut sessions: Vec<WorkSession> = project_roots()
         .iter()
-        .flat_map(|(root, source)| {
-            read_dirs(root)
-                .into_iter()
-                .map(move |dir| (dir, *source))
-        })
+        .flat_map(|(root, source)| read_dirs(root).into_iter().map(move |dir| (dir, *source)))
         .collect::<Vec<_>>()
         .into_iter()
-        .flat_map(|(dir, source)| sessions_in_project(&dir, source, cache.as_ref(), &mut seen_paths))
+        .flat_map(|(dir, source)| {
+            sessions_in_project(&dir, source, cache.as_ref(), &mut seen_paths)
+        })
         .collect::<Vec<_>>()
         .into_iter()
         .map(|mut session| {
@@ -515,9 +513,9 @@ fn project_roots() -> Vec<(PathBuf, &'static str)> {
     // answer to a question every platform has. Windows keeps it in AppData and
     // Linux under .local/share, and hardcoding one of the three is how this
     // reader finds nothing on the other two.
-    let Some(cowork) = crate::net::app_data().map(|d| {
-        d.join("Claude").join("local-agent-mode-sessions")
-    }) else {
+    let Some(cowork) =
+        crate::net::app_data().map(|d| d.join("Claude").join("local-agent-mode-sessions"))
+    else {
         return roots;
     };
 
@@ -557,14 +555,20 @@ fn cowork_titles() -> std::collections::HashMap<String, String> {
 
     for workspace in read_dirs(&root) {
         for account in read_dirs(&workspace) {
-            let Ok(entries) = fs::read_dir(&account) else { continue };
+            let Ok(entries) = fs::read_dir(&account) else {
+                continue;
+            };
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.extension().is_none_or(|e| e != "json") {
                     continue;
                 }
-                let Ok(text) = fs::read_to_string(&path) else { continue };
-                let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+                let Ok(text) = fs::read_to_string(&path) else {
+                    continue;
+                };
+                let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+                    continue;
+                };
 
                 let id = value.get("cliSessionId").and_then(|v| v.as_str());
                 let title = value.get("title").and_then(|v| v.as_str());
@@ -753,7 +757,10 @@ fn read_session(path: &Path, source: &'static str) -> Option<WorkSession> {
         }
 
         if session.project.is_empty() {
-            if let Some(cwd) = value.get("cwd").and_then(|v| v.as_str()).filter(|c| !is_sandbox(c))
+            if let Some(cwd) = value
+                .get("cwd")
+                .and_then(|v| v.as_str())
+                .filter(|c| !is_sandbox(c))
             {
                 session.project = cwd.to_string();
                 session.project_name = Path::new(cwd)
@@ -852,7 +859,8 @@ const ACTIVE_GAP_MS: i64 = 30 * 60 * 1_000;
 pub(crate) fn is_sandbox(cwd: &str) -> bool {
     // Exactly one level under /sessions. A real repo somebody happens to keep at
     // /sessions/work/api is theirs and is left alone.
-    cwd.strip_prefix("/sessions/").is_some_and(|rest| !rest.contains('/'))
+    cwd.strip_prefix("/sessions/")
+        .is_some_and(|rest| !rest.contains('/'))
 }
 
 fn active_minutes(stamps: &mut [i64]) -> u32 {
@@ -928,7 +936,11 @@ mod tests {
 
         let titles = super::cowork_titles();
         println!("\n  cowork titles found: {}", titles.len());
-        for s in sessions.iter().filter(|s| s.source == super::SOURCE_COWORK).take(4) {
+        for s in sessions
+            .iter()
+            .filter(|s| s.source == super::SOURCE_COWORK)
+            .take(4)
+        {
             println!("    {} — {}", &s.session_id[..8], s.title);
         }
         println!();
@@ -953,8 +965,14 @@ mod tests {
         for turn in &turns {
             for block in &turn.blocks {
                 match block {
-                    Block::Said(t) => { said += 1; let _ = t; }
-                    Block::Thought(t) => { thought += 1; thinking_chars += t.chars().count(); }
+                    Block::Said(t) => {
+                        said += 1;
+                        let _ = t;
+                    }
+                    Block::Thought(t) => {
+                        thought += 1;
+                        thinking_chars += t.chars().count();
+                    }
                     Block::Did { .. } => did += 1,
                     Block::Saw { .. } => saw += 1,
                     Block::Interrupted => stopped += 1,
@@ -978,7 +996,9 @@ mod tests {
 
         println!("\n  {}", session.title);
         println!("  {} turns", turns.len());
-        println!("  said {said} · thought {thought} · ran {did} · returned {saw} · stopped {stopped}");
+        println!(
+            "  said {said} · thought {thought} · ran {did} · returned {saw} · stopped {stopped}"
+        );
         println!("  reasoning recovered: {thinking_chars} chars");
         println!("  spoken handover:   {} chars", spoken.chars().count());
         println!("  compiled handover: {} chars\n", compiled.chars().count());
@@ -1005,7 +1025,10 @@ mod tests {
             "endedAt",
             "activeMinutes",
         ] {
-            assert!(json.contains(&format!("\"{key}\"")), "missing {key} in {json}");
+            assert!(
+                json.contains(&format!("\"{key}\"")),
+                "missing {key} in {json}"
+            );
         }
         assert!(!json.contains("project_name"), "snake_case leaked: {json}");
     }
@@ -1052,7 +1075,10 @@ mod tests {
         // civil-date arithmetic rather than merely checking it is self-consistent.
         assert_eq!(iso_to_millis("1970-01-01T00:00:00"), Some(0));
         assert_eq!(iso_to_millis("1970-01-02T00:00:00"), Some(86_400_000));
-        assert_eq!(iso_to_millis("2026-08-15T09:00:00"), Some(1_786_784_400_000));
+        assert_eq!(
+            iso_to_millis("2026-08-15T09:00:00"),
+            Some(1_786_784_400_000)
+        );
     }
 
     #[test]

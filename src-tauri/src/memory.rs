@@ -126,7 +126,10 @@ pub fn build(conn: &rusqlite::Connection, path: &str) -> Option<Memory> {
     let mut decisions: Vec<Decided> = crate::profile::build(&own, MOST_DECISIONS)
         .into_iter()
         .filter(|fact| fact.conversations >= 2)
-        .map(|fact| Decided { text: fact.text, conversations: fact.conversations })
+        .map(|fact| Decided {
+            text: fact.text,
+            conversations: fact.conversations,
+        })
         .collect();
 
     /*
@@ -188,8 +191,10 @@ pub fn build(conn: &rusqlite::Connection, path: &str) -> Option<Memory> {
 /// "we use the folder not a server" are one decision and printing both makes
 /// the list look padded.
 fn said_once(own: &[(String, String)], already: &[Decided], want: usize) -> Vec<Decided> {
-    let mut seen: Vec<Vec<String>> =
-        already.iter().map(|d| crate::profile::content_words(&d.text)).collect();
+    let mut seen: Vec<Vec<String>> = already
+        .iter()
+        .map(|d| crate::profile::content_words(&d.text))
+        .collect();
     let mut out = Vec::new();
 
     for (_, body) in own {
@@ -239,7 +244,10 @@ fn said_once(own: &[(String, String)], already: &[Decided], want: usize) -> Vec<
                 continue;
             }
             seen.push(words);
-            out.push(Decided { text: sentence, conversations: 1 });
+            out.push(Decided {
+                text: sentence,
+                conversations: 1,
+            });
         }
     }
 
@@ -261,21 +269,24 @@ fn transcript(session_id: &str) -> Vec<Turn> {
 /// often a Codex one and `work_history` parses only Claude's format — so the
 /// other half of this went unused and unrunnable at the same time.
 fn first_typed(turns: &[Turn]) -> String {
-    turns.iter().filter(|t| matches!(t.role, Role::You)).filter_map(|turn| {
-        let text: String = turn
-            .blocks
-            .iter()
-            .filter_map(|b| match b {
-                Block::Said(t) => Some(t.as_str()),
-                _ => None,
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
-        crate::profile::is_typed(&text).then_some(text)
-    })
-    .next()
-    .map(|t| clip(&t))
-    .unwrap_or_default()
+    turns
+        .iter()
+        .filter(|t| matches!(t.role, Role::You))
+        .filter_map(|turn| {
+            let text: String = turn
+                .blocks
+                .iter()
+                .filter_map(|b| match b {
+                    Block::Said(t) => Some(t.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            crate::profile::is_typed(&text).then_some(text)
+        })
+        .next()
+        .map(|t| clip(&t))
+        .unwrap_or_default()
 }
 
 /// Long enough to recognise, short enough that a memory is not a transcript.
@@ -284,7 +295,12 @@ fn clip(text: &str) -> String {
     if flat.chars().count() <= 200 {
         return flat;
     }
-    flat.chars().take(200).collect::<String>().trim_end().to_string() + "…"
+    flat.chars()
+        .take(200)
+        .collect::<String>()
+        .trim_end()
+        .to_string()
+        + "…"
 }
 
 /*
@@ -386,7 +402,11 @@ impl Memory {
                  honest one to give.\n\n",
             );
             for n in &self.noted {
-                let who = if n.source.is_empty() { "an assistant" } else { &n.source };
+                let who = if n.source.is_empty() {
+                    "an assistant"
+                } else {
+                    &n.source
+                };
                 out.push_str(&format!("- {} ({who})\n", n.text));
             }
             out.push('\n');
@@ -410,7 +430,10 @@ mod tests {
             path: "/w/Sidq".into(),
             opened_with: "build the whole thing".into(),
             last_on: "ship the release".into(),
-            decisions: vec![Decided { text: "never use em dashes".into(), conversations: 4 }],
+            decisions: vec![Decided {
+                text: "never use em dashes".into(),
+                conversations: 4,
+            }],
             noted: Vec::new(),
             recent_work: vec!["Pricing page copy".into()],
             assistants: vec!["claude-code".into()],
@@ -462,8 +485,15 @@ mod tests {
         ];
         let found = said_once(&own, &[], 10);
 
-        assert_eq!(found.len(), 2, "one from the paste at most, then the real one");
-        assert_eq!(found[1].text, "make sure the invite count matches the migration");
+        assert_eq!(
+            found.len(),
+            2,
+            "one from the paste at most, then the real one"
+        );
+        assert_eq!(
+            found[1].text,
+            "make sure the invite count matches the migration"
+        );
     }
 
     #[test]
@@ -496,7 +526,10 @@ mod tests {
          * halves of one decision is how a list starts looking padded, and the
          * near-duplicate is always the weaker phrasing.
          */
-        let already = vec![Decided { text: "always use the folder, not a server".into(), conversations: 3 }];
+        let already = vec![Decided {
+            text: "always use the folder, not a server".into(),
+            conversations: 3,
+        }];
         let own = vec![turn("always use a folder and not a server")];
 
         assert!(said_once(&own, &already, 10).is_empty());
@@ -510,8 +543,14 @@ mod tests {
          */
         let memory = Memory {
             decisions: vec![
-                Decided { text: "never use em dashes".into(), conversations: 4 },
-                Decided { text: "make sure it runs end to end".into(), conversations: 1 },
+                Decided {
+                    text: "never use em dashes".into(),
+                    conversations: 4,
+                },
+                Decided {
+                    text: "make sure it runs end to end".into(),
+                    conversations: 1,
+                },
             ],
             ..a_memory()
         };
@@ -575,14 +614,20 @@ mod tests {
         let note = out.find("the retry path should be idempotent").unwrap();
 
         assert!(quoted < recorded, "quoted decisions come first");
-        assert!(note > recorded, "a note is under its own heading, not the quoted one");
+        assert!(
+            note > recorded,
+            "a note is under its own heading, not the quoted one"
+        );
     }
 
     #[test]
     fn a_recorded_line_is_never_given_a_count() {
         // A count here means "you said this in six conversations". There is no
         // honest number for a line a model wrote once, so it does not get one.
-        let memory = Memory { noted: vec![a_note("use the folder")], ..a_memory() };
+        let memory = Memory {
+            noted: vec![a_note("use the folder")],
+            ..a_memory()
+        };
         let out = memory.as_markdown();
 
         assert!(out.contains("- use the folder (claude)"));
@@ -593,7 +638,10 @@ mod tests {
     fn it_says_who_recorded_a_line() {
         // Reading "an AI decided this" is different from reading "you decided
         // this", and different again from not knowing which assistant it was.
-        let memory = Memory { noted: vec![a_note("ship it")], ..a_memory() };
+        let memory = Memory {
+            noted: vec![a_note("ship it")],
+            ..a_memory()
+        };
         assert!(memory.as_markdown().contains("(claude)"));
     }
 
@@ -601,7 +649,9 @@ mod tests {
     fn a_memory_with_no_notes_says_nothing_about_them() {
         // The heading is a claim that an assistant has been writing here. On a
         // machine where none has, printing an empty section says otherwise.
-        assert!(!a_memory().as_markdown().contains("Recorded by an assistant"));
+        assert!(!a_memory()
+            .as_markdown()
+            .contains("Recorded by an assistant"));
     }
 
     #[test]
@@ -621,7 +671,11 @@ mod tests {
 
     #[test]
     fn an_empty_project_still_reads_as_a_sentence() {
-        let out = Memory { name: "Thing".into(), ..Default::default() }.as_markdown();
+        let out = Memory {
+            name: "Thing".into(),
+            ..Default::default()
+        }
+        .as_markdown();
         assert!(out.contains("0 conversations"));
         assert!(!out.contains("It started with"));
     }
@@ -649,7 +703,9 @@ mod diagnostics {
     #[test]
     #[ignore]
     fn how_long_a_memory_takes() {
-        let Some(conn) = crate::index_store::open() else { return };
+        let Some(conn) = crate::index_store::open() else {
+            return;
+        };
         let projects = crate::index_store::projects(&conn, 5);
         for row in &projects {
             let started = std::time::Instant::now();
@@ -683,13 +739,23 @@ mod diagnostics {
 
         println!("\n=== projects Sidq can see ===");
         for p in &projects {
-            println!("  {:>4} turns  {:>3} conversations  {}", p.turns, p.conversations, p.path);
+            println!(
+                "  {:>4} turns  {:>3} conversations  {}",
+                p.turns, p.conversations, p.path
+            );
         }
 
-        let Some(memory) = super::build(&conn, &projects[0].path) else { return };
+        let Some(memory) = super::build(&conn, &projects[0].path) else {
+            return;
+        };
         println!("\n=== {} ===", memory.name);
-        println!("{} conversations, {} turns, {} minutes, in {}",
-            memory.conversations, memory.turns, memory.minutes, memory.assistants.join(" and "));
+        println!(
+            "{} conversations, {} turns, {} minutes, in {}",
+            memory.conversations,
+            memory.turns,
+            memory.minutes,
+            memory.assistants.join(" and ")
+        );
         println!("\nopened with: {}", memory.opened_with);
         println!("last on:     {}", memory.last_on);
 

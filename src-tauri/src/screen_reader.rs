@@ -136,7 +136,8 @@ pub fn source_for(url_or_app: &str) -> Option<&'static str> {
 pub fn request_trust() {
     use core_foundation::dictionary::CFDictionary;
 
-    let key = unsafe { CFString::wrap_under_get_rule(accessibility_sys::kAXTrustedCheckOptionPrompt) };
+    let key =
+        unsafe { CFString::wrap_under_get_rule(accessibility_sys::kAXTrustedCheckOptionPrompt) };
     let options = CFDictionary::from_CFType_pairs(&[(key, CFBoolean::true_value())]);
 
     // SAFETY: the dictionary outlives the call and the function takes a
@@ -267,7 +268,11 @@ fn children(element: AXUIElementRef) -> Vec<Element> {
     // Retained individually: the array releases its contents when it drops at
     // the end of this function, and without this every child would dangle.
     (0..array.len())
-        .filter_map(|i| array.get(i).map(|p| Element::retained(*p as AXUIElementRef)))
+        .filter_map(|i| {
+            array
+                .get(i)
+                .map(|p| Element::retained(*p as AXUIElementRef))
+        })
         .collect()
 }
 
@@ -379,7 +384,11 @@ fn walk(
     // Classes are set on the container, not on the text node inside it, so they
     // are carried down rather than read at the leaf.
     let own = class_list(element);
-    let classes = if own.is_empty() { inherited.to_string() } else { own };
+    let classes = if own.is_empty() {
+        inherited.to_string()
+    } else {
+        own
+    };
 
     // Whole subtree, not just this node: the marker sits on the container and
     // the text is a couple of levels below it.
@@ -391,7 +400,10 @@ fn walk(
         Some("AXStaticText") => {
             if let Some(text) = string_attribute(element, kAXValueAttribute) {
                 if !text.trim().is_empty() && !is_interface_label(&text) {
-                    out.push(Node { text, classes: classes.clone() });
+                    out.push(Node {
+                        text,
+                        classes: classes.clone(),
+                    });
                 }
             }
         }
@@ -429,7 +441,10 @@ fn walk(
                 // A run of them collapses. An avatar beside every turn, or a
                 // row of thumbnails, is one absence rather than twenty.
                 if out.last().map(|n: &Node| n.text.as_str()) != Some(text.as_str()) {
-                    out.push(Node { text, classes: classes.clone() });
+                    out.push(Node {
+                        text,
+                        classes: classes.clone(),
+                    });
                 }
             }
         }
@@ -488,7 +503,11 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
     let mut turns: Vec<(String, String)> = Vec::new();
 
     for node in nodes {
-        let role = if is_person(&node.classes) { "You" } else { "Assistant" };
+        let role = if is_person(&node.classes) {
+            "You"
+        } else {
+            "Assistant"
+        };
         match turns.last_mut() {
             Some(last) if last.0 == role => {
                 if breaks_the_line(&last.1, &node.text) {
@@ -574,7 +593,9 @@ pub fn into_turns(nodes: &[Node], is_person: fn(&str) -> bool) -> Vec<(String, S
  */
 fn breaks_the_line(before: &str, after: &str) -> bool {
     let continues = after.starts_with(|c: char| c.is_whitespace())
-        || after.starts_with([',', '.', ';', ':', '!', '?', ')', ']', '}', '”', '’', '»', '%'])
+        || after.starts_with([
+            ',', '.', ';', ':', '!', '?', ')', ']', '}', '”', '’', '»', '%',
+        ])
         || before.ends_with(|c: char| c.is_whitespace())
         || before.ends_with(['(', '[', '{', '“', '‘', '«']);
 
@@ -750,7 +771,9 @@ pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String,
         // A browser: the address decides, before any text is touched.
         for area in &areas {
             let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
-            let Some(source) = source_for(&url) else { continue };
+            let Some(source) = source_for(&url) else {
+                continue;
+            };
 
             /*
              * ── Ask twice before believing a thin read ───────────────────────
@@ -812,7 +835,10 @@ pub fn read_open_assistants() -> Vec<(&'static str, String, String, Vec<(String,
  * screen while the tree underneath was perfectly readable.
  */
 fn readable_processes() -> Vec<(i32, String)> {
-    let Ok(out) = std::process::Command::new("/bin/ps").args(["-Ao", "pid=,comm="]).output() else {
+    let Ok(out) = std::process::Command::new("/bin/ps")
+        .args(["-Ao", "pid=,comm="])
+        .output()
+    else {
         return Vec::new();
     };
 
@@ -833,7 +859,9 @@ fn readable_processes() -> Vec<(i32, String)> {
                 .next()?
                 .to_string();
 
-            READABLE_APPS.contains(&name.as_str()).then_some((pid, name))
+            READABLE_APPS
+                .contains(&name.as_str())
+                .then_some((pid, name))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -875,7 +903,12 @@ fn owns_windows(pid: i32) -> bool {
     !children(app.as_raw()).is_empty()
 }
 
-fn find_web_areas(element: AXUIElementRef, depth: usize, out: &mut Vec<Element>, budget: &mut usize) {
+fn find_web_areas(
+    element: AXUIElementRef,
+    depth: usize,
+    out: &mut Vec<Element>,
+    budget: &mut usize,
+) {
     if depth > MAX_DEPTH || *budget == 0 || out.len() > 8 {
         return;
     }
@@ -972,7 +1005,11 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
             continue;
         }
 
-        let identity = if url.is_empty() { format!("{source}:{title}") } else { url };
+        let identity = if url.is_empty() {
+            format!("{source}:{title}")
+        } else {
+            url
+        };
         let session_id: String = identity
             .chars()
             .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
@@ -990,9 +1027,23 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
 
-        let clean = title.split(" - ").next().unwrap_or(&title).trim().to_string();
+        let clean = title
+            .split(" - ")
+            .next()
+            .unwrap_or(&title)
+            .trim()
+            .to_string();
         let _ = crate::index_store::put_session(
-            conn, &session_id, source, &clean, source, "", "", now, turns.len() as u32, 0,
+            conn,
+            &session_id,
+            source,
+            &clean,
+            source,
+            "",
+            "",
+            now,
+            turns.len() as u32,
+            0,
         );
 
         /*
@@ -1023,9 +1074,22 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
             // Again, now the merged length is known: the row above counted only
             // the turns this one read could see, and ranking reads that count.
             let _ = crate::index_store::put_session(
-                conn, &session_id, source, &clean, source, "", "", now, kept as u32, 0,
+                conn,
+                &session_id,
+                source,
+                &clean,
+                source,
+                "",
+                "",
+                now,
+                kept as u32,
+                0,
             );
-            found.push(Found { source, title: clean, first_time });
+            found.push(Found {
+                source,
+                title: clean,
+                first_time,
+            });
         }
     }
 
@@ -1073,7 +1137,9 @@ mod tests {
         assert!(identifies_a_conversation(
             "https://chatgpt.com/c/6a58d612-6a10-83eb-ba16-a25d6f94eb61"
         ));
-        assert!(identifies_a_conversation("https://gemini.google.com/app/434b357ad2df6173"));
+        assert!(identifies_a_conversation(
+            "https://gemini.google.com/app/434b357ad2df6173"
+        ));
     }
 
     #[test]
@@ -1137,15 +1203,30 @@ mod tests {
         // Every one of these sites splits a reply over many nodes when it has a
         // list or a code block in it.
         let nodes = vec![
-            Node { text: "what should I do".into(), classes: "query-text-line".into() },
-            Node { text: "First,".into(), classes: "markdown-main-panel".into() },
-            Node { text: "second.".into(), classes: "markdown-main-panel".into() },
-            Node { text: "and then".into(), classes: "query-text-line".into() },
+            Node {
+                text: "what should I do".into(),
+                classes: "query-text-line".into(),
+            },
+            Node {
+                text: "First,".into(),
+                classes: "markdown-main-panel".into(),
+            },
+            Node {
+                text: "second.".into(),
+                classes: "markdown-main-panel".into(),
+            },
+            Node {
+                text: "and then".into(),
+                classes: "query-text-line".into(),
+            },
         ];
 
         let turns = into_turns(&nodes, person_by_class);
         assert_eq!(
-            turns.iter().map(|(who, _)| who.as_str()).collect::<Vec<_>>(),
+            turns
+                .iter()
+                .map(|(who, _)| who.as_str())
+                .collect::<Vec<_>>(),
             ["You", "Assistant", "You"]
         );
         assert_eq!(turns[1].1, "First,\nsecond.");
@@ -1164,7 +1245,10 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_secs(4));
         println!("\n  trusted: {}", is_trusted());
         let procs = readable_processes();
-        println!("  readable apps running: {:?}", procs.iter().map(|(_, n)| n).collect::<Vec<_>>());
+        println!(
+            "  readable apps running: {:?}",
+            procs.iter().map(|(_, n)| n).collect::<Vec<_>>()
+        );
 
         let found = read_open_assistants();
         if found.is_empty() {
@@ -1172,8 +1256,15 @@ mod tests {
         }
         for (source, url, title, turns) in &found {
             let chars: usize = turns.iter().map(|(_, b)| b.chars().count()).sum();
-            let where_from = if url.is_empty() { title.clone() } else { url.clone() };
-            println!("  {source} ({where_from}): {} turns, {chars} characters", turns.len());
+            let where_from = if url.is_empty() {
+                title.clone()
+            } else {
+                url.clone()
+            };
+            println!(
+                "  {source} ({where_from}): {} turns, {chars} characters",
+                turns.len()
+            );
             for (role, body) in turns.iter().take(2) {
                 println!("      {role}: {} chars", body.chars().count());
             }
@@ -1221,7 +1312,9 @@ mod tests {
 
             for area in &areas {
                 let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
-                let Some(source) = source_for(&url) else { continue };
+                let Some(source) = source_for(&url) else {
+                    continue;
+                };
 
                 println!("\n  ── {source} in {app_name} ──");
                 println!("  {url}");
@@ -1235,7 +1328,9 @@ mod tests {
                 let mut groups: std::collections::HashMap<String, (usize, usize, String)> =
                     std::collections::HashMap::new();
                 for n in &nodes {
-                    let e = groups.entry(n.classes.clone()).or_insert((0, 0, String::new()));
+                    let e = groups
+                        .entry(n.classes.clone())
+                        .or_insert((0, 0, String::new()));
                     e.0 += 1;
                     e.1 += n.text.chars().count();
                     if e.2.is_empty() {
@@ -1247,8 +1342,15 @@ mod tests {
                 rows.sort_by_key(|(_, (_, chars, _))| std::cmp::Reverse(*chars));
 
                 for (classes, (count, chars, sample)) in rows.iter().take(10) {
-                    let who = if person_by_class(classes) { "YOU " } else { "    " };
-                    println!("  {who}{chars:>6} chars  x{count:<3}  {}", classes.chars().take(76).collect::<String>());
+                    let who = if person_by_class(classes) {
+                        "YOU "
+                    } else {
+                        "    "
+                    };
+                    println!(
+                        "  {who}{chars:>6} chars  x{count:<3}  {}",
+                        classes.chars().take(76).collect::<String>()
+                    );
                     println!("            sample: {sample}");
                 }
 
@@ -1264,7 +1366,10 @@ mod tests {
     }
 
     fn node(text: &str, classes: &str) -> Node {
-        Node { text: text.into(), classes: classes.into() }
+        Node {
+            text: text.into(),
+            classes: classes.into(),
+        }
     }
 
     #[test]
@@ -1336,7 +1441,10 @@ mod tests {
         let turns = into_turns(&nodes, person_by_class);
         assert_eq!(turns.len(), 3);
         assert_eq!(turns[0].0, "You");
-        assert_eq!(turns[1], ("Assistant".into(), "Three of them.\nfn main() {}".into()));
+        assert_eq!(
+            turns[1],
+            ("Assistant".into(), "Three of them.\nfn main() {}".into())
+        );
         assert_eq!(turns[2].0, "You");
     }
 
@@ -1373,7 +1481,10 @@ mod tests {
                 node("Skip to main content", "nav"),
                 node("New Chat", "nav"),
                 node("nilsliljan@gmail.com", "account"),
-                node(&"Use Build Mode to create websites, games and apps. ".repeat(8), "promo"),
+                node(
+                    &"Use Build Mode to create websites, games and apps. ".repeat(8),
+                    "promo",
+                ),
             ],
             person_by_class,
         );
@@ -1401,8 +1512,14 @@ mod tests {
          */
         let unknown = into_turns(
             &[
-                node(&"what should I do about this".repeat(10), "some-unfamiliar-class"),
-                node(&"here is what I think".repeat(10), "another-unfamiliar-class"),
+                node(
+                    &"what should I do about this".repeat(10),
+                    "some-unfamiliar-class",
+                ),
+                node(
+                    &"here is what I think".repeat(10),
+                    "another-unfamiliar-class",
+                ),
             ],
             person_by_class,
         );
@@ -1419,9 +1536,15 @@ mod tests {
         //
         // A person's turn comes first, because a reply that precedes one is
         // page furniture now and is dropped before this can be asserted.
-        let nodes = vec![node("a question", "user-message"), node("typed by a reply", "")];
+        let nodes = vec![
+            node("a question", "user-message"),
+            node("typed by a reply", ""),
+        ];
         let turns = into_turns(&nodes, person_by_class);
-        assert_eq!(turns[1].0, "Assistant", "no classes means it is not a person's");
+        assert_eq!(
+            turns[1].0, "Assistant",
+            "no classes means it is not a person's"
+        );
     }
 
     #[test]
@@ -1443,7 +1566,10 @@ mod tests {
         let turns = into_turns(
             &[
                 node("do you see this", "user-message"),
-                node("[an image was here: a chain hanging off a sprocket]", "user-message"),
+                node(
+                    "[an image was here: a chain hanging off a sprocket]",
+                    "user-message",
+                ),
                 node("That chain is far too slack.", "font-claude-message"),
             ],
             person_by_class,
@@ -1451,7 +1577,10 @@ mod tests {
 
         assert_eq!(turns.len(), 2);
         assert!(turns[0].1.contains("do you see this"));
-        assert!(turns[0].1.contains("an image was here"), "in the turn, not appended after it");
+        assert!(
+            turns[0].1.contains("an image was here"),
+            "in the turn, not appended after it"
+        );
     }
 
     #[test]
@@ -1466,7 +1595,10 @@ mod tests {
         // Anything a person would actually have attached is kept.
         assert!(!is_an_icon("a chain hanging off a sprocket"));
         assert!(!is_an_icon("screenshot of the error"));
-        assert!(!is_an_icon(""), "undescribed, so it is still worth saying it existed");
+        assert!(
+            !is_an_icon(""),
+            "undescribed, so it is still worth saying it existed"
+        );
     }
 
     #[test]
@@ -1485,11 +1617,17 @@ mod tests {
          */
         assert!(source_for("https://www.perplexity.ai/search/anything").is_none());
         assert!(source_for("https://chat.mistral.ai/chat/abc").is_none());
-        assert!(!READABLE_APPS.contains(&"Perplexity"), "nor its desktop app");
+        assert!(
+            !READABLE_APPS.contains(&"Perplexity"),
+            "nor its desktop app"
+        );
 
         // And the ones that can be read still are.
         assert_eq!(source_for("https://grok.com/c/abc"), Some("grok"));
-        assert_eq!(source_for("https://chat.deepseek.com/a/chat/s/abc"), Some("deepseek"));
+        assert_eq!(
+            source_for("https://chat.deepseek.com/a/chat/s/abc"),
+            Some("deepseek")
+        );
     }
 
     #[test]
@@ -1508,7 +1646,10 @@ mod tests {
          * accounts. `items-end` was the first guess for Grok and appears
          * nowhere on the page, which is why Grok captured nothing at all.
          */
-        assert!(person_by_class("break-words"), "grok, exactly as the page has it");
+        assert!(
+            person_by_class("break-words"),
+            "grok, exactly as the page has it"
+        );
         assert!(person_by_class("fbb737a4"), "deepseek");
 
         // Grok's own reply carries the same class plus a run of responsive
@@ -1518,8 +1659,14 @@ mod tests {
             !person_by_class("break-words last:mb-0 max-md:leading-[155%] max-md:mb-4"),
             "grok's reply is not the person",
         );
-        assert!(!person_by_class("ds-markdown ds-markdown--block"), "deepseek's reply");
-        assert!(!person_by_class("flex flex-col items-end"), "the guess that never matched");
+        assert!(
+            !person_by_class("ds-markdown ds-markdown--block"),
+            "deepseek's reply"
+        );
+        assert!(
+            !person_by_class("flex flex-col items-end"),
+            "the guess that never matched"
+        );
     }
 
     #[test]
@@ -1529,7 +1676,10 @@ mod tests {
         let turns = into_turns(
             &[
                 node("Grok", "brand"),
-                node(&"what is the torque spec for this bolt".repeat(6), "break-words"),
+                node(
+                    &"what is the torque spec for this bolt".repeat(6),
+                    "break-words",
+                ),
                 node(
                     &"Around 12 Nm on that size.".repeat(20),
                     "break-words last:mb-0 max-md:leading-[155%] max-md:mb-4",
@@ -1540,7 +1690,10 @@ mod tests {
 
         assert_eq!(turns.len(), 2, "the brand line is furniture and goes");
         assert_eq!(turns[0].0, "You");
-        assert!(is_substantial(&turns), "this is a conversation and must be kept");
+        assert!(
+            is_substantial(&turns),
+            "this is a conversation and must be kept"
+        );
     }
 
     #[test]
@@ -1607,7 +1760,10 @@ mod tests {
             person_by_class,
         );
 
-        assert_eq!(turns[1].1, "Sage Bambino Plus\n5 899,00 kr\nBaratza Encore ESP");
+        assert_eq!(
+            turns[1].1,
+            "Sage Bambino Plus\n5 899,00 kr\nBaratza Encore ESP"
+        );
     }
 
     #[test]
@@ -1629,19 +1785,31 @@ mod tests {
                 node("Gemini", "brand"),
                 node("Ny chatt", "nav-item"),
                 node("Villa Exit Cost Analysis", "conversation-title"),
-                node("Mouth Widening Surgery: Risks and Realities", "conversation-title"),
+                node(
+                    "Mouth Widening Surgery: Risks and Realities",
+                    "conversation-title",
+                ),
                 node("Var det en civilpolis?", "conversation-title"),
                 node("the chain keeps hopping off the sprocket", "query-text"),
-                node("That usually means the chain is too slack.", "model-response"),
+                node(
+                    "That usually means the chain is too slack.",
+                    "model-response",
+                ),
             ],
             person_by_class,
         );
 
         let everything = turns.iter().map(|(_, b)| b.as_str()).collect::<String>();
-        assert!(!everything.contains("Villa Exit"), "another conversation's title");
+        assert!(
+            !everything.contains("Villa Exit"),
+            "another conversation's title"
+        );
         assert!(!everything.contains("Mouth Widening"), "and a medical one");
         assert!(!everything.contains("civilpolis"));
-        assert!(!everything.contains("Ny chatt"), "and the navigation with it");
+        assert!(
+            !everything.contains("Ny chatt"),
+            "and the navigation with it"
+        );
 
         // The conversation itself is untouched, both speakers intact.
         assert_eq!(turns.len(), 2);

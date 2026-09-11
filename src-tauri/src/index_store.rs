@@ -286,7 +286,10 @@ fn migrate(conn: &Connection) -> Option<()> {
      * already existing, which is the state it is trying to reach.
      */
     if version < 4 {
-        let _ = conn.execute("ALTER TABLE sessions ADD COLUMN project_path TEXT NOT NULL DEFAULT ''", []);
+        let _ = conn.execute(
+            "ALTER TABLE sessions ADD COLUMN project_path TEXT NOT NULL DEFAULT ''",
+            [],
+        );
     }
 
     /*
@@ -296,17 +299,16 @@ fn migrate(conn: &Connection) -> Option<()> {
      * batch, a column cannot.
      */
 
-    conn.pragma_update(None, "user_version", SCHEMA_VERSION).ok()?;
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+        .ok()?;
     Some(())
 }
 
 /// Read one remembered fact. `None` when it was never written.
 pub fn setting(conn: &Connection, key: &str) -> Option<String> {
-    conn.query_row(
-        "SELECT value FROM settings WHERE key = ?1",
-        [key],
-        |row| row.get::<_, String>(0),
-    )
+    conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+        row.get::<_, String>(0)
+    })
     .ok()
 }
 
@@ -329,7 +331,9 @@ pub fn put_setting(conn: &Connection, key: &str, value: &str) -> Option<()> {
  * the row rather than writing "" over it.
  */
 pub fn forget_setting(conn: &Connection, key: &str) -> Option<()> {
-    conn.execute("DELETE FROM settings WHERE key = ?1", [key]).ok().map(|_| ())
+    conn.execute("DELETE FROM settings WHERE key = ?1", [key])
+        .ok()
+        .map(|_| ())
 }
 
 /// Record that a conversation was handed over, at a moment in seconds.
@@ -507,7 +511,11 @@ pub fn noted_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<Not
     };
 
     stmt.query_map(params![path, limit], |row| {
-        Ok(Noted { text: row.get(0)?, source: row.get(1)?, recorded_at: row.get(2)? })
+        Ok(Noted {
+            text: row.get(0)?,
+            source: row.get(1)?,
+            recorded_at: row.get(2)?,
+        })
     })
     .map(|rows| rows.filter_map(Result::ok).collect())
     .unwrap_or_default()
@@ -645,9 +653,9 @@ pub fn titles_for_project(conn: &Connection, path: &str, limit: usize) -> Vec<St
 
 /// Which assistants were used on one project.
 pub fn assistants_for_project(conn: &Connection, path: &str) -> Vec<String> {
-    let Ok(mut stmt) = conn.prepare(
-        "SELECT DISTINCT source FROM sessions WHERE project_path = ?1 ORDER BY source",
-    ) else {
+    let Ok(mut stmt) = conn
+        .prepare("SELECT DISTINCT source FROM sessions WHERE project_path = ?1 ORDER BY source")
+    else {
         return Vec::new();
     };
     stmt.query_map([path], |row| row.get(0))
@@ -849,8 +857,8 @@ pub fn session_transcript(conn: &Connection, session_id: &str) -> Option<String>
  * conversation front to back in one pass.
  */
 pub fn session_turns(conn: &Connection, session_id: &str) -> Vec<(String, String)> {
-    let Ok(mut stmt) = conn
-        .prepare("SELECT role, body FROM messages WHERE session_id = ?1 ORDER BY rowid")
+    let Ok(mut stmt) =
+        conn.prepare("SELECT role, body FROM messages WHERE session_id = ?1 ORDER BY rowid")
     else {
         return Vec::new();
     };
@@ -972,7 +980,9 @@ pub fn merge_turns(
     (first..last)
         .filter_map(|p| {
             let held = usize::try_from(p).ok().and_then(|i| stored.get(i));
-            let read = usize::try_from(p - offset).ok().and_then(|k| incoming.get(k));
+            let read = usize::try_from(p - offset)
+                .ok()
+                .and_then(|k| incoming.get(k));
             match (held, read) {
                 // Overlapping, so the two agree — but one may have been caught
                 // mid-stream, and the longer of the pair is the finished one.
@@ -1078,8 +1088,11 @@ pub fn put_messages(
     messages: &[(String, String)],
     fingerprint: &str,
 ) -> Option<()> {
-    conn.execute("DELETE FROM messages WHERE session_id = ?1", params![session_id])
-        .ok()?;
+    conn.execute(
+        "DELETE FROM messages WHERE session_id = ?1",
+        params![session_id],
+    )
+    .ok()?;
 
     {
         let mut stmt = conn
@@ -1159,7 +1172,11 @@ pub fn search(conn: &Connection, query: &str, since: i64, limit: usize) -> (Vec<
 fn sanitise(query: &str) -> String {
     query
         .split_whitespace()
-        .map(|term| term.chars().filter(|c| c.is_alphanumeric() || *c == '-').collect::<String>())
+        .map(|term| {
+            term.chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-')
+                .collect::<String>()
+        })
         // A term must carry at least one letter or digit. Stripping punctuation
         // can leave a bare "--", which FTS5 accepts as a token and then matches
         // nothing, so a search containing a dash silently returned no results.
@@ -1224,7 +1241,13 @@ pub(crate) mod tests {
     #[test]
     fn a_remembered_transcript_comes_back() {
         let conn = memory();
-        remember_digest(&conn, "/t/a.jsonl", 100, 500, &a_digest("Pricing page copy"));
+        remember_digest(
+            &conn,
+            "/t/a.jsonl",
+            100,
+            500,
+            &a_digest("Pricing page copy"),
+        );
 
         let found = digest(&conn, "/t/a.jsonl", 100, 500).expect("same file, same answer");
         assert_eq!(found.title, "Pricing page copy");
@@ -1234,7 +1257,13 @@ pub(crate) mod tests {
     #[test]
     fn a_transcript_that_grew_is_read_again() {
         let conn = memory();
-        remember_digest(&conn, "/t/a.jsonl", 100, 500, &a_digest("Pricing page copy"));
+        remember_digest(
+            &conn,
+            "/t/a.jsonl",
+            100,
+            500,
+            &a_digest("Pricing page copy"),
+        );
 
         // Appended to: same mtime is impossible in practice, but size alone has
         // to be enough, because that is the case this is protecting against.
@@ -1252,7 +1281,10 @@ pub(crate) mod tests {
             .query_row("SELECT COUNT(*) FROM transcript_digest", [], |r| r.get(0))
             .unwrap();
         assert_eq!(rows, 1, "one row per path, not one per version");
-        assert_eq!(digest(&conn, "/t/a.jsonl", 200, 900).unwrap().title, "New title");
+        assert_eq!(
+            digest(&conn, "/t/a.jsonl", 200, 900).unwrap().title,
+            "New title"
+        );
     }
 
     #[test]
@@ -1283,8 +1315,19 @@ pub(crate) mod tests {
     }
 
     fn seed(conn: &Connection, id: &str, ended_at: i64, body: &str) {
-        put_session(conn, id, "claude-code", "A conversation", "Sidq", "/w/Sidq", "main", ended_at, 10, 30)
-            .unwrap();
+        put_session(
+            conn,
+            id,
+            "claude-code",
+            "A conversation",
+            "Sidq",
+            "/w/Sidq",
+            "main",
+            ended_at,
+            10,
+            30,
+        )
+        .unwrap();
         put_messages(conn, id, &[("You".into(), body.into())], "fp").unwrap();
     }
 
@@ -1300,12 +1343,27 @@ pub(crate) mod tests {
          * conversation.
          */
         let conn = memory();
-        put_session(&conn, "s", "gemini", "A Friendly Greeting", "", "", "", 1, 4, 0).unwrap();
+        put_session(
+            &conn,
+            "s",
+            "gemini",
+            "A Friendly Greeting",
+            "",
+            "",
+            "",
+            1,
+            4,
+            0,
+        )
+        .unwrap();
         put_messages(
             &conn,
             "s",
             &[
-                ("Assistant".into(), "Gemini\nNew chat\nMouth Widening Surgery".into()),
+                (
+                    "Assistant".into(),
+                    "Gemini\nNew chat\nMouth Widening Surgery".into(),
+                ),
                 ("You".into(), "the chain keeps hopping off".into()),
                 ("Assistant".into(), "That usually means it is slack.".into()),
                 ("You".into(), "by how much".into()),
@@ -1316,7 +1374,10 @@ pub(crate) mod tests {
 
         let removed = strip_page_furniture(&conn);
 
-        assert_eq!(removed, 1, "only the block before the first thing they said");
+        assert_eq!(
+            removed, 1,
+            "only the block before the first thing they said"
+        );
         let (hits, _) = search(&conn, "Mouth", 0, 10);
         assert!(hits.is_empty(), "another conversation's title is gone");
         let (kept, _) = search(&conn, "slack", 0, 10);
@@ -1351,7 +1412,10 @@ pub(crate) mod tests {
         put_messages(
             &conn,
             "s",
-            &[("Assistant".into(), "furniture".into()), ("You".into(), "hello".into())],
+            &[
+                ("Assistant".into(), "furniture".into()),
+                ("You".into(), "hello".into()),
+            ],
             "fp",
         )
         .unwrap();
@@ -1367,8 +1431,18 @@ pub(crate) mod tests {
     #[test]
     fn finds_a_phrase_across_conversations() {
         let conn = memory();
-        seed(&conn, "a", 2_000, "we decided the retry drops the second event");
-        seed(&conn, "b", 1_000, "something entirely unrelated about mangos");
+        seed(
+            &conn,
+            "a",
+            2_000,
+            "we decided the retry drops the second event",
+        );
+        seed(
+            &conn,
+            "b",
+            1_000,
+            "something entirely unrelated about mangos",
+        );
 
         let (hits, _) = search(&conn, "retry", 0, 10);
 
@@ -1402,7 +1476,9 @@ pub(crate) mod tests {
         seed(&conn, "a", 1, "the retry logic");
 
         // Punctuation around a real term is stripped, so these still match.
-        for query in ["retry'", "\"retry", "retry!", "(retry)", "-- retry", "retry."] {
+        for query in [
+            "retry'", "\"retry", "retry!", "(retry)", "-- retry", "retry.",
+        ] {
             let (hits, _) = search(&conn, query, 0, 10);
             assert_eq!(hits.len(), 1, "query {query:?} should still find it");
         }
@@ -1415,7 +1491,10 @@ pub(crate) mod tests {
          */
         for query in ["retry NOT", "retry AND missing", "retry OR"] {
             let (hits, _) = search(&conn, query, 0, 10);
-            assert!(hits.is_empty(), "query {query:?} should be empty, not an error");
+            assert!(
+                hits.is_empty(),
+                "query {query:?} should be empty, not an error"
+            );
         }
     }
 
@@ -1490,7 +1569,10 @@ pub(crate) mod tests {
      */
 
     fn spoken(turns: &[(&str, &str)]) -> Vec<(String, String)> {
-        turns.iter().map(|(role, body)| ((*role).to_string(), (*body).to_string())).collect()
+        turns
+            .iter()
+            .map(|(role, body)| ((*role).to_string(), (*body).to_string()))
+            .collect()
     }
 
     #[test]
@@ -1504,7 +1586,13 @@ pub(crate) mod tests {
         merge_messages(&conn, "s", &whole, "read-1").unwrap();
 
         // Scrolled away from the top, so the site unloaded the first exchange.
-        merge_messages(&conn, "s", &spoken(&[("You", "and the ordering")]), "read-2").unwrap();
+        merge_messages(
+            &conn,
+            "s",
+            &spoken(&[("You", "and the ordering")]),
+            "read-2",
+        )
+        .unwrap();
 
         assert_eq!(session_turns(&conn, "s"), whole);
     }
@@ -1516,7 +1604,10 @@ pub(crate) mod tests {
         merge_messages(
             &conn,
             "s",
-            &spoken(&[("You", "and the ordering"), ("Assistant", "by rowid, front to back")]),
+            &spoken(&[
+                ("You", "and the ordering"),
+                ("Assistant", "by rowid, front to back"),
+            ]),
             "read-1",
         )
         .unwrap();
@@ -1595,7 +1686,10 @@ pub(crate) mod tests {
         // Read again once the reply had finished arriving.
         let finished = spoken(&[
             ("You", "explain how the merge works"),
-            ("Assistant", "it lines the two windows up by offset, then splices them"),
+            (
+                "Assistant",
+                "it lines the two windows up by offset, then splices them",
+            ),
         ]);
         merge_messages(&conn, "s", &finished, "read-2").unwrap();
 
@@ -1724,7 +1818,10 @@ pub fn forget_missing_digests(conn: &Connection, seen: &[String]) {
         return;
     }
 
-    let holes = std::iter::repeat("?").take(seen.len()).collect::<Vec<_>>().join(",");
+    let holes = std::iter::repeat("?")
+        .take(seen.len())
+        .collect::<Vec<_>>()
+        .join(",");
     let sql = format!("DELETE FROM transcript_digest WHERE path NOT IN ({holes})");
     let _ = conn.execute(&sql, rusqlite::params_from_iter(seen.iter()));
 }

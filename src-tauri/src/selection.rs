@@ -61,13 +61,50 @@ const W_LENGTH: f64 = 0.15;
  * "ok" is here; "no" is not, because "no" is a decision.
  */
 const FILLER_WORDS: [&str; 44] = [
-    "hi", "hello", "hey", "yo", "morning", "afternoon", "evening", "night", "goodnight",
-    "thanks", "thank", "thx", "ty", "cheers", "tack", "welcome", "np",
-    "ok", "okay", "kk", "alright", "aight", "fine",
-    "cool", "nice", "great", "perfect", "awesome", "excellent", "brilliant", "lovely",
-    "got", "makes", "sense", "sounds",
-    "continue", "carry", "keep", "going", "proceed", "next",
-    "lol", "haha", "lmao",
+    "hi",
+    "hello",
+    "hey",
+    "yo",
+    "morning",
+    "afternoon",
+    "evening",
+    "night",
+    "goodnight",
+    "thanks",
+    "thank",
+    "thx",
+    "ty",
+    "cheers",
+    "tack",
+    "welcome",
+    "np",
+    "ok",
+    "okay",
+    "kk",
+    "alright",
+    "aight",
+    "fine",
+    "cool",
+    "nice",
+    "great",
+    "perfect",
+    "awesome",
+    "excellent",
+    "brilliant",
+    "lovely",
+    "got",
+    "makes",
+    "sense",
+    "sounds",
+    "continue",
+    "carry",
+    "keep",
+    "going",
+    "proceed",
+    "next",
+    "lol",
+    "haha",
+    "lmao",
 ];
 
 /**
@@ -78,9 +115,8 @@ const FILLER_WORDS: [&str; 44] = [
  * the rule above never fires on anything a person actually types.
  */
 const CONNECTORS: [&str; 33] = [
-    "a", "the", "this", "that", "it", "is", "was", "im", "i", "am", "my", "you", "your",
-    "and", "so", "then", "just", "very", "much", "for", "to", "of", "now", "all", "too",
-    "please",
+    "a", "the", "this", "that", "it", "is", "was", "im", "i", "am", "my", "you", "your", "and",
+    "so", "then", "just", "very", "much", "for", "to", "of", "now", "all", "too", "please",
     // What an apostrophe leaves behind once the word is split on it. "you're"
     // arrives as "you" and "re"; on its own "re" is not a word anyone typed.
     "re", "s", "ve", "ll", "d", "t", "m",
@@ -221,8 +257,12 @@ fn protect_tool_pairs(turns: &[Turn], keep: &mut [bool]) {
  * set, and the front is exactly what a person cannot afford to lose.
  */
 fn trim_to_budget(turns: &[Turn], keep: &mut [bool], budget: usize) -> usize {
-    let mut running: usize =
-        turns.iter().zip(keep.iter()).filter(|(_, k)| **k).map(|(t, _)| weight(t)).sum();
+    let mut running: usize = turns
+        .iter()
+        .zip(keep.iter())
+        .filter(|(_, k)| **k)
+        .map(|(t, _)| weight(t))
+        .sum();
     if running <= budget {
         return 0;
     }
@@ -233,7 +273,10 @@ fn trim_to_budget(turns: &[Turn], keep: &mut [bool], budget: usize) -> usize {
     // always selects the same way.
     let mut order: Vec<usize> = (0..turns.len()).collect();
     order.sort_by(|a, b| {
-        scores[*a].partial_cmp(&scores[*b]).unwrap_or(std::cmp::Ordering::Equal).then(a.cmp(b))
+        scores[*a]
+            .partial_cmp(&scores[*b])
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(b))
     });
 
     let last = turns.len() - 1;
@@ -350,7 +393,9 @@ fn thought_chars(turn: &Turn) -> usize {
 }
 
 fn has_failure(turn: &Turn) -> bool {
-    turn.blocks.iter().any(|b| matches!(b, Block::Saw { failed: true, .. }))
+    turn.blocks
+        .iter()
+        .any(|b| matches!(b, Block::Saw { failed: true, .. }))
 }
 
 fn has_interruption(turn: &Turn) -> bool {
@@ -373,7 +418,10 @@ mod tests {
     use crate::capture::Role;
 
     fn said(role: Role, text: &str) -> Turn {
-        Turn { role, blocks: vec![Block::Said(text.into())] }
+        Turn {
+            role,
+            blocks: vec![Block::Said(text.into())],
+        }
     }
 
     fn person(text: &str) -> Turn {
@@ -405,7 +453,10 @@ mod tests {
     #[test]
     fn anything_that_says_something_is_carried() {
         assert!(!is_filler(&person("ok but the index is still empty")));
-        assert!(!is_filler(&person("no")), "a refusal is a decision, not a pleasantry");
+        assert!(
+            !is_filler(&person("no")),
+            "a refusal is a decision, not a pleasantry"
+        );
         assert!(!is_filler(&person("yes")), "so is agreeing to something");
         assert!(!is_filler(&person("thanks, that broke the build")));
         assert!(!is_filler(&person("continue with the second one")));
@@ -417,7 +468,10 @@ mod tests {
             role: Role::Assistant,
             blocks: vec![
                 Block::Said("ok".into()),
-                Block::Did { tool: "Read".into(), input: "src/main.rs".into() },
+                Block::Did {
+                    tool: "Read".into(),
+                    input: "src/main.rs".into(),
+                },
             ],
         };
         assert!(!is_filler(&turn), "it did something, whatever it said");
@@ -438,14 +492,20 @@ mod tests {
         assert_eq!(report.filler, 1);
         assert_eq!(report.overflow, 0);
         assert_eq!(kept.len(), 4);
-        assert!(!kept.iter().any(|t| matches!(&t.blocks[0], Block::Said(s) if s == "ok thanks")));
+        assert!(!kept
+            .iter()
+            .any(|t| matches!(&t.blocks[0], Block::Said(s) if s == "ok thanks")));
     }
 
     #[test]
     fn the_opening_and_the_last_word_are_kept_even_when_they_say_nothing() {
         // The brief quotes both. Dropping either makes it describe a
         // conversation the file does not contain.
-        let turns = vec![person("hey"), assistant("what are we building"), person("thanks")];
+        let turns = vec![
+            person("hey"),
+            assistant("what are we building"),
+            person("thanks"),
+        ];
 
         let (kept, report) = select(&turns, usize::MAX);
 
@@ -459,7 +519,10 @@ mod tests {
     fn an_oversized_conversation_drops_its_least_substantial_turns() {
         let mut turns = vec![person("set the budget to six hundred thousand")];
         for i in 0..40 {
-            turns.push(assistant(&format!("filler body number {i} {}", "x".repeat(4_000))));
+            turns.push(assistant(&format!(
+                "filler body number {i} {}",
+                "x".repeat(4_000)
+            )));
         }
         turns.push(Turn {
             role: Role::Assistant,
@@ -472,11 +535,15 @@ mod tests {
 
         let (kept, report) = select(&turns, 60_000);
 
-        assert!(report.overflow > 0, "it did not fit, so something had to go");
+        assert!(
+            report.overflow > 0,
+            "it did not fit, so something had to go"
+        );
         let total: usize = kept.iter().map(weight).sum();
         assert!(total <= 60_000, "what is left fits the budget");
         assert!(
-            kept.iter().any(|t| t.blocks.iter().any(|b| matches!(b, Block::Thought(_)))),
+            kept.iter()
+                .any(|t| t.blocks.iter().any(|b| matches!(b, Block::Thought(_)))),
             "the reasoning outranks bulk, and bulk is what should have gone"
         );
     }
@@ -519,8 +586,12 @@ mod tests {
 
         let (kept, _) = select(&turns, 1);
 
-        let calls = kept.iter().filter(|t| t.blocks.iter().any(|b| matches!(b, Block::Did { .. })));
-        let results = kept.iter().filter(|t| t.blocks.iter().any(|b| matches!(b, Block::Saw { .. })));
+        let calls = kept
+            .iter()
+            .filter(|t| t.blocks.iter().any(|b| matches!(b, Block::Did { .. })));
+        let results = kept
+            .iter()
+            .filter(|t| t.blocks.iter().any(|b| matches!(b, Block::Saw { .. })));
         assert_eq!(
             calls.count(),
             results.count(),
@@ -537,7 +608,10 @@ mod tests {
         let (first, _) = select(&turns, 20_000);
         let (again, _) = select(&turns, 20_000);
 
-        assert_eq!(first, again, "no map iteration order, no clock, no randomness");
+        assert_eq!(
+            first, again,
+            "no map iteration order, no clock, no randomness"
+        );
     }
 
     /**
@@ -569,9 +643,16 @@ mod tests {
         let before: usize = turns.iter().map(weight).sum();
         let after: usize = kept.iter().map(weight).sum();
 
-        println!("\n{} — {} turns, {before} chars", session.title, turns.len());
+        println!(
+            "\n{} — {} turns, {before} chars",
+            session.title,
+            turns.len()
+        );
         println!("kept {} turns, {after} chars", kept.len());
-        println!("dropped {} as filler, {} to fit\n", report.filler, report.overflow);
+        println!(
+            "dropped {} as filler, {} to fit\n",
+            report.filler, report.overflow
+        );
 
         let mut keep: Vec<bool> = turns.iter().map(|t| !is_filler(t)).collect();
         protect_anchors(&mut keep);
@@ -608,7 +689,8 @@ mod tests {
 
         assert!(report.overflow > 0);
         assert!(
-            kept.iter().any(|t| matches!(&t.blocks[0], Block::Said(s) if s.contains("British"))),
+            kept.iter()
+                .any(|t| matches!(&t.blocks[0], Block::Said(s) if s.contains("British"))),
             "a standing instruction outranks bulk even with no other signal available"
         );
     }

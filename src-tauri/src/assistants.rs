@@ -53,11 +53,31 @@ pub struct Assistant {
 }
 
 pub const ASSISTANTS: [Assistant; 5] = [
-    Assistant { id: "chatgpt", label: "ChatGPT", url: "https://chatgpt.com/" },
-    Assistant { id: "claude.ai", label: "Claude", url: "https://claude.ai/" },
-    Assistant { id: "gemini", label: "Gemini", url: "https://gemini.google.com/app" },
-    Assistant { id: "grok", label: "Grok", url: "https://grok.com/" },
-    Assistant { id: "deepseek", label: "DeepSeek", url: "https://chat.deepseek.com/" },
+    Assistant {
+        id: "chatgpt",
+        label: "ChatGPT",
+        url: "https://chatgpt.com/",
+    },
+    Assistant {
+        id: "claude.ai",
+        label: "Claude",
+        url: "https://claude.ai/",
+    },
+    Assistant {
+        id: "gemini",
+        label: "Gemini",
+        url: "https://gemini.google.com/app",
+    },
+    Assistant {
+        id: "grok",
+        label: "Grok",
+        url: "https://grok.com/",
+    },
+    Assistant {
+        id: "deepseek",
+        label: "DeepSeek",
+        url: "https://chat.deepseek.com/",
+    },
 ];
 
 pub fn find(id: &str) -> Option<&'static Assistant> {
@@ -478,7 +498,11 @@ mod tests {
          */
         let script = reader_script("chatgpt");
         for a in &ASSISTANTS {
-            assert!(script.contains(&format!("'{}':", a.id)), "no selectors for {}", a.id);
+            assert!(
+                script.contains(&format!("'{}':", a.id)),
+                "no selectors for {}",
+                a.id
+            );
         }
     }
 
@@ -492,8 +516,14 @@ mod tests {
          */
         let script = reader_script("chatgpt");
 
-        assert!(script.contains("window.open ="), "window.open must be replaced");
-        assert!(script.contains("location.assign(href)"), "and become a navigation");
+        assert!(
+            script.contains("window.open ="),
+            "window.open must be replaced"
+        );
+        assert!(
+            script.contains("location.assign(href)"),
+            "and become a navigation"
+        );
         // A stub, not null: callers poke the handle afterwards and a null
         // dereference there kills the redirect before it happens.
         assert!(script.contains("closed: false"));

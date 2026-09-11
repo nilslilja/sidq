@@ -265,7 +265,9 @@ pub fn seats(conn: &Connection) -> Result<Vec<Seat>, String> {
                 .filter_map(|row| {
                     Some(Seat {
                         code: row.get("code")?.as_str()?.to_string(),
-                        taken: row.get("taken").and_then(serde_json::Value::as_bool)
+                        taken: row
+                            .get("taken")
+                            .and_then(serde_json::Value::as_bool)
                             .unwrap_or(false),
                     })
                 })
@@ -366,7 +368,10 @@ mod tests {
             r#"{"code":"UNAUTHORIZED_ASYMMETRIC_JWT","message":"Invalid JWT"}"#,
         ] {
             let out = server_message(body);
-            assert!(!out.contains("JWT"), "developer wording reached a person: {out}");
+            assert!(
+                !out.contains("JWT"),
+                "developer wording reached a person: {out}"
+            );
             assert!(out.contains("sign-in needs refreshing"), "{out}");
         }
     }

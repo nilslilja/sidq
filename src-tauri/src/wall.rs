@@ -56,13 +56,19 @@ pub const MARKERS: [Marker; 2] = [
      * one an assistant turn. The tracking parameter is the tell — no person
      * types `?from=cc_cli_limit`, which is what makes this safe to act on.
      */
-    Marker { source: "claude-code", needle: "from=cc_cli_limit" },
+    Marker {
+        source: "claude-code",
+        needle: "from=cc_cli_limit",
+    },
     /*
      * The same event as rendered without the link. Kept separate rather than
      * loosened into one fuzzy pattern, so that if this one ever fires wrongly
      * it can be removed without taking the reliable one with it.
      */
-    Marker { source: "claude-code", needle: "you've hit your monthly spend limit" },
+    Marker {
+        source: "claude-code",
+        needle: "you've hit your monthly spend limit",
+    },
 ];
 
 /**
@@ -74,7 +80,9 @@ pub const MARKERS: [Marker; 2] = [
  */
 pub fn hit(source: &str, body: &str) -> bool {
     let body = body.to_lowercase();
-    MARKERS.iter().any(|m| m.source == source && body.contains(m.needle))
+    MARKERS
+        .iter()
+        .any(|m| m.source == source && body.contains(m.needle))
 }
 
 /// Whether Sidq watches for this source's wall at all.
@@ -167,7 +175,12 @@ mod tests {
                     m.needle
                 );
             }
-            assert_eq!(m.needle, m.needle.to_lowercase(), "{:?} must be lowercase", m.needle);
+            assert_eq!(
+                m.needle,
+                m.needle.to_lowercase(),
+                "{:?} must be lowercase",
+                m.needle
+            );
             assert!(!m.source.is_empty());
         }
     }

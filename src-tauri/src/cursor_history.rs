@@ -68,7 +68,8 @@ fn open_ro(path: &Path) -> Option<Connection> {
 
 fn read_key(conn: &Connection, table: &str, key: &str) -> Option<String> {
     let sql = format!("SELECT value FROM {table} WHERE key = ?1");
-    conn.query_row(&sql, [key], |row| row.get::<_, String>(0)).ok()
+    conn.query_row(&sql, [key], |row| row.get::<_, String>(0))
+        .ok()
 }
 
 /// Every conversation across every workspace of every supported editor.
@@ -108,7 +109,10 @@ fn sessions_in_workspace(dir: &Path) -> Vec<WorkSession> {
         .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
         .and_then(|v| v.get("folder")?.as_str().map(str::to_string))
         .map(|folder| {
-            let path = folder.strip_prefix("file://").unwrap_or(&folder).to_string();
+            let path = folder
+                .strip_prefix("file://")
+                .unwrap_or(&folder)
+                .to_string();
             let name = Path::new(&path)
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
@@ -121,7 +125,11 @@ fn sessions_in_workspace(dir: &Path) -> Vec<WorkSession> {
     // working time to whichever conversation was open at the time.
     let stamps: Vec<i64> = read_key(&conn, "ItemTable", "aiService.generations")
         .and_then(|raw| serde_json::from_str::<Vec<Value>>(&raw).ok())
-        .map(|rows| rows.iter().filter_map(|r| as_millis(r.get("unixMs"))).collect())
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|r| as_millis(r.get("unixMs")))
+                .collect()
+        })
         .unwrap_or_default();
 
     let Some(raw) = read_key(&conn, "ItemTable", "composer.composerData") else {
@@ -136,7 +144,11 @@ fn sessions_in_workspace(dir: &Path) -> Vec<WorkSession> {
         .map(|composers| {
             composers
                 .iter()
-                .filter(|c| !c.get("isArchived").and_then(|v| v.as_bool()).unwrap_or(false))
+                .filter(|c| {
+                    !c.get("isArchived")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
+                })
                 .filter_map(|c| composer_to_session(c, &project, &project_name, &stamps))
                 .collect()
         })
@@ -230,7 +242,13 @@ pub fn session_transcript(composer_id: &str) -> Option<String> {
     let support = support_dir()?;
     let conn = EDITORS
         .iter()
-        .map(|e| support.join(e).join("User").join("globalStorage").join("state.vscdb"))
+        .map(|e| {
+            support
+                .join(e)
+                .join("User")
+                .join("globalStorage")
+                .join("state.vscdb")
+        })
         .filter(|p| p.is_file())
         .find_map(|p| open_ro(&p))?;
 
@@ -248,7 +266,11 @@ pub fn session_transcript(composer_id: &str) -> Option<String> {
         let Ok(bubble) = serde_json::from_str::<Value>(&row) else {
             continue;
         };
-        let text = bubble.get("text").and_then(|t| t.as_str()).unwrap_or("").trim();
+        let text = bubble
+            .get("text")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .trim();
         if text.is_empty() {
             continue;
         }
@@ -305,8 +327,14 @@ mod tests {
     fn reads_timestamps_written_as_either_numbers_or_strings() {
         // Cursor has shipped both shapes. Parsing only one silently zeroes every
         // date, which puts every conversation at the epoch and ranks them last.
-        assert_eq!(as_millis(Some(&serde_json::json!(1_772_742_281_802i64))), Some(1_772_742_281_802));
-        assert_eq!(as_millis(Some(&serde_json::json!("1772742281802"))), Some(1_772_742_281_802));
+        assert_eq!(
+            as_millis(Some(&serde_json::json!(1_772_742_281_802i64))),
+            Some(1_772_742_281_802)
+        );
+        assert_eq!(
+            as_millis(Some(&serde_json::json!("1772742281802"))),
+            Some(1_772_742_281_802)
+        );
         assert_eq!(as_millis(Some(&serde_json::json!("not a number"))), None);
         assert_eq!(as_millis(None), None);
     }

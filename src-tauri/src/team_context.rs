@@ -109,7 +109,11 @@ pub fn file_name_for(name: &str) -> String {
         .collect::<Vec<_>>()
         .join("-");
 
-    let slug = if slug.is_empty() { "me".to_string() } else { slug };
+    let slug = if slug.is_empty() {
+        "me".to_string()
+    } else {
+        slug
+    };
     format!("{slug}{SUFFIX}")
 }
 
@@ -188,7 +192,11 @@ pub fn read_others(folder: &Path, mine: &str) -> Vec<TeamRule> {
     house
         .into_iter()
         .flat_map(|path| {
-            parse_limited(&fs::read_to_string(&path).unwrap_or_default(), &path, HOUSE_LIMIT)
+            parse_limited(
+                &fs::read_to_string(&path).unwrap_or_default(),
+                &path,
+                HOUSE_LIMIT,
+            )
         })
         .chain(
             people
@@ -229,7 +237,10 @@ fn parse_limited(text: &str, path: &Path, limit: usize) -> Vec<TeamRule> {
         .map(str::trim)
         .filter(|t| !t.is_empty())
         .take(limit)
-        .map(|text| TeamRule { who: who.clone(), text: text.to_string() })
+        .map(|text| TeamRule {
+            who: who.clone(),
+            text: text.to_string(),
+        })
         .collect()
 }
 
@@ -296,7 +307,9 @@ pub fn new_code() -> Option<String> {
 pub fn is_code(code: &str) -> bool {
     let code = code.trim();
     code.len() == CODE_LEN
-        && code.bytes().all(|b| CODE_ALPHABET.contains(&b.to_ascii_lowercase()))
+        && code
+            .bytes()
+            .all(|b| CODE_ALPHABET.contains(&b.to_ascii_lowercase()))
 }
 
 /**
@@ -310,7 +323,10 @@ pub fn create_team(root: &Path, code: &str) -> Option<PathBuf> {
     if !is_code(code) {
         return None;
     }
-    let dir = root.join(format!("{TEAM_DIR_PREFIX}{}", code.trim().to_ascii_lowercase()));
+    let dir = root.join(format!(
+        "{TEAM_DIR_PREFIX}{}",
+        code.trim().to_ascii_lowercase()
+    ));
     fs::create_dir_all(&dir).ok()?;
     Some(dir)
 }
@@ -408,7 +424,11 @@ pub fn share_project(folder: &Path, who: &str, name: &str, text: &str) -> Option
     fs::create_dir_all(&dir).ok()?;
 
     let stem = file_stem_for(name);
-    let stem = if stem.is_empty() { "project".to_string() } else { stem };
+    let stem = if stem.is_empty() {
+        "project".to_string()
+    } else {
+        stem
+    };
 
     /*
      * Named after the project, not after the person, and deliberately.
@@ -443,7 +463,10 @@ pub fn shared_projects(folder: &Path, who: &str) -> Vec<SharedProject> {
         .flatten()
         .filter_map(|entry| {
             let path = entry.path();
-            let stem = path.file_name()?.to_str()?.strip_suffix(".sidq-project.md")?;
+            let stem = path
+                .file_name()?
+                .to_str()?
+                .strip_suffix(".sidq-project.md")?;
             let head = fs::read_to_string(&path).map(|t| split_shared(&t)).ok();
             let from = head.as_ref().and_then(|h| h.from.clone());
 
@@ -478,7 +501,9 @@ pub fn read_shared_project(folder: &Path, path: &str) -> Option<String> {
     if !wanted.starts_with(&dir) {
         return None;
     }
-    fs::read_to_string(wanted).ok().map(|t| split_shared(&t).body)
+    fs::read_to_string(wanted)
+        .ok()
+        .map(|t| split_shared(&t).body)
 }
 
 /// A conversation somebody on the team put in the folder.
@@ -525,11 +550,21 @@ pub fn share_handover(
 
     let stem: String = title
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim()
         .replace(' ', "-");
-    let stem = if stem.is_empty() { "conversation".into() } else { stem };
+    let stem = if stem.is_empty() {
+        "conversation".into()
+    } else {
+        stem
+    };
     let stem = &stem[..stem.len().min(60)];
 
     /*
@@ -596,10 +631,20 @@ pub struct SharedFile {
  */
 pub fn split_shared(text: &str) -> SharedFile {
     let Some(rest) = text.strip_prefix("---\n") else {
-        return SharedFile { title: None, from: None, project: None, body: text.to_string() };
+        return SharedFile {
+            title: None,
+            from: None,
+            project: None,
+            body: text.to_string(),
+        };
     };
     let Some((head, body)) = rest.split_once("\n---\n") else {
-        return SharedFile { title: None, from: None, project: None, body: text.to_string() };
+        return SharedFile {
+            title: None,
+            from: None,
+            project: None,
+            body: text.to_string(),
+        };
     };
 
     let field = |key: &str| -> Option<String> {
@@ -700,7 +745,9 @@ pub fn read_shared(folder: &Path, path: &str) -> Option<String> {
     }
     // The header is provenance for the list, not something to paste into an
     // assistant. What comes back is the conversation.
-    fs::read_to_string(wanted).ok().map(|text| split_shared(&text).body)
+    fs::read_to_string(wanted)
+        .ok()
+        .map(|text| split_shared(&text).body)
 }
 
 /* ── Finding a team that already exists ──────────────────────────────────── */
@@ -780,7 +827,9 @@ fn members_in(dir: &Path) -> Vec<String> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| {
-            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.ends_with(SUFFIX))
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.ends_with(SUFFIX))
         })
         .filter_map(|p| {
             let text = fs::read_to_string(&p).ok()?;
@@ -819,7 +868,10 @@ mod tests {
             assert_eq!(code.len(), 6);
             for c in code.chars() {
                 assert!(!"aeiou".contains(c), "{code} can spell things");
-                assert!(!"01lIO".contains(c), "{code} has a character people mistype");
+                assert!(
+                    !"01lIO".contains(c),
+                    "{code} has a character people mistype"
+                );
             }
             assert!(is_code(&code));
         }
@@ -839,7 +891,15 @@ mod tests {
          * characters from a fixed alphabet; everything else is refused before a
          * path is built at all.
          */
-        for bad in ["", "abc", "../../etc", "sidq-team-x", "aeiou1", "toolongcode", "bcdfg/"] {
+        for bad in [
+            "",
+            "abc",
+            "../../etc",
+            "sidq-team-x",
+            "aeiou1",
+            "toolongcode",
+            "bcdfg/",
+        ] {
             assert!(!is_code(bad), "{bad} was accepted as a code");
             assert_eq!(find_team(&[], bad), None);
             assert_eq!(create_team(&std::env::temp_dir(), bad), None);
@@ -887,7 +947,11 @@ mod tests {
         let code = new_code().unwrap();
 
         assert!(is_code(&code), "the code itself is fine");
-        assert_eq!(find_team(&roots, &code), None, "the folder is simply not here yet");
+        assert_eq!(
+            find_team(&roots, &code),
+            None,
+            "the folder is simply not here yet"
+        );
     }
 
     #[test]
@@ -930,7 +994,13 @@ mod tests {
 
         let found = read_others(&dir, &file_name_for("Nils"));
 
-        assert_eq!(found, vec![TeamRule { who: "Sam".into(), text: "always TypeScript, never JS".into() }]);
+        assert_eq!(
+            found,
+            vec![TeamRule {
+                who: "Sam".into(),
+                text: "always TypeScript, never JS".into()
+            }]
+        );
     }
 
     /*
@@ -964,7 +1034,11 @@ mod tests {
     #[test]
     fn a_file_with_no_heading_is_attributed_to_its_name() {
         let dir = scratch("noheading");
-        fs::write(dir.join(format!("back-end-team{SUFFIX}")), "- pin every dependency\n").unwrap();
+        fs::write(
+            dir.join(format!("back-end-team{SUFFIX}")),
+            "- pin every dependency\n",
+        )
+        .unwrap();
 
         let found = read_others(&dir, &file_name_for("Nils"));
 
@@ -978,7 +1052,10 @@ mod tests {
         assert!(path.exists());
 
         assert!(publish(&dir, "Nils", &[]).is_none());
-        assert!(!path.exists(), "an empty file would keep them in their teammates' handovers");
+        assert!(
+            !path.exists(),
+            "an empty file would keep them in their teammates' handovers"
+        );
     }
 
     #[test]
@@ -1030,7 +1107,9 @@ mod tests {
 
         let turns = vec![crate::capture::Turn {
             role: crate::capture::Role::You,
-            blocks: vec![crate::capture::Block::Said("how should I type this?".into())],
+            blocks: vec![crate::capture::Block::Said(
+                "how should I type this?".into(),
+            )],
         }];
         let brief = crate::compiler::Brief {
             source: "ChatGPT",
@@ -1043,8 +1122,14 @@ mod tests {
 
         let out = crate::compiler::compile(&turns, &brief, crate::compiler::Target::Markdown);
 
-        assert!(out.contains("- no em dashes in the copy"), "their own rules still ride along");
-        assert!(out.contains("- Sam: always TypeScript, never JS"), "and Sam's, with his name on");
+        assert!(
+            out.contains("- no em dashes in the copy"),
+            "their own rules still ride along"
+        );
+        assert!(
+            out.contains("- Sam: always TypeScript, never JS"),
+            "and Sam's, with his name on"
+        );
     }
 
     /*
@@ -1098,7 +1183,15 @@ mod tests {
     #[test]
     fn a_shared_conversation_is_named_after_who_shared_it() {
         let dir = scratch("share");
-        let path = share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-1", "the whole thing").unwrap();
+        let path = share_handover(
+            &dir,
+            "Nils",
+            "Pricing page copy",
+            "claude-code",
+            "s-1",
+            "the whole thing",
+        )
+        .unwrap();
 
         assert!(path.starts_with(dir.join(HANDOVERS_DIR)));
 
@@ -1128,10 +1221,30 @@ mod tests {
     #[test]
     fn two_conversations_with_the_same_title_both_survive() {
         let dir = scratch("collide");
-        share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-a", "the first").unwrap();
-        share_handover(&dir, "Nils", "Pricing page copy", "claude-code", "s-b", "the second").unwrap();
+        share_handover(
+            &dir,
+            "Nils",
+            "Pricing page copy",
+            "claude-code",
+            "s-a",
+            "the first",
+        )
+        .unwrap();
+        share_handover(
+            &dir,
+            "Nils",
+            "Pricing page copy",
+            "claude-code",
+            "s-b",
+            "the second",
+        )
+        .unwrap();
 
-        assert_eq!(shared_handovers(&dir, "Sam").len(), 2, "one overwrote the other");
+        assert_eq!(
+            shared_handovers(&dir, "Sam").len(),
+            2,
+            "one overwrote the other"
+        );
     }
 
     #[test]
@@ -1139,9 +1252,20 @@ mod tests {
         // Recovered by turning dashes into spaces, "e-mail" came back as
         // "e mail" and anything with a double dash split in the wrong place.
         let dir = scratch("titles");
-        share_handover(&dir, "Nils", "e-mail -- the re-write", "chatgpt", "s-t", "x").unwrap();
+        share_handover(
+            &dir,
+            "Nils",
+            "e-mail -- the re-write",
+            "chatgpt",
+            "s-t",
+            "x",
+        )
+        .unwrap();
 
-        assert_eq!(shared_handovers(&dir, "Sam")[0].title, "e-mail -- the re-write");
+        assert_eq!(
+            shared_handovers(&dir, "Sam")[0].title,
+            "e-mail -- the re-write"
+        );
     }
 
     #[test]
@@ -1177,8 +1301,13 @@ mod tests {
     #[test]
     fn a_project_is_shared_under_its_own_name_not_under_a_persons() {
         let dir = scratch("shareproject");
-        share_project(&dir, "Nils", "Sidq", "# What I am working on: Sidq\n\nthe whole thing")
-            .unwrap();
+        share_project(
+            &dir,
+            "Nils",
+            "Sidq",
+            "# What I am working on: Sidq\n\nthe whole thing",
+        )
+        .unwrap();
 
         let found = shared_projects(&dir, "Sam");
         assert_eq!(found.len(), 1);
@@ -1211,7 +1340,13 @@ mod tests {
          * teammate's next handover as something the team insists on.
          */
         let dir = scratch("projectleak");
-        share_project(&dir, "Nils", "Sidq", "- Pricing page copy\n- Refund wording\n").unwrap();
+        share_project(
+            &dir,
+            "Nils",
+            "Sidq",
+            "- Pricing page copy\n- Refund wording\n",
+        )
+        .unwrap();
 
         let rules = read_others(&dir, "sam.sidq-context.md");
         assert!(rules.is_empty(), "a project is not a pile of team rules");
@@ -1221,7 +1356,10 @@ mod tests {
     fn nothing_outside_the_projects_folder_can_be_read_back() {
         let dir = scratch("projectescape");
         let path = share_project(&dir, "Nils", "Sidq", "the real one").unwrap();
-        assert_eq!(read_shared_project(&dir, &path.to_string_lossy()).unwrap(), "the real one");
+        assert_eq!(
+            read_shared_project(&dir, &path.to_string_lossy()).unwrap(),
+            "the real one"
+        );
 
         assert!(read_shared_project(&dir, "/etc/hosts").is_none());
     }
@@ -1253,8 +1391,12 @@ mod tests {
     #[test]
     fn nothing_outside_the_folder_can_be_read_back() {
         let dir = scratch("escape");
-        let path = share_handover(&dir, "Nils", "Real", "claude-code", "s-53", "the real one").unwrap();
-        assert_eq!(read_shared(&dir, &path.to_string_lossy()).unwrap(), "the real one");
+        let path =
+            share_handover(&dir, "Nils", "Real", "claude-code", "s-53", "the real one").unwrap();
+        assert_eq!(
+            read_shared(&dir, &path.to_string_lossy()).unwrap(),
+            "the real one"
+        );
 
         let outside = dir.join("..").join("..").join("etc").join("hosts");
         assert!(read_shared(&dir, &outside.to_string_lossy()).is_none());
@@ -1264,7 +1406,15 @@ mod tests {
     #[test]
     fn a_title_full_of_punctuation_still_makes_a_filename() {
         let dir = scratch("sharetitle");
-        let path = share_handover(&dir, "Nils", "What/now: \"really\"?", "chatgpt", "s-punct", "x").unwrap();
+        let path = share_handover(
+            &dir,
+            "Nils",
+            "What/now: \"really\"?",
+            "chatgpt",
+            "s-punct",
+            "x",
+        )
+        .unwrap();
 
         let name = path.file_name().unwrap().to_string_lossy().to_string();
         assert!(!name.contains('/'));
@@ -1364,7 +1514,14 @@ mod demonstration {
         // Two Macs, two people, one synced folder.
         super::publish(&dir, "Nils", &["no em dashes in anything I post".into()]);
         super::publish(&dir, "Sam", &["always TypeScript, never JS".into()]);
-        super::share_handover(&dir, "Sam", "Refund policy wording", "claude-code", "s-94", "…the whole conversation…");
+        super::share_handover(
+            &dir,
+            "Sam",
+            "Refund policy wording",
+            "claude-code",
+            "s-94",
+            "…the whole conversation…",
+        );
 
         println!("\n=== the folder, as your Drive syncs it ===");
         for entry in walk(&dir) {
@@ -1372,7 +1529,10 @@ mod demonstration {
         }
 
         println!("\n=== nils.sidq-context.md, written by your Mac ===");
-        println!("{}", std::fs::read_to_string(dir.join("nils.sidq-context.md")).unwrap());
+        println!(
+            "{}",
+            std::fs::read_to_string(dir.join("nils.sidq-context.md")).unwrap()
+        );
 
         println!("=== what your Mac reads back (everyone but you) ===");
         for rule in super::read_others(&dir, &super::file_name_for("Nils")) {

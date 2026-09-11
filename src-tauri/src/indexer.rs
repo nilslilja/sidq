@@ -129,7 +129,6 @@ pub fn sweep(conn: &Connection) -> usize {
     indexed
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,7 +159,12 @@ mod tests {
             println!("  {:<10} {} hits", term, hits.len());
             for h in hits.iter().take(2) {
                 let snip: String = h.snippet.chars().take(70).collect();
-                println!("      [{}] {} — {}", h.source, h.title.chars().take(34).collect::<String>(), snip.replace('\n', " "));
+                println!(
+                    "      [{}] {} — {}",
+                    h.source,
+                    h.title.chars().take(34).collect::<String>(),
+                    snip.replace('\n', " ")
+                );
             }
             if withheld > 0 {
                 println!("      (+{withheld} older, withheld)");
@@ -170,7 +174,8 @@ mod tests {
 
     #[test]
     fn splits_a_transcript_into_turns() {
-        let transcript = "You:\nfirst question\n\nAssistant:\nfirst answer\n\nYou:\nsecond question\n";
+        let transcript =
+            "You:\nfirst question\n\nAssistant:\nfirst answer\n\nYou:\nsecond question\n";
         let turns = into_turns(transcript);
 
         assert_eq!(turns.len(), 3);
@@ -186,7 +191,8 @@ mod tests {
          * a blank line alone would turn one answer into five, and a search would
          * then return five results for what a person remembers as one reply.
          */
-        let transcript = "Assistant:\nhere is the fix\n\n    some code\n\n    more code\n\nYou:\nthanks\n";
+        let transcript =
+            "Assistant:\nhere is the fix\n\n    some code\n\n    more code\n\nYou:\nthanks\n";
         let turns = into_turns(transcript);
 
         assert_eq!(turns.len(), 2, "the reply must stay whole");
@@ -221,6 +227,10 @@ mod tests {
 
         assert_ne!(before, after_more_turns);
         assert_ne!(before, after_new_activity);
-        assert_eq!(before, fingerprint_of("abc", 1_000, 10), "and is stable otherwise");
+        assert_eq!(
+            before,
+            fingerprint_of("abc", 1_000, 10),
+            "and is stable otherwise"
+        );
     }
 }

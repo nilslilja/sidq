@@ -95,7 +95,11 @@ impl ExportedMessage {
 
     /// "human" and "assistant" in the export; "You" and "Assistant" in the index.
     fn role(&self) -> &'static str {
-        if self.sender == "human" { "You" } else { "Assistant" }
+        if self.sender == "human" {
+            "You"
+        } else {
+            "Assistant"
+        }
     }
 }
 
@@ -116,7 +120,9 @@ fn millis_of(iso: &str) -> i64 {
         parts.next().and_then(|v| v.parse::<i64>().ok()),
         parts.next().and_then(|v| v.parse::<i64>().ok()),
     );
-    let (Some(y), Some(m), Some(d)) = (y, m, d) else { return 0 };
+    let (Some(y), Some(m), Some(d)) = (y, m, d) else {
+        return 0;
+    };
     if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
         return 0;
     }
@@ -152,8 +158,8 @@ fn millis_of(iso: &str) -> i64 {
  * forgive.
  */
 fn parse_claude(raw: &str) -> Result<Vec<Imported>, String> {
-    let conversations: Vec<ExportedConversation> = serde_json::from_str(raw)
-        .map_err(|_| "not a Claude export".to_string())?;
+    let conversations: Vec<ExportedConversation> =
+        serde_json::from_str(raw).map_err(|_| "not a Claude export".to_string())?;
 
     let out: Vec<Imported> = conversations
         .into_iter()
@@ -181,7 +187,11 @@ fn parse_claude(raw: &str) -> Result<Vec<Imported>, String> {
                 .filter(|&t| t > 0)
                 .unwrap_or_else(|| {
                     let updated = millis_of(&c.updated_at);
-                    if updated > 0 { updated } else { millis_of(&c.created_at) }
+                    if updated > 0 {
+                        updated
+                    } else {
+                        millis_of(&c.created_at)
+                    }
                 });
 
             Some(Imported {
@@ -440,7 +450,10 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].session_id, "abc-123");
         assert_eq!(out[0].title, "Pricing page copy");
-        assert_eq!(out[0].turns[0], ("You".into(), "what should the tiers be".into()));
+        assert_eq!(
+            out[0].turns[0],
+            ("You".into(), "what should the tiers be".into())
+        );
         assert_eq!(out[0].turns[1].0, "Assistant");
     }
 
@@ -475,7 +488,11 @@ mod tests {
         // every conversation in 1970, where every recency filter drops them.
         assert_eq!(millis_of("2025-08-14T09:21:33Z"), 1_755_163_293_000);
         assert_eq!(millis_of("1970-01-01T00:00:00Z"), 0);
-        assert_eq!(millis_of("2024-02-29T12:00:00Z"), 1_709_208_000_000, "leap day");
+        assert_eq!(
+            millis_of("2024-02-29T12:00:00Z"),
+            1_709_208_000_000,
+            "leap day"
+        );
     }
 
     #[test]
@@ -494,7 +511,10 @@ mod tests {
                                 "created_at": "2025-03-01T00:00:00Z" }]
         }]"#;
 
-        assert_eq!(parse(untitled).unwrap()[0].title, "how do I write a good changelog");
+        assert_eq!(
+            parse(untitled).unwrap()[0].title,
+            "how do I write a good changelog"
+        );
     }
 
     #[test]
@@ -528,8 +548,16 @@ mod tests {
 
         for c in &conversations {
             crate::index_store::put_session(
-                &conn, &c.session_id, c.source, &c.title, c.source, "", "",
-                c.ended_at, c.turns.len() as u32, 0,
+                &conn,
+                &c.session_id,
+                c.source,
+                &c.title,
+                c.source,
+                "",
+                "",
+                c.ended_at,
+                c.turns.len() as u32,
+                0,
             )
             .unwrap();
             crate::index_store::put_messages(&conn, &c.session_id, &c.turns, "fp").unwrap();
@@ -555,8 +583,16 @@ mod tests {
         // The session row too: search joins against it, so leaving it out makes
         // the query return nothing and the test pass for the wrong reason.
         crate::index_store::put_session(
-            &conn, &c.session_id, c.source, &c.title, c.source, "", "",
-            c.ended_at, c.turns.len() as u32, 0,
+            &conn,
+            &c.session_id,
+            c.source,
+            &c.title,
+            c.source,
+            "",
+            "",
+            c.ended_at,
+            c.turns.len() as u32,
+            0,
         )
         .unwrap();
 
@@ -644,7 +680,11 @@ mod tests {
         assert_eq!(out[0].source, "gemini");
         // "Prompted " is noise in every single row.
         assert_eq!(out[0].title, "how do I price a seat");
-        assert_eq!(out[0].turns.len(), 1, "Takeout records the question, not the answer");
+        assert_eq!(
+            out[0].turns.len(),
+            1,
+            "Takeout records the question, not the answer"
+        );
     }
 
     #[test]
@@ -654,7 +694,10 @@ mod tests {
         let row = r#"[{ "header": "Gemini", "title": "Prompted hello there",
                         "time": "2025-08-14T09:21:33Z" }]"#;
 
-        assert_eq!(parse(row).unwrap()[0].session_id, parse(row).unwrap()[0].session_id);
+        assert_eq!(
+            parse(row).unwrap()[0].session_id,
+            parse(row).unwrap()[0].session_id
+        );
     }
 
     #[test]
@@ -679,6 +722,10 @@ mod tests {
 
         // And the message names all three rather than guessing which was meant.
         let message = parse("[]").unwrap_err();
-        assert!(message.contains("Claude") && message.contains("ChatGPT") && message.contains("Takeout"));
+        assert!(
+            message.contains("Claude")
+                && message.contains("ChatGPT")
+                && message.contains("Takeout")
+        );
     }
 }

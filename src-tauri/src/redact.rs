@@ -82,7 +82,9 @@ const PLACEHOLDERS: [&str; 12] = [
 fn is_placeholder(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
     PLACEHOLDERS.iter().any(|p| lower.contains(p))
-        || value.chars().all(|c| c == '*' || c == '.' || c == '<' || c == '>')
+        || value
+            .chars()
+            .all(|c| c == '*' || c == '.' || c == '<' || c == '>')
 }
 
 /// What a token's prefix says it is, if anything.
@@ -116,7 +118,9 @@ fn issuer(token: &str) -> Option<&'static str> {
     // digits after AKIA, which no English word matches.
     if token.len() == 20
         && token.starts_with("AKIA")
-        && token[4..].chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+        && token[4..]
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
     {
         return Some("aws access key");
     }
@@ -152,19 +156,19 @@ fn is_jwt(token: &str) -> bool {
 /// Punctuation that surrounds a token in prose and code but is not part of it.
 fn unwrap_token(raw: &str) -> &str {
     raw.trim_matches(|c: char| {
-        matches!(c, '"' | '\'' | '`' | ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '<' | '>')
-            || c == '\\'
+        matches!(
+            c,
+            '"' | '\'' | '`' | ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '<' | '>'
+        ) || c == '\\'
     })
 }
 
 /// Take every credential out of `text`, and say what was taken.
 pub fn scrub(text: &str) -> (String, Vec<Hit>) {
     let mut counts: Vec<(&'static str, usize)> = Vec::new();
-    let mut note = |kind: &'static str| {
-        match counts.iter_mut().find(|(k, _)| *k == kind) {
-            Some((_, n)) => *n += 1,
-            None => counts.push((kind, 1)),
-        }
+    let mut note = |kind: &'static str| match counts.iter_mut().find(|(k, _)| *k == kind) {
+        Some((_, n)) => *n += 1,
+        None => counts.push((kind, 1)),
     };
 
     let mut out = String::with_capacity(text.len());
@@ -199,7 +203,10 @@ pub fn scrub(text: &str) -> (String, Vec<Hit>) {
         out.pop();
     }
 
-    let hits = counts.into_iter().map(|(kind, count)| Hit { kind, count }).collect();
+    let hits = counts
+        .into_iter()
+        .map(|(kind, count)| Hit { kind, count })
+        .collect();
     (out, hits)
 }
 
@@ -231,7 +238,10 @@ fn scrub_line(line: &str, note: &mut impl FnMut(&'static str)) -> String {
              * the closing brace gone. Replacing the token where it sits keeps
              * whatever syntax it was written in intact.
              */
-            return format!("{name}{}", value.replacen(bare, &format!("[redacted: {kind}]"), 1));
+            return format!(
+                "{name}{}",
+                value.replacen(bare, &format!("[redacted: {kind}]"), 1)
+            );
         }
     }
 
@@ -281,16 +291,34 @@ mod tests {
     fn a_live_jwt_never_reaches_the_next_assistant() {
         let text = "the header is Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk";
         let (out, hits) = scrub(text);
-        assert!(!out.contains("eyJzdWIiOiIxMjM0"), "the payload survived: {out}");
+        assert!(
+            !out.contains("eyJzdWIiOiIxMjM0"),
+            "the payload survived: {out}"
+        );
         assert!(out.contains("[redacted: jwt]"));
-        assert_eq!(hits, vec![Hit { kind: "jwt", count: 1 }]);
+        assert_eq!(
+            hits,
+            vec![Hit {
+                kind: "jwt",
+                count: 1
+            }]
+        );
     }
 
     #[test]
     fn each_issuer_is_recognised_by_its_prefix() {
-        assert_eq!(kinds("sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ["anthropic key"]);
-        assert_eq!(kinds("ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), ["github token"]);
-        assert_eq!(kinds("sk_live_aaaaaaaaaaaaaaaaaaaaaaaa"), ["stripe live key"]);
+        assert_eq!(
+            kinds("sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ["anthropic key"]
+        );
+        assert_eq!(
+            kinds("ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ["github token"]
+        );
+        assert_eq!(
+            kinds("sk_live_aaaaaaaaaaaaaaaaaaaaaaaa"),
+            ["stripe live key"]
+        );
         assert_eq!(kinds("AKIAIOSFODNN7EXAMPLE"), ["aws access key"]);
         assert_eq!(kinds("xoxb-1234-5678-abcdefghijklmno"), ["slack token"]);
     }
@@ -316,7 +344,13 @@ mod tests {
     fn a_password_is_caught_by_its_name_because_it_has_no_shape() {
         let (out, hits) = scrub("DB_PASSWORD=hunter2000");
         assert!(!out.contains("hunter2000"));
-        assert_eq!(hits, vec![Hit { kind: "credential", count: 1 }]);
+        assert_eq!(
+            hits,
+            vec![Hit {
+                kind: "credential",
+                count: 1
+            }]
+        );
     }
 
     #[test]
@@ -334,17 +368,27 @@ mod tests {
 
     #[test]
     fn a_private_key_block_goes_whole() {
-        let text = "-----BEGIN RSA PRIVATE KEY-----\nMIIEow==\nabc\n-----END RSA PRIVATE KEY-----\nafter";
+        let text =
+            "-----BEGIN RSA PRIVATE KEY-----\nMIIEow==\nabc\n-----END RSA PRIVATE KEY-----\nafter";
         let (out, hits) = scrub(text);
         assert!(!out.contains("MIIEow"), "the key body survived");
         assert!(out.contains("after"), "content after the block was eaten");
-        assert_eq!(hits, vec![Hit { kind: "private key", count: 1 }]);
+        assert_eq!(
+            hits,
+            vec![Hit {
+                kind: "private key",
+                count: 1
+            }]
+        );
     }
 
     #[test]
     fn quotes_and_brackets_survive_the_replacement() {
         let (out, _) = scrub("{\"token\": \"ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}");
-        assert!(out.contains("{\"token\": \"[redacted: github token]\"}"), "{out}");
+        assert!(
+            out.contains("{\"token\": \"[redacted: github token]\"}"),
+            "{out}"
+        );
     }
 
     #[test]

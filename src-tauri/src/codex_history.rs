@@ -387,8 +387,14 @@ mod tests {
 
     #[test]
     fn seconds_and_milliseconds_are_told_apart_by_size() {
-        assert_eq!(parse_stamp(&serde_json::json!(1_700_000_000)), Some(1_700_000_000_000));
-        assert_eq!(parse_stamp(&serde_json::json!(1_700_000_000_000i64)), Some(1_700_000_000_000));
+        assert_eq!(
+            parse_stamp(&serde_json::json!(1_700_000_000)),
+            Some(1_700_000_000_000)
+        );
+        assert_eq!(
+            parse_stamp(&serde_json::json!(1_700_000_000_000i64)),
+            Some(1_700_000_000_000)
+        );
     }
 
     #[test]
@@ -525,13 +531,11 @@ mod codex_real_transcript {
             println!(
                 "  {:<40} transcript={}",
                 s.title.chars().take(40).collect::<String>(),
-                t.as_ref().map(|x| format!("{} chars", x.len())).unwrap_or("NONE".into())
+                t.as_ref()
+                    .map(|x| format!("{} chars", x.len()))
+                    .unwrap_or("NONE".into())
             );
-            assert!(
-                t.is_some(),
-                "listed but not handoverable: {}",
-                s.session_id
-            );
+            assert!(t.is_some(), "listed but not handoverable: {}", s.session_id);
         }
     }
 }

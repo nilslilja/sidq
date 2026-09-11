@@ -83,7 +83,12 @@ fn handle(mut stream: TcpStream, app: &tauri::AppHandle) {
         respond(&mut stream, 400, "bad request");
         return;
     };
-    let Request { method, path, body, origin_ok } = request;
+    let Request {
+        method,
+        path,
+        body,
+        origin_ok,
+    } = request;
 
     /*
      * Only the extension may post here.
@@ -311,7 +316,12 @@ fn read_request(stream: &mut TcpStream) -> Option<Request> {
         String::from_utf8(raw).ok()?
     };
 
-    Some(Request { method, path, body, origin_ok })
+    Some(Request {
+        method,
+        path,
+        body,
+        origin_ok,
+    })
 }
 
 /**
@@ -350,7 +360,9 @@ fn announce_assistant(app: &tauri::AppHandle, body: &str) {
         .filter(|n| !n.is_empty() && n.len() < 40)
         .unwrap_or_else(|| "your assistant".into());
 
-    let Some(conn) = crate::index_store::open() else { return };
+    let Some(conn) = crate::index_store::open() else {
+        return;
+    };
     let (conversations, _) = crate::index_store::counts(&conn);
     if conversations == 0 {
         // Nothing to offer. A notification here would be an advertisement.
@@ -373,7 +385,9 @@ fn announce_assistant(app: &tauri::AppHandle, body: &str) {
     let _ = app
         .notification()
         .builder()
-        .title(format!("{conversations} conversations Sidq can hand {name}"))
+        .title(format!(
+            "{conversations} conversations Sidq can hand {name}"
+        ))
         .body("Press ⌘⇧K to pick one.")
         .show();
 }
@@ -407,10 +421,20 @@ fn save(incoming: &Incoming) -> Option<()> {
     let stem: String = incoming
         .title
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let stem = stem.trim_matches('-');
-    let stem = if stem.is_empty() { "conversation" } else { stem };
+    let stem = if stem.is_empty() {
+        "conversation"
+    } else {
+        stem
+    };
 
     let stamp = if incoming.captured_at > 0 {
         incoming.captured_at
@@ -462,7 +486,13 @@ mod tests {
         let stem: String = incoming
             .title
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '-'
+                }
+            })
             .collect();
 
         assert!(!stem.contains('/'));
@@ -471,7 +501,8 @@ mod tests {
 
     #[test]
     fn parses_the_payload_the_extension_sends() {
-        let json = r#"{"source":"ChatGPT","title":"A chat","text":"You:\nhi","capturedAt":1700000000000}"#;
+        let json =
+            r#"{"source":"ChatGPT","title":"A chat","text":"You:\nhi","capturedAt":1700000000000}"#;
         let parsed: Incoming = serde_json::from_str(json).unwrap();
 
         assert_eq!(parsed.source, "ChatGPT");

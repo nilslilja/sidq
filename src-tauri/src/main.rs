@@ -26,9 +26,8 @@ mod pill_window;
 
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
-    capture, codex_history, compiler, cursor_history, entitlement, imports, index_store,
-    invites, login_item, mcp_setup, memory, profile, sharing, telemetry, team_context,
-    work_history,
+    capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
+    login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, work_history,
 };
 
 /*
@@ -43,17 +42,17 @@ use sidq::{
 #[cfg(target_os = "macos")]
 use sidq::{double_tap, quick_grab, screen_reader};
 
-
-use tauri_plugin_notification::NotificationExt;
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 // GlobalShortcutExt is what puts .global_shortcut() on App. Without the trait in
 // scope the method simply does not exist, which is what the compiler was saying.
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState};
+use tauri_plugin_global_shortcut::{
+    Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState,
+};
 // OpenerExt puts .opener() on AppHandle. This is the supported way to hand a URL
 // to the system browser; shell().open() still works but is deprecated.
 use tauri_plugin_opener::OpenerExt;
-
 
 /// Is Accessibility granted, without spawning anything.
 ///
@@ -104,21 +103,23 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
         all.extend(index_store::open().into_iter().flat_map(|conn| {
             index_store::recent_screen_sessions(&conn, capped)
                 .into_iter()
-                .map(|(session_id, title, source, ended_at, turns)| work_history::WorkSession {
-                    session_id,
-                    project: String::new(),
-                    // The AI's name stands in for the project. A browser
-                    // conversation has no folder, and a blank here renders as a
-                    // row with a dangling separator after the title.
-                    project_name: assistants::label_for(&source).to_string(),
-                    title,
-                    last_prompt: String::new(),
-                    branch: String::new(),
-                    ended_at,
-                    turns,
-                    active_minutes: 0,
-                    source: assistants::static_source(&source),
-                })
+                .map(
+                    |(session_id, title, source, ended_at, turns)| work_history::WorkSession {
+                        session_id,
+                        project: String::new(),
+                        // The AI's name stands in for the project. A browser
+                        // conversation has no folder, and a blank here renders as a
+                        // row with a dangling separator after the title.
+                        project_name: assistants::label_for(&source).to_string(),
+                        title,
+                        last_prompt: String::new(),
+                        branch: String::new(),
+                        ended_at,
+                        turns,
+                        active_minutes: 0,
+                        source: assistants::static_source(&source),
+                    },
+                )
                 .collect::<Vec<_>>()
         }));
 
@@ -262,7 +263,9 @@ fn hand_over_to_the_installed_copy() -> bool {
         // `open` returns as soon as the other copy is launching, and this
         // process exits behind it. Two Sidqs briefly overlap, which the pill
         // tolerates: the second one takes the window and the shortcut.
-        let _ = std::process::Command::new("/usr/bin/open").arg(installed).spawn();
+        let _ = std::process::Command::new("/usr/bin/open")
+            .arg(installed)
+            .spawn();
         let _ = std::process::Command::new("/usr/bin/osascript")
             .arg("-e")
             .arg(
@@ -401,17 +404,33 @@ async fn save_transcript(
          * request, not a limit.
          */
         let conn = index_store::open();
-        let plan = conn.as_ref().map(entitlement::current).unwrap_or(entitlement::Plan::Free);
+        let plan = conn
+            .as_ref()
+            .map(entitlement::current)
+            .unwrap_or(entitlement::Plan::Free);
 
         if let Some(conn) = conn.as_ref() {
             if !entitlement::may_hand_over(conn, plan) {
                 let (used, cap) = entitlement::handover_allowance(conn, plan);
                 telemetry::record(conn, telemetry::Event::HitTheLimit);
-                return HandoverResult { path: None, limited: true, used, cap, words: 0 };
+                return HandoverResult {
+                    path: None,
+                    limited: true,
+                    used,
+                    cap,
+                    words: 0,
+                };
             }
         }
 
-        let written = write_handover(session_id.clone(), title, source, resume_point, when, project);
+        let written = write_handover(
+            session_id.clone(),
+            title,
+            source,
+            resume_point,
+            when,
+            project,
+        );
 
         if let (Some(conn), Some(_)) = (conn.as_ref(), written.as_ref()) {
             let stamp = std::time::SystemTime::now()
@@ -435,7 +454,13 @@ async fn save_transcript(
             None => (None, 0),
         };
 
-        HandoverResult { path, limited: false, used, cap, words }
+        HandoverResult {
+            path,
+            limited: false,
+            used,
+            cap,
+            words,
+        }
     })
     .await
     .unwrap_or_default()
@@ -569,7 +594,11 @@ fn build_handover_for(
                 stored
                     .into_iter()
                     .map(|(who, body)| capture::Turn {
-                        role: if who == "You" { capture::Role::You } else { capture::Role::Assistant },
+                        role: if who == "You" {
+                            capture::Role::You
+                        } else {
+                            capture::Role::Assistant
+                        },
                         blocks: vec![capture::Block::Said(body)],
                     })
                     .collect()
@@ -634,10 +663,20 @@ fn write_handover(
         // one is replaced rather than escaped.
         let stem: String = title
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '-' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == ' ' || c == '-' {
+                    c
+                } else {
+                    '-'
+                }
+            })
             .collect();
         let stem = stem.trim().replace(' ', "-");
-        let stem = if stem.is_empty() { "sidq-conversation".to_string() } else { stem };
+        let stem = if stem.is_empty() {
+            "sidq-conversation".to_string()
+        } else {
+            stem
+        };
 
         let path = dir.join(format!("{}.md", &stem[..stem.len().min(60)]));
         std::fs::write(&path, text).ok()?;
@@ -657,10 +696,7 @@ fn write_handover(
  * none of their text — which is what the upgrade prompt shows.
  */
 #[tauri::command]
-async fn search_conversations(
-    query: String,
-    limit: usize,
-) -> (Vec<index_store::SearchHit>, usize) {
+async fn search_conversations(query: String, limit: usize) -> (Vec<index_store::SearchHit>, usize) {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(conn) = index_store::open() else {
             return (Vec::new(), 0);
@@ -671,7 +707,6 @@ async fn search_conversations(
     .await
     .unwrap_or((Vec::new(), 0))
 }
-
 
 /**
  * Sites whose selectors have stopped matching, reported by the extension.
@@ -729,7 +764,14 @@ async fn download_extension(app: tauri::AppHandle) -> Result<String, String> {
     let out = dir.join("sidq-extension");
 
     let status = std::process::Command::new(sidq::net::CURL)
-        .args(["--silent", "--fail", "--location", "--max-time", "30", "--output"])
+        .args([
+            "--silent",
+            "--fail",
+            "--location",
+            "--max-time",
+            "30",
+            "--output",
+        ])
         .arg(&zip)
         .arg(format!("{origin}/sidq-extension.zip"))
         .status()
@@ -919,14 +961,18 @@ async fn extension_status() -> ExtensionStatus {
         let Some(conn) = index_store::open() else {
             return ExtensionStatus::default();
         };
-        let seen = index_store::setting(&conn, "extension_seen").and_then(|v| v.parse::<i64>().ok());
+        let seen =
+            index_store::setting(&conn, "extension_seen").and_then(|v| v.parse::<i64>().ok());
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
         match seen {
-            Some(at) => ExtensionStatus { connected: true, seconds_ago: Some(now - at) },
+            Some(at) => ExtensionStatus {
+                connected: true,
+                seconds_ago: Some(now - at),
+            },
             None => ExtensionStatus::default(),
         }
     })
@@ -946,7 +992,10 @@ struct AssistantRow {
 fn assistant_list() -> Vec<AssistantRow> {
     assistants::ASSISTANTS
         .iter()
-        .map(|a| AssistantRow { id: a.id.into(), label: a.label.into() })
+        .map(|a| AssistantRow {
+            id: a.id.into(),
+            label: a.label.into(),
+        })
         .collect()
 }
 
@@ -1004,7 +1053,9 @@ struct Conversation {
  * of accumulating a copy per exchange.
  */
 fn absorb(conversation: &Conversation) {
-    let Some(conn) = index_store::open() else { return };
+    let Some(conn) = index_store::open() else {
+        return;
+    };
 
     let turns: Vec<(String, String)> = conversation
         .text
@@ -1050,15 +1101,25 @@ fn absorb(conversation: &Conversation) {
      * the length guard the sweep had.
      */
     let Some(kept) = index_store::merge_messages(
-        &conn, &session_id, &turns,
+        &conn,
+        &session_id,
+        &turns,
         &format!("live:{}", conversation.text.len()),
     ) else {
         return;
     };
 
     let _ = index_store::put_session(
-        &conn, &session_id, &conversation.source, &title,
-        &conversation.source, "", "", now, kept as u32, 0,
+        &conn,
+        &session_id,
+        &conversation.source,
+        &title,
+        &conversation.source,
+        "",
+        "",
+        now,
+        kept as u32,
+        0,
     );
 }
 
@@ -1194,7 +1255,10 @@ fn sync_roots() -> Vec<(String, std::path::PathBuf)> {
         }
     };
 
-    offer("iCloud Drive", home.join("Library/Mobile Documents/com~apple~CloudDocs"));
+    offer(
+        "iCloud Drive",
+        home.join("Library/Mobile Documents/com~apple~CloudDocs"),
+    );
     offer("Dropbox", home.join("Dropbox"));
 
     if let Ok(entries) = std::fs::read_dir(home.join("Library/CloudStorage")) {
@@ -1233,7 +1297,9 @@ async fn team_nearby() -> Vec<team_context::FoundTeam> {
 #[tauri::command]
 async fn reveal_team_folder() -> bool {
     tauri::async_runtime::spawn_blocking(|| {
-        let Some(dir) = team_folder() else { return false };
+        let Some(dir) = team_folder() else {
+            return false;
+        };
         std::process::Command::new("/usr/bin/open")
             .arg("-R")
             .arg(dir)
@@ -1248,9 +1314,7 @@ async fn reveal_team_folder() -> bool {
 fn team_folder_options() -> Vec<(String, String)> {
     sync_roots()
         .into_iter()
-        .map(|(label, path)| {
-            (label, path.join("Sidq Team").to_string_lossy().to_string())
-        })
+        .map(|(label, path)| (label, path.join("Sidq Team").to_string_lossy().to_string()))
         .collect()
 }
 
@@ -1316,7 +1380,9 @@ async fn team_settings() -> TeamSettings {
 #[tauri::command]
 async fn team_seats() -> Vec<invites::Seat> {
     tauri::async_runtime::spawn_blocking(|| {
-        index_store::open().and_then(|conn| invites::seats(&conn).ok()).unwrap_or_default()
+        index_store::open()
+            .and_then(|conn| invites::seats(&conn).ok())
+            .unwrap_or_default()
     })
     .await
     .unwrap_or_default()
@@ -1398,20 +1464,22 @@ struct JoinResult {
 async fn join_team(code: String) -> JoinResult {
     tauri::async_runtime::spawn_blocking(move || {
         if !team_context::is_code(&code) {
-            return JoinResult { joined: false, understood: false };
+            return JoinResult {
+                joined: false,
+                understood: false,
+            };
         }
 
         let Some(dir) = team_context::find_team(&sync_roots(), &code) else {
-            return JoinResult { joined: false, understood: true };
+            return JoinResult {
+                joined: false,
+                understood: true,
+            };
         };
 
         let joined = index_store::open()
             .and_then(|conn| {
-                index_store::put_setting(
-                    &conn,
-                    team_context::FOLDER_KEY,
-                    &dir.to_string_lossy(),
-                )
+                index_store::put_setting(&conn, team_context::FOLDER_KEY, &dir.to_string_lossy())
             })
             .is_some();
 
@@ -1420,10 +1488,16 @@ async fn join_team(code: String) -> JoinResult {
             // arrive rather than wondering whether it worked.
             team_context::publish(&dir, &team_name(), &[]);
         }
-        JoinResult { joined, understood: true }
+        JoinResult {
+            joined,
+            understood: true,
+        }
     })
     .await
-    .unwrap_or(JoinResult { joined: false, understood: true })
+    .unwrap_or(JoinResult {
+        joined: false,
+        understood: true,
+    })
 }
 
 /// The code for the team this Mac is in, if it is in one of ours.
@@ -1438,7 +1512,9 @@ async fn team_code() -> Option<String> {
 #[tauri::command]
 async fn set_team_folder(path: Option<String>) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(conn) = index_store::open() else { return false };
+        let Some(conn) = index_store::open() else {
+            return false;
+        };
 
         let Some(raw) = path.filter(|p| !p.trim().is_empty()) else {
             if let Some(old) = team_folder() {
@@ -1492,7 +1568,9 @@ async fn set_team_name(name: String) -> bool {
 fn duo_folder() -> Option<std::path::PathBuf> {
     let folder = team_folder()?;
     let conn = index_store::open()?;
-    entitlement::current(&conn).may_share_with_team().then_some(folder)
+    entitlement::current(&conn)
+        .may_share_with_team()
+        .then_some(folder)
 }
 
 /**
@@ -1512,7 +1590,9 @@ async fn share_handover(
     project: String,
 ) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(folder) = duo_folder() else { return false };
+        let Some(folder) = duo_folder() else {
+            return false;
+        };
 
         /*
          * Find the resume point rather than requiring the caller to have one.
@@ -1529,7 +1609,9 @@ async fn share_handover(
             // not arriving, which is the smaller loss.
             #[cfg(target_os = "macos")]
             {
-                quick_grab::by_id(&session_id).map(|s| s.last_prompt).unwrap_or_default()
+                quick_grab::by_id(&session_id)
+                    .map(|s| s.last_prompt)
+                    .unwrap_or_default()
             }
             #[cfg(not(target_os = "macos"))]
             {
@@ -1609,7 +1691,9 @@ async fn hand_over_into(
 #[tauri::command]
 async fn projects() -> Vec<index_store::ProjectRow> {
     tauri::async_runtime::spawn_blocking(|| {
-        index_store::open().map(|conn| index_store::projects(&conn, 40)).unwrap_or_default()
+        index_store::open()
+            .map(|conn| index_store::projects(&conn, 40))
+            .unwrap_or_default()
     })
     .await
     .unwrap_or_default()
@@ -1618,12 +1702,10 @@ async fn projects() -> Vec<index_store::ProjectRow> {
 /// What Sidq knows about one of them.
 #[tauri::command]
 async fn project_memory(path: String) -> Option<memory::Memory> {
-    tauri::async_runtime::spawn_blocking(move || {
-        memory::build(&index_store::open()?, &path)
-    })
-    .await
-    .ok()
-    .flatten()
+    tauri::async_runtime::spawn_blocking(move || memory::build(&index_store::open()?, &path))
+        .await
+        .ok()
+        .flatten()
 }
 
 /**
@@ -1687,7 +1769,9 @@ async fn mcp_config_block() -> Option<String> {
 #[tauri::command]
 async fn counting() -> bool {
     tauri::async_runtime::spawn_blocking(|| {
-        index_store::open().map(|c| telemetry::enabled(&c)).unwrap_or(false)
+        index_store::open()
+            .map(|c| telemetry::enabled(&c))
+            .unwrap_or(false)
     })
     .await
     .unwrap_or(false)
@@ -1703,7 +1787,9 @@ async fn counting() -> bool {
 #[tauri::command]
 async fn set_counting(on: bool) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        index_store::open().and_then(|c| telemetry::set_enabled(&c, on)).is_some()
+        index_store::open()
+            .and_then(|c| telemetry::set_enabled(&c, on))
+            .is_some()
     })
     .await
     .unwrap_or(false)
@@ -1759,8 +1845,12 @@ async fn share_memory(path: String) -> Option<String> {
 #[tauri::command]
 async fn unshare_memory(path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some((url, key, _)) = share_endpoint() else { return false };
-        index_store::open().map(|c| sharing::unpublish(&c, &url, &key, &path)).unwrap_or(false)
+        let Some((url, key, _)) = share_endpoint() else {
+            return false;
+        };
+        index_store::open()
+            .map(|c| sharing::unpublish(&c, &url, &key, &path))
+            .unwrap_or(false)
     })
     .await
     .unwrap_or(false)
@@ -1813,7 +1903,12 @@ async fn memory_text(path: String) -> Option<String> {
         let conn = index_store::open()?;
         let text = memory::build(&conn, &path).map(|m| m.as_markdown());
         if text.is_some() {
-            telemetry::record(&conn, telemetry::Event::MemoryTaken { by_assistant: false });
+            telemetry::record(
+                &conn,
+                telemetry::Event::MemoryTaken {
+                    by_assistant: false,
+                },
+            );
         }
         text
     })
@@ -1852,9 +1947,15 @@ async fn memory_into(app: AppHandle, path: String, assistant: String) -> Result<
 #[tauri::command]
 async fn share_project(path: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(folder) = duo_folder() else { return false };
-        let Some(conn) = index_store::open() else { return false };
-        let Some(built) = memory::build(&conn, &path) else { return false };
+        let Some(folder) = duo_folder() else {
+            return false;
+        };
+        let Some(conn) = index_store::open() else {
+            return false;
+        };
+        let Some(built) = memory::build(&conn, &path) else {
+            return false;
+        };
 
         team_context::share_project(&folder, &team_name(), &built.name, &built.as_markdown())
             .is_some()
@@ -1936,7 +2037,11 @@ async fn read_team_handover(path: String) -> Option<String> {
             return Some(shared);
         }
 
-        let rules = mine.iter().map(|r| format!("- {r}")).collect::<Vec<_>>().join("\n");
+        let rules = mine
+            .iter()
+            .map(|r| format!("- {r}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         Some(format!(
             "# How the person picking this up works\n\n\
              This conversation happened on somebody else's machine. These are the \
@@ -2124,7 +2229,10 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
         *last = Some(path.clone());
     }
 
-    Some(quick_grab::Grabbed { title, source: label_for(session.source).to_string() })
+    Some(quick_grab::Grabbed {
+        title,
+        source: label_for(session.source).to_string(),
+    })
 }
 
 /// The assistant's name as a person writes it.
@@ -2435,7 +2543,9 @@ fn transcript_of(session_id: &str) -> Option<String> {
     work_history::session_transcript(session_id)
         .or_else(|| cursor_history::session_transcript(session_id))
         .or_else(|| codex_history::session_transcript(session_id))
-        .or_else(|| index_store::open().and_then(|c| index_store::session_transcript(&c, session_id)))
+        .or_else(|| {
+            index_store::open().and_then(|c| index_store::session_transcript(&c, session_id))
+        })
 }
 
 /// How large an export may be. Beyond this it is not one.
@@ -2490,7 +2600,6 @@ async fn import_export(json: String) -> Result<usize, String> {
     .await
     .unwrap_or_else(|_| Err("The import stopped unexpectedly.".into()))
 }
-
 
 /*
  * Where the browser sign-in lives.
@@ -2574,7 +2683,6 @@ fn open_sign_in(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-
 /*
  * Whether setup has been completed, as its own marker file.
  *
@@ -2626,7 +2734,6 @@ fn finish_onboarding(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-
 /*
  * While setup is open, the shortcuts belong to setup.
  *
@@ -2652,7 +2759,11 @@ fn claim_for_onboarding(app: &AppHandle, event: &str) -> bool {
     }
 
     // The step that asks you to open the picker has to be allowed to open it.
-    let showing = ONBOARDING_STEP.lock().ok().and_then(|s| s.clone()).unwrap_or_default();
+    let showing = ONBOARDING_STEP
+        .lock()
+        .ok()
+        .and_then(|s| s.clone())
+        .unwrap_or_default();
     if STEPS_WANTING_THE_PICKER.contains(&showing.as_str()) {
         return false;
     }
@@ -2684,7 +2795,6 @@ fn set_onboarding_step(step: Option<String>) {
  */
 
 fn main() {
-
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())

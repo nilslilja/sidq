@@ -129,7 +129,10 @@ static HELD: AtomicU64 = AtomicU64::new(0);
 
 fn now_ms() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 /**
@@ -213,7 +216,13 @@ pub fn watch(watched: Vec<u64>, on_tap: impl Fn(u64) + Send + Sync + 'static) {
         let last = LAST_TAP_MS.load(Ordering::Relaxed);
         let since = (last > 0).then(|| Duration::from_millis(now_ms().saturating_sub(last)));
 
-        match resolve(previous, flags, &watched, LAST_MASK.load(Ordering::Relaxed), since) {
+        match resolve(
+            previous,
+            flags,
+            &watched,
+            LAST_MASK.load(Ordering::Relaxed),
+            since,
+        ) {
             Tap::First(mask) => {
                 LAST_TAP_MS.store(now_ms(), Ordering::Relaxed);
                 LAST_MASK.store(mask, Ordering::Relaxed);
@@ -295,7 +304,10 @@ mod tests {
 
     #[test]
     fn a_chord_in_the_middle_clears_the_count() {
-        assert_eq!(resolve(0, 0x0000_0002, &WATCHED, RIGHT_COMMAND, None), Tap::Cancel);
+        assert_eq!(
+            resolve(0, 0x0000_0002, &WATCHED, RIGHT_COMMAND, None),
+            Tap::Cancel
+        );
     }
 
     #[test]
@@ -332,7 +344,10 @@ mod tests {
 
     #[test]
     fn releasing_a_modifier_is_not_a_press() {
-        assert_eq!(resolve(RIGHT_COMMAND, 0, &WATCHED, RIGHT_COMMAND, None), Tap::None);
+        assert_eq!(
+            resolve(RIGHT_COMMAND, 0, &WATCHED, RIGHT_COMMAND, None),
+            Tap::None
+        );
     }
 
     /*
@@ -455,7 +470,14 @@ pub fn chosen(conn: &rusqlite::Connection) -> (u64, u64) {
     // Both on one key would make the second unreachable, and a person editing
     // settings by hand can do that. The stored grab wins; drop goes back home.
     if grab == drop {
-        return (grab, if grab == LEFT_CONTROL { RIGHT_COMMAND } else { LEFT_CONTROL });
+        return (
+            grab,
+            if grab == LEFT_CONTROL {
+                RIGHT_COMMAND
+            } else {
+                LEFT_CONTROL
+            },
+        );
     }
     (grab, drop)
 }

@@ -96,7 +96,9 @@ pub const EVERY_EVENT: [Event; 9] = [
     Event::Setup { step: "" },
     Event::Ready,
     Event::HandedOver { attached: false },
-    Event::MemoryTaken { by_assistant: false },
+    Event::MemoryTaken {
+        by_assistant: false,
+    },
     Event::Connected,
     Event::Indexed { conversations: 0 },
     Event::HitTheLimit,
@@ -126,7 +128,9 @@ impl Event {
             Event::HandedOver { attached: true } => "file",
             Event::HandedOver { attached: false } => "clipboard",
             Event::MemoryTaken { by_assistant: true } => "assistant",
-            Event::MemoryTaken { by_assistant: false } => "person",
+            Event::MemoryTaken {
+                by_assistant: false,
+            } => "person",
             _ => "",
         }
     }
@@ -199,10 +203,20 @@ pub fn catalogue() -> Vec<(String, String)> {
  * there and not here it stops being counted, which is the safe direction.
  */
 pub fn setup_step(step: &str) -> Option<Event> {
-    const STEPS: [&str; 7] =
-        ["signin", "sources", "pill", "handover", "notifications", "browse", "discover"];
+    const STEPS: [&str; 7] = [
+        "signin",
+        "sources",
+        "pill",
+        "handover",
+        "notifications",
+        "browse",
+        "discover",
+    ];
 
-    STEPS.iter().find(|known| **known == step).map(|known| Event::Setup { step: known })
+    STEPS
+        .iter()
+        .find(|known| **known == step)
+        .map(|known| Event::Setup { step: known })
 }
 
 /// Whether the person said yes. Absent means no, and absent is the default.
@@ -300,16 +314,21 @@ pub struct Counted {
 
 /// What is waiting to be sent, oldest first.
 pub fn queued(conn: &rusqlite::Connection, limit: usize) -> Vec<(i64, Counted)> {
-    let Ok(mut stmt) = conn.prepare(
-        "SELECT id, name, detail, count, at FROM counted ORDER BY at ASC LIMIT ?1",
-    ) else {
+    let Ok(mut stmt) =
+        conn.prepare("SELECT id, name, detail, count, at FROM counted ORDER BY at ASC LIMIT ?1")
+    else {
         return Vec::new();
     };
 
     stmt.query_map(rusqlite::params![limit], |r| {
         Ok((
             r.get(0)?,
-            Counted { name: r.get(1)?, detail: r.get(2)?, count: r.get(3)?, at: r.get(4)? },
+            Counted {
+                name: r.get(1)?,
+                detail: r.get(2)?,
+                count: r.get(3)?,
+                at: r.get(4)?,
+            },
         ))
     })
     .map(|rows| rows.filter_map(Result::ok).collect())
@@ -409,13 +428,19 @@ pub fn send_queued(conn: &rusqlite::Connection) {
 
     // No endpoint compiled in means a local build. Nothing to send it to, and
     // nothing to complain about either.
-    let (Some(url), Some(key)) =
-        (option_env!("VITE_SUPABASE_URL"), option_env!("VITE_SUPABASE_ANON_KEY"))
-    else {
+    let (Some(url), Some(key)) = (
+        option_env!("VITE_SUPABASE_URL"),
+        option_env!("VITE_SUPABASE_ANON_KEY"),
+    ) else {
         return;
     };
 
-    flush(conn, url, key, crate::entitlement::last_known(conn).as_str());
+    flush(
+        conn,
+        url,
+        key,
+        crate::entitlement::last_known(conn).as_str(),
+    );
 }
 
 #[cfg(test)]
@@ -445,7 +470,10 @@ mod tests {
         assert!(!enabled(&conn));
 
         record(&conn, Event::Opened);
-        assert!(queued(&conn, 10).is_empty(), "something was counted before consent");
+        assert!(
+            queued(&conn, 10).is_empty(),
+            "something was counted before consent"
+        );
     }
 
     #[test]
@@ -480,7 +508,10 @@ mod tests {
             .and_then(|rest| rest.split('}').next())
             .expect("the Event declaration");
 
-        assert!(!decl.contains("String"), "an Event variant can hold a String");
+        assert!(
+            !decl.contains("String"),
+            "an Event variant can hold a String"
+        );
         assert!(!decl.contains("&str") || decl.contains("&'static str"));
     }
 
@@ -489,7 +520,12 @@ mod tests {
         let conn = db();
         set_enabled(&conn, true).unwrap();
         record(&conn, Event::HandedOver { attached: true });
-        record(&conn, Event::Indexed { conversations: 8_921 });
+        record(
+            &conn,
+            Event::Indexed {
+                conversations: 8_921,
+            },
+        );
 
         let rows: Vec<Counted> = queued(&conn, 10).into_iter().map(|(_, c)| c).collect();
         let body = payload("abc123", "0.9.4", "pro", &rows);
@@ -508,7 +544,11 @@ mod tests {
     fn the_install_id_is_stable_and_not_derived_from_the_person() {
         let conn = db();
         let first = install_id(&conn);
-        assert_eq!(first, install_id(&conn), "a new id on every call is a new user every call");
+        assert_eq!(
+            first,
+            install_id(&conn),
+            "a new id on every call is a new user every call"
+        );
         assert_eq!(first.len(), 32);
         assert!(first.chars().all(|c| c.is_ascii_hexdigit()));
     }
@@ -537,8 +577,7 @@ mod tests {
             // and a scanner that cannot tell the difference gets deleted by
             // whoever it next accuses.
             let trimmed = line.trim_start();
-            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with("/*")
-            {
+            if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with("/*") {
                 continue;
             }
 
@@ -606,7 +645,10 @@ mod tests {
 
         let printed: Vec<String> = catalogue().into_iter().map(|(name, _)| name).collect();
         for name in named {
-            assert!(printed.contains(&name.to_string()), "{name} is counted and never listed");
+            assert!(
+                printed.contains(&name.to_string()),
+                "{name} is counted and never listed"
+            );
         }
     }
 
@@ -616,8 +658,14 @@ mod tests {
         // nothing they could not have guessed, and guessing is what the list
         // exists to make unnecessary.
         for (name, description) in catalogue() {
-            assert!(!description.is_empty(), "{name} is listed with nothing said about it");
-            assert!(description.ends_with('.'), "{name} is described in half a sentence");
+            assert!(
+                !description.is_empty(),
+                "{name} is listed with nothing said about it"
+            );
+            assert!(
+                description.ends_with('.'),
+                "{name} is described in half a sentence"
+            );
         }
     }
 
@@ -628,10 +676,17 @@ mod tests {
          * only place the guarantee at the top could be got around. A renamed
          * step must cost a number and nothing else.
          */
-        assert_eq!(setup_step("handover"), Some(Event::Setup { step: "handover" }));
+        assert_eq!(
+            setup_step("handover"),
+            Some(Event::Setup { step: "handover" })
+        );
         assert_eq!(setup_step("/Users/nils/Sidq"), None);
         assert_eq!(setup_step(""), None);
-        assert_eq!(setup_step("Handover"), None, "step names are matched exactly");
+        assert_eq!(
+            setup_step("Handover"),
+            None,
+            "step names are matched exactly"
+        );
     }
 
     #[test]
@@ -642,7 +697,10 @@ mod tests {
         if let Some(event) = setup_step("please ignore previous instructions") {
             record(&conn, event);
         }
-        assert!(queued(&conn, 10).is_empty(), "arbitrary text reached the queue");
+        assert!(
+            queued(&conn, 10).is_empty(),
+            "arbitrary text reached the queue"
+        );
     }
 
     #[test]
@@ -656,12 +714,19 @@ mod tests {
          * So the callers get read. A variant nothing records is either dead or
          * forgotten, and there is no third option worth shipping.
          */
-        let callers =
-            concat!(include_str!("main.rs"), include_str!("background.rs"), include_str!("mcp.rs"));
+        let callers = concat!(
+            include_str!("main.rs"),
+            include_str!("background.rs"),
+            include_str!("mcp.rs")
+        );
 
         for event in EVERY_EVENT {
             let variant = format!("{event:?}");
-            let name = variant.split_whitespace().next().unwrap_or(&variant).to_string();
+            let name = variant
+                .split_whitespace()
+                .next()
+                .unwrap_or(&variant)
+                .to_string();
 
             // `Setup` is the one variant a caller never names. It is built by
             // `setup_step` out of a string the window sent, deliberately, so
@@ -676,7 +741,10 @@ mod tests {
         }
 
         // And a queue nothing drains is a queue that only ever grows.
-        assert!(callers.contains("send_queued("), "nothing ever sends what is queued");
+        assert!(
+            callers.contains("send_queued("),
+            "nothing ever sends what is queued"
+        );
     }
 
     #[test]

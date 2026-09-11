@@ -168,7 +168,10 @@ fn contents_of(turns: &[Turn]) -> String {
  * which costs a sentence, rather than calling a partial one complete.
  */
 fn read_from_a_screen(source: &str) -> bool {
-    !matches!(source, "claude-code" | "cowork" | "cursor" | "windsurf" | "vscode")
+    !matches!(
+        source,
+        "claude-code" | "cowork" | "cursor" | "windsurf" | "vscode"
+    )
 }
 
 /**
@@ -291,8 +294,7 @@ words. Follow them unless this person says otherwise.\n\n",
      * beats a confidently wrong one.
      */
     let resume = brief.resume_point.trim();
-    let already = !resume.is_empty()
-        && arc.contains(&resume.chars().take(60).collect::<String>());
+    let already = !resume.is_empty() && arc.contains(&resume.chars().take(60).collect::<String>());
     if !resume.is_empty() && !already {
         out.push_str(&format!("\n\nThe last thing they asked was: {resume}"));
     }
@@ -380,9 +382,9 @@ fn arc_of(turns: &[Turn]) -> String {
     );
 
     match (mine.first(), mine.last()) {
-        (Some(first), Some(last)) if mine.len() > 1 => format!(
-            "It opened with: {first}\n\nBy the end they were on: {last}\n\n{exchanges}"
-        ),
+        (Some(first), Some(last)) if mine.len() > 1 => {
+            format!("It opened with: {first}\n\nBy the end they were on: {last}\n\n{exchanges}")
+        }
         (Some(only), _) => format!("It began and stayed on: {only}\n\n{exchanges}"),
         _ => exchanges,
     }
@@ -401,7 +403,9 @@ fn role_name(role: &Role) -> &'static str {
 /// angle bracket turns the rest of the document into malformed markup that the
 /// receiving model has to guess its way through.
 fn escape(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn claude_body(turns: &[Turn]) -> String {
@@ -561,9 +565,17 @@ fn compile_body(turns: &[Turn], brief: &Brief, target: Target) -> String {
                 .iter()
                 .map(|(who, rule)| (escape(who), escape(rule)))
                 .collect();
-            Brief { profile: &escaped, team: &escaped_team, ..*brief }
+            Brief {
+                profile: &escaped,
+                team: &escaped_team,
+                ..*brief
+            }
         }
-        Target::Markdown => Brief { profile: brief.profile, team: brief.team, ..*brief },
+        Target::Markdown => Brief {
+            profile: brief.profile,
+            team: brief.team,
+            ..*brief
+        },
     };
     /*
      * The arc is read from the whole conversation and not from what was
@@ -701,17 +713,30 @@ mod tests {
 
     fn turns() -> Vec<Turn> {
         vec![
-            Turn { role: Role::You, blocks: vec![Block::Said("fix the ranking".into())] },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("fix the ranking".into())],
+            },
             Turn {
                 role: Role::Assistant,
                 blocks: vec![
                     Block::Thought("recency alone would rank the mango note first".into()),
-                    Block::Did { tool: "Read".into(), input: "{\"path\":\"a.rs\"}".into() },
-                    Block::Saw { tool_use_id: "t1".into(), output: "ok".into(), failed: false },
+                    Block::Did {
+                        tool: "Read".into(),
+                        input: "{\"path\":\"a.rs\"}".into(),
+                    },
+                    Block::Saw {
+                        tool_use_id: "t1".into(),
+                        output: "ok".into(),
+                        failed: false,
+                    },
                     Block::Said("Weighted by substance instead.".into()),
                 ],
             },
-            Turn { role: Role::You, blocks: vec![Block::Interrupted] },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Interrupted],
+            },
         ]
     }
 
@@ -727,7 +752,10 @@ mod tests {
     #[test]
     fn a_teammates_rule_arrives_with_their_name_on_it() {
         let team = [("Sam".to_string(), "always TypeScript, never JS".to_string())];
-        let brief = Brief { team: &team, ..brief() };
+        let brief = Brief {
+            team: &team,
+            ..brief()
+        };
         let out = compile(&turns(), &brief, Target::Markdown);
 
         assert!(out.contains("HOW THIS TEAM WORKS"));
@@ -750,7 +778,11 @@ mod tests {
     fn your_rules_and_the_teams_are_never_mixed_together() {
         let rules: Vec<String> = vec!["no em dashes".into()];
         let team = [("Sam".to_string(), "always TypeScript".to_string())];
-        let brief = Brief { profile: &rules, team: &team, ..brief() };
+        let brief = Brief {
+            profile: &rules,
+            team: &team,
+            ..brief()
+        };
         let out = compile(&turns(), &brief, Target::Markdown);
 
         let mine = out.find("WHO YOU ARE TALKING TO").expect("own rules");
@@ -759,7 +791,10 @@ mod tests {
 
         let own_block = &out[mine..theirs];
         assert!(own_block.contains("no em dashes"));
-        assert!(!own_block.contains("always TypeScript"), "a colleague's rule under your heading");
+        assert!(
+            !own_block.contains("always TypeScript"),
+            "a colleague's rule under your heading"
+        );
     }
 
     /*
@@ -771,13 +806,15 @@ mod tests {
     #[test]
     fn a_teammate_cannot_break_the_markup() {
         let team = [("Sa<m>".to_string(), "use <Foo /> everywhere".to_string())];
-        let brief = Brief { team: &team, ..brief() };
+        let brief = Brief {
+            team: &team,
+            ..brief()
+        };
         let out = compile(&turns(), &brief, Target::Claude);
 
         assert!(out.contains("Sa&lt;m&gt;"));
         assert!(out.contains("use &lt;Foo /&gt; everywhere"));
     }
-
 
     #[test]
     fn claude_gets_xml_and_chatgpt_gets_markdown() {
@@ -831,8 +868,15 @@ mod tests {
          */
         for target in [Target::Claude, Target::Markdown] {
             let out = compile(&turns(), &brief(), target);
-            assert_eq!(out.matches("Do not summarise it back").count(), 1, "{target:?}");
-            assert!(out.contains("summarising it back"), "and again at the end: {target:?}");
+            assert_eq!(
+                out.matches("Do not summarise it back").count(),
+                1,
+                "{target:?}"
+            );
+            assert!(
+                out.contains("summarising it back"),
+                "and again at the end: {target:?}"
+            );
         }
     }
 
@@ -852,7 +896,10 @@ mod tests {
         assert!(out.contains("Vec&lt;String&gt; &amp; not"));
         // Twice over: the conversation body, and the brief, which quotes how
         // the conversation opened.
-        assert!(!out.contains("Vec<String>"), "not in the body and not in the brief");
+        assert!(
+            !out.contains("Vec<String>"),
+            "not in the body and not in the brief"
+        );
     }
 
     #[test]
@@ -883,10 +930,19 @@ mod tests {
 
         let out = compile(&many, &brief(), Target::Markdown);
 
-        assert!(out.chars().count() < MAX_CHARS + 4_000, "must fit the budget");
-        assert!(out.contains("the last thing said"), "the end has to survive");
+        assert!(
+            out.chars().count() < MAX_CHARS + 4_000,
+            "must fit the budget"
+        );
+        assert!(
+            out.contains("the last thing said"),
+            "the end has to survive"
+        );
         assert!(out.contains("are not here"), "and it must say so");
-        assert!(out.contains("turn 0 "), "the opening is kept, not spent first");
+        assert!(
+            out.contains("turn 0 "),
+            "the opening is kept, not spent first"
+        );
         assert!(
             out.contains("nothing has been summarised or rewritten"),
             "what survived is still verbatim, and the note has to say which it is"
@@ -921,7 +977,10 @@ mod tests {
          * typo for "sql" — reacting to a product name instead of reading what
          * it had been given.
          */
-        let neutral = Brief { project: "the pricing page", ..brief() };
+        let neutral = Brief {
+            project: "the pricing page",
+            ..brief()
+        };
         for target in [Target::Claude, Target::Markdown] {
             let out = compile(&turns(), &neutral, target);
             // The brief explains itself from first principles instead of naming
@@ -941,8 +1000,12 @@ mod tests {
          */
         let rules: Vec<String> = RULES.iter().map(|s| s.to_string()).collect();
         let brief = Brief {
-            source: "Claude Code", when: "yesterday", project: "Sidq",
-            resume_point: "carry on with the tiers", profile: &rules, team: &[],
+            source: "Claude Code",
+            when: "yesterday",
+            project: "Sidq",
+            resume_point: "carry on with the tiers",
+            profile: &rules,
+            team: &[],
         };
 
         let out = compile(&turns(), &brief, Target::Markdown);
@@ -958,9 +1021,18 @@ mod tests {
          * was abandoned two hours earlier.
          */
         let travelled = vec![
-            Turn { role: Role::You, blocks: vec![Block::Said("help me name the tiers".into())] },
-            Turn { role: Role::Assistant, blocks: vec![Block::Said("Free, Pro, Duo.".into())] },
-            Turn { role: Role::You, blocks: vec![Block::Said("the refund wording is wrong".into())] },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("help me name the tiers".into())],
+            },
+            Turn {
+                role: Role::Assistant,
+                blocks: vec![Block::Said("Free, Pro, Duo.".into())],
+            },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("the refund wording is wrong".into())],
+            },
         ];
 
         let out = compile(&travelled, &brief(), Target::Markdown);
@@ -991,8 +1063,14 @@ mod tests {
                 role: Role::You,
                 blocks: vec![Block::Said("<system-reminder>\ncarry on".into())],
             },
-            Turn { role: Role::You, blocks: vec![Block::Said("fix the ranking please".into())] },
-            Turn { role: Role::You, blocks: vec![Block::Said("now ship it".into())] },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("fix the ranking please".into())],
+            },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("now ship it".into())],
+            },
         ];
 
         let out = compile(&noisy, &brief(), Target::Markdown);
@@ -1007,15 +1085,27 @@ mod tests {
     fn it_does_not_repeat_the_last_thing_twice() {
         // "By the end they were on: X" followed by "The last thing they asked
         // was: X" reads as a file padding itself.
-        let brief = Brief { resume_point: "the refund wording is wrong", ..brief() };
+        let brief = Brief {
+            resume_point: "the refund wording is wrong",
+            ..brief()
+        };
         let travelled = vec![
-            Turn { role: Role::You, blocks: vec![Block::Said("help me name the tiers".into())] },
-            Turn { role: Role::You, blocks: vec![Block::Said("the refund wording is wrong".into())] },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("help me name the tiers".into())],
+            },
+            Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("the refund wording is wrong".into())],
+            },
         ];
 
         let out = compile(&travelled, &brief, Target::Markdown);
         assert!(out.contains("By the end they were on: the refund wording is wrong"));
-        assert!(!out.contains("The last thing they asked"), "it is already directly above");
+        assert!(
+            !out.contains("The last thing they asked"),
+            "it is already directly above"
+        );
     }
 
     #[test]
@@ -1040,9 +1130,15 @@ mod tests {
             blocks: vec![Block::Said("just a question".into())],
         }];
         let out = compile(&spoken, &brief(), Target::Markdown);
-        assert!(!out.contains("private reasoning"), "there is none in this file");
+        assert!(
+            !out.contains("private reasoning"),
+            "there is none in this file"
+        );
         assert!(!out.contains("It includes"));
-        assert!(!out.contains("not visible"), "no guidance about absent material");
+        assert!(
+            !out.contains("not visible"),
+            "no guidance about absent material"
+        );
 
         // And the full case still says all three.
         let rich = compile(&turns(), &brief(), Target::Markdown);
@@ -1057,7 +1153,10 @@ mod tests {
         let tools = vec![Turn {
             role: Role::Assistant,
             blocks: vec![
-                Block::Did { tool: "Read".into(), input: "{}".into() },
+                Block::Did {
+                    tool: "Read".into(),
+                    input: "{}".into(),
+                },
                 Block::Said("done".into()),
             ],
         }];
@@ -1071,7 +1170,12 @@ mod tests {
     #[test]
     fn an_empty_project_does_not_leave_a_dangling_comma() {
         let brief = Brief {
-            source: "ChatGPT", when: "today", project: "", resume_point: "", profile: &[], team: &[],
+            source: "ChatGPT",
+            when: "today",
+            project: "",
+            resume_point: "",
+            profile: &[],
+            team: &[],
         };
         let out = compile(&turns(), &brief, Target::Markdown);
 
@@ -1110,7 +1214,6 @@ mod tests {
             );
         }
     }
-
 }
 #[cfg(test)]
 mod honesty_tests {
@@ -1128,7 +1231,10 @@ mod honesty_tests {
          * supersedes the first.
          */
         let out = compile(
-            &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+            &[Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("where were we".into())],
+            }],
             &brief_for("chatgpt", &rules),
             Target::Markdown,
         );
@@ -1144,14 +1250,20 @@ mod honesty_tests {
     fn the_reminder_carries_the_resume_point_and_nothing_else() {
         let rules = standing();
         let out = compile(
-            &[Turn { role: Role::You, blocks: vec![Block::Said("x".into())] }],
+            &[Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("x".into())],
+            }],
             &brief_for("chatgpt", &rules),
             Target::Markdown,
         );
         let tail = out.split("# Reminder").nth(1).unwrap();
 
         assert!(tail.contains("carry on"), "the resume point came through");
-        assert!(!tail.contains("Standing instructions"), "not the profile again");
+        assert!(
+            !tail.contains("Standing instructions"),
+            "not the profile again"
+        );
     }
 
     fn standing() -> Vec<String> {
@@ -1159,7 +1271,14 @@ mod honesty_tests {
     }
 
     fn brief_for<'a>(source: &'a str, profile: &'a [String]) -> Brief<'a> {
-        Brief { source, when: "just now", project: "", resume_point: "carry on", profile, team: &[] }
+        Brief {
+            source,
+            when: "just now",
+            project: "",
+            resume_point: "carry on",
+            profile,
+            team: &[],
+        }
     }
 
     #[test]
@@ -1179,14 +1298,23 @@ mod honesty_tests {
          * confidently from a beginning it never saw.
          */
         let out = compile(
-            &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+            &[Turn {
+                role: Role::You,
+                blocks: vec![Block::Said("where were we".into())],
+            }],
             &brief_for("chatgpt", &rules),
             Target::Markdown,
         );
 
-        assert!(!out.contains("A complete record"), "chatgpt is read off the page");
+        assert!(
+            !out.contains("A complete record"),
+            "chatgpt is read off the page"
+        );
         assert!(out.contains("read from the page rather than from a file"));
-        assert!(out.contains("begin mid-thought"), "and says what that looks like");
+        assert!(
+            out.contains("begin mid-thought"),
+            "and says what that looks like"
+        );
     }
 
     #[test]
@@ -1196,11 +1324,17 @@ mod honesty_tests {
         // machine and Sidq reads the file. Hedging there would be its own lie.
         for source in ["claude-code", "cowork", "cursor"] {
             let out = compile(
-                &[Turn { role: Role::You, blocks: vec![Block::Said("where were we".into())] }],
+                &[Turn {
+                    role: Role::You,
+                    blocks: vec![Block::Said("where were we".into())],
+                }],
                 &brief_for(source, &rules),
                 Target::Markdown,
             );
-            assert!(out.contains("A complete record"), "{source} is read from a file");
+            assert!(
+                out.contains("A complete record"),
+                "{source} is read from a file"
+            );
         }
     }
 

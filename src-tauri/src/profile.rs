@@ -66,7 +66,87 @@ const FACT_MARKERS: [&str; 12] = [
  * to main" on the strength of the word "never".
  */
 const STOPWORDS: [&str; 81] = [
-    "about", "actually", "after", "again", "against", "also", "always", "anything", "avoid", "because", "been", "before", "being", "between", "both", "could", "dont", "each", "every", "everything", "from", "give", "good", "have", "here", "instead", "into", "just", "keep", "like", "make", "maybe", "more", "most", "much", "need", "never", "okay", "only", "onto", "over", "please", "prefer", "rather", "really", "remember", "same", "should", "some", "something", "stop", "sure", "take", "than", "that", "their", "them", "then", "there", "these", "they", "thing", "things", "this", "those", "through", "under", "used", "using", "very", "want", "well", "what", "when", "where", "which", "while", "will", "with", "would", "your",
+    "about",
+    "actually",
+    "after",
+    "again",
+    "against",
+    "also",
+    "always",
+    "anything",
+    "avoid",
+    "because",
+    "been",
+    "before",
+    "being",
+    "between",
+    "both",
+    "could",
+    "dont",
+    "each",
+    "every",
+    "everything",
+    "from",
+    "give",
+    "good",
+    "have",
+    "here",
+    "instead",
+    "into",
+    "just",
+    "keep",
+    "like",
+    "make",
+    "maybe",
+    "more",
+    "most",
+    "much",
+    "need",
+    "never",
+    "okay",
+    "only",
+    "onto",
+    "over",
+    "please",
+    "prefer",
+    "rather",
+    "really",
+    "remember",
+    "same",
+    "should",
+    "some",
+    "something",
+    "stop",
+    "sure",
+    "take",
+    "than",
+    "that",
+    "their",
+    "them",
+    "then",
+    "there",
+    "these",
+    "they",
+    "thing",
+    "things",
+    "this",
+    "those",
+    "through",
+    "under",
+    "used",
+    "using",
+    "very",
+    "want",
+    "well",
+    "what",
+    "when",
+    "where",
+    "which",
+    "while",
+    "will",
+    "with",
+    "would",
+    "your",
 ];
 
 /**
@@ -239,8 +319,12 @@ pub(crate) fn is_typed(body: &str) -> bool {
 /// `<thing>` or `<thing attr="x">` on its own, with nothing after it.
 fn is_bare_tag(line: &str) -> bool {
     let line = line.trim();
-    let Some(rest) = line.strip_prefix('<') else { return false };
-    let Some(end) = rest.find('>') else { return false };
+    let Some(rest) = line.strip_prefix('<') else {
+        return false;
+    };
+    let Some(end) = rest.find('>') else {
+        return false;
+    };
 
     // Nothing after the closing bracket, and a plausible tag name inside it.
     rest[end + 1..].trim().is_empty()
@@ -275,7 +359,10 @@ pub(crate) fn sentences(body: &str) -> Vec<String> {
         }
 
         for part in line.split(['.', '!', '?', ';']) {
-            let part = part.trim().trim_start_matches(['-', '*', '#', '>', ' ']).trim();
+            let part = part
+                .trim()
+                .trim_start_matches(['-', '*', '#', '>', ' '])
+                .trim();
             if !part.is_empty() {
                 out.push(part.to_string());
             }
@@ -401,7 +488,11 @@ fn says_the_same_thing(chosen: &[String], other: &[String]) -> bool {
     shared * 2 >= chosen.len()
 }
 
-fn group_key(words: &[String], frequency: &HashMap<String, usize>, generic_above: usize) -> Option<String> {
+fn group_key(
+    words: &[String],
+    frequency: &HashMap<String, usize>,
+    generic_above: usize,
+) -> Option<String> {
     words
         .iter()
         .filter(|w| frequency.get(*w).copied().unwrap_or(0) <= generic_above)
@@ -532,7 +623,11 @@ pub fn build(turns: &[(String, String)], limit: usize) -> Vec<Fact> {
                 text,
                 // Falls back to the group only if the representative somehow
                 // matched nothing, which would mean it did not match itself.
-                conversations: if distinct.is_empty() { sessions.len() } else { distinct.len() },
+                conversations: if distinct.is_empty() {
+                    sessions.len()
+                } else {
+                    distinct.len()
+                },
             }
         })
         .collect();
@@ -598,7 +693,11 @@ mod tests {
         let started = std::time::Instant::now();
         let facts = build(&turns, 25);
 
-        println!("\n  {} of your turns, built in {:?}", turns.len(), started.elapsed());
+        println!(
+            "\n  {} of your turns, built in {:?}",
+            turns.len(),
+            started.elapsed()
+        );
         println!("  {} facts\n", facts.len());
         for fact in &facts {
             println!("  [{}x] {}", fact.conversations, fact.text);
@@ -614,7 +713,10 @@ mod tests {
 
     #[test]
     fn picks_up_a_rule_stated_as_an_imperative() {
-        let facts = build(&turns(&[("a", "never use em dashes in anything you write")]), 10);
+        let facts = build(
+            &turns(&[("a", "never use em dashes in anything you write")]),
+            10,
+        );
 
         assert_eq!(facts.len(), 1);
         assert_eq!(facts[0].text, "never use em dashes in anything you write");
@@ -634,7 +736,10 @@ mod tests {
          */
         let facts = build(
             &turns(&[
-                ("sidq", "make sure the pricing on the site matches the program"),
+                (
+                    "sidq",
+                    "make sure the pricing on the site matches the program",
+                ),
                 ("other", "make sure the export file opens in a text editor"),
             ]),
             10,
@@ -733,7 +838,10 @@ mod tests {
     fn leaves_pasted_code_and_urls_out() {
         let facts = build(
             &turns(&[
-                ("a", "use https://example.com/docs/v2/getting-started for this"),
+                (
+                    "a",
+                    "use https://example.com/docs/v2/getting-started for this",
+                ),
                 ("b", "/usr/local/bin/never use this path"),
                 ("c", "```\nalways use strict\n```"),
             ]),
@@ -756,7 +864,10 @@ mod tests {
     #[test]
     fn finds_a_rule_stated_as_a_fact_rather_than_an_order() {
         let facts = build(
-            &turns(&[("a", "for context we use postgres with drizzle on this project")]),
+            &turns(&[(
+                "a",
+                "for context we use postgres with drizzle on this project",
+            )]),
             10,
         );
 
@@ -789,14 +900,20 @@ mod tests {
          * that separated the real rules from the noise on real data.
          */
         assert!(build(&turns(&[("a", "always use pnpm")]), 10).is_empty());
-        assert_eq!(build(&turns(&[("a", "always use pnpm for installs")]), 10).len(), 1);
+        assert_eq!(
+            build(&turns(&[("a", "always use pnpm for installs")]), 10).len(),
+            1
+        );
     }
 
     #[test]
     fn leaves_out_a_preamble_to_a_one_off_task() {
         // "…to do the following:" introduces a job, not a standing rule.
         let facts = build(
-            &turns(&[("a", "Use your prospecting tool to run this sequence in one go:")]),
+            &turns(&[(
+                "a",
+                "Use your prospecting tool to run this sequence in one go:",
+            )]),
             10,
         );
 
@@ -836,7 +953,11 @@ mod tests {
          */
         let injected = "Base directory for this skill: /x/y\navoid tight tracking on body text";
         assert!(build(&turns(&[("a", injected)]), 10).is_empty());
-        assert!(build(&turns(&[("a", "<system-reminder>\nalways use the token scale")]), 10).is_empty());
+        assert!(build(
+            &turns(&[("a", "<system-reminder>\nalways use the token scale")]),
+            10
+        )
+        .is_empty());
         assert!(build(&turns(&[("a", "avoid color-only meaning (HIG, MD)")]), 10).is_empty());
     }
 
@@ -856,7 +977,11 @@ mod tests {
         );
 
         assert_eq!(facts.len(), 1);
-        assert!(facts[0].text.contains("scrolling"), "got {:?}", facts[0].text);
+        assert!(
+            facts[0].text.contains("scrolling"),
+            "got {:?}",
+            facts[0].text
+        );
     }
 
     #[test]
@@ -880,7 +1005,12 @@ mod tests {
     #[test]
     fn respects_the_limit() {
         let many: Vec<(String, String)> = (0..50)
-            .map(|i| (format!("s{i}"), format!("always use widget{i} in the layout")))
+            .map(|i| {
+                (
+                    format!("s{i}"),
+                    format!("always use widget{i} in the layout"),
+                )
+            })
             .collect();
 
         assert_eq!(build(&many, 5).len(), 5);
