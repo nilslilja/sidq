@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PillPreview } from "./PillPreview";
 import { MacDock } from "./MacDock";
+import { SidqMark } from "@/components/SidqMark";
 import { cn } from "@/lib/cn";
 
 /*
@@ -519,6 +520,24 @@ function MenuBar() {
  * 112 by 24 points, a centimetre below the top of the screen, centred. Those
  * are BAR and FLOAT_GAP in pill_window.rs, and if they change here without
  * changing there the page is showing something that does not exist.
+ *
+ * ── What was stale, and what was not ────────────────────────────────────────
+ *
+ * The position was right and stays exactly as it was: FLOAT_GAP is 28 points
+ * and the bar floats clear of the menu bar rather than sitting in it. Prose
+ * elsewhere still describes an in-the-menu-bar version that was tried and
+ * reverted, and following that prose would have moved the bar out from under
+ * the shot that zooms to it.
+ *
+ * The surface was stale. The real bar is `.bar-float`: a gradient over
+ * translucent black, a 26px backdrop blur, a hairline rim, and the wide lilac
+ * glow that is the only thing on screen saying the app is alive while nothing
+ * is happening. This drew a flat fill and a plain ring instead, so the page
+ * showed a duller object than the one people install.
+ *
+ * And the mark was a second hand-copied inline SVG of the app icon, which is
+ * the exact drift `SidqMark` exists to prevent: two copies nobody ever sees
+ * side by side, so nobody notices when one stops matching the icon.
  */
 function Pill({ expanded }: { expanded: boolean }) {
   return (
@@ -526,18 +545,23 @@ function Pill({ expanded }: { expanded: boolean }) {
       className={cn(
         "absolute left-1/2 top-[7.5%] z-30 -translate-x-1/2",
         "flex h-[3.4%] w-[11%] items-center justify-center gap-[4%] rounded-full",
-        "bg-[rgba(12,12,17,0.66)] ring-1 ring-inset ring-white/15",
-        "shadow-[0_0_20px_-4px_rgba(184,166,255,0.28),0_8px_24px_-8px_rgba(0,0,0,0.6)]",
+        // The whole surface, exactly as the app paints it. Nothing here may set
+        // a background, ring or shadow of its own: bar-float carries all three
+        // and a second one doubles the rim.
+        "bar-float bar-breathe",
         "transition-opacity duration-300",
         expanded ? "opacity-0" : "opacity-100",
       )}
     >
-      <svg viewBox="72 116 386 208" className="h-[46%]" fill="none" stroke="white" strokeWidth="24" strokeLinecap="round">
-        <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-        <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-        <circle cx="416" cy="256" r="30" fill="white" stroke="none" />
-      </svg>
-      <span className="text-[0.4rem] tabular-nums text-white/70">128</span>
+      {/*
+       * Sized in CSS rather than by the width and height props, because the
+       * stage is scaled to whatever width the section gets and those props are
+       * points. The real mark is 22 by 12 in a 112 by 24 bar, so half the bar's
+       * height with the aspect left alone holds the proportion at every zoom
+       * the film uses.
+       */}
+      <SidqMark className="h-[50%] w-auto text-white/75" />
+      <span className="text-[0.4rem] leading-none tabular-nums text-white/70">128</span>
     </div>
   );
 }
