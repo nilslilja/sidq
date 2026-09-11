@@ -302,6 +302,20 @@ pub fn state(conn: &Connection, thread_id: &str) -> Option<String> {
             continue;
         }
 
+        /*
+         * The wall itself is not part of the conversation.
+         *
+         * Driving this over stdio showed the destination being handed "You've
+         * hit your monthly spend limit" as though it were something the last
+         * assistant had decided. It is the opposite of content: it is the
+         * reason there is a thread at all, and a model reading it has every
+         * reason to think the limit is its own and stop too.
+         */
+        let turns: Vec<(String, String)> = turns
+            .into_iter()
+            .filter(|(role, body)| role == "You" || !crate::wall::hit(&member.source, body))
+            .collect();
+
         let turns: Vec<crate::capture::Turn> = turns
             .into_iter()
             /*
@@ -653,6 +667,59 @@ mod tests {
             out.len() < STATE_BUDGET * 2,
             "the state ran past its budget"
         );
+    }
+
+    #[test]
+    fn the_limit_message_is_not_handed_on_as_something_that_was_decided() {
+        /*
+         * Found by driving this over stdio rather than by reading it. The state
+         * carried "You've hit your monthly spend limit" into the destination,
+         * where it is worse than noise: it is the reason the thread exists, it
+         * reads as the last assistant's conclusion, and a model that takes it
+         * at face value concludes the limit is its own and stops as well.
+         */
+        let conn = db();
+        a_session(&conn, "s1", "claude-code");
+        let id = start(&conn, "s1", "A", "/p").unwrap();
+        say(
+            &conn,
+            "s1",
+            "Assistant",
+            "wal mode, so the sweep and the search can coexist",
+        );
+        say(
+            &conn,
+            "s1",
+            "Assistant",
+            "You've hit your monthly spend limit · raise it at \
+             claude.ai/settings/usage?from=cc_cli_limit",
+        );
+
+        let out = state(&conn, &id).unwrap();
+        assert!(out.contains("wal mode"), "the real work was dropped: {out}");
+        assert!(
+            !out.contains("spend limit"),
+            "the wall was handed on: {out}"
+        );
+    }
+
+    #[test]
+    fn a_person_asking_about_a_limit_is_still_carried_across() {
+        // The filter must not silence the person. Somebody whose actual problem
+        // is rate limiting would arrive at the next assistant with the subject
+        // of the conversation removed from it.
+        let conn = db();
+        a_session(&conn, "s1", "claude-code");
+        let id = start(&conn, "s1", "A", "/p").unwrap();
+        say(
+            &conn,
+            "s1",
+            "You",
+            "you've hit your monthly spend limit — what does that mean",
+        );
+
+        let out = state(&conn, &id).unwrap();
+        assert!(out.contains("what does that mean"), "{out}");
     }
 
     #[test]
