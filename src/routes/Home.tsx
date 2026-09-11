@@ -1750,10 +1750,9 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       <>
         {heading}
         <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-4)]">
-          Nothing yet. This fills up from work done somewhere with a folder
-          &mdash; Claude Code, Cursor, Codex. Conversations in a browser are
-          filed under the assistant rather than a project, so they do not appear
-          here.
+          Nothing yet. This fills up from work done somewhere with a folder:
+          Claude Code, Cursor, Codex. Conversations in a browser are filed under
+          the assistant rather than a project, so they do not appear here.
         </p>
       </>
     );

@@ -96,8 +96,8 @@ export function WorksWith() {
        * statement and that is the footnote to it.
        */}
       <p className="mx-auto mt-6 max-w-[44ch] text-balance text-center text-[0.9375rem] font-medium leading-relaxed text-ink">
-        Nobody needs eleven. You use three or four &mdash; and not one of them
-        can read another.
+        Nobody needs eleven. You use three or four, and not one of them can
+        read another.
       </p>
 
       <p className="ink-muted mx-auto mt-2.5 max-w-[46ch] text-balance text-center text-[0.875rem] leading-relaxed">

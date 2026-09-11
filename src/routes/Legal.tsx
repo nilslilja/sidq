@@ -56,7 +56,7 @@ export function Privacy() {
 
       <H>Reading your AIs</H>
       <P>
-        AIs that run in a browser &mdash; ChatGPT, Claude, Gemini and the rest &mdash;
+        ChatGPT, Claude, Gemini and the rest run in a browser and
         write nothing readable to your disk. If you grant Sidq the macOS Accessibility
         permission, it reads their conversations out of the window instead, using the same
         system that screen readers and dictation apps use.
@@ -68,7 +68,7 @@ export function Privacy() {
         desktop apps. In a browser it reads a page only once its address is one of the AIs it
         supports; the two desktop apps have no address, so being that app is what identifies
         them. Every other window, in those applications and in every other
-        application on your Mac, is never read &mdash; not the contents, not the title, not
+        application on your Mac, is never read. Not the contents, not the title, not
         the fact that it is open.
       </P>
       <P>
@@ -99,7 +99,7 @@ export function Privacy() {
         If you create an account, we store your email address and your subscription
         status, because there is no way to sell you a subscription without knowing who
         you are and what you bought. We also store the date your copy last checked
-        which plan it is on &mdash; a date, not a time &mdash; so we can tell whether
+        which plan it is on, a date and not a time, so we can tell whether
         people keep using Sidq after installing it. That check already happens; nothing
         is sent for it that was not already being sent. Payments are handled by Stripe and we never see or
         store your card details. During setup we ask how you found Sidq and what you want

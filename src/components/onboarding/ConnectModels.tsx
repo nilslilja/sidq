@@ -145,7 +145,7 @@ export function ConnectModels({ found, onContinue }: ConnectModelsProps) {
               'cursor-pointer transition-colors duration-150 hover:text-white/70 hover:underline',
             )}
           >
-            Skip for now &mdash; {web.map((a) => a.name).join(', ')} will not be read
+            Skip for now. {web.map((a) => a.name).join(', ')} will not be read
           </button>
         )}
       </div>

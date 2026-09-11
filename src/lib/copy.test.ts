@@ -115,6 +115,19 @@ describe("what a visitor reads", () => {
       }
     };
     walk("src");
+    /*
+     * index.html too, which is not under src and carried one for months in the
+     * structured-data block that ships to every page.
+     */
+    files.push("index.html");
+
+    /*
+     * The entity forms as well as the character. The first version of this
+     * matched only "—" and reported the site clean while five pages served
+     * `&mdash;`, which renders identically and is what somebody writing JSX
+     * reaches for.
+     */
+    const DASH = /[—–]|&mdash;|&ndash;|&#8212;|&#8211;/i;
 
     const offences: string[] = [];
     for (const file of files) {
@@ -125,7 +138,7 @@ describe("what a visitor reads", () => {
           if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) {
             return;
           }
-          if (/[—–]/.test(line)) offences.push(`${file}:${i + 1}  ${trimmed.slice(0, 70)}`);
+          if (DASH.test(line)) offences.push(`${file}:${i + 1}  ${trimmed.slice(0, 70)}`);
         });
     }
 
