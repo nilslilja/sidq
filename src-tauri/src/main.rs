@@ -363,14 +363,7 @@ fn gesture_hint(action: &str, _mask: u64) -> String {
 fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
     let _ = app.emit("sidq:found", found);
 
-    let label = match found.source {
-        "chatgpt" => "ChatGPT",
-        "claude.ai" => "Claude",
-        "gemini" => "Gemini",
-        "grok" => "Grok",
-        "deepseek" => "DeepSeek",
-        other => other,
-    };
+    let label = label_for(found.source);
 
     /*
      * The title says what happened, the body says which one.
@@ -382,6 +375,61 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
      * whole thing is legible from a banner nobody clicks.
      */
     notify(app, &format!("New chat from {label} saved"), &found.title);
+}
+
+/**
+ * An assistant stopped. Say so, and have the continuation already aimed.
+ *
+ * ── Why this is worth interrupting somebody for ─────────────────────────────
+ *
+ * Almost nothing is. This is: the assistant has stopped, the work has stopped
+ * with it, and the person is about to either wait or start again from nothing
+ * somewhere else. A banner arriving in that half-second is the difference
+ * between Sidq being the thing that saved the afternoon and Sidq being a thing
+ * they remember owning.
+ *
+ * `aim_at` before the notification, not after. The gesture and the pill both
+ * read `AIMED`, so setting it first means the continuation is already pointed
+ * at the right conversation whether they click the banner, press the key, or
+ * open the pill themselves — three routes to one answer, and no window in which
+ * one of them is aimed at something else.
+ */
+fn announce_stopped(app: &AppHandle, stopped: &sidq::wall::Stopped) {
+    aim_at(Some(stopped.session_id.clone()));
+    let _ = app.emit("sidq:stopped", stopped);
+
+    /*
+     * Says what happened and offers the way out in one line, because this is
+     * read from a banner nobody clicks. "Claude Code stopped" alone is news
+     * they already have — they are looking at it.
+     */
+    /*
+     * The assistant is named from the session, not written in. Every marker in
+     * `wall` is Claude Code's today, and hard-coding that here would have made
+     * the first marker somebody adds announce the wrong assistant — silently,
+     * and only on the machines where it fired.
+     */
+    notify(
+        app,
+        &format!("{} hit its limit", label_for(&stopped.source)),
+        &format!("{} is ready to carry on somewhere else.", stopped.title),
+    );
+
+    /*
+     * And open it, rather than waiting to be sent for.
+     *
+     * A notification is a thing to remember to act on, and the whole problem
+     * this feature exists to solve is that nobody remembers Sidq at this
+     * particular moment. The continuation being already on screen, already
+     * aimed, is the difference between a tool and a reminder to use a tool.
+     *
+     * Safe to do uninvited because the picker is a non-activating panel: it
+     * appears over the front application without taking it out of focus, so a
+     * person who is mid-sentence somewhere else keeps typing there.
+     */
+    if let Some(w) = app.get_webview_window("pill") {
+        let _ = pill_window::expand(&w);
+    }
 }
 
 #[tauri::command]
@@ -2236,18 +2284,13 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
 }
 
 /// The assistant's name as a person writes it.
+///
+/// Its own copy of this list knew eight sources and Sidq reads eleven, so a
+/// Windsurf conversation was announced as "windsurf". The id is the fallback
+/// rather than a vague phrase: this ends up in a notification, and an id is at
+/// least true and at least actionable.
 fn label_for(source: &str) -> &str {
-    match source {
-        "chatgpt" => "ChatGPT",
-        "claude.ai" => "Claude",
-        "claude-code" => "Claude Code",
-        "cowork" => "Cowork",
-        "gemini" => "Gemini",
-        "grok" => "Grok",
-        "deepseek" => "DeepSeek",
-        "cursor" => "Cursor",
-        other => other,
-    }
+    sidq::sources::label(source).unwrap_or(source)
 }
 
 /**

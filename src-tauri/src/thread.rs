@@ -382,21 +382,10 @@ pub fn assistants(thread: &Thread) -> String {
 impl Member {
     /// What a person calls the assistant this session happened in.
     fn source_label(&self) -> &'static str {
-        match self.source.as_str() {
-            "claude-code" => "Claude Code",
-            "cursor" => "Cursor",
-            "windsurf" => "Windsurf",
-            "codex" => "Codex",
-            "cowork" => "Cowork",
-            "chatgpt" => "ChatGPT",
-            "claude.ai" => "Claude",
-            "gemini" => "Gemini",
-            "grok" => "Grok",
-            "deepseek" => "DeepSeek",
-            // A source Sidq reads but this list has not been told about. The
-            // section still gets a heading rather than an empty one.
-            _ => "another assistant",
-        }
+        // A source Sidq reads and the table has not been told about still gets
+        // a heading rather than an empty one — and a vague heading rather than
+        // a column value, which in the middle of prose reads as a bug.
+        crate::sources::label(&self.source).unwrap_or("another assistant")
     }
 }
 

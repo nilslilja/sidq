@@ -90,6 +90,99 @@ pub fn watched(source: &str) -> bool {
     MARKERS.iter().any(|m| m.source == source)
 }
 
+/// A session whose assistant has stopped, as the rest of the app needs it.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct Stopped {
+    pub session_id: String,
+    pub source: String,
+    pub title: String,
+    pub project: String,
+}
+
+/**
+ * The last wall Sidq announced.
+ *
+ * One key holding one session id, not a row per session. The question being
+ * asked is "have I already said this", and the only answer that matters is
+ * about the most recent one — a table would grow forever to answer a question
+ * that is only ever asked about the newest thing in it.
+ */
+const SEEN_KEY: &str = "wall_seen";
+
+/// How far back a sweep looks. The wall is a thing that just happened.
+const RECENT: usize = 6;
+
+/**
+ * Has an assistant stopped since the last time this was asked?
+ *
+ * `None` most of the time, which is the point: this runs on the sweep clock and
+ * the common case has to cost almost nothing.
+ *
+ * ── Why the *last* assistant turn and not any of them ───────────────────────
+ *
+ * The wall is where a conversation ended. A limit message in the middle of a
+ * transcript is one somebody already worked around — announcing it would be
+ * offering to rescue them from a place they left hours ago.
+ */
+pub fn newly_hit(conn: &rusqlite::Connection) -> Option<Stopped> {
+    let already = crate::index_store::setting(conn, SEEN_KEY);
+
+    for source in MARKERS.iter().map(|m| m.source) {
+        let recent: Vec<(String, String, String)> = conn
+            .prepare(
+                "SELECT session_id, title, project_path FROM sessions
+                  WHERE source = ?1 ORDER BY ended_at DESC LIMIT ?2",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(rusqlite::params![source, RECENT as i64], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })
+                .map(|rows| rows.filter_map(Result::ok).collect())
+            })
+            .unwrap_or_default();
+
+        for (session_id, title, project) in recent {
+            if already.as_deref() == Some(session_id.as_str()) {
+                /*
+                 * Announced already. `break` rather than `continue`: the list
+                 * is newest first, so everything past the one we last spoke
+                 * about is older than it and was either announced then or is
+                 * not worth announcing now.
+                 */
+                break;
+            }
+
+            /*
+             * The assistant's own turn, and only that. "Exchange" is a
+             * screen-read block that holds both sides at once, so it is not
+             * proof the assistant said anything — and a person quoting a limit
+             * message into a chat is exactly the sentence this must not fire on.
+             */
+            let last: Option<String> = conn
+                .query_row(
+                    "SELECT body FROM messages
+                      WHERE session_id = ?1 AND role = 'Assistant'
+                      ORDER BY rowid DESC LIMIT 1",
+                    [&session_id],
+                    |r| r.get(0),
+                )
+                .ok();
+
+            if last.is_some_and(|body| hit(source, &body)) {
+                crate::index_store::put_setting(conn, SEEN_KEY, &session_id);
+                return Some(Stopped {
+                    session_id,
+                    source: source.to_string(),
+                    title,
+                    project,
+                });
+            }
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,6 +190,140 @@ mod tests {
     /// The real thing, copied from a transcript on this machine.
     const REAL: &str = "You've hit your monthly spend limit · raise it at \
                         claude.ai/settings/usage?from=cc_cli_limit";
+
+    // ── Finding it in a real index ──────────────────────────────────────────
+
+    use rusqlite::Connection;
+
+    fn db() -> Connection {
+        crate::index_store::tests::memory()
+    }
+
+    fn session(conn: &Connection, id: &str, source: &str) {
+        conn.execute(
+            "INSERT INTO sessions (session_id, source, title, project_path, ended_at)
+             VALUES (?1, ?2, 'The index', '/Sidq', 1)",
+            [id, source],
+        )
+        .unwrap();
+    }
+
+    fn say(conn: &Connection, id: &str, role: &str, body: &str) {
+        conn.execute(
+            "INSERT INTO messages (session_id, role, body) VALUES (?1, ?2, ?3)",
+            rusqlite::params![id, role, body],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_session_that_stopped_at_the_wall_is_found() {
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "You", "keep going");
+        say(&conn, "s1", "Assistant", REAL);
+
+        let stopped = newly_hit(&conn).expect("the wall");
+        assert_eq!(stopped.session_id, "s1");
+        assert_eq!(stopped.source, "claude-code");
+        assert_eq!(stopped.title, "The index");
+    }
+
+    #[test]
+    fn the_same_wall_is_announced_once_and_not_every_sweep() {
+        /*
+         * This runs on an eight-second clock. Without the memory it would
+         * notify somebody every eight seconds for as long as the session stayed
+         * the newest one — which is the single fastest way to get a feature
+         * turned off forever.
+         */
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "Assistant", REAL);
+
+        assert!(newly_hit(&conn).is_some());
+        assert!(newly_hit(&conn).is_none(), "announced twice");
+        assert!(newly_hit(&conn).is_none());
+    }
+
+    #[test]
+    fn a_person_quoting_the_limit_message_never_fires_it() {
+        /*
+         * The same guarantee as `hit`, at the level that actually runs. Only
+         * the assistant's own turn is read — somebody pasting the message in to
+         * ask about it is a person typing, and interrupting them over it would
+         * be the feature working exactly backwards.
+         */
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "You", REAL);
+        say(&conn, "s1", "You", "why does it say that");
+
+        assert_eq!(newly_hit(&conn), None);
+    }
+
+    #[test]
+    fn a_limit_somebody_already_worked_around_is_not_announced() {
+        /*
+         * The wall is where a conversation ended. Firing on one in the middle
+         * of a transcript is offering to rescue somebody from a place they
+         * left an hour ago, which reads as the app not knowing what is going on.
+         */
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "Assistant", REAL);
+        say(&conn, "s1", "Assistant", "raised it, carrying on");
+
+        assert_eq!(newly_hit(&conn), None);
+    }
+
+    #[test]
+    fn a_source_nobody_verified_is_not_guessed_at() {
+        // Cursor writes its own wording for this and nobody has seen it. A
+        // match here would be asserting something unchecked against real users.
+        let conn = db();
+        session(&conn, "s1", "cursor");
+        say(&conn, "s1", "Assistant", REAL);
+
+        assert_eq!(newly_hit(&conn), None);
+    }
+
+    #[test]
+    fn a_second_wall_after_the_first_is_still_announced() {
+        // The memory must not become "announced once, then never again".
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "Assistant", REAL);
+        assert!(newly_hit(&conn).is_some());
+
+        conn.execute(
+            "UPDATE sessions SET ended_at = 1 WHERE session_id = 's1'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO sessions (session_id, source, title, project_path, ended_at)
+             VALUES ('s2', 'claude-code', 'Another', '/Sidq', 2)",
+            [],
+        )
+        .unwrap();
+        say(&conn, "s2", "Assistant", REAL);
+
+        assert_eq!(
+            newly_hit(&conn).map(|s| s.session_id),
+            Some("s2".to_string())
+        );
+    }
+
+    #[test]
+    fn an_ordinary_session_costs_nothing_and_says_nothing() {
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "You", "we should handle the rate limit here");
+        say(&conn, "s1", "Assistant", "added a retry with backoff");
+
+        assert_eq!(newly_hit(&conn), None);
+    }
 
     #[test]
     fn the_real_marker_fires() {

@@ -9,7 +9,7 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{index_store, indexer, telemetry};
+use sidq::{index_store, indexer, telemetry, wall};
 
 // The browser reader is the macOS Accessibility API and exists nowhere else.
 // Imported under the same gate as the thread that uses it, so that the absence
@@ -82,6 +82,23 @@ pub fn spawn(app: tauri::AppHandle) {
                         conversations: index_store::counts(&conn).0,
                     },
                 );
+
+                /*
+                 * ── The moment this whole feature exists for ─────────────────
+                 *
+                 * Four hours in, the assistant stops. Until now the only way
+                 * forward was to remember Sidq exists, at the worst moment of
+                 * the day, press a key and pick a row — three chances to not
+                 * use the thing that would have saved the afternoon.
+                 *
+                 * Only after a sweep that wrote something, because the wall
+                 * arrives as a new turn in a transcript. A sweep that found
+                 * nothing cannot have found this.
+                 */
+                if let Some(stopped) = wall::newly_hit(&conn) {
+                    telemetry::record(&conn, telemetry::Event::AssistantStopped);
+                    crate::announce_stopped(&disk, &stopped);
+                }
             }
 
             /*

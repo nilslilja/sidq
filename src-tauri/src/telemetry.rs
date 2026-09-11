@@ -77,6 +77,15 @@ pub enum Event {
     HitTheLimit,
     /// The pricing page was opened from inside the app.
     SawThePlans,
+    /**
+     * An assistant hit its own limit and stopped.
+     *
+     * Deliberately not `HitTheLimit`, which is Sidq refusing a handover on the
+     * free plan. They are opposite facts — one is somebody being stopped by
+     * the thing Sidq exists to fix, the other is somebody being stopped by
+     * Sidq — and one number for both would answer neither.
+     */
+    AssistantStopped,
 }
 
 /**
@@ -91,7 +100,7 @@ pub enum Event {
  * it appears here, so adding a variant and forgetting this array fails the
  * suite rather than shipping a short list.
  */
-pub const EVERY_EVENT: [Event; 9] = [
+pub const EVERY_EVENT: [Event; 10] = [
     Event::Opened,
     Event::Setup { step: "" },
     Event::Ready,
@@ -103,6 +112,7 @@ pub const EVERY_EVENT: [Event; 9] = [
     Event::Indexed { conversations: 0 },
     Event::HitTheLimit,
     Event::SawThePlans,
+    Event::AssistantStopped,
 ];
 
 impl Event {
@@ -118,6 +128,7 @@ impl Event {
             Event::Indexed { .. } => "indexed",
             Event::HitTheLimit => "hit_the_limit",
             Event::SawThePlans => "saw_the_plans",
+            Event::AssistantStopped => "assistant_stopped",
         }
     }
 
@@ -171,6 +182,10 @@ impl Event {
             Event::Indexed { .. } => "How many conversations are indexed, as a number.",
             Event::HitTheLimit => "The free weekly handover limit was reached.",
             Event::SawThePlans => "The plans were opened from inside Sidq.",
+            Event::AssistantStopped => {
+                "An assistant you were using hit its own limit and stopped. Which \
+                 assistant is not sent, and neither is what you were working on."
+            }
         }
     }
 }
@@ -641,7 +656,7 @@ mod tests {
             .lines()
             .filter_map(|line| line.split_once("=> \"")?.1.split('"').next())
             .collect();
-        assert_eq!(named.len(), 9, "the name match no longer has nine arms");
+        assert_eq!(named.len(), 10, "the name match no longer has ten arms");
 
         let printed: Vec<String> = catalogue().into_iter().map(|(name, _)| name).collect();
         for name in named {
@@ -761,6 +776,7 @@ mod tests {
             Event::Indexed { conversations: 1 },
             Event::HitTheLimit,
             Event::SawThePlans,
+            Event::AssistantStopped,
         ] {
             assert!(!event.name().is_empty(), "{event:?} has no name");
         }
