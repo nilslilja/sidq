@@ -75,8 +75,26 @@ const UNLIMITED = Number.POSITIVE_INFINITY;
 
 const ENTITLEMENTS: Record<PlanId, Entitlements> = {
   free: {
-    handoffsPerWeek: 5,
-    historyDays: 7,
+    /*
+     * ── Why the free plan is uncapped ────────────────────────────────────────
+     *
+     * It was five handovers a week and seven days of history. Five is a
+     * sensible cap for a product with users and the wrong one for a product
+     * with none: it bites during somebody's first serious session, which is
+     * the only session that decides whether there is ever a second.
+     *
+     * The seven day window was worse than a limit, it was a misrepresentation.
+     * Sidq's whole claim is that it already has everything you did before you
+     * installed it, and a week of searchable history is indistinguishable from
+     * a broken index. The cap hid the feature it existed to sell.
+     *
+     * Deliberate and reversible. It comes back when there is a base of people
+     * who would notice, and entitlement.rs has to move at the same time — the
+     * Rust test that compares these two numbers is the thing that stops the
+     * site and the app lying to each other.
+     */
+    handoffsPerWeek: UNLIMITED,
+    historyDays: UNLIMITED,
     seats: 1,
   },
   pro: {

@@ -41,8 +41,10 @@ describe("entitlements", () => {
      */
     const free = entitlementsFor("free");
 
-    expect(isUnlimited(free.handoffsPerWeek)).toBe(false);
-    expect(isUnlimited(free.historyDays)).toBe(false);
+    // Uncapped on both, deliberately. See the note in entitlements.ts: a cap
+    // cannot convert somebody who has not formed the habit it interrupts.
+    expect(isUnlimited(free.handoffsPerWeek)).toBe(true);
+    expect(isUnlimited(free.historyDays)).toBe(true);
   });
 
   test("free is metered rather than crippled", () => {
@@ -54,11 +56,13 @@ describe("entitlements", () => {
     expect(free.historyDays).toBeGreaterThan(0);
   });
 
-  test("free history is a week, matching what Rust reaches back", () => {
-    // entitlement.rs: Plan::Free.history_days() is Some(7). Two numbers, two
-    // files, and the site quotes this one.
-    const free = entitlementsFor("free");
-    expect(free.historyDays).toBe(7);
+  test("free history reaches everything, matching what Rust reaches back", () => {
+    /*
+     * Was seven days. That window was worse than a limit: Sidq's claim is that
+     * it already holds everything from before you installed it, and a week of
+     * searchable history is indistinguishable from a broken index.
+     */
+    expect(isUnlimited(entitlementsFor("free").historyDays)).toBe(true);
   });
 
   test("paying removes every meter", () => {
@@ -79,17 +83,34 @@ describe("entitlements", () => {
     expect(duo.seats).toBeGreaterThan(pro.seats);
   });
 
-  test("every paid plan beats free on something people can name", () => {
-    const free = entitlementsFor("free");
-    for (const plan of ["pro", "duo", "team"] as const) {
-      const e = entitlementsFor(plan);
-      expect(
-        isUnlimited(e.handoffsPerWeek) && !isUnlimited(free.handoffsPerWeek),
-      ).toBe(true);
-      expect(isUnlimited(e.historyDays) && !isUnlimited(free.historyDays)).toBe(
-        true,
-      );
+  /*
+   * ── This test is a standing question, not a passing assertion ─────────────
+   *
+   * It used to check that every paid plan beat free on handovers or history.
+   * Free is uncapped on both now, so that is no longer true of Pro — and that
+   * is the real consequence of uncapping rather than a broken test.
+   *
+   * Duo and Team still beat free: `may_share_with_team` is Duo | Team in
+   * entitlement.rs, and the folder is a genuine capability free does not get.
+   * Pro currently grants nothing free does not, which is a pricing decision
+   * somebody has to make rather than a bug to fix here.
+   *
+   * So this asserts what is actually true, and names the gap out loud so it
+   * cannot be forgotten while the pricing page still charges $19.99 for it.
+   */
+  test("the plans that beat free do it on team sharing, and Pro does not beat it at all", () => {
+    // Seats is what the contract actually carries for the shared plans; the
+    // folder capability itself lives in entitlement.rs and is asserted there
+    // by `the_team_folder_is_the_only_thing_a_plan_still_buys`.
+    for (const plan of ["duo", "team"] as const) {
+      expect(entitlementsFor(plan).seats).toBeGreaterThan(1);
     }
+    expect(entitlementsFor("free").seats).toBe(1);
+
+    const free = entitlementsFor("free");
+    const pro = entitlementsFor("pro");
+    expect(pro.handoffsPerWeek).toBe(free.handoffsPerWeek);
+    expect(pro.historyDays).toBe(free.historyDays);
   });
 });
 
@@ -210,10 +231,18 @@ describe("pricing cards match the contract", () => {
      * in the contract, which is the only claim on the pricing page a test can
      * check for itself.
      */
-    const free = entitlementsFor("free");
     const text = [...(PLANS[0].limits ?? []), ...PLANS[0].features].join(" ");
 
-    expect(text).toContain(String(free.handoffsPerWeek));
+    /*
+     * There are no numbers on the free card any more, because there are no
+     * caps to state. It previously asserted the handover number appeared, and
+     * "Infinity handovers a week" is how a generated line fails when the value
+     * behind it changes shape rather than size. What has to stay true is that
+     * the card does not quote a limit the app no longer enforces.
+     */
+    expect(text).not.toMatch(/\d+\s+(conversation )?handovers/i);
+    expect(text).not.toMatch(/search back \d+/i);
+    expect(text).not.toMatch(/Infinity|NaN|undefined/);
 
     /*
      * `free.sources` is deliberately not asserted.
@@ -242,8 +271,13 @@ describe("pricing cards match the contract", () => {
 
       // Unlimited is the only thing a paid card may claim past free, because it
       // is the only thing entitlement.rs grants past free.
+      /*
+       * Free may say "unlimited" now, because it is. What no card may do is
+       * promise a capability entitlement.rs does not grant it, and for free
+       * the one that still matters is the team folder.
+       */
       if (plan.id === "free") {
-        expect(text.toLowerCase()).not.toMatch(/unlimited|however far back/);
+        expect(text.toLowerCase()).not.toMatch(/team|shared|house rules/);
       }
     }
   });
@@ -296,14 +330,31 @@ describe("the site and the app agree about the free plan", () => {
     return rust.slice(from, next === -1 ? undefined : next);
   };
 
-  /** Pull `Plan::Free => Some(N)` out of the named function's match arm. */
+  /**
+   * What Rust actually grants the free plan, capped or not.
+   *
+   * This used to demand a `Plan::Free => Some(N)` arm and throw without one,
+   * which was right while the free plan had caps and wrong the moment it
+   * stopped. Uncapped is a real answer rather than a missing one, so it reads
+   * as Infinity and the comparison below still has to hold.
+   *
+   * The guarantee is unchanged and is the only reason this test exists: the
+   * site and the app cannot disagree about what free means. Capping one side
+   * alone still fails here, in whichever direction it happens.
+   */
   const freeLimit = (fn: string): number => {
-    const match = /Plan::Free\s*=>\s*Some\((\d+)\)/.exec(bodyOf(fn));
-    if (!match)
-      throw new Error(
-        `no Plan::Free arm found in ${fn} — has it been renamed?`,
-      );
-    return Number(match[1]);
+    const body = bodyOf(fn);
+
+    const capped = /Plan::Free\s*=>\s*Some\((\d+)\)/.exec(body);
+    if (capped) return Number(capped[1]);
+
+    // No Free arm, and the function hands back None for everybody.
+    if (/->\s*Option<[^>]+>\s*\{\s*None\s*\}/.test(body.replace(/\s+/g, " ")))
+      return Number.POSITIVE_INFINITY;
+
+    throw new Error(
+      `${fn} neither caps the free plan nor returns None — what does it do now?`,
+    );
   };
 
   test("handovers a week is the same number in both", () => {
@@ -322,9 +373,14 @@ describe("the site and the app agree about the free plan", () => {
      * is that no second `Plan::X => Some(n)` arm has quietly appeared — which
      * would be a cap the site is not telling anybody about.
      */
+    /*
+     * Nothing is capped on either side now, so the guard is that no cap has
+     * quietly reappeared for anybody — which would be a limit the site is not
+     * telling people about.
+     */
     for (const fn of ["handovers_per_week", "history_days"]) {
       const caps = bodyOf(fn).match(/Plan::\w+\s*=>\s*Some\(/g) ?? [];
-      expect(caps).toHaveLength(1);
+      expect(caps).toHaveLength(0);
     }
     expect(isUnlimited(entitlementsFor("pro").handoffsPerWeek)).toBe(true);
     expect(isUnlimited(entitlementsFor("duo").handoffsPerWeek)).toBe(true);

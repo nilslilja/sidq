@@ -18,7 +18,6 @@
  * enforcement points read. Nothing is claimed here that is not enforced there.
  */
 
-import { entitlementsFor } from "./entitlements";
 
 export type PlanId = "free" | "pro" | "duo" | "team";
 
@@ -77,8 +76,6 @@ export interface Plan {
   featured?: boolean;
 }
 
-const free = entitlementsFor("free");
-
 export const PLANS: Plan[] = [
   {
     id: "free",
@@ -99,12 +96,19 @@ export const PLANS: Plan[] = [
      * It also stopped describing anything real when the assistants moved
      * inside Sidq: there is no connecting step left to limit.
      */
-    limits: [
-      `${free.handoffsPerWeek} conversation handovers a week`,
-      `Search back ${free.historyDays} days`,
-    ],
+    /*
+     * No limits list at all, because there are none to list.
+     *
+     * It said "5 conversation handovers a week" and "Search back 7 days",
+     * generated from `free` so the two could not drift. Both are gone from
+     * entitlements.ts and the strings would now read "Infinity handovers a
+     * week", which is how a generated line fails when the number behind it
+     * changes shape rather than value.
+     */
     features: [
       "Every conversation already on your Mac, from day one",
+      "Unlimited handovers, as many as you want",
+      "Search everything, however far back it goes",
       "Word for word, never summarised",
       "Nothing uploaded, ever",
     ],

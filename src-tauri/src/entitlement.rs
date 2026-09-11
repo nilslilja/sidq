@@ -69,15 +69,28 @@ impl Plan {
         }
     }
 
-    /// Handovers per rolling week. `None` means no limit.
-    ///
-    /// Five is the number on the pricing page. If one of these two ever changes
-    /// without the other, the site is lying, so they are worth checking together.
+    /**
+     * Handovers per rolling week. `None` means no limit.
+     *
+     * ── Why the free plan has no cap right now ──────────────────────────────
+     *
+     * It was five, which is the number that was on the pricing page. Five is a
+     * reasonable cap for a product with users and the wrong one for a product
+     * with none: it bites hardest during the first serious session somebody
+     * has, which is the only session that decides whether there is ever a
+     * second.
+     *
+     * At zero paying customers the number worth optimising is not revenue per
+     * user, it is whether anybody uses this twice. A limit cannot convert
+     * somebody who has not yet formed the habit it interrupts.
+     *
+     * This is a deliberate, reversible position and not a giveaway. The cap
+     * comes back when there is a base of people who would notice it — and the
+     * pricing page has to move with it, because these two numbers lying to
+     * each other is exactly the failure the old comment here warned about.
+     */
     pub fn handovers_per_week(self) -> Option<u32> {
-        match self {
-            Plan::Free => Some(5),
-            _ => None,
-        }
+        None
     }
 
     /**
@@ -96,12 +109,16 @@ impl Plan {
         matches!(self, Plan::Duo | Plan::Team)
     }
 
-    /// How far back search reaches, in days. `None` means everything.
+    /**
+     * How far back search reaches, in days. `None` means everything.
+     *
+     * Seven days was the free plan's window, and it made the product look
+     * broken rather than limited: Sidq's whole claim is that it has everything
+     * you did before you installed it, and a week of history is indistinguish-
+     * able from a bad index. The limit hid the feature it was meant to sell.
+     */
     pub fn history_days(self) -> Option<i64> {
-        match self {
-            Plan::Free => Some(7),
-            _ => None,
-        }
+        None
     }
 }
 
@@ -370,38 +387,37 @@ mod tests {
     }
 
     #[test]
-    fn the_free_limits_match_what_the_pricing_page_promises() {
-        // src/lib/entitlements.ts: handoffsPerWeek 5, historyDays 7.
-        assert_eq!(Plan::Free.handovers_per_week(), Some(5));
-        assert_eq!(Plan::Free.history_days(), Some(7));
-        assert_eq!(Plan::Pro.handovers_per_week(), None);
-        assert_eq!(Plan::Duo.history_days(), None);
+    fn nothing_is_metered_on_any_plan_including_free() {
+        /*
+         * Free was five handovers a week and seven days of history. Both are
+         * gone: a cap that bites during somebody's first serious session
+         * cannot convert them, it can only stop them having a second.
+         *
+         * src/lib/entitlements.ts holds the same position and
+         * entitlements.test.ts reads this file to check the two agree. Capping
+         * one side alone fails there, which is the only thing stopping the
+         * site and the app lying to each other.
+         */
+        for plan in [Plan::Free, Plan::Pro, Plan::Duo, Plan::Team] {
+            assert_eq!(plan.handovers_per_week(), None, "{plan:?} is metered");
+            assert_eq!(plan.history_days(), None, "{plan:?} has a history window");
+        }
     }
 
     #[test]
-    fn an_invite_raises_the_cap_that_is_actually_enforced() {
+    fn the_team_folder_is_the_only_thing_a_plan_still_buys() {
         /*
-         * The reward has to arrive in `handover_allowance`, not only in the
-         * panel that advertises it. A referral page whose number is decoration
-         * is worse than no referral page: somebody invites a friend, watches
-         * the figure go up, and still gets refused at ten.
-         *
-         * The database decides the amount and this adds it to the free
-         * allowance. Both directions matter — no bonus must leave the plan
-         * exactly where it was.
+         * Worth asserting because it is uncomfortable. With the meters gone,
+         * Pro grants nothing Free does not, and the pricing page still asks
+         * $19.99 for it. That is a decision for a person rather than a bug to
+         * fix here, and this test exists so it cannot be quietly forgotten.
          */
-        let conn = index_store::tests::memory();
-
-        let plain = handover_allowance(&conn, Plan::Free);
-        assert_eq!(plain.1, Some(5), "the free plan without invites");
-
-        let _ = index_store::put_setting(&conn, "invite_bonus", "10");
-        assert_eq!(
-            handover_allowance(&conn, Plan::Free).1,
-            Some(15),
-            "two friends joining is ten more a week, on top of the five"
-        );
+        assert!(!Plan::Free.may_share_with_team());
+        assert!(!Plan::Pro.may_share_with_team(), "Pro still buys nothing");
+        assert!(Plan::Duo.may_share_with_team());
+        assert!(Plan::Team.may_share_with_team());
     }
+
 
     #[test]
     fn invites_do_not_invent_a_limit_where_there_was_none() {
@@ -443,28 +459,6 @@ mod tests {
         assert_eq!(parse_tier(r#"[{"plan_tier":"#), None);
     }
 
-    #[test]
-    fn the_sixth_handover_in_a_week_is_refused() {
-        /*
-         * The whole point of moving this out of the page.
-         *
-         * Five is what the pricing page promises; the sixth has to be stopped
-         * by the app, and it has to be stopped before anything is read from
-         * disk, not after a file has already been written.
-         */
-        let conn = index_store::tests::memory();
-        let now = now();
-
-        for i in 0..5 {
-            index_store::record_handover(&conn, &format!("session-{i}"), now - 60).unwrap();
-        }
-
-        assert!(!may_hand_over(&conn, Plan::Free), "five is the cap");
-        assert!(may_hand_over(&conn, Plan::Pro), "and paid plans have none");
-
-        let (used, cap) = handover_allowance(&conn, Plan::Free);
-        assert_eq!((used, cap), (5, Some(5)));
-    }
 
     #[test]
     fn four_this_week_still_leaves_one() {
@@ -477,32 +471,6 @@ mod tests {
         assert!(may_hand_over(&conn, Plan::Free));
     }
 
-    #[test]
-    fn an_invite_reopens_a_week_that_had_run_out() {
-        /*
-         * The two changes together, which is the thing neither test covered.
-         *
-         * At five a week, somebody who has used all five is stopped. One friend
-         * joining is worth five more for seven days, so the same account can
-         * carry on — and when that lapses it is stopped again. That is the
-         * whole mechanism: the way out of the limit is bringing somebody, or
-         * paying.
-         */
-        let conn = index_store::tests::memory();
-        let now = now();
-        for i in 0..5 {
-            index_store::record_handover(&conn, &format!("s{i}"), now - 60).unwrap();
-        }
-        assert!(!may_hand_over(&conn, Plan::Free), "five used, five allowed");
-
-        let _ = index_store::put_setting(&conn, "invite_bonus", "5");
-        assert!(may_hand_over(&conn, Plan::Free), "a friend joined");
-
-        // Seven days later the database stops paying for it and the cache
-        // follows on the next check.
-        let _ = index_store::put_setting(&conn, "invite_bonus", "0");
-        assert!(!may_hand_over(&conn, Plan::Free), "and it lapsed");
-    }
 
     #[test]
     fn the_week_rolls_rather_than_resetting() {
@@ -557,14 +525,57 @@ mod tests {
     }
 
     #[test]
-    fn the_history_floor_is_a_real_cutoff_for_free_and_none_for_paid() {
-        let free = history_floor(Plan::Free);
-        let pro = history_floor(Plan::Pro);
+    fn nothing_is_ever_refused_but_usage_is_still_counted() {
+        /*
+         * Four tests lived here for the cap: the sixth handover refused, an
+         * invite raising the ceiling, an invite reopening a spent week, and
+         * the history cutoff. None of them describes the product any more.
+         *
+         * The machinery is untouched and still correct — `handover_allowance`
+         * counts, `may_hand_over` compares — so a cap reintroduced later works
+         * without any of it being rebuilt. What changed is that no plan sets
+         * one, and the counting keeps running because the number is worth
+         * having even when nothing is refused on it.
+         */
+        let conn = index_store::tests::memory();
+        let now = now();
 
-        assert_eq!(pro, 0, "paid plans reach everything");
-        assert!(free > 0);
-        // Milliseconds, because that is what the index stores. Seconds here
-        // would put the cutoff in 1970 and quietly unlock all of history.
-        assert!(free > 1_600_000_000_000, "must be milliseconds, not seconds");
+        for i in 0..50 {
+            index_store::record_handover(&conn, &format!("session-{i}"), now - 60).unwrap();
+        }
+
+        let (used, cap) = handover_allowance(&conn, Plan::Free);
+        assert_eq!(used, 50, "handovers are still counted");
+        assert_eq!(cap, None, "and none of them is refused");
+        assert!(may_hand_over(&conn, Plan::Free), "the fifty-first is fine too");
+    }
+
+    #[test]
+    fn an_invite_bonus_no_longer_buys_anything() {
+        /*
+         * A consequence worth writing down rather than discovering later. The
+         * referral reward was extra handovers a week, and there is no weekly
+         * ceiling to raise, so inviting somebody now grants nothing.
+         *
+         * `invites.rs` still records and displays it. Somebody has to decide
+         * whether the reward becomes something else or the page stops
+         * promising one, and this test is here so that decision is not made by
+         * forgetting.
+         */
+        let conn = index_store::tests::memory();
+        let before = handover_allowance(&conn, Plan::Free).1;
+
+        let _ = index_store::put_setting(&conn, "invite_bonus", "10");
+        assert_eq!(handover_allowance(&conn, Plan::Free).1, before);
+        assert_eq!(before, None, "there was no ceiling for it to raise");
+    }
+
+    #[test]
+    fn no_plan_has_a_history_cutoff() {
+        // Was a real floor for Free and zero for paid. Everybody reaches
+        // everything now, and zero is what the index treats as "no cutoff".
+        for plan in [Plan::Free, Plan::Pro, Plan::Duo, Plan::Team] {
+            assert_eq!(history_floor(plan), 0, "{plan:?} still has a floor");
+        }
     }
 }
