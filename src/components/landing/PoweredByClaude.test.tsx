@@ -23,9 +23,15 @@ describe('the marks', () => {
      */
     const { container } = render(<PoweredByClaude />);
 
-    const mark = container.querySelector('span[aria-hidden="true"]');
-    expect(mark).not.toBeNull();
-    expect(mark?.getAttribute('style')).toContain('openai-logo.svg');
+    /*
+     * Found by the mask rather than by position. Every assistant's mark is now
+     * rendered at once, stacked in one grid cell so the sentence cannot shift
+     * when a shorter name comes round, and the outer aria-hidden span carries
+     * the cross-fade. The mark itself is a level deeper than it used to be.
+     */
+    const marks = [...container.querySelectorAll('span[style*="mask-image"]')];
+    const mark = marks.find((m) => m.getAttribute('style')?.includes('openai-logo.svg'));
+    expect(mark, 'the OpenAI mark is not drawn as a mask').toBeDefined();
     expect(mark?.getAttribute('style')?.toLowerCase()).toContain('currentcolor');
 
     // And it is not also being rendered the old way.

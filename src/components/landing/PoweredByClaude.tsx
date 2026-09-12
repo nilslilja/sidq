@@ -130,7 +130,6 @@ export function PoweredByClaude({
     return () => window.clearInterval(id);
   }, []);
 
-  const model = MODELS[index];
   const light = tone === 'light';
 
   /*
@@ -182,43 +181,87 @@ export function PoweredByClaude({
           'transition-opacity',
           light ? 'text-white/70' : 'text-ink/60',
         )}
-        style={{ opacity: visible ? 1 : 0, transitionDuration: `${FADE_MS}ms` }}
       >
-        {model.logo && model.mono && (
-          <span
-            aria-hidden="true"
-            className="size-[1.4em] shrink-0"
-            style={{
-              backgroundColor: 'currentColor',
-              maskImage: `url(${model.logo})`,
-              WebkitMaskImage: `url(${model.logo})`,
-              maskSize: 'contain',
-              WebkitMaskSize: 'contain',
-              maskRepeat: 'no-repeat',
-              WebkitMaskRepeat: 'no-repeat',
-              maskPosition: 'center',
-              WebkitMaskPosition: 'center',
-            }}
-          />
-        )}
+        {/*
+          * ── Only the assistant changes ────────────────────────────────────
+          *
+          * The whole sentence used to carry the opacity transition, so every
+          * two seconds the claim itself blinked out and back. The words are
+          * the constant here and the assistant is the variable, so now only
+          * the mark and the name cross-fade and the sentence never moves.
+          *
+          * Both live in a grid with every name stacked in the same cell. The
+          * cell is therefore as wide as the longest name and nothing after it
+          * shifts when a short one is showing — without that, "conversations"
+          * slid left and right on a two second clock, which is the exact
+          * twitchiness this was meant to remove.
+          */}
+        <span className="grid shrink-0 place-items-center">
+          {MODELS.map((m, i) => (
+            <span
+              key={m.name}
+              aria-hidden="true"
+              className="col-start-1 row-start-1 transition-opacity"
+              style={{
+                opacity: i === index && visible ? 1 : 0,
+                transitionDuration: `${FADE_MS}ms`,
+              }}
+            >
+              {m.logo && m.mono && !missing[m.logo] && (
+                <span
+                  className="block size-[1.4em]"
+                  style={{
+                    backgroundColor: 'currentColor',
+                    maskImage: `url(${m.logo})`,
+                    WebkitMaskImage: `url(${m.logo})`,
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskPosition: 'center',
+                    WebkitMaskPosition: 'center',
+                  }}
+                />
+              )}
+              {m.logo && !m.mono && !missing[m.logo] && (
+                <img
+                  src={m.logo}
+                  alt=""
+                  width={26}
+                  height={26}
+                  className="block size-[1.4em]"
+                  onError={() => setMissing((x) => ({ ...x, [m.logo]: true }))}
+                />
+              )}
+            </span>
+          ))}
+        </span>
 
-        {model.logo && !model.mono && !missing[model.logo] && (
-          <img
-            src={model.logo}
-            alt=""
-            aria-hidden="true"
-            width={26}
-            height={26}
-            // Sized against the text rather than fixed: at 30px beside 13px type
-            // on a narrow column the mark was the loudest thing in the sentence.
-            className="size-[1.4em] shrink-0"
-            // Hidden silently if absent. A broken-image icon beside a brand name
-            // is worse than the wordmark standing alone.
-            onError={() => setMissing((m) => ({ ...m, [model.logo]: true }))}
-          />
-        )}
         <span>
-          Reads your <span style={{ color: (light && model.onSky) || model.colour }} className="font-medium">{model.name}</span> conversations
+          Reads your{' '}
+          {/*
+            * Centred, not left-aligned. The cell is as wide as the longest
+            * name so that "conversations" cannot slide about on a two second
+            * clock, which means every shorter name leaves slack. Against the
+            * left edge that slack is a hole after the word and reads as a
+            * typo; split either side of a centred name it reads as spacing.
+            */}
+          <span className="inline-grid justify-items-center align-bottom">
+            {MODELS.map((m, i) => (
+              <span
+                key={m.name}
+                className="col-start-1 row-start-1 font-medium transition-opacity"
+                style={{
+                  color: (light && m.onSky) || m.colour,
+                  opacity: i === index && visible ? 1 : 0,
+                  transitionDuration: `${FADE_MS}ms`,
+                }}
+              >
+                {m.name}
+              </span>
+            ))}
+          </span>{' '}
+          conversations
           {/*
             * Follows the tone like everything else here.
             *

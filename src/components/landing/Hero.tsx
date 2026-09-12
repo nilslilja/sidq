@@ -249,40 +249,30 @@ export function Hero() {
           * product to somebody still deciding whether to care.
           */}
         {/*
-          * ── One paragraph, not two ───────────────────────────────────────────
+          * ── What the hero says, and what it stopped saying ──────────────────
           *
-          * There were two, and between them and the line under them the hero
-          * said the same thing three times before it said anything new: the
-          * moment ("you hit the limit, you switch, you start from nothing"),
-          * the promise ("Sidq is the one that remembers"), and the tagline.
-          * The first and the third are one idea in two registers.
+          * The explaining paragraph is gone. It named the moment, then the
+          * promise, and the headline and this line had already covered both:
+          * "the models remember everything except you" is the problem and
+          * "stop introducing yourself to robots" is the same problem as a line
+          * somebody repeats. Three statements of one idea, and the reader had
+          * to get through all of them before reaching the button.
           *
-          * So the moment is now the opening clause of the sentence that answers
-          * it, rather than a drumbeat of its own. Recognition and promise in one
-          * breath, which is also the only version that fits: measured at
-          * 1440x720 the download button sat at 634 against a 720 fold, and the
-          * "Free. No card." line under it was off the screen entirely.
+          * What is left is the claim, the line, and the download. The
+          * paragraph's argument now lives further down the page, where
+          * somebody who wants it has asked for it.
           */}
-        <p
-          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
-          style={{ animationDelay: "150ms" }}
-        >
-          Hit a limit, switch models, open a new chat. Sidq keeps it as one
-          conversation, in your own words, so whichever AI you open next
-          already knows what you decided.
-        </p>
-
         {/* The line somebody repeats, directly over the button. */}
         <p
-          className="animate-rise mt-8 [@media(max-height:700px)]:mt-5 w-full text-center font-serif text-[clamp(1.125rem,2.4vw,1.75rem)] text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
-          style={{ animationDelay: "310ms" }}
+          className="animate-rise mt-7 [@media(max-height:700px)]:mt-4 w-full text-center font-serif text-[clamp(1.125rem,2.4vw,1.75rem)] text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
+          style={{ animationDelay: "150ms" }}
         >
           Stop introducing yourself to robots.
         </p>
 
         <div
           className="animate-rise mt-6 flex justify-center"
-          style={{ animationDelay: "390ms" }}
+          style={{ animationDelay: "230ms" }}
         >
           <DownloadButton size="lg" />
         </div>

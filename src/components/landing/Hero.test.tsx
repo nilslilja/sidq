@@ -42,31 +42,22 @@ describe("the headline", () => {
    * is a Tuesday. If this line ever moves below the promise, or goes, the page
    * is describing a product to somebody still deciding whether to care.
    */
-  test("the moment is named before the memory is promised", () => {
+  test("the headline states the gap rather than the product", () => {
     /*
-     * This used to be two elements and compared their positions in the DOM.
-     * They are one sentence now — the hero said the same idea three times
-     * before it said anything new, so the moment became the opening clause of
-     * the line that answers it rather than a paragraph of its own.
+     * This checked that the moment was named before the promise, reading both
+     * out of a paragraph that no longer exists. The ordering it protected is
+     * now structural: the headline is the gap, and the only thing under it is
+     * the line and the button.
      *
-     * The doctrine is unchanged and so is what this guards: recognition first.
-     * A page that leads with the promise is describing a product to somebody
-     * still deciding whether they have the problem.
+     * What is still worth pinning is that the headline has not quietly become
+     * a feature list. "The models remember everything except you" is a
+     * sentence about the reader, and the moment it starts describing Sidq the
+     * hero has lost the thing that makes anybody read the second line.
      */
     render(<Hero />);
-
-    const line = screen.getByText(/Hit a limit/);
-    expect(line).toBeVisible();
-
-    const text = line.textContent ?? "";
-    // Still three forms of the moment, because people recognise their own.
-    expect(text).toMatch(/switch models/i);
-    expect(text).toMatch(/open a new chat/i);
-
-    expect(
-      text.indexOf("Hit a limit"),
-      "the promise now comes before the moment",
-    ).toBeLessThan(text.indexOf("Sidq keeps"));
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.textContent).toMatch(/remember everything/i);
+    expect(h1.textContent).not.toMatch(/sidq/i);
   });
 
   test('holds "except you" together with a real non-breaking space', () => {
@@ -96,48 +87,46 @@ describe("the headline", () => {
     );
   });
 });
-
-describe("the pitch", () => {
-  test("is on the page, over the button", () => {
-    /*
-     * The headline is read; the pitch is repeated. It sits at the moment
-     * somebody is deciding rather than buried in the body, and it is the only
-     * deliberately rude sentence on the site.
-     */
+describe("what the hero still says without the paragraph", () => {
+  /*
+   * The explaining paragraph was cut so the hero is the claim, the line and the
+   * button. These pin what that cut must not take with it.
+   *
+   * The three tests that used to live here all read the paragraph. They were
+   * not wrong: the headline states a gap and not a product, so something in the
+   * hero has to say what Sidq is. That job moved rather than disappeared, and
+   * these assert where it moved to.
+   */
+  test("something still says what Sidq actually does", () => {
+    // The compatibility line at the top carries the category now. Without it
+    // the hero names a problem and sells nothing, which is what the old
+    // "carries the category and the benefit" test existed to prevent.
     render(<Hero />);
-    expect(
-      screen.getByText("Stop introducing yourself to robots."),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Reads your/)).toBeInTheDocument();
+    expect(screen.getByText(/and every other one/)).toBeInTheDocument();
   });
-});
 
-describe("the sub-line", () => {
-  test("carries the category and the benefit, since the headline carries neither", () => {
-    // The headline states the gap. Somebody who stops reading after two lines
-    // still has to know what Sidq is and what it does for them.
+  test("the line somebody repeats is still over the button", () => {
     render(<Hero />);
-    const sub = screen.getByText(/Hit a limit/);
-    expect(sub.textContent).toMatch(/whichever AI you open next/);
+    const line = screen.getByText(/Stop introducing yourself to robots/);
+    expect(line).toBeVisible();
   });
 
   /*
-   * The headline promises a memory. For a while the line under it answered with
-   * a transfer — "carried word for word into whichever AI you open next" — so
-   * the page set up a memory and delivered a clipboard, and the product's best
-   * thing was not stated anywhere on it.
+   * "In your own words" left the hero with the paragraph, and that is a real
+   * loss worth naming rather than hiding: it is the doctrine memory.rs is built
+   * on, and it was the one line separating Sidq from every tool that summarises.
    *
-   * What is asserted is the substance rather than the wording: the line has to
-   * name what is remembered, and it has to say the words are the person's own.
-   * "In your own words" is the doctrine, not decoration — memory.rs quotes and
-   * counts and never summarises, and a hero that implies otherwise is selling
-   * something the app refuses to do.
+   * What survives is the half that can still be broken silently. The hero may
+   * not claim the opposite. If a future line ever promises a summary, a digest
+   * or a recap, it is selling something the app refuses to do.
    */
-  test("promises the memory the headline sets up, not a paste", () => {
-    render(<Hero />);
-    const sub = screen.getByText(/Hit a limit/);
-    expect(sub.textContent).toMatch(/what you decided/i);
-    expect(sub.textContent).toMatch(/in your own words/i);
-    expect(sub.textContent).not.toMatch(/summar/i);
+  test("and nothing in it promises a summary", () => {
+    const { container } = render(<Hero />);
+    const copy = container.textContent ?? "";
+    expect(copy).not.toMatch(/summar/i);
+    expect(copy).not.toMatch(/\bdigest\b/i);
+    expect(copy).not.toMatch(/\brecap\b/i);
   });
 });
 
