@@ -114,14 +114,24 @@ export function DownloadButton({
       href={href}
       // No download attribute: this is a page now, not the file. The file is
       // fetched from that page, which is what keeps the instructions on screen.
+      /*
+       * Glass rather than a flat fill. `.btn-glass` in global.css carries the
+       * whole surface: two blended radial gradients, a hairline that fades out
+       * by the bottom edge, two inset shadows, and a band of light that crosses
+       * once on hover. Nothing here may set its own background or ring, or the
+       * rim is drawn twice.
+       */
       className={cn(
-        "btn-soft group inline-flex items-center justify-center gap-2.5 rounded-full font-medium",
+        "btn-glass group inline-flex items-center justify-center gap-2.5 rounded-full font-medium text-white",
+        "transition-transform duration-150 ease-out active:scale-[0.97]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
         size === "lg"
           ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
           : "min-h-11 px-5 text-[0.875rem]",
         className,
       )}
     >
+      <span aria-hidden className="btn-glass-sheen" />
       {info.platform.startsWith("macos") ? (
         <Apple className={size === "lg" ? "size-5" : "size-4"} />
       ) : (

@@ -96,7 +96,7 @@ export function SiteFooter() {
            * below the hero. The page is one screen now, so the two of them
            * were inches apart and it read as a stammer rather than a refrain.
            */}
-          <h2 className="mx-auto max-w-[18ch] font-display text-[clamp(2rem,5vw,3.75rem)] leading-[0.94] tracking-[-0.045em]">
+          <h2 className="mx-auto max-w-[18ch] font-serif text-[clamp(2rem,5vw,3.75rem)] leading-[1.0]">
             One keystroke. It is already there.
           </h2>
           <p className="mx-auto mt-6 max-w-[42ch] text-[1rem] leading-relaxed ink-muted">

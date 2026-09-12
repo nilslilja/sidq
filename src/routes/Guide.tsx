@@ -96,7 +96,7 @@ export function ChatgptToClaude() {
          * loses in a result, where the reader is scanning ten blue lines for
          * the one that repeats what they just typed.
          */}
-        <h1 className="max-w-[24ch] font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]">
+        <h1 className="max-w-[24ch] font-serif text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.0]">
           How to move a ChatGPT conversation into Claude
         </h1>
 

@@ -263,7 +263,7 @@ function Page({
       </header>
 
       <main className="mx-auto max-w-[46rem] px-6 py-16">
-        <h1 className="font-display text-[clamp(2.5rem,6vw,4rem)] leading-[0.95] tracking-[-0.04em]">
+        <h1 className="font-serif text-[clamp(2.5rem,6vw,4rem)] leading-[1.0]">
           {title}
         </h1>
         <p className="mt-4 text-[0.8125rem] ink-muted">Last updated {updated}</p>

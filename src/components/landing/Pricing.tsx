@@ -36,7 +36,7 @@ export function Pricing({ top = false }: { top?: boolean } = {}) {
     >
       <Heading
         id="pricing"
-        className="scroll-mt-24 max-w-[18ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] leading-[0.94] tracking-[-0.04em]"
+        className="scroll-mt-24 max-w-[18ch] font-serif text-[clamp(2rem,4.2vw,3.25rem)] leading-[1.0]"
       >
         Free until it works.
         <br />

@@ -152,7 +152,16 @@ export function Hero() {
            * download button ends up 54px under the fold. Two lines of display
            * type is most of a short screen.
            */
-          className="animate-rise w-full text-center font-display text-[clamp(2.375rem,7.4vw,5rem)] [@media(max-height:700px)]:text-[clamp(2rem,5vw,3.25rem)] leading-[0.94] tracking-[-0.05em] text-[#F4F1FF]"
+          /*
+           * Serif, and the only serif on the page. The grotesque carries
+           * everything around it, so the two never compete for the same job.
+           *
+           * Leading opens from 0.94 to 0.97 and tracking loosens from -0.05 to
+           * -0.02: this face has more width and more wobble in its stems than
+           * Geist, and the tight setting that suited a grotesque closes its
+           * counters and turns the line into a hedge.
+           */
+          className="animate-rise w-full text-center font-serif text-[clamp(2.375rem,7.4vw,5rem)] [@media(max-height:700px)]:text-[clamp(2rem,5vw,3.25rem)] leading-[0.97] text-[#F4F1FF] [text-shadow:0_2px_30px_rgba(3,16,38,0.4)]"
           style={{ animationDelay: "80ms" }}
         >
           The models remember everything{" "}
@@ -255,7 +264,7 @@ export function Hero() {
           * "Free. No card." line under it was off the screen entirely.
           */}
         <p
-          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white"
+          className="animate-rise mt-5 [@media(max-height:700px)]:mt-3 w-full max-w-[44ch] text-balance text-center text-[clamp(1.0625rem,1.7vw,1.5rem)] leading-snug text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
           style={{ animationDelay: "150ms" }}
         >
           Hit a limit, switch models, open a new chat. Sidq keeps it as one
@@ -265,7 +274,7 @@ export function Hero() {
 
         {/* The line somebody repeats, directly over the button. */}
         <p
-          className="animate-rise mt-8 [@media(max-height:700px)]:mt-5 w-full text-center font-display text-[clamp(1.125rem,2.4vw,1.75rem)] tracking-[-0.03em] text-white"
+          className="animate-rise mt-8 [@media(max-height:700px)]:mt-5 w-full text-center font-serif text-[clamp(1.125rem,2.4vw,1.75rem)] text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
           style={{ animationDelay: "310ms" }}
         >
           Stop introducing yourself to robots.

@@ -135,7 +135,7 @@ export function Faq({ limit, top = false }: { limit?: number; top?: boolean } = 
     <section className="mx-auto max-w-[64rem] px-6 py-24" aria-labelledby="faq">
       <Heading
         id="faq"
-        className="scroll-mt-24 font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]"
+        className="scroll-mt-24 font-serif text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.0]"
       >
         The questions people actually ask
       </Heading>

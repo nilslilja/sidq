@@ -117,7 +117,7 @@ export function Landing() {
            */}
           <h2
             id="see-it"
-            className="mx-auto mt-12 max-w-[20ch] text-balance text-center font-display text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[0.96] tracking-[-0.04em]"
+            className="mx-auto mt-12 max-w-[20ch] text-balance text-center font-serif text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[1.0]"
           >
             Watch a conversation change hands
           </h2>

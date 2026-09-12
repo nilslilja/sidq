@@ -36,3 +36,28 @@
   font-style: normal;
   font-display: swap;
 }
+
+/*
+ * ── Averia Serif Libre, for headlines only ───────────────────────────────────
+ *
+ * Served from this origin for exactly the reasons above. The reference this was
+ * taken from loads it from fonts.googleapis.com and General Sans from
+ * api.fontshare.com, which would have undone the whole of the comment at the
+ * top of this file and, on the desktop app, reintroduced a call to Google on
+ * every launch in a product sold on nothing leaving your Mac.
+ *
+ * One weight, not two. The headline is set at 400 and a display serif has no
+ * business shipping a bold nobody uses: the second file was another 38kB for
+ * glyphs that never render.
+ *
+ * OFL, so self-hosting is the licence working as intended rather than a
+ * liberty. Geist stays the sans; this is the only other family on the site,
+ * which keeps the page at the two-family limit.
+ */
+@font-face {
+  font-family: "Averia Serif Libre";
+  src: url("/fonts/averia-serif-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
