@@ -1618,12 +1618,38 @@
  * In the app it stays, because there it blurs a real desktop with real windows
  * on it, and there the camera is not moving.
  */
-.film-camera .pane-glass,
-.film-camera .bar-float,
-.film-camera [class*="chip-glass"],
-.film-camera [class*="row-glass"] {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+/*
+ * Everything, not a list of classes. The first version of this named
+ * `.pane-glass`, `.bar-float` and the chip and row classes, and missed the Mac
+ * dock — which is inside the camera and uses Tailwind's own `backdrop-blur-md`.
+ * So the film kept re-blurring on every frame anyway and the fix looked like it
+ * had not worked, because for the dock it had not.
+ *
+ * `!important` because these are Tailwind utilities with the same specificity
+ * as this selector, so source order would otherwise decide it, and a
+ * performance fix that depends on stylesheet ordering is a fix that comes back.
+ */
+.film-camera,
+.film-camera * {
+  /*
+   * The variable, not just the property, and this is the bit that actually
+   * worked. Tailwind composes its filter out of custom properties:
+   *
+   *   .backdrop-blur-md { --tw-backdrop-blur: blur(...);
+   *                       backdrop-filter: var(--tw-backdrop-blur, ) ... }
+   *
+   * and the minifier strips the *unprefixed* `backdrop-filter` out of
+   * hand-written rules like this one while keeping Tailwind's. So the two
+   * declarations below only ever overrode the `-webkit-` half, Tailwind's
+   * unprefixed one went on winning, and the dock kept blurring at 12px while
+   * every check said the fix had landed.
+   *
+   * Emptying the variable removes the blur from the composition itself, which
+   * no amount of prefix handling can undo.
+   */
+  --tw-backdrop-blur: ;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /*

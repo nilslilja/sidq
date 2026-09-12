@@ -101,6 +101,23 @@ const ROW_Y = [21.1, 28.4, 35.7];
 const PICKED = 0;
 
 /*
+ * ── Two scales, and they are close together ──────────────────────────────────
+ *
+ * The camera used to run 1 → 1.7 → 1.34 → 1 → 1.7 → 1.06: six different scales
+ * and some big jumps between them. What a scale animation costs is not the
+ * scale, it is the *change* — the browser re-rasterises the scaled subtree as
+ * it goes, and the further it travels the more of that it does. That was the
+ * scrolling and the stutter.
+ *
+ * So there are two now, near each other. WIDE is the desktop, CLOSE is near
+ * enough to read the picker, and every beat is one or the other. The moves are
+ * short enough to be cheap and still read as a camera settling rather than a
+ * cut.
+ */
+const WIDE = 1;
+const CLOSE = 1.22;
+
+/*
  * ── One camera position for the whole pick ───────────────────────────────────
  *
  * This is the fix for the film looking like it could not make up its mind. The
@@ -115,7 +132,7 @@ const PICKED = 0;
  * choosing. Identical scale and origin across those beats means the transition
  * has nothing to do and the frame is genuinely still.
  */
-const LIST_SHOT = { scale: 1.34, at: { x: 46, y: 26 } };
+const LIST_SHOT = { scale: CLOSE, at: { x: 46, y: 26 } };
 
 /*
  * How long the pointer takes to cross the panel. Must match `.film-cursor` in
@@ -123,6 +140,7 @@ const LIST_SHOT = { scale: 1.34, at: { x: 46, y: 26 } };
  * highlight lands before the cursor again.
  */
 const CURSOR_TRAVEL_MS = 620;
+
 
 /*
  * ── The pick, as a sequence of states rather than a slideshow ────────────────
@@ -145,8 +163,8 @@ interface PickState {
 }
 
 const BEATS: Beat[] = [
-  { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
-  { hold: 1300, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
+  { hold: BEAT, scale: WIDE, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
+  { hold: 1300, scale: CLOSE, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
   // The list opens, nothing hovered, and the pointer is still up at the bar.
   /*
    * 1200, not 800. The camera transition is 900ms (`.film-camera`), so this
@@ -186,10 +204,10 @@ const BEATS: Beat[] = [
    * panel still in it, so you see it sitting on the desktop at its real size,
    * and only then does it go.
    */
-  { hold: 1300, scale: 1, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
-  { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: 1300, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
-  { hold: 6000, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
+  { hold: 1300, scale: WIDE, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
+  { hold: BEAT, scale: WIDE, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
+  { hold: 1300, scale: CLOSE, at: { x: 13, y: 87 }, caption: "Attach it." },
+  { hold: 6000, scale: WIDE, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
 
 /*

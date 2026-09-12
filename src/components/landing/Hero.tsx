@@ -151,7 +151,7 @@ export function Hero() {
           className="animate-rise mb-6 flex w-full justify-center"
           style={{ animationDelay: "0ms" }}
         >
-          <span className="inline-flex items-center gap-2.5 rounded-full bg-white/85 px-3.5 py-1.5 shadow-[0_2px_10px_-2px_rgba(3,16,38,0.25)] backdrop-blur-sm">
+          <span className="inline-flex items-center gap-2.5 rounded-full bg-white/85 px-3.5 py-1.5 shadow-[0_2px_10px_-2px_rgba(3,16,38,0.25)]">
           <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-ink/55">
             Launched on
           </span>
