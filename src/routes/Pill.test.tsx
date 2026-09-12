@@ -118,6 +118,12 @@ const bridge: Partial<OnboardingBridge> = {
    * here is the arguments it was called with.
    */
   handOverInto: vi.fn(async () => {}),
+  /*
+   * False, so the tests run against the CSS the website also ships. Whether
+   * macOS is drawing the surface changes nothing this file asserts, and
+   * pretending it is would hide the classes every other test reads.
+   */
+  nativeGlass: vi.fn(async () => false),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
@@ -439,12 +445,12 @@ describe("a conversation arriving", () => {
           firstTime: true,
         });
       });
-      expect(screen.getByText("Saved · ChatGPT")).toBeInTheDocument();
+      expect(screen.getByText("Picked up · ChatGPT")).toBeInTheDocument();
 
       await act(async () => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByText("Saved · ChatGPT")).not.toBeInTheDocument();
+      expect(screen.queryByText("Picked up · ChatGPT")).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -462,7 +468,7 @@ describe("a conversation arriving", () => {
       });
     });
 
-    expect(screen.getByText("Saved · an AI")).toBeInTheDocument();
+    expect(screen.getByText("Picked up · an AI")).toBeInTheDocument();
   });
 
   test("it subscribes even while the picker is open", async () => {
@@ -482,6 +488,58 @@ describe("a conversation arriving", () => {
     await settle();
 
     expect(announceFound).toBeDefined();
+  });
+});
+
+describe("the bar never goes blank", () => {
+  beforeEach(() => {
+    window.innerWidth = COLLAPSED_WIDTH;
+    vi.clearAllMocks();
+  });
+
+  test("a bridge read that throws outright still leaves a pill on screen", async () => {
+    /*
+     * The failure this pins, which happened twice while the rail was being
+     * built. A rejected promise is the obvious case and `.catch` covers it; a
+     * bridge method that is simply absent throws *synchronously*, before any
+     * promise exists, which threw out of the effect and rendered nothing at
+     * all.
+     *
+     * The pill is the one surface that is always on screen. A blank one is the
+     * worst outcome available, and worse than either thing these two reads
+     * decide.
+     */
+    (bridge.nativeGlass as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => {
+        throw new TypeError("bridge.nativeGlass is not a function");
+      },
+    );
+    (bridge.assistantList as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => {
+        throw new TypeError("bridge.assistantList is not a function");
+      },
+    );
+
+    render(<Pill />);
+    await settle();
+
+    expect(
+      screen.getByRole("button", { name: /pick up a conversation/i }),
+    ).toBeInTheDocument();
+  });
+
+  test("and the picker still opens, with the list it came for", async () => {
+    (bridge.nativeGlass as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => {
+        throw new TypeError("nope");
+      },
+    );
+
+    render(<Pill />);
+    await settle();
+    await resizeTo(EXPANDED_WIDTH);
+
+    expect(screen.getByText("Pricing page copy")).toBeInTheDocument();
   });
 });
 

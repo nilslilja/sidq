@@ -165,3 +165,55 @@ describe("what a visitor reads", () => {
     }
   });
 });
+
+/**
+ * "Saved" is allowed to mean exactly one thing: a file in Downloads.
+ *
+ * ── The bug ─────────────────────────────────────────────────────────────────
+ * It meant two. The handover panel says "Saved to Downloads", which writes a
+ * file. The sweep said "New chat from ChatGPT saved", which writes nothing at
+ * all and only puts a conversation in the index. Onboarding taught the second
+ * one during setup, complete with a mock notification, so the confusion was
+ * installed before anybody had used the product.
+ *
+ * Reported from the outside as: "long conversations dont work or get
+ * downloaded, it says it does but they are nowhere to be found in finder."
+ * Correct, and unanswerable, because there had never been a file.
+ *
+ * The word is now reserved. Indexing is "picked up", which is what the bar and
+ * the picker already called it.
+ */
+describe("the word saved", () => {
+  it("only appears where a file is actually written", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(entry) && !entry.includes(".test.")) files.push(full);
+      }
+    };
+    walk("src");
+
+    /** Enough context to prove the sentence is about a file on disk. */
+    const ABOUT_A_FILE = /downloads|\.md\b|file|attach/i;
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      for (const line of readFileSync(file, "utf8").split("\n")) {
+        // Prose only. `setSaved`, `phase.kind === "saved"` and friends are
+        // internal names; what is being reserved is the word a person reads.
+        if (!/\bSaved\b/.test(line)) continue;
+        if (/^\s*(\*|\/\/|\/\*)/.test(line)) continue;
+        if (/setSaved|\bsaved\b/.test(line)) continue;
+
+        if (!ABOUT_A_FILE.test(line)) offenders.push(`${file}: ${line.trim()}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});

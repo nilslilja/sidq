@@ -390,6 +390,59 @@
   }
 
   /*
+   * ── When macOS is drawing the glass ────────────────────────────────────────
+   *
+   * On macOS 26 an `NSGlassEffectView` fills the pill's window, outside the
+   * webview, and refracts the desktop behind it. Everything below then has to
+   * get out of its way, because the two cannot both draw the surface: a
+   * `backdrop-filter` over native glass is a second translucent layer sampling
+   * the first, and two frosted surfaces stacked read as a smeared grey panel
+   * rather than as one piece of glass.
+   *
+   * What goes is the *material* — the fill, the blur and the drop shadow. What
+   * stays is every bit of shaping and light that marks structure: the inset
+   * highlight along the top edge, the rims on rows and chips, the accent tint
+   * on a selection. Those are not the glass, they are what is sitting on it.
+   *
+   * Scoped to `[data-native-glass]`, which only the pill window carries. The
+   * website draws the same classes in a browser with no native layer anywhere
+   * near it, and `PillPreview`, `DesktopMock` and the film all depend on them
+   * looking exactly as they do now.
+   *
+   * The elevation that the glow and the drop shadows were faking is a real
+   * window shadow, drawn by the window server outside the window frame. That is
+   * also why the collapsed window no longer carries 40 points of transparent
+   * margin: see `BAR_MARGIN` in pill_window.rs.
+   */
+  [data-native-glass] .bar-float,
+  [data-native-glass] .bar-float:hover,
+  [data-native-glass] .pane-glass {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: transparent;
+  }
+
+  [data-native-glass] .bar-float {
+    /* Only the highlight along the top edge, which is the light catching the
+       lip of the glass rather than a shadow cast by it. */
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.16) inset;
+  }
+
+  /*
+   * Hover still has to answer. With the fill gone there is nothing to brighten,
+   * so it lifts the highlight instead — the same gesture the material makes
+   * when light moves across it.
+   */
+  [data-native-glass] .bar-float:hover {
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.3) inset;
+  }
+
+  [data-native-glass] .pane-glass {
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.14) inset;
+  }
+
+  /*
    * ── The escape-hatch rail ──────────────────────────────────────────────────
    *
    * The trough five assistants sit in after a handover lands. Recessed rather

@@ -12,6 +12,15 @@ rust-version = "1.82"
 # No auto-discovery. Every binary in this crate is declared below, on purpose.
 autobins = false
 
+# Which of the two `cargo run` means.
+#
+# Without it `cargo run` refuses to choose and `tauri dev` cannot start the app
+# at all, which is what two explicit `[[bin]]` targets bought along with the fix
+# for 0.9.5 shipping the wrong one. This only names a default for `cargo run`:
+# what gets bundled is still decided by `required-features` and the release
+# guard, so it cannot bring that bug back.
+default-run = "sidq"
+
 [build-dependencies]
 # Optional for the same reason `tauri` is: without the app feature the build
 # script never calls it, and a build dependency that is never used should not
@@ -122,7 +131,19 @@ objc = "0.2"
 # handler, and objc 0.2's Encode trait cannot describe one.
 block2 = "0.6"
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSEvent", "NSPasteboard", "NSPasteboardItem"] }
+# NSGlassEffectView is the pill's material on macOS 26. It is looked up by
+# name at runtime in glass.rs, so enabling the binding here costs nothing on an
+# older system: the class simply is not there and the CSS stays.
+objc2-app-kit = { version = "0.3", features = [
+    "NSColor",
+    "NSEvent",
+    "NSGlassEffectView",
+    "NSPasteboard",
+    "NSPasteboardItem",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }
 
 [profile.release]
 # A menu-bar companion has no business being 30MB. These four settings take the

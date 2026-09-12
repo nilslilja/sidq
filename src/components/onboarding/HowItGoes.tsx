@@ -105,7 +105,7 @@ export function HowItGoes() {
             )}
           />
           <span className="text-[7px] leading-none text-white/70">
-            {at(2) ? 'Saved · ChatGPT' : at(3) || at(4) ? '24' : 'Sidq'}
+            {at(2) ? 'Picked up · ChatGPT' : at(3) || at(4) ? '24' : 'Sidq'}
           </span>
         </div>
 
@@ -162,7 +162,7 @@ export function HowItGoes() {
           )}
         >
           <p className="text-[6.5px] font-medium leading-tight text-white">
-            New chat from ChatGPT saved
+            Picked up a ChatGPT chat
           </p>
           <p className="mt-0.5 truncate text-[6px] leading-tight text-white/55">
             Raw Milk in Carrefour

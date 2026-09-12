@@ -41,6 +41,7 @@ pub mod capture;
 pub mod codex_history;
 pub mod compiler;
 pub mod cursor_history;
+pub mod downloads;
 pub mod double_tap;
 pub mod entitlement;
 pub mod imports;

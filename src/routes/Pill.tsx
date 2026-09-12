@@ -194,6 +194,15 @@ export function Pill() {
   const [hatches, setHatches] = useState<Hatch[]>([]);
   /** Which of them the rail has selected. */
   const [hatch, setHatch] = useState(0);
+  /**
+   * Whether macOS is drawing the surface under all of this.
+   *
+   * Starts false, which is the safe way round: a frame or two of CSS glass on a
+   * machine that is about to say "native" is a slightly heavy pill, while a
+   * frame of nothing at all on a machine with no native glass is an invisible
+   * one.
+   */
+  const [nativeGlass, setNativeGlass] = useState(false);
   /*
    * Bumped whenever the count changes, and used as a React key so the pulse
    * restarts. Re-adding the same class does not replay a CSS animation; a new
@@ -311,10 +320,28 @@ export function Pill() {
    */
   useEffect(() => {
     if (!bridge) return;
-    void bridge
-      .assistantList()
-      .then(setHatches)
-      .catch(() => setHatches([]));
+
+    /*
+     * Both of these are decoration, and neither may take the window down.
+     *
+     * A rejected promise is the obvious failure and `.catch` covers it. The one
+     * that actually happened is the other kind: calling a bridge method that is
+     * not there throws synchronously, before any promise exists, which threw
+     * out of the effect and left the pill rendering nothing at all. The pill is
+     * the one surface that is always on screen, so a blank one is the worst
+     * outcome available — worse than a heavier-looking bar or a panel with no
+     * rail on it.
+     */
+    const optional = <T,>(read: () => Promise<T>, use: (value: T) => void) => {
+      try {
+        void read().then(use, () => {});
+      } catch {
+        /* Nothing to fall back to, and nothing that needs saying. */
+      }
+    };
+
+    optional(() => bridge.assistantList(), setHatches);
+    optional(() => bridge.nativeGlass(), setNativeGlass);
   }, [bridge]);
 
   /*
@@ -825,6 +852,7 @@ export function Pill() {
     return (
       <div
         data-transparent-window
+        data-native-glass={nativeGlass || undefined}
         className="flex h-[100dvh] w-full items-center justify-center bg-transparent"
       >
         <button
@@ -928,7 +956,16 @@ export function Pill() {
                 saved ? "text-[#D8CCFF]" : "text-white/70",
               )}
             >
-              {saved ? `Saved · ${saved}` : indexed.toLocaleString()}
+              {/*
+               * "Picked up", not "Saved".
+               *
+               * The same correction as the notification in main.rs. Nothing is
+               * written to disk when a conversation is indexed, and this bar
+               * sat two lines away from a panel that says "Saved to Downloads"
+               * about the one thing that is. One word, two meanings, and the
+               * folder is real.
+               */}
+              {saved ? `Picked up · ${saved}` : indexed.toLocaleString()}
             </span>
           )}
           {/*
@@ -950,6 +987,7 @@ export function Pill() {
       // background behind it. Without this the page colour shows as a white
       // border around every edge of the card.
       data-transparent-window
+      data-native-glass={nativeGlass || undefined}
       className="flex h-[100dvh] w-full items-start justify-center bg-transparent"
       onKeyDown={onKeyDown}
     >

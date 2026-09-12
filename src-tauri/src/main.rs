@@ -22,6 +22,7 @@
 mod assistants;
 mod background;
 mod browser_bridge;
+mod glass;
 mod pill_window;
 
 // The library, imported by name so the call sites below did not have to change.
@@ -386,8 +387,22 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
      * raising for the moment a conversation is actually kept. Naming the
      * assistant in the headline and the conversation underneath means the
      * whole thing is legible from a banner nobody clicks.
+     *
+     * ── Why it does not say "saved" ─────────────────────────────────────────
+     * It did, and it was reported as a bug: "it says it does but they are
+     * nowhere to be found in Finder." Of course they are not. Nothing is
+     * written to disk here. This is the sweep noticing a conversation and
+     * putting it in the index, and "saved" is also the exact word the handover
+     * panel uses for the one thing in this app that does produce a file — so
+     * the banner was sending people to their Downloads folder to look for
+     * something that had never been written.
+     *
+     * "Picked up" is what the rest of the product already calls this: the bar
+     * says "Pick up a conversation", the picker says "Pick up where you
+     * stopped". One vocabulary, and none of it is the name of a folder
+     * operation.
      */
-    notify(app, &format!("New chat from {label} saved"), &found.title);
+    notify(app, &format!("Picked up a {label} chat"), &found.title);
 }
 
 /**
@@ -733,26 +748,19 @@ fn write_handover(
         let home = sidq::net::home()?;
         let dir = std::path::PathBuf::from(home).join("Downloads");
 
-        // The title becomes a filename, so anything that is not plainly safe in
-        // one is replaced rather than escaped.
-        let stem: String = title
-            .chars()
-            .map(|c| {
-                if c.is_alphanumeric() || c == ' ' || c == '-' {
-                    c
-                } else {
-                    '-'
-                }
-            })
-            .collect();
-        let stem = stem.trim().replace(' ', "-");
-        let stem = if stem.is_empty() {
-            "sidq-conversation".to_string()
-        } else {
-            stem
-        };
-
-        let path = dir.join(format!("{}.md", &stem[..stem.len().min(60)]));
+        /*
+         * A name nothing in Downloads is already using.
+         *
+         * This used to be the title with the awkward characters replaced, cut
+         * to sixty bytes, handed to `fs::write` — which truncates whatever it
+         * finds. Two conversations with the same title were one file, and the
+         * second one destroyed the first while the panel said "Saved to
+         * Downloads" and named a file that did now exist.
+         *
+         * Not hypothetical: thirty conversations in a real index produced
+         * twenty filenames. See `downloads` for the counts and the rule.
+         */
+        let path = sidq::downloads::free_path_on_disk(&dir, &title);
         std::fs::write(&path, text).ok()?;
         Some((path.to_string_lossy().to_string(), words))
     })()
@@ -1052,6 +1060,29 @@ async fn extension_status() -> ExtensionStatus {
     })
     .await
     .unwrap_or_default()
+}
+
+/**
+ * Whether the OS is drawing the pill's surface.
+ *
+ * The page has to know, because the two cannot both draw it. Native glass fills
+ * the window and refracts the desktop; CSS on top of that is a second
+ * translucent layer over the first, and two frosted surfaces stacked read as a
+ * smeared grey panel rather than as glass.
+ *
+ * Asked rather than assumed. `NSGlassEffectView` does not exist before macOS
+ * 26, and on those machines the CSS is still the only thing there is.
+ */
+#[tauri::command]
+fn native_glass() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        glass::available()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
 }
 
 /// The list of assistants Sidq can open, for the UI to draw.
@@ -2895,6 +2926,7 @@ fn main() {
             notify_sample,
             picker_shortcut,
             open_picker,
+            native_glass,
             open_notification_settings,
             extension_status,
             download_extension,

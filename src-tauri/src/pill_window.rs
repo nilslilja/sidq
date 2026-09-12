@@ -47,7 +47,27 @@ use tauri::{LogicalPosition, LogicalSize, WebviewWindow};
  * right, and the middle is empty on every Mac without a notch. Nothing else
  * claims it, so nothing is covered.
  */
-const GLOW_MARGIN: f64 = 40.0;
+/*
+ * Nothing. The window is the bar.
+ *
+ * This was 40 points of transparent window on every side, because a CSS glow
+ * and shadow are painted outside the pill's own box and are clipped at the
+ * window edge — a window sized to the bar cut both off square, which looked
+ * exactly like a bug. The margin was where the light went.
+ *
+ * On macOS 26 the light is not CSS any more. `NSGlassEffectView` fills the
+ * window and draws its own specular rim, and the elevation under it is a real
+ * window shadow drawn by the window server *outside* the frame, which needs no
+ * margin inside it. So the margin stopped being room for the glow and became a
+ * glass slab four times the size of the bar with the bar painted in the middle
+ * of it.
+ *
+ * Kept as a named zero rather than deleted from the arithmetic, because
+ * `place` still takes an inset — the picker has its own — and "the collapsed
+ * window carries no transparent space above what it draws" is the fact that
+ * makes the two sizes line up.
+ */
+const BAR_MARGIN: f64 = 0.0;
 
 /*
  * The expanded panel's own top margin, from `mx-2 mt-1` in Pill.tsx.
@@ -58,20 +78,23 @@ const GLOW_MARGIN: f64 = 40.0;
  */
 const EXPANDED_INSET: f64 = 4.0;
 
-/*
- * The collapsed window: the bar plus room for its light on every side.
+/**
+ * The expanded panel's corner radius, from `rounded-[22px]` in Pill.tsx.
  *
- * It was 208x56 around a 152x28 bar, which left 14 points above and below. The
- * widest thing the bar casts is `0 8px 24px -8px`, reaching 24 points under it,
- * so the shadow hit the window edge and stopped square — the "abruptly cut off"
- * glow. 40 points clears every shadow in `.bar-float` with room to spare.
- *
- * Growing the window would normally mean a bigger dead zone over the desktop,
- * since a window swallows clicks across its whole frame whether it has drawn
- * anything there or not. `follow_cursor` below is what stops that, and it is
- * the reason this margin can be generous.
+ * The glass is cut to this on macOS 26, so a change on either side without the
+ * other shows up as a hairline of square corner outside a round one.
  */
-const COLLAPSED: (f64, f64) = (BAR.0 + GLOW_MARGIN * 2.0, BAR.1 + GLOW_MARGIN * 2.0);
+const PANEL_RADIUS: f64 = 22.0;
+
+/*
+ * The collapsed window: the bar, and nothing else.
+ *
+ * It was 192x104 around a 112x24 bar — see `BAR_MARGIN` for what those 40
+ * points on each side were for and why they are gone. The arithmetic is kept
+ * rather than replaced by `BAR`, so that the one place the margin is decided
+ * is the only place it has to change.
+ */
+const COLLAPSED: (f64, f64) = (BAR.0 + BAR_MARGIN * 2.0, BAR.1 + BAR_MARGIN * 2.0);
 
 /**
  * How far the floating bar hangs below the top of the screen.
@@ -233,9 +256,6 @@ const UNMEASURED_NOTCH: f64 = 32.0;
  */
 #[cfg(target_os = "macos")]
 pub fn measure_from_setup(w: &WebviewWindow) {
-    // One watcher for the life of the app; see follow_cursor.
-    follow_cursor(w);
-
     if let Ok(handle) = w.ns_window() {
         measure_notch(handle as *mut objc::runtime::Object);
     }
@@ -244,7 +264,7 @@ pub fn measure_from_setup(w: &WebviewWindow) {
 /// No notch to measure anywhere else, and the cursor watcher is portable.
 #[cfg(not(target_os = "macos"))]
 pub fn measure_from_setup(w: &WebviewWindow) {
-    follow_cursor(w);
+    let _ = w;
 }
 
 /// The picker. Unfurls downward from the same edge the lip hangs from.
@@ -297,12 +317,12 @@ const EXPANDED_THRESHOLD: f64 = 396.0;
  * `top_inset` is how much transparent space the window carries above the thing
  * it actually draws, and it is not the same for the two sizes.
  *
- * The collapsed window is deliberately larger than the bar so the glow has
- * somewhere to go, so its first drawn pixel is GLOW_MARGIN below its own top
- * edge. The expanded panel has no such margin — it starts 4 points in, from its
- * own `mt-1`. Subtracting the collapsed margin from both is why the picker
- * opened hard against the top of the screen: it was being hoisted 40 points to
- * compensate for padding it does not have.
+ * The collapsed window carries none: it is the bar. The expanded panel starts 4
+ * points in, from its own `mt-1`. They were once 40 and 4, and subtracting the
+ * collapsed figure from both is why the picker opened hard against the top of
+ * the screen — it was hoisted 40 points to compensate for padding it does not
+ * have. Both are passed explicitly for that reason, even now that one of them
+ * is zero.
  */
 fn place(w: &WebviewWindow, size: (f64, f64), top_inset: f64) -> tauri::Result<()> {
     w.set_size(LogicalSize::new(size.0, size.1))?;
@@ -315,9 +335,9 @@ fn place(w: &WebviewWindow, size: (f64, f64), top_inset: f64) -> tauri::Result<(
         let screen = monitor.position().to_logical::<f64>(scale);
 
         /*
-         * top_edge is where the *bar* belongs. The window starts GLOW_MARGIN
-         * above it, because that much of the window is transparent room for the
-         * glow rather than anything drawn — see COLLAPSED.
+         * top_edge is where the *bar* belongs, and the window starts
+         * `top_inset` above it — the transparent part of the window, which is
+         * none of it when collapsed and the panel's own `mt-1` when not.
          */
         let anchor_x = origin.x + (usable.width - size.0) / 2.0;
         let anchor_y = top_edge(screen.y, origin.y, notch_height()) - top_inset;
@@ -393,10 +413,12 @@ fn on_screen(
 /**
  * How much of the window must stay on screen, in points.
  *
- * One bar's height. It has to be smaller than `GLOW_MARGIN`, because that much
- * of the collapsed window is transparent room for the glow rather than anything
- * drawn — a keep-visible larger than the margin is a rule about empty pixels,
- * and it clamps the bar before a single one of them is on screen.
+ * One bar's height, which is now the whole collapsed window: nudge the bar at a
+ * screen edge and all of it stays reachable. This used to have to be *smaller*
+ * than the glow margin, because back then a keep-visible larger than the margin
+ * was a rule about empty pixels and clamped the bar before one of them was on
+ * screen. With no margin left the rule is about the bar itself, which is what
+ * it was always trying to say.
  */
 const KEEP_VISIBLE: f64 = BAR.1;
 
@@ -421,7 +443,7 @@ pub fn nudge(w: &WebviewWindow, dx: f64, dy: f64) {
     let (size, inset) = if expanded {
         (EXPANDED, EXPANDED_INSET)
     } else {
-        (COLLAPSED, GLOW_MARGIN)
+        (COLLAPSED, BAR_MARGIN)
     };
     let _ = place(w, size, inset);
 }
@@ -791,6 +813,26 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
         measure_notch(ns_window);
 
         /*
+         * ── The material ─────────────────────────────────────────────────
+         *
+         * Here because this is the one place in this file that is certainly on
+         * the main thread, and because it is called on both sizes: the two have
+         * different corner radii and the glass has to be told which one it is
+         * wearing.
+         *
+         * Silently nothing before macOS 26, where the class does not exist and
+         * the CSS is still what draws the pill.
+         */
+        if let Some(mtm) = objc2::MainThreadMarker::new() {
+            let ns: &objc2_app_kit::NSWindow = &*(handle as *const objc2_app_kit::NSWindow);
+            let expanded = is_expanded(w);
+            let radius = if expanded { PANEL_RADIUS } else { BAR.1 / 2.0 };
+            // Clear for the bar, which is a bead of glass on the desktop.
+            // Regular for the picker, which is a surface with reading on it.
+            crate::glass::apply(ns, radius, !expanded, mtm);
+        }
+
+        /*
          * ── Become a panel ────────────────────────────────────────────────
          *
          * An ordinary NSWindow does not enter another application's fullscreen
@@ -969,126 +1011,12 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
  * *becoming* key; it does not make it give up key status it already holds, and
  * the difference is a person pressing Esc and then typing into nothing.
  */
-/*
- * Let the desktop have every pixel the bar is not actually drawn on.
- *
- * A window swallows clicks across its whole frame whether or not anything has
- * been painted there, and this window is deliberately larger than the bar so
- * the glow has somewhere to go. That margin was landing on other applications:
- * roughly a centimetre around the pill where a browser tab or a search field
- * simply could not be clicked, with nothing on screen to explain why.
- *
- * `ignore_cursor_events` is all-or-nothing per window, so it is toggled instead:
- * the cursor position is read straight from the window server and the window
- * accepts clicks only while the pointer is over the bar. Polling rather than a
- * global mouse monitor because a monitor for mouse movement needs Accessibility
- * and this must work before anybody has granted it.
- *
- * Expanded, the whole panel is real and none of this applies.
- */
-#[cfg(target_os = "macos")]
-fn follow_cursor(w: &WebviewWindow) {
-    use objc::{class, msg_send, sel, sel_impl};
-
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct Point {
-        x: f64,
-        y: f64,
-    }
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct Rect {
-        origin: Point,
-        size: Point,
-    }
-
-    let win = w.clone();
-    std::thread::spawn(move || {
-        // Only touched from this thread.
-        let mut ignoring: Option<bool> = None;
-
-        // Where the window is, refreshed a fraction as often as the cursor is
-        // read. Asking Tauri for geometry crosses to the event loop, and doing
-        // that sixteen times a second from a background thread is both wasteful
-        // and a good way to stall on macOS. The bar only moves when a display
-        // changes or the picker opens, so a second-old answer is exact almost
-        // always and one tick stale at worst.
-        let mut geometry: Option<(f64, f64, f64, bool)> = None;
-        let mut last_read = std::time::Instant::now();
-
-        loop {
-            std::thread::sleep(std::time::Duration::from_millis(60));
-
-            if geometry.is_none() || last_read.elapsed().as_millis() > 700 {
-                // The window going away ends the loop rather than spinning.
-                let Ok(scale) = win.scale_factor() else {
-                    return;
-                };
-                let Ok(pos) = win.outer_position() else {
-                    return;
-                };
-                geometry = Some((
-                    pos.x as f64 / scale,
-                    pos.y as f64 / scale,
-                    scale,
-                    is_expanded(&win),
-                ));
-                last_read = std::time::Instant::now();
-            }
-            let Some((win_x, win_y, _scale, expanded)) = geometry else {
-                continue;
-            };
-
-            // Expanded, everything is clickable.
-            let wants_clicks = if expanded {
-                true
-            } else {
-                // SAFETY: both are documented class methods taking no arguments
-                // and returning plain C structs; neither can raise.
-                let (cursor, screen_h) = unsafe {
-                    let p: Point = msg_send![class!(NSEvent), mouseLocation];
-                    let screen: *mut objc::runtime::Object =
-                        msg_send![class!(NSScreen), mainScreen];
-                    if screen.is_null() {
-                        continue;
-                    }
-                    let frame: Rect = msg_send![screen, frame];
-                    (p, frame.size.y)
-                };
-
-                // NSEvent counts from the bottom of the screen, Tauri from the
-                // top. Everything below is in top-left points.
-                let cx = cursor.x;
-                let cy = screen_h - cursor.y;
-
-                let left = win_x + GLOW_MARGIN;
-                let top = win_y + GLOW_MARGIN;
-
-                cx >= left && cx <= left + BAR.0 && cy >= top && cy <= top + BAR.1
-            };
-
-            if ignoring == Some(!wants_clicks) {
-                continue;
-            }
-            ignoring = Some(!wants_clicks);
-
-            let target = win.clone();
-            let _ = win.run_on_main_thread(move || {
-                let _ = target.set_ignore_cursor_events(!wants_clicks);
-            });
-        }
-    });
-}
-
-#[cfg(not(target_os = "macos"))]
-fn follow_cursor(_w: &WebviewWindow) {}
 
 pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     // Same reasoning as `expand`: no `?`, because the raise is last and must
     // not be skipped by anything before it.
     let _ = w.hide();
-    let _ = place(w, COLLAPSED, GLOW_MARGIN);
+    let _ = place(w, COLLAPSED, BAR_MARGIN);
     let _ = w.show();
     raise_above_everything(w, BAR_LEVEL, false);
     watch_for_outside_clicks(w, false);
@@ -1164,7 +1092,7 @@ mod tests {
      */
     #[test]
     fn the_resting_bar_is_never_clamped_off_its_anchor() {
-        let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
+        let anchor_y = top_edge(0.0, 25.0, 0.0) - BAR_MARGIN;
         let at = on_screen((640.0, anchor_y), COLLAPSED, (0.0, 0.0), (1440.0, 900.0));
 
         assert_eq!(
@@ -1175,9 +1103,9 @@ mod tests {
 
     #[test]
     fn the_bar_can_still_be_nudged_upward_from_its_resting_place() {
-        // The failure this pins: KEEP_VISIBLE was larger than GLOW_MARGIN, so
+        // The failure this pins: KEEP_VISIBLE was larger than BAR_MARGIN, so
         // the floor sat below the resting position and up was a no-op.
-        let anchor_y = top_edge(0.0, 25.0, 0.0) - GLOW_MARGIN;
+        let anchor_y = top_edge(0.0, 25.0, 0.0) - BAR_MARGIN;
         let at = on_screen(
             (640.0, anchor_y - NUDGE),
             COLLAPSED,
@@ -1469,26 +1397,37 @@ mod tests {
     }
 
     #[test]
-    fn the_bar_floats_clear_of_every_edge() {
+    fn the_window_is_the_bar_and_nothing_around_it() {
         /*
-         * This used to assert the opposite: that the window fitted inside a 24
-         * point menu bar, because the bar lived in it. It does not any more. It
-         * hangs a centimetre down, touching nothing, which is the difference
-         * between system chrome and the app's own object.
+         * This assertion has now been all three ways round, so it is worth
+         * writing down why.
          *
-         * What has to hold now is that the window leaves room around the bar it
-         * draws. The glow and the shadow are painted outside the pill's box and
-         * clipped at the window edge, so without margin on every side they cut
-         * off square.
+         * First it asserted the window fitted inside a 24 point menu bar,
+         * because the bar lived in the menu bar. Then that the window was
+         * *larger* than the bar on every side, because a CSS glow is painted
+         * outside the pill's box and was being clipped square at the window
+         * edge. Now the material is `NSGlassEffectView`, which fills the window
+         * — so any margin is a pane of glass with the bar painted in the middle
+         * of it, which is what 40 points on each side actually looked like.
+         *
+         * Elevation comes from the window shadow instead, and the window server
+         * draws that outside the frame, where no margin is needed.
          */
-        assert!(BAR.0 < COLLAPSED.0, "no room for the glow at the sides");
-        assert!(BAR.1 < COLLAPSED.1, "no room for the glow above and below");
-        assert!(
-            (COLLAPSED.1 - BAR.1) / 2.0 >= 12.0,
-            "a shadow needs more than a few points to fall into"
-        );
+        assert_eq!(COLLAPSED, BAR, "the glass fills the window, so it must be the bar");
         // And it is genuinely off the top rather than nearly touching it.
         assert!(FLOAT_GAP >= 20.0, "that is not floating, that is a margin");
+    }
+
+    #[test]
+    fn the_collapsed_window_carries_no_transparent_space_above_what_it_draws() {
+        /*
+         * The number `place` subtracts to find the window's top edge from the
+         * bar's. Wrong here and the bar sits somewhere other than where
+         * `top_edge` decided, which is the class of bug that produced both the
+         * first-placement jump and the picker opening hard against the ceiling.
+         */
+        assert_eq!(BAR_MARGIN, 0.0);
+        assert!(EXPANDED_INSET > 0.0, "the panel has its own mt-1");
     }
 
     #[test]

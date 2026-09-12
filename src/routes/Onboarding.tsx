@@ -1025,7 +1025,7 @@ function NotificationPreview() {
       <div className="min-w-0">
         <p className="text-[0.8125rem] font-semibold text-white">Sidq</p>
         <p className="mt-0.5 text-[0.8125rem] leading-snug text-white/70">
-          New chat from ChatGPT saved
+          Picked up a ChatGPT chat
         </p>
       </div>
       <span className="ml-auto shrink-0 text-[0.6875rem] text-white/35">

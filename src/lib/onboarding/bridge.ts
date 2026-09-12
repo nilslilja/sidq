@@ -434,6 +434,15 @@ export interface OnboardingBridge {
   /** Assistants Sidq can open in its own window. Nothing to install. */
   assistantList: () => Promise<{ id: string; label: string }[]>;
   /**
+   * Whether the OS is drawing the pill's surface.
+   *
+   * True on macOS 26, where an `NSGlassEffectView` fills the window and
+   * refracts the desktop. The page then draws no surface of its own: CSS glass
+   * on top of native glass is two translucent layers stacked, which reads as a
+   * smeared panel rather than as one piece of glass.
+   */
+  nativeGlass: () => Promise<boolean>;
+  /**
    * Open one in the browser this Mac already uses.
    *
    * The default, because it is the only route where signing in works. Passkeys
@@ -799,6 +808,7 @@ export function desktopBridge(): OnboardingBridge | null {
       const rows = await invoke("stale_sources");
       return Array.isArray(rows) ? (rows as string[]) : [];
     },
+    nativeGlass: async () => (await invoke("native_glass")) === true,
     assistantList: async () => {
       const rows = await invoke("assistant_list");
       return Array.isArray(rows)
