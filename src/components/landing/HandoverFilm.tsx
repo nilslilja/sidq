@@ -146,9 +146,16 @@ interface PickState {
 
 const BEATS: Beat[] = [
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
-  { hold: 1000, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
+  { hold: 1300, scale: 1.7, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
   // The list opens, nothing hovered, and the pointer is still up at the bar.
-  { hold: 800, ...LIST_SHOT, at: { x: 50, y: 12 }, caption: "Everything you have said, to every assistant." },
+  /*
+   * 1200, not 800. The camera transition is 900ms (`.film-camera`), so this
+   * beat used to end before the move it started had finished, and the frame was
+   * redirected mid-flight to the next shot. Across the film that is what read
+   * as drift: the camera was almost never actually at rest. Any beat that moves
+   * the camera now holds long enough to arrive and then be still for a moment.
+   */
+  { hold: 1200, ...LIST_SHOT, at: { x: 50, y: 12 }, caption: "Everything you have said, to every assistant." },
   // The pointer travels down. Same shot, so only it is moving.
   /*
    * Long enough for three things in order: the pointer travels (620ms, see
@@ -179,9 +186,9 @@ const BEATS: Beat[] = [
    * panel still in it, so you see it sitting on the desktop at its real size,
    * and only then does it go.
    */
-  { hold: 900, scale: 1, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
+  { hold: 1300, scale: 1, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: 1000, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
+  { hold: 1300, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
   { hold: 6000, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
 ];
 

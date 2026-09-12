@@ -1599,9 +1599,53 @@
  * below starts fast and settles, which is what a person moving their attention
  * looks like.
  */
+/*
+ * ── Why the film does not use live glass ─────────────────────────────────────
+ *
+ * `.pane-glass` is `blur(44px) saturate(185%)` and `.bar-float` is
+ * `blur(26px)`, and both sit inside `.film-camera`, which is transform-animated
+ * for 900ms on most beats. A backdrop filter under a moving ancestor has to be
+ * recomputed every frame over a region that is changing every frame, which is
+ * the most expensive thing this stylesheet is capable of asking for. Several of
+ * them at once made the film visibly drop frames.
+ *
+ * Dropping the filter costs almost nothing here, and that is the point: both
+ * surfaces already sit on a solid base — rgba(14,14,19,0.72) and
+ * rgba(12,12,17,0.66) — and what is behind them in the film is a smooth
+ * gradient. Blurring a smooth gradient returns very nearly the same colour, so
+ * the blur was paying a per-frame cost to produce a result you cannot see.
+ *
+ * In the app it stays, because there it blurs a real desktop with real windows
+ * on it, and there the camera is not moving.
+ */
+.film-camera .pane-glass,
+.film-camera .bar-float,
+.film-camera [class*="chip-glass"],
+.film-camera [class*="row-glass"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/*
+ * And nothing breathes inside a moving camera. `.bar-breathe` is a nine second
+ * glow loop on the blurred bar: continuous work, on the most expensive element
+ * in the frame, at a scale where the glow is a few pixels wide.
+ */
+.film-camera .bar-breathe {
+  animation: none;
+}
+
 .film-camera {
   /*
-   * Two seconds, on a curve that is gentle at both ends.
+   * Its own compositor layer. Without this the browser repaints the whole scene
+   * on the main thread for every camera move, which is what the blurs above
+   * were making so expensive. This element transforms on almost every beat, so
+   * the usual warning about leaving `will-change` on permanently does not apply
+   * — it is permanently true here.
+   */
+  will-change: transform;
+  /*
+   * 900ms, on a curve that is gentle at both ends.
    *
    * The easing matters more than the duration. cubic-bezier(0.22,1,0.36,1)
    * leaves fast and settles slowly, which is right for a control answering a
