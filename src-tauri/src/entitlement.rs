@@ -37,6 +37,29 @@ const RECHECK_SECS: i64 = 6 * 60 * 60;
 /// A rolling week, matching what the pricing page says.
 const WEEK_SECS: i64 = 7 * 24 * 60 * 60;
 
+/**
+ * How long a new install has everything, before it has paid for anything.
+ *
+ * The reverse trial: start on Pro, and drop to Free when it runs out. The way
+ * round that matters, because nobody evaluates a handover tool by reading about
+ * the handover. They press the key once, watch a conversation land in another
+ * AI, and either that was worth paying for or it was not.
+ *
+ * Five days rather than fourteen. This is a tool for a specific moment — you
+ * hit a limit, you move — and somebody who has not hit a limit in five days is
+ * not going to hit one in fourteen either. A long trial on a product with a
+ * sharp trigger just means the trigger fires after everybody has forgotten.
+ *
+ * The frontend reads this number rather than repeating it, so the panel that
+ * says "your five days are up" cannot disagree with the clock that decided.
+ */
+pub const TRIAL_DAYS: i64 = 5;
+
+const TRIAL_SECS: i64 = TRIAL_DAYS * 24 * 60 * 60;
+
+/// When this machine first ran a version of Sidq that had a trial.
+const INSTALLED_KEY: &str = "installed_at";
+
 /// Give up rather than hang the handover behind a slow network.
 const HTTP_TIMEOUT_SECS: u32 = 8;
 
@@ -214,6 +237,25 @@ fn parse_tier(body: &str) -> Option<String> {
  * this function is designed so that the failure path lands on `Free`.
  */
 pub fn current(conn: &Connection) -> Plan {
+    let confirmed = confirmed_plan(conn);
+
+    /*
+     * The trial lifts a Free account and never lowers a paid one.
+     *
+     * Taking the better of the two rather than checking the trial first, so
+     * that somebody signed in on the free tier still gets their five days —
+     * signing in to look at the pricing page should not end a trial. And so
+     * that a Duo account is never quietly demoted to Pro by it.
+     */
+    if confirmed == Plan::Free && trial_days_left(conn).is_some() {
+        return Plan::Pro;
+    }
+
+    confirmed
+}
+
+/// What the account itself is entitled to, with no trial in the question.
+fn confirmed_plan(conn: &Connection) -> Plan {
     let Some(token) = index_store::setting(conn, "access_token") else {
         return Plan::Free;
     };
@@ -275,6 +317,58 @@ pub fn current(conn: &Connection) -> Plan {
     index_store::setting(conn, "tier")
         .map(|t| Plan::from_tier(&t))
         .unwrap_or(Plan::Free)
+}
+
+/**
+ * Start the clock, once, on the first launch that ever asks.
+ *
+ * Idempotent, so it can be called from setup on every launch without the trial
+ * renewing itself. Someone upgrading from a version that had no trial gets the
+ * full five days from the first time they open the new one, which is the
+ * fairest reading of "this used to be free": they are not billed for a window
+ * that elapsed while nobody had told them it existed.
+ */
+pub fn begin_trial(conn: &Connection) {
+    if index_store::setting(conn, INSTALLED_KEY).is_none() {
+        let _ = index_store::put_setting(conn, INSTALLED_KEY, &now().to_string());
+    }
+}
+
+/**
+ * Days left in the trial, or `None` when there is no trial running.
+ *
+ * `None` covers three different things on purpose, because the caller does the
+ * same thing with all of them: the clock was never started, it has run out, or
+ * it is on a machine whose clock cannot be trusted. Nothing is granted in any
+ * of those cases.
+ *
+ * Rounded up, so the last partial day reads as "1 day left" rather than "0".
+ * Telling somebody they have nothing left while the feature still works is how
+ * a trial notice teaches people to ignore it.
+ */
+pub fn trial_days_left(conn: &Connection) -> Option<u32> {
+    let started: i64 = index_store::setting(conn, INSTALLED_KEY)?.parse().ok()?;
+
+    /*
+     * A start in the future means the clock moved, not that the trial is
+     * enormous. Treated as over rather than as five more days, because the
+     * alternative is a permanent Pro account for anybody who sets their date
+     * forward once and back again.
+     */
+    let elapsed = now().checked_sub(started)?;
+    if elapsed < 0 {
+        return None;
+    }
+
+    let left = TRIAL_SECS - elapsed;
+    if left <= 0 {
+        return None;
+    }
+
+    // Rounded up by hand: a trial with one second left has one day left, not
+    // none. `i64::div_ceil` is still unstable, and `left` is known positive
+    // here, so the usual add-one-less-than-the-divisor is exact.
+    Some(((left + 86_399) / 86_400) as u32)
 }
 
 /**
@@ -638,4 +732,134 @@ mod tests {
             assert_eq!(history_floor(plan), 0, "{plan:?} still has a floor");
         }
     }
+
+    // ── The reverse trial ───────────────────────────────────────────────────
+
+    /// A machine whose clock started `days` ago.
+    fn installed_days_ago(conn: &Connection, days: i64) -> &Connection {
+        index_store::put_setting(conn, INSTALLED_KEY, &(now() - days * 86_400).to_string())
+            .unwrap();
+        conn
+    }
+
+    #[test]
+    fn a_fresh_install_has_everything_before_it_has_paid_for_anything() {
+        /*
+         * The whole point of the way round. Nobody evaluates a handover tool by
+         * reading about the handover: they press the key once and watch a
+         * conversation land somewhere else.
+         */
+        let conn = index_store::tests::memory();
+        begin_trial(&conn);
+
+        assert_eq!(current(&conn), Plan::Pro);
+        assert_eq!(trial_days_left(&conn), Some(TRIAL_DAYS as u32));
+    }
+
+    #[test]
+    fn a_machine_nobody_started_the_clock_on_is_not_on_trial() {
+        // `None` has to mean "grant nothing". A missing key is the state of
+        // every install that predates this, and it must not read as day zero.
+        let conn = index_store::tests::memory();
+        assert_eq!(trial_days_left(&conn), None);
+        assert_eq!(current(&conn), Plan::Free);
+    }
+
+    #[test]
+    fn the_clock_does_not_restart_every_launch() {
+        // `begin_trial` runs from setup, so it is called on every single launch.
+        // If it were not idempotent the trial would never end.
+        let conn = index_store::tests::memory();
+        installed_days_ago(&conn, 4);
+
+        begin_trial(&conn);
+        begin_trial(&conn);
+
+        assert_eq!(trial_days_left(&conn), Some(1), "the clock restarted");
+    }
+
+    #[test]
+    fn the_last_day_says_one_rather_than_none_left() {
+        // A notice that says "0 days left" while the feature still works is how
+        // people learn to ignore the notice.
+        let conn = index_store::tests::memory();
+        installed_days_ago(&conn, TRIAL_DAYS - 1);
+        assert_eq!(trial_days_left(&conn), Some(1));
+        assert_eq!(current(&conn), Plan::Pro);
+    }
+
+    #[test]
+    fn day_six_is_free() {
+        let conn = index_store::tests::memory();
+        installed_days_ago(&conn, TRIAL_DAYS + 1);
+
+        assert_eq!(trial_days_left(&conn), None);
+        assert_eq!(current(&conn), Plan::Free);
+        assert!(!current(&conn).may_thread());
+    }
+
+    #[test]
+    fn winding_the_clock_forward_and_back_does_not_buy_a_permanent_trial() {
+        /*
+         * A start date in the future is a machine whose clock moved, not a
+         * trial with years left on it. Treated as over, because the other
+         * reading hands a free Pro account to anybody who changes their date
+         * once.
+         */
+        let conn = index_store::tests::memory();
+        index_store::put_setting(&conn, INSTALLED_KEY, &(now() + 86_400 * 400).to_string())
+            .unwrap();
+
+        assert_eq!(trial_days_left(&conn), None);
+        assert_eq!(current(&conn), Plan::Free);
+    }
+
+    #[test]
+    fn a_start_date_that_is_not_a_number_grants_nothing() {
+        let conn = index_store::tests::memory();
+        index_store::put_setting(&conn, INSTALLED_KEY, "whenever").unwrap();
+        assert_eq!(trial_days_left(&conn), None);
+        assert_eq!(current(&conn), Plan::Free);
+    }
+
+    #[test]
+    fn the_trial_never_demotes_an_account_that_pays_for_more() {
+        /*
+         * `current` takes the better of the two. Checking the trial first would
+         * quietly serve a Duo account as Pro for its first five days, which is
+         * a paying customer losing the thing they paid extra for.
+         */
+        let conn = index_store::tests::memory();
+        begin_trial(&conn);
+        index_store::put_setting(&conn, "access_token", "a-token").unwrap();
+        index_store::put_setting(&conn, "tier", "duo").unwrap();
+        index_store::put_setting(&conn, "tier_checked_at", &now().to_string()).unwrap();
+
+        assert_eq!(current(&conn), Plan::Duo);
+    }
+
+    #[test]
+    fn signing_in_to_look_at_the_pricing_page_does_not_end_the_trial() {
+        // Someone signed in on the free tier is still inside their five days.
+        // The account and the trial are different questions.
+        let conn = index_store::tests::memory();
+        begin_trial(&conn);
+        index_store::put_setting(&conn, "access_token", "a-token").unwrap();
+        index_store::put_setting(&conn, "tier", "free").unwrap();
+        index_store::put_setting(&conn, "tier_checked_at", &now().to_string()).unwrap();
+
+        assert_eq!(current(&conn), Plan::Pro);
+    }
+
+    #[test]
+    fn when_the_trial_ends_a_paid_account_is_untouched() {
+        let conn = index_store::tests::memory();
+        installed_days_ago(&conn, TRIAL_DAYS + 30);
+        index_store::put_setting(&conn, "access_token", "a-token").unwrap();
+        index_store::put_setting(&conn, "tier", "pro").unwrap();
+        index_store::put_setting(&conn, "tier_checked_at", &now().to_string()).unwrap();
+
+        assert_eq!(current(&conn), Plan::Pro);
+    }
+
 }

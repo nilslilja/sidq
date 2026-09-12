@@ -78,13 +78,6 @@ const BAR_MARGIN: f64 = 0.0;
  */
 const EXPANDED_INSET: f64 = 4.0;
 
-/**
- * The expanded panel's corner radius, from `rounded-[22px]` in Pill.tsx.
- *
- * The glass is cut to this on macOS 26, so a change on either side without the
- * other shows up as a hairline of square corner outside a round one.
- */
-const PANEL_RADIUS: f64 = 22.0;
 
 /*
  * The collapsed window: the bar, and nothing else.
@@ -716,9 +709,30 @@ const COLLECTION_BEHAVIOUR: u64 = (1 << 0) | (1 << 4) | (1 << 8);
  * strip all day and would be stealing every keystroke on the machine.
  */
 #[cfg(target_os = "macos")]
-pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool) {
+/**
+ * Raise the window, and dress it for the size it has just become.
+ *
+ * `bar` is passed rather than measured, and that is the whole point of it.
+ *
+ * ── Two ways this went wrong ───────────────────────────────────────────────
+ * First `raise_now` asked `is_expanded`, which asks Tauri for the window size,
+ * which dispatches to the event loop that is already busy running this very
+ * closure. Then the glass got its own `run_on_main_thread`, called from the
+ * hotkey handler, which is already on the main thread.
+ *
+ * Both abort the process rather than reporting anything, because ⌘⇧K arrives
+ * inside `global_hotkey`'s handler and that is `extern "C"`:
+ *
+ *   thread 'main' panicked at panic_cannot_unwind
+ *   thread caused non-unwinding panic. aborting.
+ *
+ * So there is exactly one hop to the main thread, and nothing on the far side
+ * of it asks anybody a question. Both call sites already know which size they
+ * are.
+ */
+pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool, bar: bool) {
     let window = w.clone();
-    let _ = w.run_on_main_thread(move || raise_now(&window, level, take_key));
+    let _ = w.run_on_main_thread(move || raise_now(&window, level, take_key, bar));
 }
 
 /**
@@ -735,7 +749,7 @@ pub fn raise_above_everything(w: &WebviewWindow, level: i64, take_key: bool) {
  * The pill is still there the moment that app is not fullscreen.
  */
 #[cfg(not(target_os = "macos"))]
-pub fn raise_above_everything(w: &WebviewWindow, _level: i64, take_key: bool) {
+pub fn raise_above_everything(w: &WebviewWindow, _level: i64, take_key: bool, _bar: bool) {
     let _ = w.set_always_on_top(true);
     if take_key {
         let _ = w.set_focus();
@@ -796,7 +810,7 @@ fn sidq_panel_class() -> *const objc::runtime::Class {
 }
 
 #[cfg(target_os = "macos")]
-fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
+fn raise_now(w: &WebviewWindow, level: i64, take_key: bool, bar: bool) {
     let Ok(handle) = w.ns_window() else { return };
     if handle.is_null() {
         return;
@@ -813,6 +827,27 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
         measure_notch(ns_window);
 
         /*
+         * ── The bar is glass. The picker is not. ────────────────────────────
+         *
+         * Not a preference. Glass behind the webview stops `backdrop-filter`
+         * working inside it, and the picker needs that blur to keep
+         * conversation titles legible over whatever is behind the window.
+         * `glass::remove` carries the measurements.
+         *
+         * The bar has no small text to protect and everything to gain, so it
+         * gets the real material, in Clear, and reads as a bead of glass
+         * sitting on the desktop.
+         */
+        if let Some(mtm) = objc2::MainThreadMarker::new() {
+            let ns: &objc2_app_kit::NSWindow = &*(handle as *const objc2_app_kit::NSWindow);
+            if bar {
+                crate::glass::apply(ns, BAR.1 / 2.0, true, mtm);
+            } else {
+                crate::glass::remove(ns);
+            }
+        }
+
+        /*
          * ── The material ─────────────────────────────────────────────────
          *
          * Here because this is the one place in this file that is certainly on
@@ -823,14 +858,6 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool) {
          * Silently nothing before macOS 26, where the class does not exist and
          * the CSS is still what draws the pill.
          */
-        if let Some(mtm) = objc2::MainThreadMarker::new() {
-            let ns: &objc2_app_kit::NSWindow = &*(handle as *const objc2_app_kit::NSWindow);
-            let expanded = is_expanded(w);
-            let radius = if expanded { PANEL_RADIUS } else { BAR.1 / 2.0 };
-            // Clear for the bar, which is a bead of glass on the desktop.
-            // Regular for the picker, which is a surface with reading on it.
-            crate::glass::apply(ns, radius, !expanded, mtm);
-        }
 
         /*
          * ── Become a panel ────────────────────────────────────────────────
@@ -992,7 +1019,7 @@ pub fn expand(w: &WebviewWindow) -> tauri::Result<()> {
 
     // After showing, never before: showing resets the level and the collection
     // behaviour, so raising first is raising and then undoing it a line later.
-    raise_above_everything(w, PICKER_LEVEL, true);
+    raise_above_everything(w, PICKER_LEVEL, true, false);
 
     // Last, and allowed to fail. In another app's fullscreen Space it does, and
     // a picker on screen that has not taken the keyboard is worth far more than
@@ -1018,7 +1045,7 @@ pub fn collapse(w: &WebviewWindow) -> tauri::Result<()> {
     let _ = w.hide();
     let _ = place(w, COLLAPSED, BAR_MARGIN);
     let _ = w.show();
-    raise_above_everything(w, BAR_LEVEL, false);
+    raise_above_everything(w, BAR_LEVEL, false, true);
     watch_for_outside_clicks(w, false);
     Ok(())
 }

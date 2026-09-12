@@ -34,8 +34,14 @@
 #[cfg(target_os = "macos")]
 mod imp {
     use objc2::runtime::AnyClass;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use objc2::rc::Retained;
     use objc2::{MainThreadMarker, MainThreadOnly};
-    use objc2_app_kit::{NSColor, NSGlassEffectView, NSGlassEffectViewStyle, NSWindow};
+    use objc2_app_kit::{
+        NSAutoresizingMaskOptions, NSColor, NSGlassEffectView, NSGlassEffectViewStyle, NSView,
+        NSWindow, NSWindowOrderingMode,
+    };
     use objc2_foundation::NSRect;
 
     /**
@@ -102,49 +108,145 @@ mod imp {
         };
 
         /*
-         * Already glazed. Only the radius can have changed — the pill has two
-         * sizes and they do not have the same corner — so that is set and
-         * nothing is rebuilt. Rebuilding would mean detaching the webview from
-         * the window and putting it back, which is a flicker at best.
+         * Already made. Shown again rather than rebuilt.
+         *
+         * `remove` hides it rather than detaching it, so the view outlives
+         * every collapse and only its shape and material can have changed.
          */
-        let content = match content.downcast::<NSGlassEffectView>() {
-            Ok(glass) => {
-                glass.setCornerRadius(radius);
-                glass.setStyle(style(clear));
-                return;
-            }
-            // Not glass, so it is the webview and this is the first call. The
-            // downcast hands it back rather than consuming it.
-            Err(content) => content,
-        };
+        if let Some(glass) = installed() {
+            glass.setCornerRadius(radius);
+            glass.setStyle(style(clear));
+            glass.setHidden(false);
+            return;
+        }
 
-        let frame: NSRect = content.frame();
-        let glass = unsafe { NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), frame) };
-
+        let glass =
+            NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), content.bounds());
         glass.setStyle(style(clear));
         glass.setCornerRadius(radius);
         unsafe {
             glass.setTintColor(Some(&NSColor::colorWithSRGBRed_green_blue_alpha(
                 TINT.0, TINT.1, TINT.2, TINT.3,
             )));
+            glass.setAutoresizingMask(
+                NSAutoresizingMaskOptions::ViewWidthSizable
+                    | NSAutoresizingMaskOptions::ViewHeightSizable,
+            );
+
+            /*
+             * ── A sibling behind the webview, never a parent of it ───────────
+             *
+             * The first version made the glass the window's content view and
+             * put the webview inside it, which is what `NSGlassEffectView` is
+             * documented for. It rendered beautifully and it crashed:
+             *
+             *   Terminating app due to uncaught exception 'NSRangeException',
+             *   reason: 'Cannot remove an observer <WKWindowVisibilityObserver>
+             *   for the key path "contentLayoutRect" from <SidqPanel> because
+             *   it is not registered as an observer.'
+             *
+             * A WKWebView registers KVO against its window, and moving it
+             * between content views breaks the pairing badly enough that WebKit
+             * takes the process down when it later tries to unregister. So the
+             * webview does not move at all. The glass is inserted underneath it
+             * as a sibling and removed the same way, and nothing WebKit is
+             * holding on to is ever touched.
+             *
+             * This is also how `window-vibrancy` inserts an NSVisualEffectView,
+             * which is a good sign that it is the shape AppKit expects.
+             */
+            content.addSubview_positioned_relativeTo(&glass, NSWindowOrderingMode::Below, None);
+        }
+
+        // Held by the content view from here on, so the address stays good.
+        GLASS.store(Retained::as_ptr(&glass) as usize, Ordering::Relaxed);
+
+        window.invalidateShadow();
+    }
+
+    /**
+     * Take the glass back off.
+     *
+     * ── Why anything would ever want this ───────────────────────────────────
+     * Because glass behind the webview stops `backdrop-filter` working inside
+     * it: the webview's backdrop becomes the glass rather than the desktop, so
+     * a CSS blur has nothing left to sample and quietly produces none.
+     *
+     * That is right for the bar and wrong for the picker, and the difference
+     * was only visible by looking. The bar is 112 by 24 points holding a mark
+     * and a number: native glass is the whole charm of it and there is no small
+     * text to protect. The picker is 560 by 380 of conversation titles over
+     * whatever is on the desktop, and `blur(44px)` destroys a display-size
+     * headline behind it in a way `NSGlassEffectView` does not come close to.
+     * Its blur is far gentler, it has no radius to turn up, and no tint that
+     * still looked like glass made up the difference: 0.55 and 0.68 both
+     * ghosted a headline straight through the first row of the list.
+     *
+     * So the two sizes get different materials, and this puts the picker back
+     * on the one that can carry reading.
+     */
+    pub fn remove(window: &NSWindow) {
+        /*
+         * Hidden, not detached.
+         *
+         * Removing it from its superview would drop the last strong reference
+         * and leave `GLASS` pointing at freed memory. Hiding costs one message
+         * and keeps the pointer meaning what it says.
+         */
+        if let Some(glass) = installed() {
+            glass.setHidden(true);
         }
 
         /*
-         * Swapped in, then the old content put inside it.
+         * ── And tell the window server the shape changed ────────────────────
          *
-         * The order matters. Setting the glass as the window's content view
-         * first removes the webview from the window, which is what makes it
-         * free to be added as the glass's own content — doing it the other way
-         * round adds a view that still has a superview and AppKit moves it back.
-         *
-         * `contentView` and not `addSubview`: Apple's own note on this class is
-         * that only the content view is guaranteed to be inside the glass, and
-         * an arbitrary subview has no promised z-order against the effect.
+         * A transparent window's shadow is derived from the pixels it actually
+         * draws, and macOS caches that. Hiding the glass leaves the shadow it
+         * computed while the glass filled the window, which draws as a second
+         * rounded rectangle a few points outside the picker's own edge: the
+         * panel is inset from the window by its `mx-2`, so the stale outline
+         * sits in the gap and reads as a rendering fault.
          */
-        window.setContentView(Some(&glass));
-        glass.setContentView(Some(&content));
+        window.invalidateShadow();
+    }
+
+    /**
+     * The glass view, once it exists.
+     *
+     * ── Why a pointer and not a search ──────────────────────────────────────
+     * This was `content.subviews().iter().find_map(downcast_ref)`, and that
+     * aborted the process the first time it ran. It never ran at startup, only
+     * on the first ⌘⇧K, which is inside `global_hotkey`'s `extern "C"` handler
+     * where a panic cannot unwind and becomes an abort with the original
+     * message swallowed:
+     *
+     *   thread 'main' panicked at panic_cannot_unwind
+     *   thread caused non-unwinding panic. aborting.
+     *
+     * Proved it was this and not something older by running the same build
+     * with the glass switched off, which toggles happily.
+     *
+     * `window-vibrancy` does not downcast either: it declares a subclass
+     * carrying a tag so it can find its own view again. Same conclusion by a
+     * different route. There is one pill window for the life of the app, so
+     * one pointer answers the question with no search, no downcast, and no
+     * objc2 machinery on a path that cannot report a failure.
+     *
+     * The view is owned by its superview for as long as it is installed, and
+     * this is only ever read on the main thread.
+     */
+    static GLASS: AtomicUsize = AtomicUsize::new(0);
+
+    fn installed() -> Option<&'static NSGlassEffectView> {
+        let address = GLASS.load(Ordering::Relaxed);
+        if address == 0 {
+            return None;
+        }
+        // SAFETY: written only by `apply` below, from the pointer AppKit gave
+        // it, and the view is retained by the content view it was added to.
+        Some(unsafe { &*(address as *const NSGlassEffectView) })
     }
 }
 
 #[cfg(target_os = "macos")]
-pub use imp::{apply, available};
+pub use imp::{apply, available, remove};

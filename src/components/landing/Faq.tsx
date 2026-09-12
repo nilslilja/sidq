@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Reveal } from "./Reveal";
 /*
  * ── Why no numbers are interpolated here any more ────────────────────────────
  *
@@ -126,7 +127,10 @@ export const FAQS = [
  * which is the first thing an on-page audit flags and the strongest signal on
  * the page simply absent.
  */
-export function Faq({ limit, top = false }: { limit?: number; top?: boolean } = {}) {
+export function Faq({
+  limit,
+  top = false,
+}: { limit?: number; top?: boolean } = {}) {
   const Heading = top ? "h1" : "h2";
   const [open, setOpen] = useState<number | null>(0);
   const shown = limit ? FAQS.slice(0, limit) : FAQS;
@@ -144,58 +148,66 @@ export function Faq({ limit, top = false }: { limit?: number; top?: boolean } = 
         {shown.map((item, i) => {
           const isOpen = open === i;
           return (
-            <div key={item.q} className="border-b border-ink/12">
-              <dt>
-                <button
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  aria-expanded={isOpen}
-                  className="flex min-h-[4.5rem] w-full items-center justify-between gap-6 py-5 text-left"
-                >
-                  <span className="text-[clamp(1rem,1.6vw,1.1875rem)] font-medium leading-snug">
-                    {item.q}
-                  </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cn(
-                      "size-5 shrink-0 ink-muted transition-transform duration-300 ease-(--ease-out-expo)",
-                      isOpen && "rotate-180",
-                    )}
-                  />
-                </button>
-              </dt>
+            <Reveal
+              key={item.q}
+              mode="pop"
+              repeat
+              delay={i * 0.06}
+              className="border-b border-ink/12"
+            >
+              <div>
+                <dt>
+                  <button
+                    onClick={() => setOpen(isOpen ? null : i)}
+                    aria-expanded={isOpen}
+                    className="flex min-h-[4.5rem] w-full items-center justify-between gap-6 py-5 text-left"
+                  >
+                    <span className="text-[clamp(1rem,1.6vw,1.1875rem)] font-medium leading-snug">
+                      {item.q}
+                    </span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={cn(
+                        "size-5 shrink-0 ink-muted transition-transform duration-300 ease-(--ease-out-expo)",
+                        isOpen && "rotate-180",
+                      )}
+                    />
+                  </button>
+                </dt>
 
-              {/*
-               * Grid-rows trick rather than max-height. A max-height guess is
-               * either too small, which clips the long answers here, or far too
-               * large, which makes the close animation visibly lag.
-               */}
-              <dd
-                className={cn(
-                  "grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out-expo)",
-                  isOpen
-                    ? "grid-rows-[1fr] opacity-100"
-                    : "grid-rows-[0fr] opacity-0",
-                )}
-              >
                 {/*
-                 * Answers may be several paragraphs.
-                 *
-                 * The longest one here ran to a hundred and seventy-five words
-                 * in a single block, which is where an answer goes to not be
-                 * read. Nothing about it was wrong; it was just a wall.
+                 * Grid-rows trick rather than max-height. A max-height guess is
+                 * either too small, which clips the long answers here, or far too
+                 * large, which makes the close animation visibly lag.
                  */}
-                <div className="space-y-3.5 overflow-hidden pb-6">
-                  {(Array.isArray(item.a) ? item.a : [item.a]).map((para) => (
-                    <p
-                      key={para}
-                      className="max-w-[62ch] text-[0.9375rem] leading-relaxed ink-muted"
-                    >
-                      {para}
-                    </p>
-                  ))}
-                </div>
-              </dd>
-            </div>
+                <dd
+                  className={cn(
+                    "grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out-expo)",
+                    isOpen
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0",
+                  )}
+                >
+                  {/*
+                   * Answers may be several paragraphs.
+                   *
+                   * The longest one here ran to a hundred and seventy-five words
+                   * in a single block, which is where an answer goes to not be
+                   * read. Nothing about it was wrong; it was just a wall.
+                   */}
+                  <div className="space-y-3.5 overflow-hidden pb-6">
+                    {(Array.isArray(item.a) ? item.a : [item.a]).map((para) => (
+                      <p
+                        key={para}
+                        className="max-w-[62ch] text-[0.9375rem] leading-relaxed ink-muted"
+                      >
+                        {para}
+                      </p>
+                    ))}
+                  </div>
+                </dd>
+              </div>
+            </Reveal>
           );
         })}
       </dl>

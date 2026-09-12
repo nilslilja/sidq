@@ -987,7 +987,6 @@ export function Pill() {
       // background behind it. Without this the page colour shows as a white
       // border around every edge of the card.
       data-transparent-window
-      data-native-glass={nativeGlass || undefined}
       className="flex h-[100dvh] w-full items-start justify-center bg-transparent"
       onKeyDown={onKeyDown}
     >

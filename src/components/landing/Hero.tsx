@@ -21,6 +21,7 @@
  * scroll frame.
  */
 import { DownloadButton, usePlatform } from "./DownloadButton";
+import { DictionaryEntry } from "./DictionaryEntry";
 import { PoweredByClaude } from "./PoweredByClaude";
 import { WaitlistForPlatform } from "./WaitlistForPlatform";
 
@@ -91,24 +92,50 @@ export function Hero() {
       </svg>
 
       {/*
-        * ── Why the top padding is short and grows, rather than tall and shrinks ─
-        *
-        * Measured, not chosen. At pt-28/lg:pt-32 the headline started at 218px
-        * and the download button landed at 738 — below the fold on a 720px
-        * viewport, which is a MacBook Air with a browser open, which is what
-        * most people arriving from a post are holding. The primary call to
-        * action was invisible without scrolling on the most common screen there
-        * is, and adding the line above made it worse.
-        *
-        * So the padding grows with the viewport's *height*, which took two
-        * goes. The first used `lg:`, and Tailwind's breakpoints are widths — at
-        * 1440x720, which is exactly the laptop in question, `lg` applied and
-        * handed the padding straight back. A wide screen is not a tall one.
-        *
-        * These are height queries. Short screens keep the button above the
-        * fold; tall ones get the air back, which is where it was always meant
-        * to be spent.
-        */}
+       * ── Why the top padding is short and grows, rather than tall and shrinks ─
+       *
+       * Measured, not chosen. At pt-28/lg:pt-32 the headline started at 218px
+       * and the download button landed at 738 — below the fold on a 720px
+       * viewport, which is a MacBook Air with a browser open, which is what
+       * most people arriving from a post are holding. The primary call to
+       * action was invisible without scrolling on the most common screen there
+       * is, and adding the line above made it worse.
+       *
+       * So the padding grows with the viewport's *height*, which took two
+       * goes. The first used `lg:`, and Tailwind's breakpoints are widths — at
+       * 1440x720, which is exactly the laptop in question, `lg` applied and
+       * handed the padding straight back. A wide screen is not a tall one.
+       *
+       * These are height queries. Short screens keep the button above the
+       * fold; tall ones get the air back, which is where it was always meant
+       * to be spent.
+       */}
+      {/*
+       * ── The dictionary entry ────────────────────────────────────────────
+       *
+       * Absolutely positioned, and deliberately outside the column.
+       *
+       * In the flow it would be a third element competing with the headline,
+       * and every one of them would get narrower to make room. Out of the flow
+       * it costs the hero exactly nothing: the fold stays where it was
+       * measured, the headline keeps the full 52rem, and the download button
+       * does not move by a pixel. Checked at 1440x720 and 1440x800 before and
+       * after, per the note in Home.test.tsx about claims that were never
+       * measured.
+       *
+       * `2xl` and up only. Below that the gutter beside a 52rem column is not
+       * wide enough to hold a 17rem block without it either overlapping the
+       * headline or being clipped, and a joke that has been cropped in half is
+       * worse than no joke.
+       */}
+      <div className="pointer-events-none absolute inset-0 hidden 2xl:block">
+        <div className="relative mx-auto h-full max-w-[96rem] px-8">
+          <div className="pointer-events-auto absolute left-8 top-1/2 -translate-y-1/2">
+            <DictionaryEntry />
+          </div>
+        </div>
+      </div>
+
       <div className="relative mx-auto flex max-w-[52rem] flex-col items-center px-6 pb-[9vh] pt-10 sm:pb-[10vh] [@media(min-height:780px)]:pt-20 [@media(min-height:880px)]:pt-28 [@media(min-height:1000px)]:pt-32">
         {/*
          * `w-full`, and it is load-bearing.
@@ -120,57 +147,57 @@ export function Hero() {
          * line on a phone. Nothing about it looked wrong on a desktop.
          */}
         {/*
-          * ── Product Hunt, stated rather than claimed ────────────────────────
-          *
-          * It says "Launched on" and not "Featured on". Featured is an
-          * editorial designation on Product Hunt and this listing does not
-          * carry it: the page reads "Launched this week", two points, five
-          * followers, no daily rank. Launched is what happened, and it is the
-          * version that survives somebody checking.
-          *
-          * Not a link, on purpose. The official embed badge renders the live
-          * upvote count, and a link sends anybody curious to the number
-          * itself. A mark that says a launch happened is worth something; a
-          * mark that invites you to go and count the votes is not.
-          *
-          * The logo is Product Hunt's own asset, unmodified, with its alpha
-          * intact so it sits on the sky rather than in a white box.
-          */}
+         * ── Product Hunt, stated rather than claimed ────────────────────────
+         *
+         * It says "Launched on" and not "Featured on". Featured is an
+         * editorial designation on Product Hunt and this listing does not
+         * carry it: the page reads "Launched this week", two points, five
+         * followers, no daily rank. Launched is what happened, and it is the
+         * version that survives somebody checking.
+         *
+         * Not a link, on purpose. The official embed badge renders the live
+         * upvote count, and a link sends anybody curious to the number
+         * itself. A mark that says a launch happened is worth something; a
+         * mark that invites you to go and count the votes is not.
+         *
+         * The logo is Product Hunt's own asset, unmodified, with its alpha
+         * intact so it sits on the sky rather than in a white box.
+         */}
         {/*
-          * On a chip rather than straight on the sky.
-          *
-          * It sat at the bottom of the hero first, where the gradient has faded
-          * to near-white and a white label lost its contrast. Moving it to the
-          * top puts it on the darkest part of the sky, where white would have
-          * worked — but the chip stays, because the point where the sky stops
-          * being blue moves with the viewport height and a badge that carries
-          * its own background is legible wherever it ends up. It is also how
-          * this badge looks everywhere else it appears.
-          */}
+         * On a chip rather than straight on the sky.
+         *
+         * It sat at the bottom of the hero first, where the gradient has faded
+         * to near-white and a white label lost its contrast. Moving it to the
+         * top puts it on the darkest part of the sky, where white would have
+         * worked — but the chip stays, because the point where the sky stops
+         * being blue moves with the viewport height and a badge that carries
+         * its own background is legible wherever it ends up. It is also how
+         * this badge looks everywhere else it appears.
+         */}
         <div
           className="animate-rise mb-6 flex w-full justify-center"
           style={{ animationDelay: "0ms" }}
         >
           <span className="inline-flex items-center gap-2.5 rounded-full bg-white/85 px-3.5 py-1.5 shadow-[0_2px_10px_-2px_rgba(3,16,38,0.25)]">
-          <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-ink/55">
-            Launched on
-          </span>
-          <img
-            src="/product-hunt.png"
-            alt="Product Hunt"
-            width={560}
-            height={130}
-            /*
-             * Explicit box so the line cannot reflow while it loads.
-             *
-             * The asset is trimmed. Product Hunt ship it at 596x360 with about
-             * a third of the height as padding, so sizing by height left the
-             * wordmark two pixels tall and the badge read as an orange dot
-             * beside some fuzz. Cropped to its own content it is 560x130, and
-             * at 1.35rem the words are words.
-             */
-            className="h-[1.35rem] w-auto"
-          />
+            <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-ink/55">
+              Launched on
+            </span>
+            <img
+              src="/product-hunt.png"
+              alt="Product Hunt"
+              width={560}
+              height={130}
+              /*
+               * Explicit box so the line cannot reflow while it loads.
+               *
+               * The asset is trimmed. Product Hunt ship it at 596x360 with about
+               * a third of the height as padding, so sizing by height left the
+               * wordmark two pixels tall and the badge read as an orange dot
+               * beside some fuzz. Cropped to its own content it is 560x130, and
+               * at 1.35rem the words are words.
+               */
+              className="h-[1.35rem] w-auto"
+            />
           </span>
         </div>
 
@@ -258,7 +285,9 @@ export function Hero() {
            * the darkest point B8A6FF gives 3.08:1, under the 3:1 large-text
            * bar. This measures 3.84:1 there and 6.31:1 at the top.
            */}
-          <span className="block font-normal text-[#CDBEFF]">except&nbsp;you</span>
+          <span className="block font-normal text-[#CDBEFF]">
+            except&nbsp;you
+          </span>
         </h1>
 
         {/*
@@ -290,33 +319,33 @@ export function Hero() {
          * nothing on this page may claim a summary the product refuses to make.
          */}
         {/*
-          * ── The moment, before the promise ──────────────────────────────────
-          *
-          * The headline and the line below it are both about a memory, which is
-          * the right thing to sell and the wrong thing to open with: somebody
-          * three seconds into this page has not yet agreed they have a problem.
-          * A memory is an abstraction. Hitting a limit four hours into something
-          * is a Tuesday.
-          *
-          * So this names the moment first, in the three forms it actually takes,
-          * and the paragraph under it answers with what Sidq holds. Recognition,
-          * then the promise — the other way round is a page that describes a
-          * product to somebody still deciding whether to care.
-          */}
+         * ── The moment, before the promise ──────────────────────────────────
+         *
+         * The headline and the line below it are both about a memory, which is
+         * the right thing to sell and the wrong thing to open with: somebody
+         * three seconds into this page has not yet agreed they have a problem.
+         * A memory is an abstraction. Hitting a limit four hours into something
+         * is a Tuesday.
+         *
+         * So this names the moment first, in the three forms it actually takes,
+         * and the paragraph under it answers with what Sidq holds. Recognition,
+         * then the promise — the other way round is a page that describes a
+         * product to somebody still deciding whether to care.
+         */}
         {/*
-          * ── What the hero says, and what it stopped saying ──────────────────
-          *
-          * The explaining paragraph is gone. It named the moment, then the
-          * promise, and the headline and this line had already covered both:
-          * "the models remember everything except you" is the problem and
-          * "stop introducing yourself to robots" is the same problem as a line
-          * somebody repeats. Three statements of one idea, and the reader had
-          * to get through all of them before reaching the button.
-          *
-          * What is left is the claim, the line, and the download. The
-          * paragraph's argument now lives further down the page, where
-          * somebody who wants it has asked for it.
-          */}
+         * ── What the hero says, and what it stopped saying ──────────────────
+         *
+         * The explaining paragraph is gone. It named the moment, then the
+         * promise, and the headline and this line had already covered both:
+         * "the models remember everything except you" is the problem and
+         * "stop introducing yourself to robots" is the same problem as a line
+         * somebody repeats. Three statements of one idea, and the reader had
+         * to get through all of them before reaching the button.
+         *
+         * What is left is the claim, the line, and the download. The
+         * paragraph's argument now lives further down the page, where
+         * somebody who wants it has asked for it.
+         */}
         {/* The line somebody repeats, directly over the button. */}
         <p
           className="animate-rise mt-7 [@media(max-height:700px)]:mt-4 w-full text-center font-serif text-[clamp(1.125rem,2.4vw,1.75rem)] text-white [text-shadow:0_1px_18px_rgba(3,16,38,0.45)]"
@@ -341,22 +370,19 @@ export function Hero() {
          * text directly underneath it.
          */}
         {/*
-           * White, not ink.
-           *
-           * This sits 71% down the sky. On the old gradient that point had
-           * warmed to cream and dark text was correct; the blue sky is still
-           * blue there, so ink measured 3.22:1 at thirteen pixels against a
-           * 4.5:1 requirement. The colour has to follow the ground under it.
-           *
-           * Full white, not 85%: at thirteen pixels this owes 4.5:1 and 85%
-           * measured 3.92 here. There is no headroom to spend at this size.
-           */}
-          <p className="mt-5 w-full text-center text-[0.8125rem] text-white">
+         * White, not ink.
+         *
+         * This sits 71% down the sky. On the old gradient that point had
+         * warmed to cream and dark text was correct; the blue sky is still
+         * blue there, so ink measured 3.22:1 at thirteen pixels against a
+         * 4.5:1 requirement. The colour has to follow the ground under it.
+         *
+         * Full white, not 85%: at thirteen pixels this owes 4.5:1 and 85%
+         * measured 3.92 here. There is no headroom to spend at this size.
+         */}
+        <p className="mt-5 w-full text-center text-[0.8125rem] text-white">
           Free. No card. Mac app, about a minute to set up.
         </p>
-
-
-
 
         {/* Has to stay on the page the button is on: the button points a phone
             at `#waitlist-email`, and without the form that is a dead link. */}

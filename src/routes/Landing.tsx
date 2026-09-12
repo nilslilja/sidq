@@ -137,7 +137,16 @@ export function Landing() {
         </div>
       </section>
 
-      <Reveal>
+      {/*
+       * `repeat` on the bands below the hero, and not on the hero itself.
+       *
+       * The hero already arrives: it has a measured 0/80/150/230ms stagger in
+       * CSS and its own reasons for every number. What it cannot do is happen
+       * again, and that is the half worth adding, because scrolling back up a
+       * page where everything below the fold is frozen is what makes a site
+       * feel like a screenshot.
+       */}
+      <Reveal repeat>
         <WorksWith />
       </Reveal>
 
@@ -156,13 +165,13 @@ export function Landing() {
        * second download panel. Nobody reads a case for a free Mac app.
        */}
       <section className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28">
-        <Reveal>
+        <Reveal repeat>
           <Pricing />
         </Reveal>
       </section>
 
       <section className="mx-auto max-w-[76rem] px-5 pb-16 sm:px-6 sm:pb-20 lg:pb-28">
-        <Reveal>
+        <Reveal repeat>
           <Faq limit={4} />
         </Reveal>
       </section>

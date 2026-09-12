@@ -1085,6 +1085,24 @@ fn native_glass() -> bool {
     }
 }
 
+/**
+ * Days left in the reverse trial, and how long it was.
+ *
+ * `None` days means there is no trial running: it has ended, or this account
+ * pays for a plan and never needed one. The length travels with the answer so
+ * the panel that says "your five days are up" reads the same constant that
+ * decided, rather than repeating the number and drifting from it.
+ */
+#[tauri::command]
+async fn trial_state() -> (Option<u32>, u32) {
+    tauri::async_runtime::spawn_blocking(|| {
+        let left = index_store::open().and_then(|c| entitlement::trial_days_left(&c));
+        (left, entitlement::TRIAL_DAYS as u32)
+    })
+    .await
+    .unwrap_or((None, entitlement::TRIAL_DAYS as u32))
+}
+
 /// The list of assistants Sidq can open, for the UI to draw.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2927,6 +2945,7 @@ fn main() {
             picker_shortcut,
             open_picker,
             native_glass,
+            trial_state,
             open_notification_settings,
             extension_status,
             download_extension,
@@ -2973,6 +2992,20 @@ fn main() {
             read_team_project
         ])
         .setup(|app| {
+            /*
+             * ── Start the trial clock ─────────────────────────────────────
+             *
+             * First thing, and idempotent: a new install has everything for
+             * five days and then drops to Free. Here rather than on the read
+             * path so that asking what plan somebody is on never writes to
+             * their index, and so that the clock starts on the launch they
+             * installed it rather than on the first handover they happen to
+             * try.
+             */
+            if let Some(conn) = index_store::open() {
+                entitlement::begin_trial(&conn);
+            }
+
             /*
              * The pill, not the old card.
              *
