@@ -153,8 +153,28 @@ verify_is_the_app() {
     exit 1
   fi
 
-  # The MCP server answers this. The app must not.
-  if echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | "$BIN" 2>/dev/null | grep -q jsonrpc; then
+  #
+  # ── Why this runs a copy and never the bundle's own binary ─────────────────
+  #
+  # Running it in place cost a whole evening. macOS stamps a launched bundle
+  # with com.apple.provenance and then protects it from modification, so after
+  # this check `Contents/` could not be written to at all — not by stapler, not
+  # by `touch`. Stapling failed with error 73 five times in a row and looked
+  # exactly like an Apple outage: the ticket downloaded fine and then could not
+  # be inserted.
+  #
+  # The copy is outside the bundle, so whatever macOS decides to stamp on it is
+  # stamped on a file in /tmp that is deleted a line later.
+  local PROBE; PROBE="$(mktemp -t sidq-probe)"
+  cp "$BIN" "$PROBE"
+  chmod +x "$PROBE"
+  local SPEAKS_MCP=no
+  if echo '{"jsonrpc":"2.0","id":1,"method":"ping"}' | "$PROBE" 2>/dev/null | grep -q jsonrpc; then
+    SPEAKS_MCP=yes
+  fi
+  rm -f "$PROBE"
+
+  if [[ "$SPEAKS_MCP" == yes ]]; then
     echo "FATAL: $BIN speaks MCP on stdin. This is the sidecar, not the app." >&2
     exit 1
   fi
