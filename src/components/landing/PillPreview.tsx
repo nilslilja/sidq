@@ -24,17 +24,40 @@ export interface PillRow {
   meta: string;
 }
 
+/**
+ * The confirmation, when there is one.
+ *
+ * Every field is one the real panel prints, and the panel is only worth drawing
+ * because it is the one moment the product proves it did something: a click
+ * that produces no visible result reads as a click that failed.
+ */
+export interface PillSaved {
+  /** Just the filename. The real one prints `path.split('/').pop()`. */
+  file: string;
+  words: number;
+  turns?: number;
+  hours?: number;
+}
+
 export function PillPreview({
   query,
   rows,
   selected = null,
   status,
   pressed = false,
+  saved,
   footer = "The conversation itself, not a summary",
   className,
 }: {
   query?: string;
   rows: PillRow[];
+  /*
+   * When set, this replaces the list — which is what Pill.tsx does rather than
+   * stacking the two: the rows are wrapped in `phase.kind !== 'saved' && ...`
+   * (Pill.tsx:1045), so choosing a conversation swaps the body rather than
+   * pushing it down.
+   */
+  saved?: PillSaved;
   /*
    * Which row is under the pointer, or null for none.
    *
@@ -58,7 +81,10 @@ export function PillPreview({
         // Pill.tsx: 'overflow-hidden rounded-[22px]' + 'pane-glass'. The border
         // and shadow live inside pane-glass; adding any here doubles the rim.
         "w-full overflow-hidden rounded-[22px] text-left",
-        "pane-glass",
+        // `animate-pane` too, because the real panel does not appear, it opens
+        // (Pill.tsx:784). Without it the film popped the window into frame in a
+        // single frame, which is the one thing a window never does.
+        "pane-glass animate-pane",
         className,
       )}
     >
@@ -90,45 +116,97 @@ export function PillPreview({
 
       {/* Rows are inset with their own radius, which is what makes a selection
           read as a control rather than a table row. */}
-      <ul className="px-2 pb-2">
-        {rows.map((row, i) => (
-          <li key={row.title}>
-            <div
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
-                "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                i === selected ? "row-glass-on" : "",
-                // The press. Brief, small, and on the row itself rather than a
-                // separate ripple, because that is what the real one does.
-                i === selected && pressed ? "scale-[0.985] brightness-125" : "",
-              )}
+      {saved ? (
+        /*
+         * ── Saved to Downloads ────────────────────────────────────────────────
+         *
+         * Copied from Pill.tsx:931 rather than approximated, same as the rest
+         * of this file. The tick lands instead of appearing: `animate-land`
+         * scales it in, which is the difference between "the panel updated" and
+         * "that worked", and is the whole reason this state is worth drawing.
+         */
+        <div className="animate-pane-body border-t border-white/[0.06] px-4 py-5">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="animate-land chip-glass-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#D8CCFF]"
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "size-1.5 shrink-0 rounded-full transition-colors duration-150",
-                  i === selected
-                    ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
-                    : "bg-white/20",
-                )}
-              />
-              <span className="min-w-0 flex-1">
-                <span
-                  className={cn(
-                    "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
-                    i === selected ? "text-white" : "text-white/85",
-                  )}
-                >
-                  {row.title}
-                </span>
-                <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
-                  {row.meta}
-                </span>
-              </span>
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.9375rem] font-medium leading-tight text-white">
+                Saved to Downloads
+              </p>
+              <p className="mt-1 truncate text-[0.8125rem] text-white/50">
+                {saved.file}
+              </p>
+
+              {/* The product stated as a number: what you did not retype. */}
+              {saved.words > 0 && (
+                <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-white/70">
+                  <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#D8CCFF]">
+                    {saved.words.toLocaleString()}
+                  </span>
+                  <span>words carried</span>
+                  {saved.turns ? (
+                    <span className="text-white/35">
+                      · {saved.turns.toLocaleString()} messages
+                    </span>
+                  ) : null}
+                  {saved.hours ? (
+                    <span className="text-white/35">· {saved.hours}h of work</span>
+                  ) : null}
+                </p>
+              )}
+
+              <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
+                Attach it to any AI. It already tells them to read it and carry
+                on rather than summarise it back to you.
+              </p>
             </div>
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      ) : (
+        <ul className="px-2 pb-2">
+          {rows.map((row, i) => (
+            <li key={row.title}>
+              <div
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
+                  "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  i === selected ? "row-glass-on" : "",
+                  // The press. Brief, small, and on the row itself rather than a
+                  // separate ripple, because that is what the real one does.
+                  i === selected && pressed ? "scale-[0.985] brightness-125" : "",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full transition-colors duration-150",
+                    i === selected
+                      ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
+                      : "bg-white/20",
+                  )}
+                />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
+                      i === selected ? "text-white" : "text-white/85",
+                    )}
+                  >
+                    {row.title}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                    {row.meta}
+                  </span>
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/*
        * The footer, which is a hairline rule and not a glass lip. `.lip-glass`

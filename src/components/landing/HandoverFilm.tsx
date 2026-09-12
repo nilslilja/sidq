@@ -159,6 +159,27 @@ const BEATS: Beat[] = [
   { hold: 1300, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
   // Clicked.
   { hold: 900, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
+  /*
+   * ── The moment the product proves it did something ────────────────────────
+   *
+   * The click used to produce nothing visible and the film cut straight to the
+   * desktop, so the one thing the app does was the one thing the film skipped.
+   * This is the real panel: the list is replaced by a tick that lands, the
+   * filename, and the word count — which is the whole claim as a number.
+   *
+   * Same shot as the pick, so the camera is still while the panel changes
+   * under it. Long enough to read a five digit number and the line under it.
+   */
+  { hold: 2200, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Saved to Downloads, word for word." },
+  /*
+   * ── The camera leaves before the window does ──────────────────────────────
+   *
+   * The panel used to vanish in the same frame as the camera pulled out, which
+   * is two cuts at once and reads as a jump. Now the shot widens with the
+   * panel still in it, so you see it sitting on the desktop at its real size,
+   * and only then does it go.
+   */
+  { hold: 900, scale: 1, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
   { hold: BEAT, scale: 1, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
   { hold: 1000, scale: 1.7, at: { x: 13, y: 87 }, caption: "Attach it." },
   { hold: 6000, scale: 1.06, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
@@ -185,6 +206,18 @@ const PICK: Record<number, PickState> = {
  * the product, and a title they have to decode spends the attention the rest of
  * the shot needs.
  */
+/*
+ * What the confirmation reports. Invented, like the rows, and in the shape a
+ * real one takes: the filename the app builds, and a conversation big enough
+ * that nobody would have retyped it.
+ */
+const SAVED = {
+  file: "checkout-payments-chatgpt.md",
+  words: 18742,
+  turns: 214,
+  hours: 6,
+};
+
 const ROWS = [
   { title: "Why checkout silently loses payments", meta: "ChatGPT · yesterday · checkout" },
   { title: "Rewriting the onboarding emails", meta: "Claude · 2 days ago · marketing" },
@@ -374,8 +407,9 @@ export function HandoverFilm({ className }: { className?: string }) {
   }, [beat, playing]);
 
   const scene = BEATS[beat];
-  const showPicker = beat >= 2 && beat <= 4;
-  const showChat = beat >= 5;
+  // 5 is the confirmation and 6 is the pull-back that still has the panel in it.
+  const showPicker = beat >= 2 && beat <= 6;
+  const showChat = beat >= 7;
   /*
    * ── The row lights when the pointer lands, not when the beat starts ─────────
    *
@@ -462,12 +496,18 @@ export function HandoverFilm({ className }: { className?: string }) {
                 rows={ROWS}
                 selected={pick.hover}
                 pressed={pick.press}
-                footer="The conversation itself, not a summary"
+                saved={beat >= 5 ? SAVED : undefined}
+                /* Pill.tsx:1158 changes the footer with the phase. */
+                footer={
+                  beat >= 5
+                    ? "Ready to attach"
+                    : "The conversation itself, not a summary"
+                }
               />
             </div>
           )}
 
-          {showChat && <ChatWindow revealed={beat >= 7} />}
+          {showChat && <ChatWindow revealed={beat >= 9} />}
           <Cursor at={scene.at} />
         </div>
       </div>
@@ -479,7 +519,17 @@ export function HandoverFilm({ className }: { className?: string }) {
        * section below it up and down every few seconds.
        */}
       <p
-        key={beat}
+        /*
+         * Keyed by the words, not the beat.
+         *
+         * `key={beat}` remounted this on every beat and re-ran the fade, so two
+         * consecutive beats that share a caption made it blink out and back in
+         * with the same sentence — which is the opposite of the camera holding
+         * still. Keyed by its own text it animates when the words change and
+         * stays put when they do not, so the confirmation and the pull-back
+         * read as one held moment.
+         */
+        key={scene.caption}
         className="film-caption mx-auto mt-6 flex min-h-[3.25rem] max-w-[44ch] items-start justify-center text-center text-[0.9375rem] leading-relaxed ink-muted"
       >
         {scene.caption}
@@ -574,7 +624,13 @@ function ChatWindow({ revealed }: { revealed: boolean }) {
   const streamed = useStreamedReply(revealed, REPLY);
 
   return (
-    <div className="absolute inset-x-[8%] bottom-[6%] top-[12%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
+    /*
+     * It opens rather than appearing. This was the last thing in the film that
+     * arrived in a single frame: the picker was fixed by borrowing the app's
+     * own `animate-pane`, and the window somebody switches to had the same
+     * fault for the same reason. Nothing on a desktop appears instantly.
+     */
+    <div className="animate-pane absolute inset-x-[8%] bottom-[6%] top-[12%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
       <div className="flex h-[7%] items-center gap-[0.6%] bg-white/[0.04] px-[1.4%]">
         {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
           <span key={c} className="h-[26%] w-[0.9%] rounded-full" style={{ background: c }} />

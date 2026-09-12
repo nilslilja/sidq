@@ -39,6 +39,15 @@ describe("the picture of the picker matches the picker", () => {
   const SURFACES = [
     "pane-glass",
     "row-glass-on",
+    // The panel opens rather than appearing, and so does the body that replaces
+    // the list once a conversation is picked.
+    "animate-pane",
+    "animate-pane-body",
+    // The tick lands. This is the one moment the product proves it did
+    // something, and it is the first thing an approximation would leave out.
+    "animate-land",
+    "chip-glass-on",
+    "Saved to Downloads",
     "border-white/[0.06]",
     "chip-glass",
     "rounded-[22px]",
