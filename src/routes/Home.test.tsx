@@ -838,6 +838,59 @@ describe("the mark", () => {
     for (const d of strokes) {
       expect(source).toContain(d);
     }
+
+    /*
+     * ── And the weight, which is how it drifted anyway ───────────────────────
+     *
+     * This test compared only the two `d` strings, so the shapes stayed in step
+     * while the strokes went four separate ways: 20 in the icon, 24 here, 30 in
+     * the Dock tile the landing page draws, 22 on the splash screen. Every one
+     * of them passed. A guard that checks one property of a thing is a guard
+     * that documents which property nobody was watching.
+     */
+    const iconStroke = icon.match(/stroke-width="(\d+)"/)?.[1];
+    expect(iconStroke, "the icon has no stroke-width to compare").toBeDefined();
+    expect(
+      source,
+      `SidqMark's default stroke no longer matches the icon's ${iconStroke}`,
+    ).toContain(`const ICON_STROKE = ${iconStroke};`);
+  });
+
+  test("nothing draws the mark by hand any more", async () => {
+    /*
+     * The other half of the same problem. Keeping the weights in step is
+     * pointless if a fourth copy appears next week, and three of them existed
+     * before this was written.
+     *
+     * The paths are the fingerprint: anything that contains the first curve and
+     * is not the shared component is a copy.
+     */
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx?$/.test(entry)) files.push(full);
+      }
+    };
+    walk("src");
+
+    /*
+     * Built from pieces, and tests excluded. Spelled out in one string this
+     * assertion matched its own source and reported this file as a copy of the
+     * mark, which is the scanner accusing the scanner.
+     */
+    const needle = ["M96", "232", "C120", "168"].join(" ");
+    const copies = files.filter(
+      (f) =>
+        !f.endsWith("SidqMark.tsx") &&
+        !f.includes(".test.") &&
+        readFileSync(f, "utf8").includes(needle),
+    );
+    expect(copies, `the mark is drawn by hand in:\n${copies.join("\n")}`).toHaveLength(0);
   });
 });
 

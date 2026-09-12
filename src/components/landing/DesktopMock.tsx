@@ -1,5 +1,6 @@
 import { PillPreview } from "./PillPreview";
 import { cn } from "@/lib/cn";
+import { SidqMark } from "@/components/SidqMark";
 
 /*
  * Where the bar actually sits, on an ordinary Mac.
@@ -253,25 +254,13 @@ export function DesktopMock({ className }: { className?: string }) {
               "shadow-[0_2px_6px_-1px_rgba(0,0,0,0.35)]",
             )}
           >
-            <svg
-              viewBox="72 116 386 208"
-              className="w-[70%] text-[#4F46E5]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="30"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-              <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-              <circle
-                cx="416"
-                cy="256"
-                r="34"
-                fill="currentColor"
-                stroke="none"
-              />
-            </svg>
+            {/*
+              * The shared mark, not a fourth hand-drawn copy. This is a Dock
+              * tile, so of everything on the page it is the one thing that has
+              * to look exactly like the Dock icon, and it was drawn at stroke
+              * weight 30 against the icon's 20.
+              */}
+            <SidqMark className="w-[70%] text-[#4F46E5]" width={386} height={208} />
           </span>
 
           {/* The divider and the bin, which every Dock has and nothing else does. */}
@@ -300,24 +289,14 @@ export function DesktopMock({ className }: { className?: string }) {
  * window learned first.
  */
 function TrayMark() {
+  // The shared mark. This was the second hand-drawn copy in this file.
   return (
-    <svg
-      viewBox="72 116 386 208"
-      // Brighter than the clock beside it, and larger. At the parent's 55% it
-      // was a smudge, and the one mark on this desktop that belongs to Sidq is
-      // the one thing on it worth being able to pick out.
+    <SidqMark
+      width={386}
+      height={208}
+      strokeWidth={24}
       className="h-[46%] w-auto text-white/85"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="24"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-      <circle cx="416" cy="256" r="30" fill="currentColor" stroke="none" />
-    </svg>
+    />
   );
 }
 

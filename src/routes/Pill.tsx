@@ -698,6 +698,13 @@ export function Pill() {
             key={beat}
             width={22}
             height={12}
+            /*
+             * Heavier than the icon, deliberately. At 22 by 12 the icon's own
+             * weight of 20 thins out to the point where the trailing dot stops
+             * reading as part of the stroke. This is the one place that wants
+             * more, and it says so rather than leaving a bare number.
+             */
+            strokeWidth={24}
             className={cn(
               'shrink-0 transition-colors duration-200',
               saved ? 'text-[#D8CCFF]' : 'text-white/75 group-hover:text-white',

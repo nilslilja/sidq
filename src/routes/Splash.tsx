@@ -18,6 +18,8 @@
  * rectangle in the middle of somebody's screen.
  */
 
+import { SidqMark } from '@/components/SidqMark';
+
 export function Splash() {
   return (
     <div
@@ -77,20 +79,10 @@ export function Splash() {
  */
 function Mark() {
   return (
-    <svg
-      viewBox="72 116 386 208"
-      width="132"
-      height="71"
-      fill="none"
-      stroke="white"
-      strokeWidth="22"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-      <circle cx="416" cy="256" r="30" fill="white" stroke="none" />
-    </svg>
+    <SidqMark
+      width={132}
+      height={71}
+      className="text-white"
+    />
   );
 }
