@@ -119,6 +119,61 @@ export function Hero() {
          * wrapper measured about a word wide and the badge wrapped one word per
          * line on a phone. Nothing about it looked wrong on a desktop.
          */}
+        {/*
+          * ── Product Hunt, stated rather than claimed ────────────────────────
+          *
+          * It says "Launched on" and not "Featured on". Featured is an
+          * editorial designation on Product Hunt and this listing does not
+          * carry it: the page reads "Launched this week", two points, five
+          * followers, no daily rank. Launched is what happened, and it is the
+          * version that survives somebody checking.
+          *
+          * Not a link, on purpose. The official embed badge renders the live
+          * upvote count, and a link sends anybody curious to the number
+          * itself. A mark that says a launch happened is worth something; a
+          * mark that invites you to go and count the votes is not.
+          *
+          * The logo is Product Hunt's own asset, unmodified, with its alpha
+          * intact so it sits on the sky rather than in a white box.
+          */}
+        {/*
+          * On a chip rather than straight on the sky.
+          *
+          * It sat at the bottom of the hero first, where the gradient has faded
+          * to near-white and a white label lost its contrast. Moving it to the
+          * top puts it on the darkest part of the sky, where white would have
+          * worked — but the chip stays, because the point where the sky stops
+          * being blue moves with the viewport height and a badge that carries
+          * its own background is legible wherever it ends up. It is also how
+          * this badge looks everywhere else it appears.
+          */}
+        <div
+          className="animate-rise mb-6 flex w-full justify-center"
+          style={{ animationDelay: "0ms" }}
+        >
+          <span className="inline-flex items-center gap-2.5 rounded-full bg-white/85 px-3.5 py-1.5 shadow-[0_2px_10px_-2px_rgba(3,16,38,0.25)] backdrop-blur-sm">
+          <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-ink/55">
+            Launched on
+          </span>
+          <img
+            src="/product-hunt.png"
+            alt="Product Hunt"
+            width={560}
+            height={130}
+            /*
+             * Explicit box so the line cannot reflow while it loads.
+             *
+             * The asset is trimmed. Product Hunt ship it at 596x360 with about
+             * a third of the height as padding, so sizing by height left the
+             * wordmark two pixels tall and the badge read as an orange dot
+             * beside some fuzz. Cropped to its own content it is 560x130, and
+             * at 1.35rem the words are words.
+             */
+            className="h-[1.35rem] w-auto"
+          />
+          </span>
+        </div>
+
         <div className="animate-rise mb-9 w-full">
           <PoweredByClaude />
         </div>
@@ -300,59 +355,6 @@ export function Hero() {
           Free. No card. Mac app, about a minute to set up.
         </p>
 
-        {/*
-          * ── Product Hunt, stated rather than claimed ────────────────────────
-          *
-          * It says "Launched on" and not "Featured on". Featured is an
-          * editorial designation on Product Hunt and this listing does not
-          * carry it: the page reads "Launched this week", two points, five
-          * followers, no daily rank. Launched is what happened, and it is the
-          * version that survives somebody checking.
-          *
-          * Not a link, on purpose. The official embed badge renders the live
-          * upvote count, and a link sends anybody curious to the number
-          * itself. A mark that says a launch happened is worth something; a
-          * mark that invites you to go and count the votes is not.
-          *
-          * The logo is Product Hunt's own asset, unmodified, with its alpha
-          * intact so it sits on the sky rather than in a white box.
-          */}
-        {/*
-          * On a chip rather than straight on the sky.
-          *
-          * The badge sits near the bottom of the hero, where the gradient has
-          * faded to near-white, so a white label lost its contrast — and worse,
-          * the point where the sky stops being blue moves with the viewport
-          * height, so no single text colour is right at every size. A light
-          * chip carries its own background and is legible anywhere, which is
-          * also how this badge looks everywhere else it appears.
-          */}
-        <div
-          className="animate-rise mt-6 flex w-full justify-center"
-          style={{ animationDelay: "300ms" }}
-        >
-          <span className="inline-flex items-center gap-2.5 rounded-full bg-white/85 px-3.5 py-1.5 shadow-[0_2px_10px_-2px_rgba(3,16,38,0.25)] backdrop-blur-sm">
-          <span className="text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-ink/55">
-            Launched on
-          </span>
-          <img
-            src="/product-hunt.png"
-            alt="Product Hunt"
-            width={560}
-            height={130}
-            /*
-             * Explicit box so the line cannot reflow while it loads.
-             *
-             * The asset is trimmed. Product Hunt ship it at 596x360 with about
-             * a third of the height as padding, so sizing by height left the
-             * wordmark two pixels tall and the badge read as an orange dot
-             * beside some fuzz. Cropped to its own content it is 560x130, and
-             * at 1.35rem the words are words.
-             */
-            className="h-[1.35rem] w-auto"
-          />
-          </span>
-        </div>
 
 
 
