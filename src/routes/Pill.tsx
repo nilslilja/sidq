@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { rankSessions } from '@/lib/companion/rank-sessions';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { rankSessions } from "@/lib/companion/rank-sessions";
 import {
   ANY_SOURCE,
   filterSessions,
@@ -9,14 +9,15 @@ import {
   sourceOf,
   sourcesIn,
   statusLine,
-} from '@/lib/companion/pill';
-import { sourceLabel } from '@/lib/companion/sources';
-import { playCue } from '@/lib/companion/sound';
-import { desktopBridge } from '@/lib/onboarding/bridge';
-import type { PillState, ProjectRow } from '@/lib/onboarding/bridge';
-import type { WorkSession } from '@/lib/companion/work-history';
-import { cn } from '@/lib/cn';
-import { SidqMark } from '@/components/SidqMark';
+} from "@/lib/companion/pill";
+import { sourceLabel } from "@/lib/companion/sources";
+import { playCue } from "@/lib/companion/sound";
+import { desktopBridge } from "@/lib/onboarding/bridge";
+import type { PillState, ProjectRow } from "@/lib/onboarding/bridge";
+import type { WorkSession } from "@/lib/companion/work-history";
+import { cn } from "@/lib/cn";
+import { SidqMark } from "@/components/SidqMark";
+import { EscapeHatch, type Hatch } from "@/components/companion/EscapeHatch";
 
 /*
  * The pill.
@@ -75,16 +76,62 @@ const EXPANDED_THRESHOLD = 396;
 
 /** Which of the two sizes the window is currently at. */
 function modeForWidth(width: number): PillState {
-  return width > EXPANDED_THRESHOLD ? 'expanded' : 'collapsed';
+  return width > EXPANDED_THRESHOLD ? "expanded" : "collapsed";
 }
 
 type Phase =
-  | { kind: 'browsing' }
-  | { kind: 'working' }
-  | { kind: 'done' }
-  | { kind: 'saved'; path: string; words: number; turns?: number; minutes?: number }
-  | { kind: 'limited'; used: number; cap: number }
-  | { kind: 'failed' };
+  | { kind: "browsing" }
+  | { kind: "working" }
+  | { kind: "done" }
+  | {
+      kind: "saved";
+      path: string;
+      words: number;
+      turns?: number;
+      minutes?: number;
+      /**
+       * The assistant that stopped, when this conversation ended at its limit.
+       *
+       * Read out of that session's own last turn in Rust, so the panel can only
+       * say somebody was cut off when they were.
+       */
+      wall?: string | null;
+      /**
+       * What the handover needs to be built again, for another assistant.
+       *
+       * Carried in the phase rather than read back off `visible[pickedRow]` at
+       * the moment somebody picks. The list behind this panel keeps being
+       * re-ranked by the sweep, so by then that row may be a different
+       * conversation — and the one thing this screen must never do is hand over
+       * something other than the file it just said it saved.
+       */
+      carry: Carry;
+    }
+  | { kind: "limited"; used: number; cap: number }
+  | { kind: "failed" };
+
+/**
+ * Where the rail starts.
+ *
+ * Not always zero: the assistant that just cut somebody off is in the rail and
+ * refuses to be picked, so starting on it would put the selection on a dead
+ * cell and make the first Enter do nothing. Falls back to zero when every cell
+ * refuses, which cannot happen with the current table and is one row of
+ * arithmetic rather than a promise about it.
+ */
+function firstOpenHatch(options: Hatch[], wall: string | null): number {
+  const open = options.findIndex((o) => o.label !== wall);
+  return open < 0 ? 0 : open;
+}
+
+/** Everything `handOverInto` needs, kept together so it travels as one thing. */
+interface Carry {
+  sessionId: string;
+  source: string;
+  resumePoint: string;
+  when: string;
+  project: string;
+}
 
 /** How long the bar shows what just landed before returning to the count. */
 const SAVED_BANNER_MS = 4200;
@@ -106,13 +153,13 @@ const NUDGES: Record<string, [number, number]> = {
  */
 function labelFor(source: string): string {
   const names: Record<string, string> = {
-    chatgpt: 'ChatGPT',
-    'claude.ai': 'Claude',
-    gemini: 'Gemini',
-    grok: 'Grok',
-    deepseek: 'DeepSeek',
+    chatgpt: "ChatGPT",
+    "claude.ai": "Claude",
+    gemini: "Gemini",
+    grok: "Grok",
+    deepseek: "DeepSeek",
   };
-  return names[source] ?? 'an AI';
+  return names[source] ?? "an AI";
 }
 
 export function Pill() {
@@ -127,14 +174,26 @@ export function Pill() {
    * is exactly how it got reported as broken.
    */
   const [settled, setSettled] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>({ kind: 'browsing' });
+  const [phase, setPhase] = useState<Phase>({ kind: "browsing" });
   // Measured, never announced. Launch shows the bar.
-  const [mode, setMode] = useState<PillState>(() => modeForWidth(window.innerWidth));
+  const [mode, setMode] = useState<PillState>(() =>
+    modeForWidth(window.innerWidth),
+  );
   const [indexed, setIndexed] = useState(0);
   /** The assistant a conversation just arrived from, while the bar says so. */
   const [saved, setSaved] = useState<string | null>(null);
+  /**
+   * Where a handover can be carried, from Rust.
+   *
+   * Read once. It is a static table in `assistants.rs` and the window lives for
+   * as long as the app does, so re-reading it per save would be one IPC round
+   * trip to learn the same five names.
+   */
+  const [hatches, setHatches] = useState<Hatch[]>([]);
+  /** Which of them the rail has selected. */
+  const [hatch, setHatch] = useState(0);
   /*
    * Bumped whenever the count changes, and used as a React key so the pulse
    * restarts. Re-adding the same class does not replay a CSS animation; a new
@@ -174,12 +233,22 @@ export function Pill() {
    * they had five.
    */
   const inSource = useMemo(
-    () => (source === ANY_SOURCE ? ranked : ranked.filter((r) => sourceOf(r) === source)),
+    () =>
+      source === ANY_SOURCE
+        ? ranked
+        : ranked.filter((r) => sourceOf(r) === source),
     [ranked, source],
   );
-  const visible = useMemo(() => filterSessions(ranked, query, source), [ranked, query, source]);
+  const visible = useMemo(
+    () => filterSessions(ranked, query, source),
+    [ranked, query, source],
+  );
 
-  const { showProject, count: rowCount } = rowsIn(project !== null, query, visible.length);
+  const { showProject, count: rowCount } = rowsIn(
+    project !== null,
+    query,
+    visible.length,
+  );
   const offset = showProject ? 1 : 0;
 
   /*
@@ -198,7 +267,8 @@ export function Pill() {
    * behind a closed menu.
    */
   useEffect(() => {
-    if (source !== ANY_SOURCE && !tallies.some((t) => t.id === source)) setSource(ANY_SOURCE);
+    if (source !== ANY_SOURCE && !tallies.some((t) => t.id === source))
+      setSource(ANY_SOURCE);
   }, [tallies, source]);
 
   /*
@@ -226,9 +296,26 @@ export function Pill() {
   useEffect(() => {
     if (!bridge) return;
     const aimed =
-      mode === 'expanded' ? (visible[pickedRow]?.session.sessionId ?? null) : null;
+      mode === "expanded"
+        ? (visible[pickedRow]?.session.sessionId ?? null)
+        : null;
     void bridge.aimAt(aimed);
   }, [bridge, mode, visible, pickedRow]);
+
+  /*
+   * The places a handover can go. Read once, at launch.
+   *
+   * Failure is an empty rail, and an empty rail is simply not drawn — the panel
+   * falls back to saying the file is in Downloads, which is what it said before
+   * this existed. Nothing about the save depends on this read.
+   */
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge
+      .assistantList()
+      .then(setHatches)
+      .catch(() => setHatches([]));
+  }, [bridge]);
 
   /*
    * Reload every time it opens, not once at launch.
@@ -238,7 +325,7 @@ export function Pill() {
    * to hand over is almost always the one you just finished.
    */
   useEffect(() => {
-    if (!bridge || mode !== 'expanded') return;
+    if (!bridge || mode !== "expanded") return;
     void bridge
       .recentWork(50)
       .then((rows) => setSessions(rows as WorkSession[]))
@@ -268,7 +355,7 @@ export function Pill() {
    * Polled slowly, since the only thing that moves it is a sweep every 90s.
    */
   useEffect(() => {
-    if (!bridge || mode !== 'collapsed') return;
+    if (!bridge || mode !== "collapsed") return;
 
     const read = () =>
       void bridge.indexStats().then(([count]) =>
@@ -334,13 +421,13 @@ export function Pill() {
 
     void bridge
       .onFound((one) => {
-        playCue('found');
+        playCue("found");
         setSaved(labelFor(one.source));
       })
       .then((fn) => {
-      if (cancelled) fn();
-      else unlisten = fn;
-    });
+        if (cancelled) fn();
+        else unlisten = fn;
+      });
 
     return () => {
       cancelled = true;
@@ -359,8 +446,8 @@ export function Pill() {
   useEffect(() => {
     const follow = () => setMode(modeForWidth(window.innerWidth));
     follow();
-    window.addEventListener('resize', follow);
-    return () => window.removeEventListener('resize', follow);
+    window.addEventListener("resize", follow);
+    return () => window.removeEventListener("resize", follow);
   }, []);
 
   /*
@@ -376,11 +463,11 @@ export function Pill() {
    * Collapsed the window is non-focusable, so this never fires then.
    */
   useEffect(() => {
-    if (mode !== 'expanded') return;
+    if (mode !== "expanded") return;
 
     const away = () => void bridge?.hidePill();
-    window.addEventListener('blur', away);
-    return () => window.removeEventListener('blur', away);
+    window.addEventListener("blur", away);
+    return () => window.removeEventListener("blur", away);
   }, [bridge, mode]);
 
   /*
@@ -391,16 +478,16 @@ export function Pill() {
    * this window would otherwise open in every time.
    */
   useEffect(() => {
-    if (mode !== 'expanded') return;
-    playCue('summon');
-    setPhase({ kind: 'browsing' });
-    setQuery('');
+    if (mode !== "expanded") return;
+    playCue("summon");
+    setPhase({ kind: "browsing" });
+    setQuery("");
     setIndex(0);
     inputRef.current?.focus();
   }, [mode]);
 
   const dismiss = useCallback(() => {
-    playCue('dismiss');
+    playCue("dismiss");
     void bridge?.hidePill();
   }, [bridge]);
 
@@ -422,39 +509,49 @@ export function Pill() {
    * keystroke closer than an attachment.
    */
   const carryProject = useCallback(async () => {
-    if (!project || phase.kind === 'working') return;
+    if (!project || phase.kind === "working") return;
 
-    setPhase({ kind: 'working' });
+    setPhase({ kind: "working" });
     try {
       const text = await bridge?.memoryText(project.path);
       if (!text) {
-        setPhase({ kind: 'failed' });
+        setPhase({ kind: "failed" });
         return;
       }
       await navigator.clipboard.writeText(text);
-      playCue('done');
-      setPhase({ kind: 'done' });
+      playCue("done");
+      setPhase({ kind: "done" });
       setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
     } catch {
-      setPhase({ kind: 'failed' });
+      setPhase({ kind: "failed" });
     }
   }, [bridge, phase.kind, project]);
 
   const saveFile = useCallback(async () => {
     const target = visible[pickedRow];
-    if (!target?.session.sessionId || phase.kind === 'working') return;
+    if (!target?.session.sessionId || phase.kind === "working") return;
 
-    setPhase({ kind: 'working' });
+    setPhase({ kind: "working" });
+    /*
+     * Built once, used twice: to save the file, and again if somebody picks an
+     * assistant off the rail afterwards. The second use has to be the same
+     * conversation as the first, which is why it is captured here rather than
+     * read back out of a list the sweep keeps re-ranking.
+     */
+    const carry: Carry = {
+      sessionId: target.session.sessionId,
+      source: target.session.source ?? "claude-code",
+      // Where it stopped. The last prompt is sharper than the title: an
+      // unanswered question is a better starting instruction than a topic.
+      resumePoint: target.session.lastPrompt || "",
+      when: target.reason,
+      project: target.session.projectName ?? "",
+    };
+
     try {
       const result = await bridge?.saveTranscript({
-        sessionId: target.session.sessionId,
-        title: target.session.title || 'sidq-conversation',
-        source: target.session.source ?? 'claude-code',
-        // Where it stopped. The last prompt is sharper than the title: an
-        // unanswered question is a better starting instruction than a topic.
-        resumePoint: target.session.lastPrompt || '',
-        when: target.reason,
-        project: target.session.projectName ?? '',
+        ...carry,
+        title: target.session.title || "sidq-conversation",
       });
 
       /*
@@ -466,32 +563,73 @@ export function Pill() {
        * up sends them to look for a bug that is not there.
        */
       if (result?.limited) {
-        setPhase({ kind: 'limited', used: result.used, cap: result.cap ?? result.used });
+        setPhase({
+          kind: "limited",
+          used: result.used,
+          cap: result.cap ?? result.used,
+        });
         return;
       }
       if (!result?.path) {
-        setPhase({ kind: 'failed' });
+        setPhase({ kind: "failed" });
         return;
       }
-      playCue('done');
+      playCue("done");
       setPhase({
-          kind: 'saved',
-          path: result.path,
-          words: result.words,
-          turns: target.session.turns,
-          minutes: target.session.activeMinutes,
-        });
-      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
+        kind: "saved",
+        path: result.path,
+        words: result.words,
+        turns: target.session.turns,
+        minutes: target.session.activeMinutes,
+        wall: result.wall ?? null,
+        carry,
+      });
+      setHatch(firstOpenHatch(hatches, result.wall ?? null));
+
+      /*
+       * The panel only closes itself when there is nothing on it to press.
+       *
+       * A success card with a countdown is fine; a picker with one is a
+       * decision taken away mid-thought. The rail makes this panel interactive,
+       * so it waits — and it cannot squat, because a click anywhere outside the
+       * window collapses the picker (`watch_for_outside_clicks` in
+       * pill_window.rs) and Escape closes it from the keyboard.
+       */
+      if (!hatches.length) {
+        setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
+      }
     } catch {
-      setPhase({ kind: 'failed' });
+      setPhase({ kind: "failed" });
     }
-  }, [bridge, phase.kind, pickedRow, visible]);
+  }, [bridge, hatches, phase.kind, pickedRow, visible]);
+
+  /**
+   * The last step, taken for them.
+   *
+   * Opens the assistant in Sidq's own window with the whole conversation
+   * already in its composer, and stops there. Rust compiles the handover a
+   * second time rather than reusing the file, because `hand_over_into` targets
+   * the assistant it is going to — what ChatGPT is told about a file it is
+   * about to read is not what Claude is told.
+   *
+   * The window closes behind it. Leaving the picker up over the assistant it
+   * just opened would cover the composer it just typed into.
+   */
+  const carryInto = useCallback(
+    async (assistant: string) => {
+      if (phase.kind !== "saved") return;
+      playCue("done");
+      void bridge?.handOverInto({ ...phase.carry, assistant });
+      void bridge?.hidePill();
+    },
+    [bridge, phase],
+  );
 
   const handOver = useCallback(async () => {
     const target = visible[pickedRow];
-    if (!target || phase.kind === 'working') return;
+    if (!target || phase.kind === "working") return;
 
-    setPhase({ kind: 'working' });
+    setPhase({ kind: "working" });
     try {
       /*
        * The compiled handover, not the raw transcript.
@@ -505,26 +643,26 @@ export function Pill() {
       const text = id
         ? await bridge?.handoverText({
             sessionId: id,
-            source: target.session.source ?? 'claude-code',
-            resumePoint: target.session.lastPrompt || '',
+            source: target.session.source ?? "claude-code",
+            resumePoint: target.session.lastPrompt || "",
             when: target.reason,
-            project: target.session.projectName ?? '',
+            project: target.session.projectName ?? "",
           })
         : null;
       if (!text) {
-        setPhase({ kind: 'failed' });
+        setPhase({ kind: "failed" });
         return;
       }
 
       await navigator.clipboard.writeText(text);
-      playCue('done');
-      setPhase({ kind: 'done' });
+      playCue("done");
+      setPhase({ kind: "done" });
 
       // Close itself. Requiring a second keystroke to dismiss the thing that has
       // already finished is the difference between a tool and a window.
       setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
     } catch {
-      setPhase({ kind: 'failed' });
+      setPhase({ kind: "failed" });
     }
   }, [bridge, phase.kind, pickedRow, visible]);
 
@@ -569,17 +707,66 @@ export function Pill() {
      * behind an open menu changes what Enter does without showing it.
      */
     if (picking) {
-      if (e.key === 'Escape' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (e.key === "Escape" || e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        if (e.key === 'Escape') setPicking(false);
+        if (e.key === "Escape") setPicking(false);
         return;
       }
     }
 
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       e.preventDefault();
       dismiss();
       return;
+    }
+
+    /*
+     * ── While the rail is up, it owns the keyboard ───────────────────────────
+     *
+     * The list behind this panel is not drawn, so the keys that walk it have
+     * nothing to walk and Enter has nothing to save. Left and right move along
+     * the rail, a digit jumps to a cell, and Enter carries the conversation
+     * into whatever is selected.
+     *
+     * Checked after Escape so backing out still works, and before the list
+     * handlers so neither of them sees a key meant for the rail.
+     */
+    if (phase.kind === "saved" && hatches.length) {
+      const wall = phase.wall ? sourceLabel(phase.wall, true) : null;
+      const open = hatches
+        .map((option, i) => ({ option, i }))
+        .filter(({ option }) => option.label !== wall);
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        /*
+         * Walks the cells that can actually be picked, so a refusing cell is
+         * stepped over rather than landed on. Wraps, because five cells in a
+         * row is a ring and stopping dead at either end is a dead keypress.
+         */
+        const at = open.findIndex(({ i }) => i === hatch);
+        const next =
+          (at + (e.key === "ArrowRight" ? 1 : -1) + open.length) % open.length;
+        if (open[next]) setHatch(open[next].i);
+        return;
+      }
+
+      // 1 to 5, straight to a cell. A refusing one is ignored rather than
+      // silently redirected somewhere the person did not press.
+      const digit = Number(e.key);
+      if (Number.isInteger(digit) && digit >= 1 && digit <= hatches.length) {
+        e.preventDefault();
+        const target = hatches[digit - 1];
+        if (target && target.label !== wall) setHatch(digit - 1);
+        return;
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const picked = hatches[hatch];
+        if (picked && picked.label !== wall) void carryInto(picked.id);
+        return;
+      }
     }
     /*
      * ⌘ and an arrow is handled on the window, not here. See the effect below.
@@ -589,9 +776,11 @@ export function Pill() {
      * other way round, holding ⌘ would walk the list as well as move the
      * window.
      */
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      setIndex(moveSelection(selected, e.key === 'ArrowDown' ? 1 : -1, rowCount));
+      setIndex(
+        moveSelection(selected, e.key === "ArrowDown" ? 1 : -1, rowCount),
+      );
       return;
     }
     /*
@@ -602,13 +791,13 @@ export function Pill() {
      * feature rather than the window. A shortcut is learnable; a small grey
      * link is findable at best.
      */
-    if (e.key === 'o' && e.metaKey) {
+    if (e.key === "o" && e.metaKey) {
       e.preventDefault();
       void bridge?.openHome();
       void bridge?.hidePill();
       return;
     }
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       /*
        * Enter writes a file. Cmd+Enter copies.
@@ -632,7 +821,7 @@ export function Pill() {
    * and simply is not drawn until there is one, rather than sitting at zero
    * while the first sweep runs and reading as an app that found nothing.
    */
-  if (mode === 'collapsed') {
+  if (mode === "collapsed") {
     return (
       <div
         data-transparent-window
@@ -652,7 +841,7 @@ export function Pill() {
              * same reason — filling the window would put the pill back against
              * the edges the whole change was about getting away from.
              */
-            'group flex h-6 w-[112px] items-center justify-center gap-1.5 px-2.5',
+            "group flex h-6 w-[112px] items-center justify-center gap-1.5 px-2.5",
             /*
              * Rounded at the bottom only, and no top border.
              *
@@ -669,31 +858,31 @@ export function Pill() {
             // Fully round, because it no longer meets an edge to be squared
             // against. A bottom-only radius on a floating object reads as a
             // piece that has broken off something.
-            'rounded-full bar-float bar-breathe',
-            'cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-lilac/70',
+            "rounded-full bar-float bar-breathe",
+            "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-lilac/70",
           )}
         >
           {/*
-            * The mark, and it is doing the job the dot used to.
-            *
-            * This was a violet dot beside the word "Sidq", which is a label
-            * telling you the name of the thing you already installed. The mark
-            * says the same thing without spending any of a 152 point bar on
-            * spelling it, and it is the one drawing that ties this strip to the
-            * Dock icon and the window.
-            *
-            * It also absorbs the status dot rather than sitting next to one.
-            * The mark already ends in a filled circle — the wave runs into it —
-            * so the beat lands on a shape that was always there instead of
-            * adding a second one. Two dots twelve points apart in a strip this
-            * size reads as a rendering fault.
-            *
-            * The beat itself stays: the reader captures a conversation every
-            * fifteen seconds and used to say nothing about it, so the one
-            * always-visible piece of the product gave no sign it was working.
-            * Keyed on the change so the animation replays — re-adding a class
-            * does not restart one.
-            */}
+           * The mark, and it is doing the job the dot used to.
+           *
+           * This was a violet dot beside the word "Sidq", which is a label
+           * telling you the name of the thing you already installed. The mark
+           * says the same thing without spending any of a 152 point bar on
+           * spelling it, and it is the one drawing that ties this strip to the
+           * Dock icon and the window.
+           *
+           * It also absorbs the status dot rather than sitting next to one.
+           * The mark already ends in a filled circle — the wave runs into it —
+           * so the beat lands on a shape that was always there instead of
+           * adding a second one. Two dots twelve points apart in a strip this
+           * size reads as a rendering fault.
+           *
+           * The beat itself stays: the reader captures a conversation every
+           * fifteen seconds and used to say nothing about it, so the one
+           * always-visible piece of the product gave no sign it was working.
+           * Keyed on the change so the animation replays — re-adding a class
+           * does not restart one.
+           */}
           <SidqMark
             key={beat}
             width={22}
@@ -706,47 +895,47 @@ export function Pill() {
              */
             strokeWidth={24}
             className={cn(
-              'shrink-0 transition-colors duration-200',
-              saved ? 'text-[#D8CCFF]' : 'text-white/75 group-hover:text-white',
-              (beat > 0 || saved) && 'animate-pulse-once',
+              "shrink-0 transition-colors duration-200",
+              saved ? "text-[#D8CCFF]" : "text-white/75 group-hover:text-white",
+              (beat > 0 || saved) && "animate-pulse-once",
             )}
           />
           {/*
-            * The bar says what just happened, then goes back to the count.
-            *
-            * This is the only surface Sidq has that is guaranteed to be on
-            * screen at the moment a conversation is found: reading a browser
-            * assistant needs that browser in front, so the main window is
-            * behind something and the notification may be a banner that has
-            * already gone. The bar floats above everything, including another
-            * app's fullscreen Space.
-            *
-            * 152 points is not room for a conversation title, so it carries the
-            * assistant's name and the notification carries the title.
-            */}
+           * The bar says what just happened, then goes back to the count.
+           *
+           * This is the only surface Sidq has that is guaranteed to be on
+           * screen at the moment a conversation is found: reading a browser
+           * assistant needs that browser in front, so the main window is
+           * behind something and the notification may be a banner that has
+           * already gone. The bar floats above everything, including another
+           * app's fullscreen Space.
+           *
+           * 152 points is not room for a conversation title, so it carries the
+           * assistant's name and the notification carries the title.
+           */}
           {/*
-            * Only when there is something to report.
-            *
-            * The fallback used to be the string "Sidq", which is the one piece
-            * of information a person looking at their own menu bar already has.
-            * Idle, the mark alone is the whole bar; the text appears when the
-            * count exists or a handover has just landed.
-            */}
+           * Only when there is something to report.
+           *
+           * The fallback used to be the string "Sidq", which is the one piece
+           * of information a person looking at their own menu bar already has.
+           * Idle, the mark alone is the whole bar; the text appears when the
+           * count exists or a handover has just landed.
+           */}
           {(saved || indexed > 0) && (
             <span
               className={cn(
-                'truncate text-[0.6875rem] leading-none tabular-nums transition-colors duration-200',
-                saved ? 'text-[#D8CCFF]' : 'text-white/70',
+                "truncate text-[0.6875rem] leading-none tabular-nums transition-colors duration-200",
+                saved ? "text-[#D8CCFF]" : "text-white/70",
               )}
             >
               {saved ? `Saved · ${saved}` : indexed.toLocaleString()}
             </span>
           )}
           {/*
-            * The shortcut only on hover. At this size it is the difference
-            * between a label and a cluttered one, and anybody who has not
-            * hovered has not needed it yet.
-            */}
+           * The shortcut only on hover. At this size it is the difference
+           * between a label and a cluttered one, and anybody who has not
+           * hovered has not needed it yet.
+           */}
           <span className="text-[0.625rem] leading-none text-white/0 transition-colors duration-150 group-hover:text-white/40">
             ⌘⇧K
           </span>
@@ -777,30 +966,30 @@ export function Pill() {
           // Inset from the window for the same reason as the closed bar: the
           // shadow is painted outside this box and clips square without margin
           // to fall into.
-          'mx-2 mt-1 w-[calc(100%-1rem)] overflow-hidden rounded-[22px]',
+          "mx-2 mt-1 w-[calc(100%-1rem)] overflow-hidden rounded-[22px]",
           // Border and shadow both live in `.pane-glass`, which also supplies
           // the specular rim and the saturation pass. Setting a border here too
           // would double the rim and read as a seam.
-          'pane-glass animate-pane',
+          "pane-glass animate-pane",
         )}
       >
         {/* ── Header ────────────────────────────────────────────────────── */}
         {/*
-          * There is no search box any more, and typing still filters.
-          *
-          * The box was the largest thing in the window and it earned none of
-          * that: this list is at most fifty recent conversations, filtering it
-          * is two or three characters, and an empty text field sitting across
-          * the top made a picker look like a search engine. Real search over
-          * everything ever said lives in the main window, which is what
-          * "Open Sidq" at the bottom is for.
-          *
-          * The input is still here, just not drawn. It keeps focus, so every
-          * keystroke filters exactly as before and no behaviour is lost — the
-          * header simply shows what was typed instead of a field to type into.
-          * `sr-only` rather than `hidden`, because a hidden input cannot hold
-          * focus and the keyboard would go nowhere.
-          */}
+         * There is no search box any more, and typing still filters.
+         *
+         * The box was the largest thing in the window and it earned none of
+         * that: this list is at most fifty recent conversations, filtering it
+         * is two or three characters, and an empty text field sitting across
+         * the top made a picker look like a search engine. Real search over
+         * everything ever said lives in the main window, which is what
+         * "Open Sidq" at the bottom is for.
+         *
+         * The input is still here, just not drawn. It keeps focus, so every
+         * keystroke filters exactly as before and no behaviour is lost — the
+         * header simply shows what was typed instead of a field to type into.
+         * `sr-only` rather than `hidden`, because a hidden input cannot hold
+         * focus and the keyboard would go nowhere.
+         */}
         {/*
          * There was a `data-tauri-drag-region` here and it had never once
          * worked. The attribute asks Tauri for `core:window:allow-start-dragging`,
@@ -829,15 +1018,15 @@ export function Pill() {
           <div className="min-w-0 flex-1">
             <p
               className={cn(
-                'truncate text-[0.9375rem] leading-tight',
-                query ? 'text-white' : 'font-medium text-white/90',
+                "truncate text-[0.9375rem] leading-tight",
+                query ? "text-white" : "font-medium text-white/90",
               )}
             >
               {/*
-                * A caret after the typed text, because with no field there is
-                * otherwise nothing on screen saying the window is listening.
-                */}
-              {query || 'Pick up where you stopped'}
+               * A caret after the typed text, because with no field there is
+               * otherwise nothing on screen saying the window is listening.
+               */}
+              {query || "Pick up where you stopped"}
               {query && (
                 <span
                   aria-hidden="true"
@@ -846,46 +1035,58 @@ export function Pill() {
               )}
             </p>
             <p className="mt-1 truncate text-[0.6875rem] leading-none text-white/35">
-              {statusLine(visible.length, inSource.length, query, source, settled)}
-              {!query && inSource.length > 0 && ' · type to filter'}
+              {statusLine(
+                visible.length,
+                inSource.length,
+                query,
+                source,
+                settled,
+              )}
+              {!query && inSource.length > 0 && " · type to filter"}
             </p>
           </div>
           {/*
-            * The source filter.
-            *
-            * Everything arrived in one pile: fifty rows from six different AIs
-            * ordered only by when they ended, so finding the ChatGPT thread
-            * from this morning meant reading past everything else.
-            *
-            * Drawn rather than a `<select>`. A native menu on macOS takes the
-            * arrow keys as soon as it has focus, and those belong to the list —
-            * a picker where Down moves an invisible dropdown selection instead
-            * of the highlighted conversation is broken in a way nobody would
-            * guess at.
-            */}
+           * The source filter.
+           *
+           * Everything arrived in one pile: fifty rows from six different AIs
+           * ordered only by when they ended, so finding the ChatGPT thread
+           * from this morning meant reading past everything else.
+           *
+           * Drawn rather than a `<select>`. A native menu on macOS takes the
+           * arrow keys as soon as it has focus, and those belong to the list —
+           * a picker where Down moves an invisible dropdown selection instead
+           * of the highlighted conversation is broken in a way nobody would
+           * guess at.
+           */}
           {tallies.length > 1 && (
             <div className="relative shrink-0">
               <button
                 onClick={() => setPicking((open) => !open)}
                 className={cn(
-                  'flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1',
-                  'text-[0.75rem]',
+                  "flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1",
+                  "text-[0.75rem]",
                   source === ANY_SOURCE
-                    ? 'chip-glass text-white/55 hover:text-white/85'
-                    : 'chip-glass-on text-[#D8CCFF]',
+                    ? "chip-glass text-white/55 hover:text-white/85"
+                    : "chip-glass-on text-[#D8CCFF]",
                 )}
               >
-                {source === ANY_SOURCE ? 'All AIs' : sourceLabel(source, true)}
+                {source === ANY_SOURCE ? "All AIs" : sourceLabel(source, true)}
                 <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
-                  <path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  <path
+                    d="M1 1l3 3 3-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </button>
 
               {picking && (
                 <div
                   className={cn(
-                    'absolute right-0 top-[calc(100%+8px)] z-20 min-w-[11.5rem] overflow-hidden',
-                    'popover-glass rounded-[14px] p-1',
+                    "absolute right-0 top-[calc(100%+8px)] z-20 min-w-[11.5rem] overflow-hidden",
+                    "popover-glass rounded-[14px] p-1",
                   )}
                 >
                   <SourceRow
@@ -917,7 +1118,6 @@ export function Pill() {
               )}
             </div>
           )}
-
         </div>
 
         {/*
@@ -928,19 +1128,19 @@ export function Pill() {
          * moment it succeeds is the only moment this window has to prove it did
          * something, so it gets the whole card and long enough to read.
          */}
-        {phase.kind === 'saved' && (
+        {phase.kind === "saved" && (
           <div className="animate-pane-body border-t border-white/[0.06] px-4 py-5">
             <div className="flex items-start gap-3">
               {/*
-                * The tick lands rather than appears.
-                *
-                * This is the one moment the window has to prove it did
-                * something, and it used to arrive fully formed in the same
-                * frame as the text beside it — which reads as a state change
-                * rather than as a result. Scaling it in over 320ms costs
-                * nothing and is the difference between "the panel updated" and
-                * "that worked".
-                */}
+               * The tick lands rather than appears.
+               *
+               * This is the one moment the window has to prove it did
+               * something, and it used to arrive fully formed in the same
+               * frame as the text beside it — which reads as a state change
+               * rather than as a result. Scaling it in over 320ms costs
+               * nothing and is the difference between "the panel updated" and
+               * "that worked".
+               */}
               <span
                 aria-hidden="true"
                 className="animate-land chip-glass-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#D8CCFF]"
@@ -952,24 +1152,24 @@ export function Pill() {
                   Saved to Downloads
                 </p>
                 <p className="mt-1 truncate text-[0.8125rem] text-white/50">
-                  {phase.path.split('/').pop()}
+                  {phase.path.split("/").pop()}
                 </p>
 
                 {/*
-                  * What was actually carried, in figures.
-                  *
-                  * The panel said "attach it to any AI" and nothing about the
-                  * thing it had just done, so a handover that moved forty
-                  * thousand words looked identical to one that moved four
-                  * hundred. The word count is the product stated as a number:
-                  * that is what you did not retype.
-                  *
-                  * Turns and minutes come from the session row that was already
-                  * in hand, so this costs no extra work — and each is dropped
-                  * rather than shown as zero when the extractor did not record
-                  * it, because "0 messages" beside a file that plainly contains
-                  * some is worse than saying nothing.
-                  */}
+                 * What was actually carried, in figures.
+                 *
+                 * The panel said "attach it to any AI" and nothing about the
+                 * thing it had just done, so a handover that moved forty
+                 * thousand words looked identical to one that moved four
+                 * hundred. The word count is the product stated as a number:
+                 * that is what you did not retype.
+                 *
+                 * Turns and minutes come from the session row that was already
+                 * in hand, so this costs no extra work — and each is dropped
+                 * rather than shown as zero when the extractor did not record
+                 * it, because "0 messages" beside a file that plainly contains
+                 * some is worse than saying nothing.
+                 */}
                 {phase.words > 0 && (
                   <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-white/70">
                     <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#D8CCFF]">
@@ -989,42 +1189,61 @@ export function Pill() {
                   </p>
                 )}
 
-                <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
-                  Attach it to any AI. It already tells them to read it and carry
-                  on rather than summarise it back to you.
-                </p>
+                {/*
+                 * ── The next step, or the old dead end ────────────────────
+                 *
+                 * With a rail, the file in Downloads stops being the end of
+                 * the flow and becomes a by-product of it: the conversation is
+                 * going somewhere, and this is where that is chosen. Without
+                 * one — a failed read of the assistant table — the panel says
+                 * exactly what it said before, which is still true.
+                 */}
+                {hatches.length ? (
+                  <EscapeHatch
+                    options={hatches}
+                    selected={hatch}
+                    wall={phase.wall ? sourceLabel(phase.wall, true) : null}
+                    onSelect={setHatch}
+                    onPick={(id) => void carryInto(id)}
+                  />
+                ) : (
+                  <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
+                    Attach it to any AI. It already tells them to read it and
+                    carry on rather than summarise it back to you.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {phase.kind === 'limited' && (
+        {phase.kind === "limited" && (
           <div className="border-t border-white/[0.06] px-4 py-5">
             <p className="text-[0.9375rem] font-medium text-white">
               That is {phase.cap} handovers this week
             </p>
             <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/45">
-              The count rolls, so the oldest one frees up seven days after you made
-              it. Pro removes the limit and the seven-day reach on search.
+              The count rolls, so the oldest one frees up seven days after you
+              made it. Pro removes the limit and the seven-day reach on search.
             </p>
             {/*
-              * The plans, in a browser, not the app window.
-              *
-              * This called openHome, which shows search and a source list and
-              * no pricing anywhere. The one moment somebody has a reason to pay
-              * sent them to a search box.
-              */}
+             * The plans, in a browser, not the app window.
+             *
+             * This called openHome, which shows search and a source list and
+             * no pricing anywhere. The one moment somebody has a reason to pay
+             * sent them to a search box.
+             */}
             <button
               onClick={() => {
                 void bridge?.openUpgrade();
                 void bridge?.hidePill();
               }}
               className={cn(
-                'mt-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium',
-                'bg-gradient-to-b from-[#C9BBFF] to-[#A794FF] text-[#141319]',
-                'shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]',
-                'cursor-pointer transition-[box-shadow,transform] duration-150',
-                'hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]',
+                "mt-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium",
+                "bg-gradient-to-b from-[#C9BBFF] to-[#A794FF] text-[#141319]",
+                "shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]",
+                "cursor-pointer transition-[box-shadow,transform] duration-150",
+                "hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]",
               )}
             >
               See the plans
@@ -1034,132 +1253,148 @@ export function Pill() {
 
         {/* ── Results ───────────────────────────────────────────────────── */}
         {/*
-          * Rows float inside the padding rather than running edge to edge.
-          *
-          * A full-bleed highlight is a table row: it says the list is the
-          * surface and each line is a record in it. An inset one with its own
-          * radius is a control, which is what these are — every one of them is
-          * a button that writes a file. The separator line above the list went
-          * with it, because once rows are inset there is nothing to separate.
-          */}
-        {phase.kind !== 'saved' && phase.kind !== 'limited' && (
-        <ul className="max-h-[17rem] space-y-0.5 overflow-y-auto px-2 pb-2">
-          {/*
-            * The project, above the conversations it is made of.
-            *
-            * It is row zero rather than a shortcut somewhere else, because a
-            * shortcut is a feature and being the first thing under the cursor
-            * is a repositioning. Press the key, press Enter, and what you are
-            * working on is on the clipboard without picking anything.
-            */}
-          {showProject && project && (
-            <li key={project.path}>
-              <button
-                onClick={() => {
-                  setIndex(0);
-                  void carryProject();
-                }}
-                onMouseEnter={() => setIndex(0)}
-                className={cn(
-                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left',
-                  'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
-                  selected === 0 ? 'row-glass-on' : 'hover:row-glass',
-                )}
-              >
-                <span
-                  aria-hidden="true"
+         * Rows float inside the padding rather than running edge to edge.
+         *
+         * A full-bleed highlight is a table row: it says the list is the
+         * surface and each line is a record in it. An inset one with its own
+         * radius is a control, which is what these are — every one of them is
+         * a button that writes a file. The separator line above the list went
+         * with it, because once rows are inset there is nothing to separate.
+         */}
+        {phase.kind !== "saved" && phase.kind !== "limited" && (
+          <ul className="max-h-[17rem] space-y-0.5 overflow-y-auto px-2 pb-2">
+            {/*
+             * The project, above the conversations it is made of.
+             *
+             * It is row zero rather than a shortcut somewhere else, because a
+             * shortcut is a feature and being the first thing under the cursor
+             * is a repositioning. Press the key, press Enter, and what you are
+             * working on is on the clipboard without picking anything.
+             */}
+            {showProject && project && (
+              <li key={project.path}>
+                <button
+                  onClick={() => {
+                    setIndex(0);
+                    void carryProject();
+                  }}
+                  onMouseEnter={() => setIndex(0)}
                   className={cn(
-                    'size-1.5 shrink-0 rounded-full bg-lilac transition-shadow duration-150',
-                    selected === 0 && 'shadow-[0_0_8px_rgba(184,166,255,0.8)]',
+                    "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
+                    "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    selected === 0 ? "row-glass-on" : "hover:row-glass",
                   )}
-                />
-                <span className="min-w-0 flex-1">
+                >
                   <span
+                    aria-hidden="true"
                     className={cn(
-                      'block truncate text-[0.875rem] leading-tight transition-colors duration-150',
-                      selected === 0 ? 'text-white' : 'text-white/85',
+                      "size-1.5 shrink-0 rounded-full bg-lilac transition-shadow duration-150",
+                      selected === 0 &&
+                        "shadow-[0_0_8px_rgba(184,166,255,0.8)]",
                     )}
-                  >
-                    {project.name}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
+                        selected === 0 ? "text-white" : "text-white/85",
+                      )}
+                    >
+                      {project.name}
+                    </span>
+                    {/*
+                     * The counts, because the count is the evidence.
+                     *
+                     * Same rule the memory itself follows: nothing here is a
+                     * summary, so the line says how much it was built from
+                     * rather than characterising it.
+                     */}
+                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                      Everything you decided · {project.conversations}{" "}
+                      {project.conversations === 1
+                        ? "conversation"
+                        : "conversations"}
+                    </span>
                   </span>
-                  {/*
-                    * The counts, because the count is the evidence.
-                    *
-                    * Same rule the memory itself follows: nothing here is a
-                    * summary, so the line says how much it was built from
-                    * rather than characterising it.
-                    */}
-                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
-                    Everything you decided · {project.conversations}{' '}
-                    {project.conversations === 1 ? 'conversation' : 'conversations'}
+                  <span className="chip-glass shrink-0 rounded-[6px] px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap text-lilac/80">
+                    memory
                   </span>
-                </span>
-                <span className="chip-glass shrink-0 rounded-[6px] px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap text-lilac/80">
-                  memory
-                </span>
-              </button>
-            </li>
-          )}
-          {visible.map((row, i) => (
-            <li key={row.session.sessionId}>
-              <button
-                onClick={() => {
-                  setIndex(i + offset);
-                  void saveFile();
-                }}
-                onMouseEnter={() => setIndex(i + offset)}
-                className={cn(
-                  'flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left',
-                  'transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
-                  i === pickedRow ? 'row-glass-on' : 'hover:row-glass',
-                )}
-              >
-                <span
-                  aria-hidden="true"
+                </button>
+              </li>
+            )}
+            {visible.map((row, i) => (
+              <li key={row.session.sessionId}>
+                <button
+                  onClick={() => {
+                    setIndex(i + offset);
+                    void saveFile();
+                  }}
+                  onMouseEnter={() => setIndex(i + offset)}
                   className={cn(
-                    'size-1.5 shrink-0 rounded-full transition-colors duration-150',
-                    i === pickedRow
-                      ? 'bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]'
-                      : 'bg-white/20',
+                    "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
+                    "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    i === pickedRow ? "row-glass-on" : "hover:row-glass",
                   )}
-                />
-                <span className="min-w-0 flex-1">
+                >
                   <span
+                    aria-hidden="true"
                     className={cn(
-                      'block truncate text-[0.875rem] leading-tight transition-colors duration-150',
-                      i === pickedRow ? 'text-white' : 'text-white/85',
+                      "size-1.5 shrink-0 rounded-full transition-colors duration-150",
+                      i === pickedRow
+                        ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
+                        : "bg-white/20",
                     )}
-                  >
-                    {row.session.title || row.session.lastPrompt}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
+                        i === pickedRow ? "text-white" : "text-white/85",
+                      )}
+                    >
+                      {row.session.title || row.session.lastPrompt}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                      {row.reason}
+                      {row.session.projectName &&
+                        ` · ${row.session.projectName}`}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
-                    {row.reason}
-                    {row.session.projectName && ` · ${row.session.projectName}`}
-                  </span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2.5">
           {/*
-            * Status and the way out share the left, in one group.
-            *
-            * They were three children under `justify-between` with `mr-auto` on
-            * the middle one, which clumped the first two together with no gap:
-            * "⌘↵ copy insteadSearch all history ›" ran as one string.
-            */}
+           * Status and the way out share the left, in one group.
+           *
+           * They were three children under `justify-between` with `mr-auto` on
+           * the middle one, which clumped the first two together with no gap:
+           * "⌘↵ copy insteadSearch all history ›" ran as one string.
+           */}
           <span className="min-w-0 truncate text-[0.6875rem] text-white/30">
-            {phase.kind === 'working' && 'Reading the conversation…'}
-            {phase.kind === 'done' && 'Copied. Paste it anywhere.'}
-            {phase.kind === 'saved' && 'Ready to attach'}
-            {phase.kind === 'limited' && `${phase.used} of ${phase.cap} used this week`}
-            {phase.kind === 'failed' && 'Could not read that one.'}
-            {phase.kind === 'browsing' &&
-              (pickedRow < 0 ? '↵ copy what you are working on' : '↵ attach · ⌘↵ copy')}
+            {phase.kind === "working" && "Reading the conversation…"}
+            {phase.kind === "done" && "Copied. Paste it anywhere."}
+            {/*
+             * "Ready to attach" was the end of the story when the file was
+             * the end of the story. With a rail on the panel the next move is
+             * a keypress away, so the footer names it rather than describing a
+             * file somebody is no longer being asked to go and find.
+             */}
+            {phase.kind === "saved" &&
+              (hatches.length
+                ? "↵ carries it over · esc keeps the file"
+                : "Ready to attach")}
+            {phase.kind === "limited" &&
+              `${phase.used} of ${phase.cap} used this week`}
+            {phase.kind === "failed" && "Could not read that one."}
+            {phase.kind === "browsing" &&
+              (pickedRow < 0
+                ? "↵ copy what you are working on"
+                : "↵ attach · ⌘↵ copy")}
           </span>
           <button
             onClick={() => {
@@ -1167,8 +1402,8 @@ export function Pill() {
               void bridge?.hidePill();
             }}
             className={cn(
-              'shrink-0 text-[0.6875rem] whitespace-nowrap text-white/30',
-              'cursor-pointer transition-colors duration-100 hover:text-white/70',
+              "shrink-0 text-[0.6875rem] whitespace-nowrap text-white/30",
+              "cursor-pointer transition-colors duration-100 hover:text-white/70",
             )}
           >
             Open Sidq ⌘O
@@ -1176,13 +1411,13 @@ export function Pill() {
           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
             <Key>↑↓</Key>
             {/*
-              * Clickable, because the rest of this window is.
-              *
-              * The picker opened on a click and closed only on a keystroke,
-              * which is a keyboard-shaped exit on a thing people reach for with
-              * a mouse. Clicking away closes it too, and this is the one that
-              * is visible while you are looking for it.
-              */}
+             * Clickable, because the rest of this window is.
+             *
+             * The picker opened on a click and closed only on a keystroke,
+             * which is a keyboard-shaped exit on a thing people reach for with
+             * a mouse. Clicking away closes it too, and this is the one that
+             * is visible while you are looking for it.
+             */}
             <button
               onClick={dismiss}
               aria-label="Close"
@@ -1218,19 +1453,25 @@ function SourceRow({
     <button
       onClick={onPick}
       className={cn(
-        'flex w-full cursor-pointer items-center justify-between gap-4 rounded-[10px] px-2.5 py-1.5 text-left',
-        'text-[0.8125rem] transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]',
-        on ? 'row-glass-on text-[#D8CCFF]' : 'text-white/70 hover:row-glass hover:text-white',
+        "flex w-full cursor-pointer items-center justify-between gap-4 rounded-[10px] px-2.5 py-1.5 text-left",
+        "text-[0.8125rem] transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        on
+          ? "row-glass-on text-[#D8CCFF]"
+          : "text-white/70 hover:row-glass hover:text-white",
       )}
     >
       <span className="min-w-0 truncate">{label}</span>
-      <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">{count}</span>
+      <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+        {count}
+      </span>
     </button>
   );
 }
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">{children}</span>
+    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">
+      {children}
+    </span>
   );
 }

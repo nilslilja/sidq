@@ -27,7 +27,7 @@ mod pill_window;
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
     capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
-    login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, work_history,
+    login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, wall, work_history,
 };
 
 /*
@@ -191,6 +191,19 @@ struct HandoverResult {
     /// The picker shows it at the moment the file lands, which is the only
     /// moment this window has to prove it did something worth doing.
     words: usize,
+    /**
+     * The assistant that stopped, when this conversation ended at its limit.
+     *
+     * The whole argument for the product, available at the one moment somebody
+     * is looking at the panel. It changes a line of copy and which name is
+     * crossed out of the picker: "Claude Code cut you off. Finish it in:"
+     * rather than "Take it somewhere else:".
+     *
+     * `None` is the ordinary case and means the panel says nothing about a
+     * wall, which is why this is read with `wall::ended_at_wall` rather than
+     * `wall::newly_hit` — the sweep's announcement must survive being asked.
+     */
+    wall: Option<String>,
 }
 
 /**
@@ -467,6 +480,7 @@ async fn save_transcript(
                     used,
                     cap,
                     words: 0,
+                    wall: None,
                 };
             }
         }
@@ -474,7 +488,7 @@ async fn save_transcript(
         let written = write_handover(
             session_id.clone(),
             title,
-            source,
+            source.clone(),
             resume_point,
             when,
             project,
@@ -502,12 +516,24 @@ async fn save_transcript(
             None => (None, 0),
         };
 
+        /*
+         * Only asked when a file actually landed. A refusal or a failed read
+         * has no panel to put this on, and reading the index to decorate an
+         * error is work nobody sees.
+         */
+        let wall = conn
+            .as_ref()
+            .filter(|_| path.is_some())
+            .filter(|conn| wall::ended_at_wall(conn, &session_id, &source))
+            .map(|_| source);
+
         HandoverResult {
             path,
             limited: false,
             used,
             cap,
             words,
+            wall,
         }
     })
     .await

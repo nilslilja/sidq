@@ -390,6 +390,56 @@
   }
 
   /*
+   * ── The escape-hatch rail ──────────────────────────────────────────────────
+   *
+   * The trough five assistants sit in after a handover lands. Recessed rather
+   * than raised: the inner shadow reads as a groove cut into the panel, which
+   * is what makes the thumb above it look like it is sitting *in* something
+   * instead of floating over it. A raised container with a raised thumb is two
+   * objects at the same elevation and neither one looks movable.
+   */
+  .rail-glass {
+    background: rgba(0, 0, 0, 0.22);
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.07) inset,
+      0 1px 3px 0 rgba(0, 0, 0, 0.3) inset;
+  }
+
+  /*
+   * The one thing that moves.
+   *
+   * Only `transform` is animated, so the slide stays on the compositor however
+   * fast somebody walks the rail with the arrow keys. The curve is Apple's own
+   * spring approximation: it arrives and settles rather than easing to a halt,
+   * which is the difference between a control and a crossfade.
+   *
+   * The tint is the same lilac as `.row-glass-on`, a step brighter, because at
+   * this size it is carrying the text colour as well as marking the selection.
+   */
+  .rail-thumb {
+    background: linear-gradient(
+      180deg,
+      rgba(216, 204, 255, 0.96) 0%,
+      rgba(184, 166, 255, 0.88) 100%
+    );
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.5) inset,
+      0 1px 0 0 rgba(255, 255, 255, 0.45) inset,
+      0 4px 12px -4px rgba(184, 166, 255, 0.55);
+    transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /*
+   * Nobody who asked for less movement gets a sliding thumb. The selection is
+   * still completely legible: it is the cell the label has gone dark in.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .rail-thumb {
+      transition: none;
+    }
+  }
+
+  /*
    * Small controls: the source filter, the keycaps, the close affordance.
    * One material, two states, so nothing in the chrome invents its own look.
    */
@@ -462,7 +512,7 @@
       /* The glow. Wide, low alpha, the accent rather than white — this is the
          only thing on screen that says the app is alive while nothing is
          happening, so it has to be visible without ever being a light source. */
-      0 0 20px -4px rgba(184, 166, 255, 0.28),
+        0 0 20px -4px rgba(184, 166, 255, 0.28),
       0 8px 24px -8px rgba(0, 0, 0, 0.6);
     transition:
       background 200ms cubic-bezier(0.32, 0.72, 0, 1),
@@ -536,30 +586,69 @@
    * still says the same thing standing still.
    */
   @keyframes sidq-trust-in {
-    0%   { transform: translateX(0); opacity: 0; }
-    12%  { opacity: 1; }
-    78%  { transform: translateX(94px); opacity: 1; }
-    100% { transform: translateX(102px); opacity: 0; }
+    0% {
+      transform: translateX(0);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    78% {
+      transform: translateX(94px);
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(102px);
+      opacity: 0;
+    }
   }
 
   @keyframes sidq-trust-out {
-    0%   { transform: translate(-96px, -50%); opacity: 0; }
-    18%  { opacity: 1; }
-    100% { transform: translate(0, -50%); opacity: 1; }
+    0% {
+      transform: translate(-96px, -50%);
+      opacity: 0;
+    }
+    18% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(0, -50%);
+      opacity: 1;
+    }
   }
 
   @keyframes sidq-trust-blocked {
-    0%   { transform: translate(-50%, 0); opacity: 0; }
-    10%  { opacity: 1; }
+    0% {
+      transform: translate(-50%, 0);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
     /* Reaches the dashed boundary and stops. Everything after this is stillness. */
-    34%  { transform: translate(-50%, 9px); opacity: 1; }
-    40%  { transform: translate(-50%, 9px); opacity: 1; }
-    100% { transform: translate(-50%, 9px); opacity: 0.35; }
+    34% {
+      transform: translate(-50%, 9px);
+      opacity: 1;
+    }
+    40% {
+      transform: translate(-50%, 9px);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, 9px);
+      opacity: 0.35;
+    }
   }
 
-  .trust-in      { animation: sidq-trust-in 3.4s ease-in-out infinite; }
-  .trust-out     { animation: sidq-trust-out 3.4s ease-in-out 0.9s infinite; }
-  .trust-blocked { animation: sidq-trust-blocked 3.4s ease-in-out 1.4s infinite; }
+  .trust-in {
+    animation: sidq-trust-in 3.4s ease-in-out infinite;
+  }
+  .trust-out {
+    animation: sidq-trust-out 3.4s ease-in-out 0.9s infinite;
+  }
+  .trust-blocked {
+    animation: sidq-trust-blocked 3.4s ease-in-out 1.4s infinite;
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .trust-in,
@@ -1023,7 +1112,11 @@
     position: relative;
     overflow: hidden;
     background-image:
-      radial-gradient(101.79% 101.79% at 65.61% 81.79%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%),
+      radial-gradient(
+        101.79% 101.79% at 65.61% 81.79%,
+        rgba(255, 255, 255, 0.6) 0%,
+        rgba(255, 255, 255, 0) 100%
+      ),
       radial-gradient(114.65% 114.65% at 9.73% 17.27%, #6366f1 0%, #4338ca 100%);
     background-blend-mode: overlay, normal;
     box-shadow:
@@ -1039,7 +1132,11 @@
     z-index: 1;
     border-radius: inherit;
     padding: 1.5px;
-    background: linear-gradient(176.87deg, rgba(255, 255, 255, 0.55) 8.56%, rgba(255, 255, 255, 0) 85.04%);
+    background: linear-gradient(
+      176.87deg,
+      rgba(255, 255, 255, 0.55) 8.56%,
+      rgba(255, 255, 255, 0) 85.04%
+    );
     -webkit-mask:
       linear-gradient(#fff, #fff) content-box,
       linear-gradient(#fff, #fff);
@@ -1061,7 +1158,11 @@
     border-radius: inherit;
     opacity: 0;
     mix-blend-mode: overlay;
-    background: radial-gradient(101.79% 101.79% at 65.61% 81.79%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
+    background: radial-gradient(
+      101.79% 101.79% at 65.61% 81.79%,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0) 100%
+    );
     transition: opacity 0.3s ease-in-out;
     pointer-events: none;
   }
@@ -1083,7 +1184,12 @@
     width: 33%;
     filter: blur(5px);
     pointer-events: none;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 100%);
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
     transform: translateX(-140%) skewX(-16deg);
   }
 
@@ -1526,9 +1632,7 @@
   --w-sheen: rgba(255, 255, 255, 0.06);
   --w-card-from: #1f2947;
   --w-card-to: #182034;
-
 }
-
 
 /*
  * A marquee that is a proof strip, not decoration.
@@ -1738,7 +1842,6 @@
   }
 }
 
-
 /*
  * Motion whose only job is to be watched is exactly what this setting means.
  * The film still advances through its beats; it simply cuts between them.
@@ -1757,11 +1860,6 @@
     animation: none;
   }
 }
-
-
-
-
-
 
 /*
  * Drift is ambience, and ambience is the first thing this setting should stop.

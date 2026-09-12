@@ -1,6 +1,9 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, fireEvent } from '@testing-library/react';
-import type { OnboardingBridge, FoundConversation } from '@/lib/onboarding/bridge';
+import { describe, test, expect, vi, beforeEach } from "vitest";
+import { render, screen, act, fireEvent } from "@testing-library/react";
+import type {
+  OnboardingBridge,
+  FoundConversation,
+} from "@/lib/onboarding/bridge";
 
 /*
  * The pill across its two states.
@@ -25,7 +28,7 @@ import type { OnboardingBridge, FoundConversation } from '@/lib/onboarding/bridg
 async function resizeTo(width: number) {
   await act(async () => {
     window.innerWidth = width;
-    window.dispatchEvent(new Event('resize'));
+    window.dispatchEvent(new Event("resize"));
   });
   await settle();
 }
@@ -33,28 +36,28 @@ async function resizeTo(width: number) {
 const bridge: Partial<OnboardingBridge> = {
   recentWork: vi.fn(async () => [
     {
-      sessionId: 'abc',
-      project: '/Users/x/Sidq',
-      projectName: 'Sidq',
-      title: 'Pricing page copy',
-      lastPrompt: 'carry on with the tiers',
-      branch: 'main',
+      sessionId: "abc",
+      project: "/Users/x/Sidq",
+      projectName: "Sidq",
+      title: "Pricing page copy",
+      lastPrompt: "carry on with the tiers",
+      branch: "main",
       endedAt: Date.now(),
       turns: 40,
       activeMinutes: 90,
-      source: 'claude-code',
+      source: "claude-code",
     },
     {
-      sessionId: 'def',
-      project: '/Users/x/Sidq',
-      projectName: 'Sidq',
-      title: 'Notch placement on the pill',
-      lastPrompt: 'where does it go on a notched mac',
-      branch: 'main',
+      sessionId: "def",
+      project: "/Users/x/Sidq",
+      projectName: "Sidq",
+      title: "Notch placement on the pill",
+      lastPrompt: "where does it go on a notched mac",
+      branch: "main",
       endedAt: Date.now() - 3_600_000,
       turns: 22,
       activeMinutes: 40,
-      source: 'chatgpt',
+      source: "chatgpt",
     },
   ]),
   /*
@@ -65,8 +68,8 @@ const bridge: Partial<OnboardingBridge> = {
    */
   projects: vi.fn(async () => [
     {
-      path: '/Users/x/Sidq',
-      name: 'Sidq',
+      path: "/Users/x/Sidq",
+      name: "Sidq",
       conversations: 9,
       turns: 400,
       minutes: 800,
@@ -74,8 +77,8 @@ const bridge: Partial<OnboardingBridge> = {
       touched: Date.now(),
     },
     {
-      path: '/Users/x/Other',
-      name: 'Other',
+      path: "/Users/x/Other",
+      name: "Other",
       conversations: 2,
       turns: 20,
       minutes: 30,
@@ -83,18 +86,38 @@ const bridge: Partial<OnboardingBridge> = {
       touched: Date.now() - 86_400_000,
     },
   ]),
-  memoryText: vi.fn(async () => '# What I am working on\n\nSidq'),
+  memoryText: vi.fn(async () => "# What I am working on\n\nSidq"),
   /*
    * Present so the project row can be proved not to reach it. An undefined
    * method passes `not.toHaveBeenCalled()` for the wrong reason.
    */
   saveTranscript: vi.fn(async () => ({
-    path: '/tmp/x.md',
+    path: "/tmp/x.md",
     words: 10,
     used: 1,
     cap: 5,
     limited: false,
+    wall: null,
   })),
+  /*
+   * The five places a handover can go, as `assistants.rs` lists them. The order
+   * is load-bearing for the rail tests: the digit keys address cells by
+   * position, and Claude is second so that a wall on `claude.ai` can be proved
+   * to move the starting selection off it.
+   */
+  assistantList: vi.fn(async () => [
+    { id: "chatgpt", label: "ChatGPT" },
+    { id: "claude.ai", label: "Claude" },
+    { id: "gemini", label: "Gemini" },
+    { id: "grok", label: "Grok" },
+    { id: "deepseek", label: "DeepSeek" },
+  ]),
+  /*
+   * The last step. Captured, because "it opened the assistant with the
+   * conversation in it" is the entire feature and the only way to see it from
+   * here is the arguments it was called with.
+   */
+  handOverInto: vi.fn(async () => {}),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
@@ -123,16 +146,16 @@ const bridge: Partial<OnboardingBridge> = {
 /** Set by the mocked `onFound` once the pill has subscribed. */
 let announceFound: ((found: FoundConversation) => void) | undefined;
 
-vi.mock('@/lib/onboarding/bridge', async (original) => ({
+vi.mock("@/lib/onboarding/bridge", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   desktopBridge: () => bridge,
 }));
 
 // Nothing under test here makes a sound, and jsdom has no audio.
-import { playCue } from '@/lib/companion/sound';
-vi.mock('@/lib/companion/sound', () => ({ playCue: vi.fn() }));
+import { playCue } from "@/lib/companion/sound";
+vi.mock("@/lib/companion/sound", () => ({ playCue: vi.fn() }));
 
-const { Pill } = await import('./Pill');
+const { Pill } = await import("./Pill");
 
 /** The two sizes Rust actually uses, from pill_window.rs. */
 const COLLAPSED_WIDTH = 228;
@@ -146,24 +169,26 @@ async function settle() {
   });
 }
 
-describe('the pill, across the two states', () => {
+describe("the pill, across the two states", () => {
   beforeEach(() => {
     // Every test starts at the collapsed width, the way a launch does.
     window.innerWidth = COLLAPSED_WIDTH;
     vi.clearAllMocks();
   });
 
-  test('starts as the bar, with the real count on it', async () => {
+  test("starts as the bar, with the real count on it", async () => {
     render(<Pill />);
     await settle();
 
-    expect(screen.getByRole('button', { name: /pick up a conversation/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /pick up a conversation/i }),
+    ).toBeInTheDocument();
     // The count alone. The bar lives inside the menu bar now and "16
     // conversations" does not fit in 152 points without covering something.
-    expect(screen.getByText('16')).toBeInTheDocument();
+    expect(screen.getByText("16")).toBeInTheDocument();
   });
 
-  test('tells Rust which conversation the picker is aimed at, and stops when it shuts', async () => {
+  test("tells Rust which conversation the picker is aimed at, and stops when it shuts", async () => {
     /*
      * The contract behind the grab gesture. Double-tapping the modifier with
      * the picker open must take the row being looked at, and Rust can only know
@@ -186,15 +211,15 @@ describe('the pill, across the two states', () => {
     expect(bridge.aimAt).toHaveBeenLastCalledWith(null);
 
     // One row down is the first conversation, and now it aims.
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowDown" });
     await settle();
-    expect(bridge.aimAt).toHaveBeenLastCalledWith('abc');
+    expect(bridge.aimAt).toHaveBeenLastCalledWith("abc");
 
     await resizeTo(COLLAPSED_WIDTH);
     expect(bridge.aimAt).toHaveBeenLastCalledWith(null);
   });
 
-  test('the first row is what you are working on, and Enter carries it', async () => {
+  test("the first row is what you are working on, and Enter carries it", async () => {
     /*
      * The repositioning, asserted. Open, press Enter, and what is on the
      * clipboard is the memory of the project rather than a conversation
@@ -207,20 +232,20 @@ describe('the pill, across the two states', () => {
     await settle();
     await resizeTo(EXPANDED_WIDTH);
 
-    expect(screen.getByText('Sidq')).toBeTruthy();
+    expect(screen.getByText("Sidq")).toBeTruthy();
     // The busiest project, not every project it was handed.
-    expect(screen.queryByText('Other')).toBeNull();
+    expect(screen.queryByText("Other")).toBeNull();
 
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     await settle();
 
-    expect(bridge.memoryText).toHaveBeenCalledWith('/Users/x/Sidq');
-    expect(written).toHaveBeenCalledWith('# What I am working on\n\nSidq');
+    expect(bridge.memoryText).toHaveBeenCalledWith("/Users/x/Sidq");
+    expect(written).toHaveBeenCalledWith("# What I am working on\n\nSidq");
     // Never the transcript path: the memory is not a conversation handover.
     expect(bridge.saveTranscript).not.toHaveBeenCalled();
   });
 
-  test('typing hands the top row back to the conversations', async () => {
+  test("typing hands the top row back to the conversations", async () => {
     /*
      * A query is somebody hunting one conversation. The project sitting above
      * their best match is a row that does not match what they typed, and Enter
@@ -230,14 +255,16 @@ describe('the pill, across the two states', () => {
     await settle();
     await resizeTo(EXPANDED_WIDTH);
 
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'notch' } });
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "notch" },
+    });
     await settle();
 
-    expect(screen.queryByText('Sidq')).toBeNull();
-    expect(screen.getByText('Notch placement on the pill')).toBeTruthy();
+    expect(screen.queryByText("Sidq")).toBeNull();
+    expect(screen.getByText("Notch placement on the pill")).toBeTruthy();
   });
 
-  test('renders the picker once the window is the picker\'s size', async () => {
+  test("renders the picker once the window is the picker's size", async () => {
     /*
      * The exact failure, now reproducible without the app. Grow the window and
      * the bar must be gone; leave the bar on screen at 560 wide and this is
@@ -249,24 +276,28 @@ describe('the pill, across the two states', () => {
     await resizeTo(EXPANDED_WIDTH);
 
     expect(screen.getByLabelText(/filter conversations/i)).toBeInTheDocument();
-    expect(screen.getByText('Pricing page copy')).toBeInTheDocument();
+    expect(screen.getByText("Pricing page copy")).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /pick up a conversation/i }),
+      screen.queryByRole("button", { name: /pick up a conversation/i }),
     ).not.toBeInTheDocument();
   });
 
-  test('goes back to the bar when it collapses', async () => {
+  test("goes back to the bar when it collapses", async () => {
     render(<Pill />);
     await settle();
 
     await resizeTo(EXPANDED_WIDTH);
     await resizeTo(COLLAPSED_WIDTH);
 
-    expect(screen.queryByLabelText(/filter conversations/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /pick up a conversation/i })).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/filter conversations/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /pick up a conversation/i }),
+    ).toBeInTheDocument();
   });
 
-  test('loads the conversations on opening, not once at startup', async () => {
+  test("loads the conversations on opening, not once at startup", async () => {
     // The window outlives every use of it now, so a list fetched at launch
     // would still be yesterday's by the afternoon.
     render(<Pill />);
@@ -277,21 +308,21 @@ describe('the pill, across the two states', () => {
     expect(bridge.recentWork).toHaveBeenCalled();
   });
 
-  test('clicking the bar asks Rust to expand it', async () => {
+  test("clicking the bar asks Rust to expand it", async () => {
     // The bar cannot resize itself; the window belongs to Rust.
     const { getByRole } = render(<Pill />);
     await settle();
 
     await act(async () => {
-      getByRole('button', { name: /pick up a conversation/i }).click();
+      getByRole("button", { name: /pick up a conversation/i }).click();
     });
 
     expect(bridge.expandPill).toHaveBeenCalled();
   });
 });
 
-describe('the source filter', () => {
-  test('offers only the AIs in the list, and narrows to one', async () => {
+describe("the source filter", () => {
+  test("offers only the AIs in the list, and narrows to one", async () => {
     /*
      * The picker showed fifty rows from every AI on the machine ordered only by
      * when they ended, so finding this morning's ChatGPT thread meant reading
@@ -300,26 +331,28 @@ describe('the source filter', () => {
     render(<Pill />);
     await resizeTo(EXPANDED_WIDTH);
 
-    expect(screen.getByText('Pricing page copy')).toBeInTheDocument();
-    expect(screen.getByText('Notch placement on the pill')).toBeInTheDocument();
+    expect(screen.getByText("Pricing page copy")).toBeInTheDocument();
+    expect(screen.getByText("Notch placement on the pill")).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /all ais/i }));
+      fireEvent.click(screen.getByRole("button", { name: /all ais/i }));
     });
 
     // Gemini is supported and unused, so it is not offered.
-    expect(screen.queryByRole('button', { name: /gemini/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /gemini/i }),
+    ).not.toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /chatgpt/i }));
+      fireEvent.click(screen.getByRole("button", { name: /chatgpt/i }));
     });
     await settle();
 
-    expect(screen.getByText('Notch placement on the pill')).toBeInTheDocument();
-    expect(screen.queryByText('Pricing page copy')).not.toBeInTheDocument();
+    expect(screen.getByText("Notch placement on the pill")).toBeInTheDocument();
+    expect(screen.queryByText("Pricing page copy")).not.toBeInTheDocument();
   });
 
-  test('escape closes the menu without closing the picker', async () => {
+  test("escape closes the menu without closing the picker", async () => {
     /*
      * Backing out of a dropdown must not throw away the query typed to get
      * there. The menu takes Escape first; the second one dismisses.
@@ -328,23 +361,27 @@ describe('the source filter', () => {
     await resizeTo(EXPANDED_WIDTH);
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /all ais/i }));
+      fireEvent.click(screen.getByRole("button", { name: /all ais/i }));
     });
-    expect(screen.getByRole('button', { name: /chatgpt/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /chatgpt/i }),
+    ).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.keyDown(screen.getByLabelText(/filter conversations/i), {
-        key: 'Escape',
+        key: "Escape",
       });
     });
 
-    expect(screen.queryByRole('button', { name: /chatgpt/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /chatgpt/i }),
+    ).not.toBeInTheDocument();
     expect(bridge.hidePill).not.toHaveBeenCalled();
     expect(screen.getByLabelText(/filter conversations/i)).toBeInTheDocument();
   });
 });
 
-describe('a conversation arriving', () => {
+describe("a conversation arriving", () => {
   beforeEach(() => {
     // The width reset lives inside the other describe, so this block has to ask
     // for it too — without it these run at whatever width the last test left
@@ -362,20 +399,24 @@ describe('a conversation arriving', () => {
    * check — so the product was doing its main job invisibly and reading as
    * broken.
    */
-  test('rings once, on the window that is always alive', async () => {
+  test("rings once, on the window that is always alive", async () => {
     render(<Pill />);
     await settle();
 
     expect(announceFound).toBeDefined();
 
     await act(async () => {
-      announceFound?.({ source: 'chatgpt', title: 'Raw Milk in Carrefour', firstTime: true });
+      announceFound?.({
+        source: "chatgpt",
+        title: "Raw Milk in Carrefour",
+        firstTime: true,
+      });
     });
 
-    expect(playCue).toHaveBeenCalledWith('found');
+    expect(playCue).toHaveBeenCalledWith("found");
   });
 
-  test('the bar says which assistant it came from, then goes back to the count', async () => {
+  test("the bar says which assistant it came from, then goes back to the count", async () => {
     /*
      * The bar is the only surface guaranteed to be on screen at the moment a
      * conversation is found. Reading a browser assistant requires that browser
@@ -392,31 +433,39 @@ describe('a conversation arriving', () => {
       await settle();
 
       await act(async () => {
-        announceFound?.({ source: 'chatgpt', title: 'Raw Milk in Carrefour', firstTime: true });
+        announceFound?.({
+          source: "chatgpt",
+          title: "Raw Milk in Carrefour",
+          firstTime: true,
+        });
       });
-      expect(screen.getByText('Saved · ChatGPT')).toBeInTheDocument();
+      expect(screen.getByText("Saved · ChatGPT")).toBeInTheDocument();
 
       await act(async () => {
         vi.advanceTimersByTime(5000);
       });
-      expect(screen.queryByText('Saved · ChatGPT')).not.toBeInTheDocument();
+      expect(screen.queryByText("Saved · ChatGPT")).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  test('an assistant nobody has a name for does not print its slug', async () => {
+  test("an assistant nobody has a name for does not print its slug", async () => {
     render(<Pill />);
     await settle();
 
     await act(async () => {
-      announceFound?.({ source: 'something-new', title: 'A conversation', firstTime: true });
+      announceFound?.({
+        source: "something-new",
+        title: "A conversation",
+        firstTime: true,
+      });
     });
 
-    expect(screen.getByText('Saved · an AI')).toBeInTheDocument();
+    expect(screen.getByText("Saved · an AI")).toBeInTheDocument();
   });
 
-  test('it subscribes even while the picker is open', async () => {
+  test("it subscribes even while the picker is open", async () => {
     /*
      * The count effect beside this one returns early unless the bar is
      * collapsed, which is right for a number nothing is showing and wrong here:
@@ -428,11 +477,231 @@ describe('a conversation arriving', () => {
     await settle();
 
     await act(async () => {
-      fireEvent.keyDown(window, { key: 'k', metaKey: true, shiftKey: true });
+      fireEvent.keyDown(window, { key: "k", metaKey: true, shiftKey: true });
     });
     await settle();
 
     expect(announceFound).toBeDefined();
+  });
+});
+
+describe("the escape hatch", () => {
+  beforeEach(() => {
+    window.innerWidth = COLLAPSED_WIDTH;
+    vi.clearAllMocks();
+  });
+
+  /** Open the picker, land on the first conversation, and save it. */
+  async function save() {
+    render(<Pill />);
+    await settle();
+    await resizeTo(EXPANDED_WIDTH);
+
+    const box = screen.getByRole("textbox");
+    // Row zero is the project; one down is the first conversation.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    await settle();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+    return box;
+  }
+
+  test("the panel offers to carry it on, rather than ending at a file", async () => {
+    /*
+     * The dead end this exists to remove. The save used to finish at "Saved to
+     * Downloads · attach it to any AI", which leaves switching application,
+     * finding the composer and pasting to be done by hand — the four steps the
+     * keystroke exists to delete.
+     */
+    await save();
+
+    expect(screen.getByText(/Saved to Downloads/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("radiogroup", { name: /carry this conversation/i }),
+    ).toBeInTheDocument();
+    for (const name of ["ChatGPT", "Claude", "Gemini", "Grok", "DeepSeek"]) {
+      expect(screen.getByRole("radio", { name })).toBeInTheDocument();
+    }
+  });
+
+  test("Enter opens the selected assistant with the conversation in it", async () => {
+    const box = await save();
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+
+    expect(bridge.handOverInto).toHaveBeenCalledWith({
+      sessionId: "abc",
+      source: "claude-code",
+      resumePoint: "carry on with the tiers",
+      when: expect.any(String),
+      project: "Sidq",
+      assistant: "chatgpt",
+    });
+    // The picker gets out of the way of the composer it just typed into.
+    expect(bridge.hidePill).toHaveBeenCalled();
+  });
+
+  test("it carries the conversation it just saved, not whatever row is under the cursor", async () => {
+    /*
+     * The bug this shape avoids. The rail is drawn over a list the sweep keeps
+     * re-ranking, so reading `visible[pickedRow]` at the moment somebody picks
+     * can hand over a different conversation from the one the panel says it
+     * saved. The arguments are captured at save time instead.
+     */
+    const box = await save();
+
+    // The list moves under the panel, the way a sweep moves it.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    await settle();
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+
+    expect(bridge.handOverInto).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "abc" }),
+    );
+  });
+
+  test("the arrows walk the rail and a digit jumps along it", async () => {
+    const box = await save();
+
+    fireEvent.keyDown(box, { key: "ArrowRight" });
+    await settle();
+    expect(screen.getByRole("radio", { name: "Claude" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    fireEvent.keyDown(box, { key: "4" });
+    await settle();
+    expect(screen.getByRole("radio", { name: "Grok" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+    expect(bridge.handOverInto).toHaveBeenCalledWith(
+      expect.objectContaining({ assistant: "grok" }),
+    );
+  });
+
+  test("a leftward arrow at the start wraps rather than doing nothing", async () => {
+    // Five cells in a row is a ring. Stopping dead at either end is a keypress
+    // that appears not to have registered.
+    const box = await save();
+
+    fireEvent.keyDown(box, { key: "ArrowLeft" });
+    await settle();
+
+    expect(screen.getByRole("radio", { name: "DeepSeek" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  test("a conversation that simply ended says nothing about anybody being cut off", async () => {
+    /*
+     * The line has to be earned. `wall` is null for almost every handover, and
+     * claiming an assistant stopped when it did not is the one way this screen
+     * can lie.
+     */
+    await save();
+
+    expect(screen.getByText(/Take it somewhere else/)).toBeInTheDocument();
+    expect(screen.queryByText(/cut you off/)).toBeNull();
+  });
+
+  test("a conversation that hit the wall names what stopped it and refuses that cell", async () => {
+    (bridge.saveTranscript as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      path: "/tmp/x.md",
+      words: 10,
+      used: 1,
+      cap: 5,
+      limited: false,
+      wall: "claude.ai",
+    });
+
+    const box = await save();
+
+    expect(screen.getByText(/cut you off/)).toBeInTheDocument();
+
+    /*
+     * Still drawn, and refusing. Removing it would leave the rail silently one
+     * cell short of the name somebody is looking for at that exact moment.
+     */
+    const refused = screen.getByRole("radio", { name: "Claude" });
+    expect(refused).toBeDisabled();
+
+    // And the selection never starts on it, or the first Enter would do nothing.
+    expect(refused).toHaveAttribute("aria-checked", "false");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+    expect(bridge.handOverInto).toHaveBeenCalledWith(
+      expect.objectContaining({ assistant: "chatgpt" }),
+    );
+  });
+
+  test("the refusing cell cannot be reached by a digit either", async () => {
+    (bridge.saveTranscript as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      path: "/tmp/x.md",
+      words: 10,
+      used: 1,
+      cap: 5,
+      limited: false,
+      wall: "claude.ai",
+    });
+
+    const box = await save();
+
+    fireEvent.keyDown(box, { key: "2" });
+    await settle();
+
+    expect(screen.getByRole("radio", { name: "Claude" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expect(screen.getByRole("radio", { name: "ChatGPT" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  test("the panel waits for a decision instead of closing itself", async () => {
+    /*
+     * A success card with a countdown is fine. A picker with one takes the
+     * decision away mid-thought. It cannot squat either: a click outside
+     * collapses the window, which is Rust's job, and Escape closes it.
+     */
+    vi.useFakeTimers();
+    try {
+      await save();
+      await act(async () => {
+        vi.advanceTimersByTime(20_000);
+      });
+      expect(bridge.hidePill).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("radiogroup", { name: /carry this conversation/i }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("without a rail it says what it always said, and still closes itself", async () => {
+    // A failed read of the assistant table is not a failed save. The file is in
+    // Downloads either way and the panel has to say so.
+    (bridge.assistantList as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("no"),
+    );
+
+    await save();
+
+    expect(screen.getByText(/Saved to Downloads/)).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.getByText(/Attach it to any AI/)).toBeInTheDocument();
   });
 });
 

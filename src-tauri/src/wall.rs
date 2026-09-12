@@ -152,23 +152,7 @@ pub fn newly_hit(conn: &rusqlite::Connection) -> Option<Stopped> {
                 break;
             }
 
-            /*
-             * The assistant's own turn, and only that. "Exchange" is a
-             * screen-read block that holds both sides at once, so it is not
-             * proof the assistant said anything — and a person quoting a limit
-             * message into a chat is exactly the sentence this must not fire on.
-             */
-            let last: Option<String> = conn
-                .query_row(
-                    "SELECT body FROM messages
-                      WHERE session_id = ?1 AND role = 'Assistant'
-                      ORDER BY rowid DESC LIMIT 1",
-                    [&session_id],
-                    |r| r.get(0),
-                )
-                .ok();
-
-            if last.is_some_and(|body| hit(source, &body)) {
+            if last_assistant_turn(conn, &session_id).is_some_and(|body| hit(source, &body)) {
                 crate::index_store::put_setting(conn, SEEN_KEY, &session_id);
                 return Some(Stopped {
                     session_id,
@@ -181,6 +165,44 @@ pub fn newly_hit(conn: &rusqlite::Connection) -> Option<Stopped> {
     }
 
     None
+}
+
+/**
+ * The last thing the assistant itself said in a conversation.
+ *
+ * "Exchange" is a screen-read block that holds both sides at once, so it is not
+ * proof the assistant said anything, and a person quoting a limit message into
+ * a chat is exactly the sentence a wall check must not fire on. Only `Assistant`
+ * counts.
+ */
+fn last_assistant_turn(conn: &rusqlite::Connection, session_id: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT body FROM messages
+          WHERE session_id = ?1 AND role = 'Assistant'
+          ORDER BY rowid DESC LIMIT 1",
+        [session_id],
+        |r| r.get(0),
+    )
+    .ok()
+}
+
+/**
+ * Did this one conversation end at its assistant's limit?
+ *
+ * The same question `newly_hit` asks while sweeping, asked about a conversation
+ * somebody has just named. Deliberately not `newly_hit`: that one is a sweep
+ * with a side effect — it writes `wall_seen` and will answer `None` the second
+ * time — and this is a read, asked while a handover is being written, which must
+ * not consume the announcement the sweep is saving up.
+ *
+ * The answer decides one line of copy in the pill: whether the panel says which
+ * assistant stopped, or says nothing about it. So a source Sidq does not watch
+ * is `false` rather than an error, and an unreadable index is `false` too. There
+ * is nothing to recover from here, and a wrong "Claude Code cut you off" is
+ * worse than a missing one.
+ */
+pub fn ended_at_wall(conn: &rusqlite::Connection, session_id: &str, source: &str) -> bool {
+    watched(source) && last_assistant_turn(conn, session_id).is_some_and(|body| hit(source, &body))
 }
 
 #[cfg(test)]
@@ -411,4 +433,74 @@ mod tests {
             assert!(!m.source.is_empty());
         }
     }
+
+    // ── Asking about one conversation ───────────────────────────────────────
+
+    #[test]
+    fn the_conversation_somebody_is_handing_over_knows_it_hit_the_wall() {
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "You", "keep going");
+        say(&conn, "s1", "Assistant", REAL);
+
+        assert!(ended_at_wall(&conn, "s1", "claude-code"));
+    }
+
+    #[test]
+    fn asking_does_not_use_up_the_announcement() {
+        /*
+         * The bug this function exists to avoid. `newly_hit` writes `wall_seen`
+         * and answers `None` on the second call, so reaching for it here would
+         * mean that writing a handover silently cancelled the notification the
+         * sweep was about to raise. Asked first, the sweep must still find it.
+         */
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "Assistant", REAL);
+
+        assert!(ended_at_wall(&conn, "s1", "claude-code"));
+        assert!(newly_hit(&conn).is_some(), "the sweep lost its announcement");
+    }
+
+    #[test]
+    fn a_conversation_that_simply_ended_says_nothing_about_a_wall() {
+        // The common case, and the one the copy depends on: no line claiming
+        // anybody was cut off when nobody was.
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "Assistant", "Done. The tests pass.");
+
+        assert!(!ended_at_wall(&conn, "s1", "claude-code"));
+    }
+
+    #[test]
+    fn a_person_quoting_the_limit_message_is_not_a_wall_here_either() {
+        let conn = db();
+        session(&conn, "s1", "claude-code");
+        say(&conn, "s1", "You", REAL);
+
+        assert!(!ended_at_wall(&conn, "s1", "claude-code"));
+    }
+
+    #[test]
+    fn a_source_with_no_marker_is_false_rather_than_a_guess() {
+        /*
+         * Cursor has no limit message Sidq recognises, so nothing read out of a
+         * Cursor session can be evidence of one. Without the `watched` guard
+         * this would depend entirely on whether some other assistant's needle
+         * happened to appear in the text.
+         */
+        let conn = db();
+        session(&conn, "s1", "cursor");
+        say(&conn, "s1", "Assistant", REAL);
+
+        assert!(!ended_at_wall(&conn, "s1", "cursor"));
+    }
+
+    #[test]
+    fn a_conversation_that_is_not_in_the_index_is_false() {
+        let conn = db();
+        assert!(!ended_at_wall(&conn, "never-seen", "claude-code"));
+    }
+
 }

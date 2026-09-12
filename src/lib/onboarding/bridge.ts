@@ -38,6 +38,15 @@ export interface HandoverResult {
    * to retype, which is the entire product in one figure.
    */
   words: number;
+  /**
+   * The assistant that stopped, when this conversation ended at its limit.
+   *
+   * Absent almost always, and the panel says nothing about a wall when it is.
+   * Present means the conversation's last assistant turn was a limit message,
+   * which the panel turns into the one line worth reading at that moment and a
+   * name crossed out of the picker.
+   */
+  wall?: string | null;
 }
 
 /** What the plan allows. For describing only; every limit is applied in Rust. */
@@ -673,7 +682,16 @@ export function desktopBridge(): OnboardingBridge | null {
         "save_transcript",
         args,
       )) as HandoverResult | null;
-      return out ?? { path: null, limited: false, used: 0, cap: null, words: 0 };
+      return (
+        out ?? {
+          path: null,
+          limited: false,
+          used: 0,
+          cap: null,
+          words: 0,
+          wall: null,
+        }
+      );
     },
     searchConversations: async (query, limit) => {
       const out = await invoke("search_conversations", { query, limit });
@@ -837,7 +855,8 @@ export function desktopBridge(): OnboardingBridge | null {
     },
     projects: async () => ((await invoke("projects")) as ProjectRow[]) ?? [],
     projectMemory: async (path: string) =>
-      ((await invoke("project_memory", { path })) as ProjectMemory | null) ?? null,
+      ((await invoke("project_memory", { path })) as ProjectMemory | null) ??
+      null,
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
@@ -859,15 +878,18 @@ export function desktopBridge(): OnboardingBridge | null {
       ((await invoke("unshare_memory", { path })) as boolean) ?? false,
     memoryLink: async (path: string) =>
       ((await invoke("memory_link", { path })) as string | null) ?? null,
-    startTeam: async () => ((await invoke("start_team")) as string | null) ?? null,
+    startTeam: async () =>
+      ((await invoke("start_team")) as string | null) ?? null,
     joinTeam: async (code: string) =>
       (await invoke("join_team", { code })) as {
         joined: boolean;
         understood: boolean;
       },
-    teamCode: async () => ((await invoke("team_code")) as string | null) ?? null,
+    teamCode: async () =>
+      ((await invoke("team_code")) as string | null) ?? null,
     teamSeats: async () =>
-      ((await invoke("team_seats")) as { code: string; taken: boolean }[]) ?? [],
+      ((await invoke("team_seats")) as { code: string; taken: boolean }[]) ??
+      [],
     redeemTeamSeat: async (code: string) =>
       ((await invoke("redeem_team_seat", { code })) as string | null) ?? null,
     mcpClients: async () =>
