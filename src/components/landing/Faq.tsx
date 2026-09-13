@@ -216,7 +216,7 @@ export function Faq({
       {limit && limit < FAQS.length && (
         <Link
           to="/faq"
-          className="mt-10 inline-flex items-center gap-1.5 text-[0.9375rem] font-medium transition-opacity duration-150 hover:opacity-60"
+          className="mt-10 inline-flex min-h-11 items-center gap-1.5 text-[0.9375rem] font-medium transition-opacity duration-150 hover:opacity-60"
         >
           The other {FAQS.length - limit} questions
           <span aria-hidden="true">&rarr;</span>

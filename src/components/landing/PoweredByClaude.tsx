@@ -177,7 +177,14 @@ export function PoweredByClaude({
            * that background, so it looked like two claims on top of each other
            * rather than one sentence continuing.
            */
-          'inline-flex items-center gap-2.5 font-semibold @[26rem]:whitespace-nowrap',
+          /*
+           * `text-center` matters only in the wrapped case, which is the phone.
+           * The row is centred as a block, so a left aligned second line sits
+           * under the middle of the first and hangs off to one side beneath a
+           * hero that is centred to the pixel. Nothing above `@[26rem]` wraps,
+           * so nothing above it is affected.
+           */
+          'inline-flex items-center gap-2.5 text-center font-semibold @[26rem]:whitespace-nowrap',
           'tracking-[-0.01em] text-[0.8125rem] @[30rem]:text-[0.9375rem] @[38rem]:text-[1.0625rem]',
           'transition-opacity',
           light ? 'text-white/70' : 'text-ink/60',

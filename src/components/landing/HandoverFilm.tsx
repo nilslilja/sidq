@@ -580,8 +580,17 @@ function MenuBar() {
   return (
     <div className="absolute inset-x-0 top-0 z-20 flex h-[5.5%] items-center gap-[1.6%] bg-black/35 px-[2%]">
       <span aria-hidden="true" className="h-[42%] w-[1.1%] rounded-[1px] bg-white/70" />
+      {/*
+       * Hidden on a phone rather than shrunk to fit one. At this width the
+       * labels are eight pixels of smudge, and a smudge shaped like a word
+       * reads as something failing to render. The body of the conversation
+       * below them is illegible too and is fine: an unreadable wall of text
+       * still reads as a screenshot of a wall of text, where four detached
+       * marks along the top read as damage. The line, the traffic lights and
+       * the shape carry the Mac without them.
+       */}
       {["File", "Edit", "View", "Window"].map((m) => (
-        <span key={m} className="text-[0.5rem] text-white/55">
+        <span key={m} className="hidden text-[0.5rem] text-white/55 sm:inline">
           {m}
         </span>
       ))}

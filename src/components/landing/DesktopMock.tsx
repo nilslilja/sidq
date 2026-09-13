@@ -49,6 +49,15 @@ export function DesktopMock({ className }: { className?: string }) {
           <span
             key={menu}
             className={cn(
+              /*
+               * Hidden on a phone rather than shrunk to fit it. This whole
+               * mock is sized in `vw`, so on a narrow screen the clamp bottoms
+               * out and every one of these renders as an illegible speck, which
+               * reads as a rendering fault rather than as a menu bar. The dark
+               * strip, the traffic light and the mark still say Mac without
+               * them, and they were never meant to be read.
+               */
+              "hidden sm:inline",
               "text-[clamp(0.4rem,0.72vw,0.6875rem)] leading-none",
               i === 0 ? "font-semibold text-white/85" : "text-white/55",
             )}

@@ -126,6 +126,63 @@
   transition: none !important;
 }
 
+
+/*
+ * ── The two phone rules, and why they are rules rather than classes ─────────
+ *
+ * Both are invisible on the machine this is built on. A Mac never zooms a form
+ * field and a mouse never misses a small button, so both of these ship looking
+ * perfect and are only ever found by somebody on a phone, who does not report
+ * it, they leave.
+ *
+ * Written here rather than on the components because the next input and the
+ * next link would have the same bug and nobody would think to look.
+ *
+ * ── Why touch and not width ─────────────────────────────────────────────────
+ * The first draft asked `max-width: 639px`, which is the wrong question twice.
+ * A narrow window on a desktop does not zoom and does not need fat targets, and
+ * an iPad at 768 does both. Width is a proxy for touch and it is wrong at both
+ * ends. Asking about the pointer asks the actual question.
+ *
+ * ── Why outside `@layer base` ───────────────────────────────────────────────
+ * Which is where this was first written, and where it did nothing at all. Layer
+ * order settles the cascade before specificity is consulted, so a base rule
+ * loses to any Tailwind utility, and beating `text-[0.875rem]` on the email
+ * input is the entire job. Unlayered beats every layer.
+ */
+@media (hover: none) and (pointer: coarse) {
+  /*
+   * Mobile Safari zooms the whole page in when you focus a control whose text
+   * is under 16px, and it does not zoom back out. On the email capture, which
+   * is the only thing a phone visitor can do here, that throws the layout
+   * sideways at the exact moment somebody decided to give you their address.
+   *
+   * `max()` rather than a flat 16px so a control that was already larger keeps
+   * its size.
+   */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 1em);
+  }
+
+  /*
+   * Apple's 44 points is not a guideline about comfort. Under it, taps land
+   * next to the thing rather than on it.
+   */
+  a[href],
+  button,
+  [role="button"],
+  label[for] {
+    min-height: 44px;
+  }
+
+  a[href],
+  [role="button"] {
+    align-content: center;
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-line);
