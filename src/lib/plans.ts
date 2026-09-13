@@ -77,6 +77,33 @@ export interface Plan {
   featured?: boolean;
 }
 
+/**
+ * What a year of Pro costs, in one place.
+ *
+ * ── Why this is a constant and not two strings ──────────────────────────────
+ * It was one string, in the app's upgrade screen, and nowhere else. So the
+ * yearly option existed and could only be found *after signing in* — which is
+ * to say, after the moment somebody decides whether to pay at all. The pricing
+ * page, which is the page people are sent to, has never mentioned it.
+ *
+ * Written down once because it is now said in two places and a price that
+ * disagrees with itself is the failure `copy.test.ts` already exists for. The
+ * Stripe price id behind it lives in the edge function's environment, which is
+ * the only thing that decides what is actually charged: change the number here
+ * and the charge does not move until that does.
+ */
+export const PRO_ANNUAL = {
+  /** What the year costs. */
+  price: 192,
+  /** Months paid for out of twelve. Two free is the whole reason to take it. */
+  monthsPaid: 10,
+} as const;
+
+/** The yearly price as a monthly figure, for comparing like with like. */
+export function proMonthlyIfAnnual(): string {
+  return `$${(PRO_ANNUAL.price / 12).toFixed(2)}`;
+}
+
 const ALL_PLANS: Plan[] = [
   {
     id: "free",
@@ -121,6 +148,14 @@ const ALL_PLANS: Plan[] = [
     name: "Pro",
     price: "$19.99",
     cadence: "/ month",
+    /*
+     * The yearly option, on the page where people decide.
+     *
+     * It has existed and been payable for months, visible only inside the app
+     * after signing in. Somebody comparing Sidq against anything else never
+     * reached it, which made the headline number the only number they saw.
+     */
+    priceNote: `or $${PRO_ANNUAL.price} a year, two months free`,
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
     promise: "One conversation. Every model. Nobody pressing anything.",

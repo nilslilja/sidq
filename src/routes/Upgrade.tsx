@@ -4,7 +4,13 @@ import { ArrowLeft, Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { startCheckout, type BillingInterval } from "@/lib/billing";
 import { getAccessToken } from "@/lib/supabase";
-import { PLANS, inheritedFeatures, type Plan, type PlanId } from "@/lib/plans";
+import {
+  PLANS,
+  inheritedFeatures,
+  type Plan,
+  type PlanId,
+  PRO_ANNUAL,
+} from "@/lib/plans";
 import { cn } from "@/lib/cn";
 
 type PaidPlanId = Exclude<PlanId, "free">;
@@ -116,17 +122,17 @@ export function Upgrade() {
       >
         {busy === "pro:annual"
           ? "Opening checkout…"
-          : "Or pay yearly, $192, two months free"}
+          : `Or pay yearly, $${PRO_ANNUAL.price}, two months free`}
       </button>
 
       {/*
-        * Both of these used to live here: a "sign in first" panel and the error
-        * line. They were correct and they were at the bottom of a 2,763px page,
-        * which on a 900px screen put them 1,750px below the button that caused
-        * them. Each now renders inside the card that was pressed, where the
-        * person is already looking, and there is exactly one of each so that
-        * `role="alert"` names one thing.
-        */}
+       * Both of these used to live here: a "sign in first" panel and the error
+       * line. They were correct and they were at the bottom of a 2,763px page,
+       * which on a 900px screen put them 1,750px below the button that caused
+       * them. Each now renders inside the card that was pressed, where the
+       * person is already looking, and there is exactly one of each so that
+       * `role="alert"` names one thing.
+       */}
 
       <p className="mt-8 text-xs leading-relaxed text-muted">
         Your free plan keeps working either way. Nothing you have made goes

@@ -123,6 +123,48 @@ describe("entitlements", () => {
   });
 });
 
+describe("the yearly price", () => {
+  it("is stated once and read everywhere", async () => {
+    /*
+     * It used to be a bare string inside the app's upgrade screen and nowhere
+     * else, which had two consequences. The pricing page never mentioned a
+     * yearly option at all, so anybody comparing Sidq against something else
+     * only ever saw the monthly number. And the moment it was written down
+     * twice it could disagree with itself, which is the failure copy.test.ts
+     * already exists for.
+     */
+    const { readFileSync } = await import("node:fs");
+
+    for (const file of ["src/routes/Upgrade.tsx", "src/lib/plans.ts"]) {
+      const source = readFileSync(file, "utf8");
+      const bare = source.match(/\$\d{3}\b/g) ?? [];
+      expect(bare, `${file} writes a yearly figure by hand`).toEqual([]);
+    }
+  });
+
+  it("is actually cheaper than paying monthly, and says by how much", async () => {
+    const { PRO_ANNUAL, PLANS } = await import("./plans");
+    const pro = PLANS.find((p) => p.id === "pro")!;
+
+    // Twelve months at the monthly price, against the year.
+    const monthly = 19.99 * 12;
+    expect(PRO_ANNUAL.price).toBeLessThan(monthly);
+
+    /*
+     * The copy says "two months free". $192 is actually 9.6 months, so it gives
+     * slightly more than it promises, and that is the direction this has to
+     * fail in: a page may quietly under-promise a discount and may never
+     * over-promise one, because the reader can do this division.
+     */
+    const promised = 19.99 * PRO_ANNUAL.monthsPaid;
+    expect(PRO_ANNUAL.price).toBeLessThanOrEqual(promised);
+    expect(PRO_ANNUAL.monthsPaid).toBe(10);
+
+    // And it reaches the page somebody actually decides on.
+    expect(pro.priceNote).toContain(String(PRO_ANNUAL.price));
+  });
+});
+
 describe("what the site says an invite is worth", () => {
   test("matches the constants Rust and the migration use", async () => {
     /*

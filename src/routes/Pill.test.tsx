@@ -770,6 +770,22 @@ describe("the escape hatch", () => {
     vi.useFakeTimers();
     try {
       await save();
+
+      /*
+       * Wait for the rail before touching the clock, and that is the whole
+       * point rather than tidiness.
+       *
+       * `saveFile` only sets the self-closing timer when there are no
+       * assistants to offer. If `assistantList` has not resolved by the time
+       * the save finishes, the panel is briefly a plain success card, the timer
+       * is armed, and advancing twenty seconds fires it. That made this test
+       * fail roughly one run in twenty, for a reason that had nothing to do
+       * with what it is checking.
+       */
+      expect(
+        screen.getByRole("radiogroup", { name: /carry this conversation/i }),
+      ).toBeInTheDocument();
+
       await act(async () => {
         vi.advanceTimersByTime(20_000);
       });
