@@ -170,6 +170,11 @@ impl Plan {
     }
 }
 
+/// Seconds since the epoch, for anything that needs the same clock this does.
+pub fn now_secs() -> i64 {
+    now()
+}
+
 fn now() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

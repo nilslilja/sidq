@@ -28,7 +28,8 @@ mod pill_window;
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
     capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
-    login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, wall, work_history,
+    burn, login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, wall,
+    work_history,
 };
 
 /*
@@ -1101,6 +1102,24 @@ async fn trial_state() -> (Option<u32>, u32) {
     })
     .await
     .unwrap_or((None, entitlement::TRIAL_DAYS as u32))
+}
+
+/**
+ * What stopped you this week, and how long each plan lasted.
+ *
+ * Empty almost always, and empty is a state the panel draws rather than an
+ * error: a machine with nothing to report has not been read yet, and "0
+ * minutes" is a worse answer than saying nothing. See `burn`.
+ */
+#[tauri::command]
+async fn burn_meter() -> Vec<burn::Burn> {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open()
+            .map(|conn| burn::this_week(&conn))
+            .unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default()
 }
 
 /// The list of assistants Sidq can open, for the UI to draw.
@@ -2944,6 +2963,7 @@ fn main() {
             notify_sample,
             picker_shortcut,
             open_picker,
+            burn_meter,
             native_glass,
             trial_state,
             open_notification_settings,

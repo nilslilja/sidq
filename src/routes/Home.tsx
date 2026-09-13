@@ -17,6 +17,7 @@ import type { WorkSession } from "@/lib/companion/work-history";
 import { adoptSession, shareSessionWithDesktop } from "@/lib/supabase";
 import { ConnectExtension } from "@/components/companion/ConnectExtension";
 import { GrantAccess } from "@/components/companion/GrantAccess";
+import { TrialNotice } from "@/components/companion/TrialNotice";
 import { SOURCES, sourceLabel, type Source } from "@/lib/companion/sources";
 import { cn } from "@/lib/cn";
 import { SidqMark } from "@/components/SidqMark";
@@ -887,6 +888,17 @@ function Overview({
   );
   const [taps, setTaps] = useState<[string, string] | null>(null);
   const [shared, setShared] = useState<string | null>(null);
+  /**
+   * What stopped you this week, worst first.
+   *
+   * Empty is the normal state and the panel draws nothing for it. See `burn`
+   * in the Rust for why an empty index reports nothing rather than zero.
+   */
+  const [burn, setBurn] = useState<
+    { label: string; walls: number; medianMinutes: number }[]
+  >([]);
+  /** Days left in the reverse trial, and how long it was meant to be. */
+  const [trial, setTrial] = useState<[number | null, number]>([null, 5]);
 
   /*
    * How many distinct AIs are actually in the index.
@@ -902,6 +914,18 @@ function Overview({
     void bridge.recentHandovers().then(setRows);
     void bridge.assistantList().then(setAssistants);
     void bridge.tapKeys().then(setTaps);
+    /*
+     * Wrapped, because a bridge method that is absent throws synchronously,
+     * before any promise exists, so `.catch` never sees it and the throw takes
+     * the whole window's render with it. Both of these are one line of panel;
+     * neither may cost the screen.
+     */
+    try {
+      void bridge.burnMeter().then(setBurn, () => setBurn([]));
+      void bridge.trialState().then(setTrial, () => {});
+    } catch {
+      setBurn([]);
+    }
     void bridge
       .teamSettings()
       .then((t) => setSharesWithTeam(t.allowed && t.folder !== null));
@@ -1068,6 +1092,21 @@ function Overview({
           )}
         </div>
 
+        {/*
+         * ── The trial, where somebody is already looking at their plan ──────
+         *
+         * Above the figures rather than over the window. What ends on day six
+         * is real but narrow, so a blocking modal announcing it would be
+         * announcing something most people cannot feel — see the note in
+         * TrialNotice. Draws nothing for an account that pays.
+         */}
+        <TrialNotice
+          daysLeft={trial[0]}
+          totalDays={trial[1]}
+          paid={(plan?.plan ?? "free") !== "free"}
+          onUpgrade={() => void bridge?.openUpgrade()}
+        />
+
         {/* The standing figures. Wispr's shape, and it is the right one: a
             small stack of numbers that never moves, next to a list that does. */}
         <aside
@@ -1093,6 +1132,37 @@ function Overview({
             value={(plan?.handoversUsed ?? 0).toLocaleString()}
             label="handovers, 7 days"
           />
+          {/*
+           * ── What stopped you this week ────────────────────────────────────
+           *
+           * The one line on this screen that is about somebody else's product
+           * rather than this one, and the only number here that is an argument.
+           * Read out of this machine's own transcripts by `burn`, so it is
+           * arithmetic rather than a claim, and simply absent on a week when
+           * nothing stopped: an empty meter is not a zero, it is nothing to
+           * report.
+           */}
+          {burn.length > 0 && (
+            <div className="mt-4 border-t border-[var(--w-line)] pt-3">
+              {burn.map((b) => (
+                <p
+                  key={b.label}
+                  className="text-[0.75rem] leading-relaxed text-[var(--w-text-3)]"
+                >
+                  <span className="font-medium text-[var(--w-text-1)]">
+                    {b.label}
+                  </span>{" "}
+                  cut you off {b.walls === 1 ? "once" : `${b.walls} times`} this
+                  week. Longest run before it did:{" "}
+                  <span className="font-medium text-[var(--w-text-1)]">
+                    {b.medianMinutes} minutes
+                  </span>
+                  .
+                </p>
+              ))}
+            </div>
+          )}
+
           {reach && (
             <p className="mt-4 border-t border-[var(--w-line)] pt-3 text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
               Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{" "}
@@ -1190,12 +1260,17 @@ function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             onClick={() => setShowing((was) => !was)}
             className="mt-3 cursor-pointer text-[0.8125rem] text-[var(--w-text-3)] underline underline-offset-4 hover:text-[var(--w-text)]"
           >
-            {showing ? "Hide the list" : `Everything it can count (${events.length})`}
+            {showing
+              ? "Hide the list"
+              : `Everything it can count (${events.length})`}
           </button>
           {showing && (
             <ul className="mt-3 space-y-2">
               {events.map(([name, what]) => (
-                <li key={name} className="flex flex-wrap items-baseline gap-x-3">
+                <li
+                  key={name}
+                  className="flex flex-wrap items-baseline gap-x-3"
+                >
                   <span className="font-mono text-[0.75rem] text-[var(--w-text-4)]">
                     {name}
                   </span>
@@ -1303,15 +1378,15 @@ function Plan({
             See the plans
           </button>
           {/*
-            * This said "raise the free limit without paying: every friend who
-            * joins with your code adds handovers to both of your weeks". There
-            * is no free limit left to raise — every meter came out of
-            * entitlement.rs — so it offered a reward for doing a favour that
-            * buys nothing, to a person who is not being limited.
-            *
-            * What free is missing now is not capacity, it is the automatic
-            * half, so that is what the line says.
-            */}
+           * This said "raise the free limit without paying: every friend who
+           * joins with your code adds handovers to both of your weeks". There
+           * is no free limit left to raise — every meter came out of
+           * entitlement.rs — so it offered a reward for doing a favour that
+           * buys nothing, to a person who is not being limited.
+           *
+           * What free is missing now is not capacity, it is the automatic
+           * half, so that is what the line says.
+           */}
           <p className="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-4)]">
             Everything here is yours already. What Pro adds is that you stop
             doing it: one conversation carried across every model, so whichever
@@ -1763,18 +1838,18 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       {heading}
 
       {/*
-        * ── Connecting an assistant, above the projects rather than inside one ──
-        *
-        * Everything below this is per project and ends in a person pressing a
-        * key. This is the one control that changes how all of it is reached: a
-        * connected client asks Sidq for the memory itself, so nobody carries
-        * anything. It is set up once and then never touched, which is exactly
-        * why it cannot live behind a project picker.
-        *
-        * Hidden entirely when no supported client is installed. A button that
-        * writes a config file for software somebody does not have is a button
-        * that appears to work and does nothing.
-        */}
+       * ── Connecting an assistant, above the projects rather than inside one ──
+       *
+       * Everything below this is per project and ends in a person pressing a
+       * key. This is the one control that changes how all of it is reached: a
+       * connected client asks Sidq for the memory itself, so nobody carries
+       * anything. It is set up once and then never touched, which is exactly
+       * why it cannot live behind a project picker.
+       *
+       * Hidden entirely when no supported client is installed. A button that
+       * writes a config file for software somebody does not have is a button
+       * that appears to work and does nothing.
+       */}
       {clients.length > 0 && (
         <div className="mt-5 rounded-[12px] border border-[var(--w-line)] bg-[var(--w-raised)] p-4">
           <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
@@ -1806,12 +1881,12 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             ))}
           </div>
           {/*
-            * The restart line is the whole reason this says anything at all.
-            * Every MCP client reads its config once at launch, so a successful
-            * connection looks identical to a failed one until the app is
-            * restarted — and somebody who does not know that concludes it
-            * did not work.
-            */}
+           * The restart line is the whole reason this says anything at all.
+           * Every MCP client reads its config once at launch, so a successful
+           * connection looks identical to a failed one until the app is
+           * restarted — and somebody who does not know that concludes it
+           * did not work.
+           */}
           {connected && (
             <p className="mt-3 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
               Added to {connected}. Quit and reopen it, then ask it what you are
@@ -1846,9 +1921,11 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       {memory && (
         <div className="mt-7">
           <p className="text-[0.875rem] text-[var(--w-text-3)]">
-            {memory.conversations} conversations, {memory.turns.toLocaleString()}{" "}
-            exchanges, about {Math.round(memory.minutes / 60)} hours
-            {memory.assistants.length > 0 && ` in ${memory.assistants.join(", ")}`}
+            {memory.conversations} conversations,{" "}
+            {memory.turns.toLocaleString()} exchanges, about{" "}
+            {Math.round(memory.minutes / 60)} hours
+            {memory.assistants.length > 0 &&
+              ` in ${memory.assistants.join(", ")}`}
             .
           </p>
 
@@ -1960,23 +2037,25 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                     "cursor-pointer transition-colors duration-150 hover:border-[var(--w-text)] hover:text-[var(--w-text)]",
                   )}
                 >
-                  {sharedWith === chosen ? "Shared with team" : "Share with team"}
+                  {sharedWith === chosen
+                    ? "Shared with team"
+                    : "Share with team"}
                 </button>
               </div>
 
               {/*
-                * ── Publishing to a link, which is the one thing that leaves ───
-                *
-                * Kept apart from the row of assistants and from the team
-                * button, both of which stay on this machine or inside a folder
-                * the team already syncs. This one puts text on the internet, so
-                * it says so in the sentence next to it rather than in a tooltip
-                * or a policy nobody opens, and it never happens without a press.
-                *
-                * Hidden entirely while the link is unknown. Offering "Publish"
-                * to a project that turns out to already be public is the one
-                * mistake this control must not make.
-                */}
+               * ── Publishing to a link, which is the one thing that leaves ───
+               *
+               * Kept apart from the row of assistants and from the team
+               * button, both of which stay on this machine or inside a folder
+               * the team already syncs. This one puts text on the internet, so
+               * it says so in the sentence next to it rather than in a tooltip
+               * or a policy nobody opens, and it never happens without a press.
+               *
+               * Hidden entirely while the link is unknown. Offering "Publish"
+               * to a project that turns out to already be public is the one
+               * mistake this control must not make.
+               */}
               {link !== undefined && (
                 <div className="mt-4 border-t border-[var(--w-line)] pt-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2004,7 +2083,8 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                               // Straight to the clipboard. The reason to make a
                               // link is to send it, and a link you then have to
                               // go and select is a second step for no reason.
-                              if (made) void navigator.clipboard?.writeText(made);
+                              if (made)
+                                void navigator.clipboard?.writeText(made);
                             })
                             .finally(done);
                         }
@@ -2582,7 +2662,9 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
                   {seat.code}
                 </code>
                 {seat.taken ? (
-                  <span className="text-[0.75rem] text-[var(--w-text-5)]">taken</span>
+                  <span className="text-[0.75rem] text-[var(--w-text-5)]">
+                    taken
+                  </span>
                 ) : (
                   <button
                     onClick={() => {

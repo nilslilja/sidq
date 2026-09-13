@@ -443,6 +443,23 @@ export interface OnboardingBridge {
    */
   nativeGlass: () => Promise<boolean>;
   /**
+   * Days left in the reverse trial, and how long it was.
+   *
+   * `[null, 5]` means there is no trial running: it ended, or this account pays
+   * and never needed one. The length travels with the answer so a panel saying
+   * "your five days are up" reads the same constant that decided.
+   */
+  trialState: () => Promise<[number | null, number]>;
+  /**
+   * What stopped you this week, worst first, from this machine's own index.
+   *
+   * Empty when nothing did, which is most weeks. An empty answer is a state to
+   * draw nothing for, never a zero to print: see `burn` in the Rust.
+   */
+  burnMeter: () => Promise<
+    { label: string; walls: number; medianMinutes: number }[]
+  >;
+  /**
    * Open one in the browser this Mac already uses.
    *
    * The default, because it is the only route where signing in works. Passkeys
@@ -809,6 +826,14 @@ export function desktopBridge(): OnboardingBridge | null {
       return Array.isArray(rows) ? (rows as string[]) : [];
     },
     nativeGlass: async () => (await invoke("native_glass")) === true,
+    trialState: async () => {
+      const out = await invoke("trial_state");
+      return Array.isArray(out) ? (out as [number | null, number]) : [null, 5];
+    },
+    burnMeter: async () => {
+      const rows = await invoke("burn_meter");
+      return Array.isArray(rows) ? rows : [];
+    },
     assistantList: async () => {
       const rows = await invoke("assistant_list");
       return Array.isArray(rows)

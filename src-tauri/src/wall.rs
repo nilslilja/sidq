@@ -85,6 +85,22 @@ pub fn hit(source: &str, body: &str) -> bool {
         .any(|m| m.source == source && body.contains(m.needle))
 }
 
+/**
+ * Every assistant Sidq can recognise a limit message from.
+ *
+ * Deduplicated, because a source may carry more than one marker and a caller
+ * counting per assistant would otherwise count it twice.
+ */
+pub fn sources() -> impl Iterator<Item = &'static str> {
+    let mut seen: Vec<&'static str> = Vec::new();
+    for m in MARKERS.iter() {
+        if !seen.contains(&m.source) {
+            seen.push(m.source);
+        }
+    }
+    seen.into_iter()
+}
+
 /// Whether Sidq watches for this source's wall at all.
 pub fn watched(source: &str) -> bool {
     MARKERS.iter().any(|m| m.source == source)

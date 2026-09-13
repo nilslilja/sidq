@@ -37,6 +37,7 @@
 //! handover, the project memory, the MCP server — is portable, and is why
 //! `cargo check --target x86_64-pc-windows-gnu` passes for this library.
 
+pub mod burn;
 pub mod capture;
 pub mod codex_history;
 pub mod compiler;

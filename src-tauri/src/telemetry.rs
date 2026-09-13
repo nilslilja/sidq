@@ -84,8 +84,14 @@ pub enum Event {
      * free plan. They are opposite facts — one is somebody being stopped by
      * the thing Sidq exists to fix, the other is somebody being stopped by
      * Sidq — and one number for both would answer neither.
+     *
+     * `minutes` is how long that session had been running when it stopped: the
+     * `active_minutes` already on the row, and the only figure that turns this
+     * from "people hit limits" into "the plan lasted this long". A `u32`, so
+     * the guarantee at the top of this file still holds — no variant of `Event`
+     * carries a `String`, so nothing readable can ride along with a count.
      */
-    AssistantStopped,
+    AssistantStopped { minutes: u32 },
 }
 
 /**
@@ -112,7 +118,7 @@ pub const EVERY_EVENT: [Event; 10] = [
     Event::Indexed { conversations: 0 },
     Event::HitTheLimit,
     Event::SawThePlans,
-    Event::AssistantStopped,
+    Event::AssistantStopped { minutes: 0 },
 ];
 
 impl Event {
@@ -128,7 +134,7 @@ impl Event {
             Event::Indexed { .. } => "indexed",
             Event::HitTheLimit => "hit_the_limit",
             Event::SawThePlans => "saw_the_plans",
-            Event::AssistantStopped => "assistant_stopped",
+            Event::AssistantStopped { .. } => "assistant_stopped",
         }
     }
 
@@ -182,9 +188,10 @@ impl Event {
             Event::Indexed { .. } => "How many conversations are indexed, as a number.",
             Event::HitTheLimit => "The free weekly handover limit was reached.",
             Event::SawThePlans => "The plans were opened from inside Sidq.",
-            Event::AssistantStopped => {
-                "An assistant you were using hit its own limit and stopped. Which \
-                 assistant is not sent, and neither is what you were working on."
+            Event::AssistantStopped { .. } => {
+                "An assistant you were using hit its own limit and stopped, and how \
+                 many minutes it had been running. Which assistant is not sent, and \
+                 neither is what you were working on."
             }
         }
     }
@@ -776,7 +783,7 @@ mod tests {
             Event::Indexed { conversations: 1 },
             Event::HitTheLimit,
             Event::SawThePlans,
-            Event::AssistantStopped,
+            Event::AssistantStopped { minutes: 0 },
         ] {
             assert!(!event.name().is_empty(), "{event:?} has no name");
         }

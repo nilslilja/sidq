@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
+import { Receipts } from "@/components/landing/Receipts";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 
 /*
@@ -75,6 +76,22 @@ export function FaqPage() {
   return (
     <Page>
       <Faq top />
+    </Page>
+  );
+}
+
+/**
+ * The burn meter, in public.
+ *
+ * Its own route rather than a section of the landing page, because it is the
+ * one page here that is an argument about somebody else's product and it has
+ * to be sendable on its own. See `Receipts` for why every number on it is
+ * either quoted or measured, and why the measured half is currently empty.
+ */
+export function ReceiptsPage() {
+  return (
+    <Page>
+      <Receipts />
     </Page>
   );
 }

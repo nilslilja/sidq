@@ -68,6 +68,9 @@ const PairGuide = lazy(() =>
 const ChatgptToClaude = lazy(() =>
   import("@/routes/Guide").then((m) => ({ default: m.ChatgptToClaude })),
 );
+const ReceiptsPage = lazy(() =>
+  import("@/routes/Detail").then((m) => ({ default: m.ReceiptsPage })),
+);
 const FaqPage = lazy(() =>
   import("@/routes/Detail").then((m) => ({ default: m.FaqPage })),
 );
@@ -221,11 +224,19 @@ function Shell() {
               </Suspense>
             }
           />
+          <Route
+            path="/receipts"
+            element={
+              <Suspense fallback={<Blank />}>
+                <ReceiptsPage />
+              </Suspense>
+            }
+          />
           {/*
-            * The guide. Its own route rather than a section of the FAQ,
-            * because it is written for somebody who has never heard of Sidq
-            * and arrives from a search, not for somebody already deciding.
-            */}
+           * The guide. Its own route rather than a section of the FAQ,
+           * because it is written for somebody who has never heard of Sidq
+           * and arrives from a search, not for somebody already deciding.
+           */}
           <Route
             path="/chatgpt-to-claude"
             element={

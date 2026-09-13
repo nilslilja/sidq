@@ -91,10 +91,13 @@ const bridge: Partial<OnboardingBridge> = {
    */
   counting: vi.fn(async () => false),
   setCounting: vi.fn(async () => {}),
-  countedEvents: vi.fn(async () => [
-    ["opened", "Sidq was opened."],
-    ["handed_over", "A conversation was handed over."],
-  ] as [string, string][]),
+  countedEvents: vi.fn(
+    async () =>
+      [
+        ["opened", "Sidq was opened."],
+        ["handed_over", "A conversation was handed over."],
+      ] as [string, string][],
+  ),
   /*
    * The team code, which the panel reads on mount.
    *
@@ -130,6 +133,16 @@ const bridge: Partial<OnboardingBridge> = {
   teamFolderOptions: vi.fn(async () => [] as [string, string][]),
   teamNearby: vi.fn(async () => []),
   revealTeamFolder: vi.fn(async () => true),
+  /*
+   * Nothing stopped this week, which is the ordinary state and the one every
+   * other test in this file assumes: the meter draws nothing for it.
+   */
+  burnMeter: vi.fn(async () => []),
+  /*
+   * No trial running by default, which is what every other test in this file
+   * assumes: the notice draws nothing and no heading moves.
+   */
+  trialState: vi.fn(async () => [null, 5] as [number | null, number]),
   teamHandovers: vi.fn(async () => []),
   readTeamHandover: vi.fn(async () => null),
   shareHandover: vi.fn(async () => false),
@@ -185,6 +198,109 @@ beforeEach(() => {
    * explicitly rather than relying on `restoreMocks`, which only rewinds spies.
    */
   (bridge.planStatus as ReturnType<typeof vi.fn>).mockResolvedValue(PLAN);
+});
+
+describe("the trial notice", () => {
+  test("counts down while it is running, and says what will end", async () => {
+    (bridge.trialState as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      3, 5,
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByText(/3 days of your trial left/i)).toBeInTheDocument();
+    /*
+     * The half that does not change is the larger half, and it has to be said.
+     * Sidq's paywall is `may_thread` and nothing else: handovers stay
+     * unlimited on the free plan and search still reaches back forever. A
+     * notice implying otherwise would be a threat the product does not carry
+     * out.
+     */
+    expect(screen.getByText(/handovers, the whole index/i)).toBeInTheDocument();
+  });
+
+  test("says the trial is over without claiming more stopped than did", async () => {
+    (bridge.trialState as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      null,
+      5,
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByText(/Your 5 days are up/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/handovers are still\s+unlimited/i),
+    ).toBeInTheDocument();
+  });
+
+  test("the last day is singular, because 1 days is how you spot a template", async () => {
+    (bridge.trialState as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      1, 5,
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByText(/Last day of your trial/i)).toBeInTheDocument();
+  });
+
+  test("an account that pays is told nothing about a trial", async () => {
+    (bridge.planStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...PLAN,
+      plan: "pro",
+    });
+    (bridge.trialState as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      null,
+      5,
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.queryByText(/days are up/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/trial/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("the burn meter", () => {
+  test("names what stopped you and how long the plan lasted", async () => {
+    (bridge.burnMeter as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { label: "Claude Code", walls: 4, medianMinutes: 94 },
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByText(/cut you off 4 times this/i)).toBeInTheDocument();
+    expect(screen.getByText("94 minutes")).toBeInTheDocument();
+  });
+
+  test("one wall reads as once rather than 1 times", async () => {
+    (bridge.burnMeter as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { label: "Claude Code", walls: 1, medianMinutes: 12 },
+    ]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.getByText(/cut you off once this/i)).toBeInTheDocument();
+  });
+
+  test("a quiet week prints no number at all", async () => {
+    /*
+     * The rule the Rust already enforces, at the level somebody sees. An empty
+     * meter is nothing to report, never a zero: "cut you off 0 times" is a
+     * sentence about a machine that has not been read yet.
+     */
+    (bridge.burnMeter as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+
+    render(<Home />);
+    await settle();
+
+    expect(screen.queryByText(/cut you off/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("the panel headings", () => {
@@ -648,7 +764,9 @@ describe("your team", () => {
 
   test("a refused seat says why, in the words the server used", async () => {
     withTeam({ allowed: true, folder: null });
-    bridge.redeemTeamSeat = vi.fn(async () => "Somebody has already used that code.");
+    bridge.redeemTeamSeat = vi.fn(
+      async () => "Somebody has already used that code.",
+    );
     await open("Your team");
 
     const field = await screen.findByRole("textbox", { name: /seat code/i });
@@ -890,7 +1008,10 @@ describe("the mark", () => {
         !f.includes(".test.") &&
         readFileSync(f, "utf8").includes(needle),
     );
-    expect(copies, `the mark is drawn by hand in:\n${copies.join("\n")}`).toHaveLength(0);
+    expect(
+      copies,
+      `the mark is drawn by hand in:\n${copies.join("\n")}`,
+    ).toHaveLength(0);
   });
 });
 
@@ -920,9 +1041,7 @@ describe("the plan panel", () => {
     fireEvent.click(screen.getByRole("button", { name: /see the plans/i }));
     expect(bridge.openUpgrade).toHaveBeenCalled();
 
-    expect(
-      screen.getByText(/carried across every model/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/carried across every model/i)).toBeInTheDocument();
     expect(
       screen.queryByText(/every friend who joins with your code/i),
       "a reward that buys nothing is still being offered",

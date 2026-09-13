@@ -96,7 +96,21 @@ pub fn spawn(app: tauri::AppHandle) {
                  * nothing cannot have found this.
                  */
                 if let Some(stopped) = wall::newly_hit(&conn) {
-                    telemetry::record(&conn, telemetry::Event::AssistantStopped);
+                    /*
+                     * How long that plan lasted, from the row the sweep already
+                     * wrote. Zero when the extractor never recorded a duration,
+                     * which the meter drops rather than counts: see `burn`.
+                     */
+                    let minutes: u32 = conn
+                        .query_row(
+                            "SELECT active_minutes FROM sessions WHERE session_id = ?1",
+                            [&stopped.session_id],
+                            |r| r.get::<_, i64>(0),
+                        )
+                        .map(|m| m.max(0) as u32)
+                        .unwrap_or(0);
+
+                    telemetry::record(&conn, telemetry::Event::AssistantStopped { minutes });
                     crate::announce_stopped(&disk, &stopped);
                 }
             }
