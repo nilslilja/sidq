@@ -442,6 +442,9 @@ export interface OnboardingBridge {
    * smeared panel rather than as one piece of glass.
    */
   nativeGlass: () => Promise<boolean>;
+  /** Whether Sidq reads assistants running in a browser. Off on a new install. */
+  readsBrowsers: () => Promise<boolean>;
+  setReadsBrowsers: (on: boolean) => Promise<void>;
   /**
    * Days left in the reverse trial, and how long it was.
    *
@@ -826,6 +829,10 @@ export function desktopBridge(): OnboardingBridge | null {
       return Array.isArray(rows) ? (rows as string[]) : [];
     },
     nativeGlass: async () => (await invoke("native_glass")) === true,
+    readsBrowsers: async () => (await invoke("reads_browsers")) === true,
+    setReadsBrowsers: async (on) => {
+      await invoke("set_reads_browsers", { on });
+    },
     trialState: async () => {
       const out = await invoke("trial_state");
       return Array.isArray(out) ? (out as [number | null, number]) : [null, 5];

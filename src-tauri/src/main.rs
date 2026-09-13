@@ -1122,6 +1122,47 @@ async fn burn_meter() -> Vec<burn::Burn> {
     .unwrap_or_default()
 }
 
+/**
+ * Whether Sidq reads assistants that run in a browser.
+ *
+ * Off on a new install and left alone on a machine where it was already
+ * working; `screen_reader::reads_browsers` explains why the default is decided
+ * from evidence rather than written down as a constant.
+ */
+#[tauri::command]
+async fn reads_browsers() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(|| {
+            index_store::open().is_some_and(|c| screen_reader::reads_browsers(&c))
+        })
+        .await
+        .unwrap_or(false)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// Turn browser reading on or off.
+#[tauri::command]
+async fn set_reads_browsers(on: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            if let Some(conn) = index_store::open() {
+                screen_reader::set_reads_browsers(&conn, on);
+            }
+        })
+        .await;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = on;
+    }
+}
+
 /// The list of assistants Sidq can open, for the UI to draw.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -2964,6 +3005,8 @@ fn main() {
             picker_shortcut,
             open_picker,
             burn_meter,
+            reads_browsers,
+            set_reads_browsers,
             native_glass,
             trial_state,
             open_notification_settings,

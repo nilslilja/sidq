@@ -981,8 +981,70 @@ fn identifies_a_conversation(url: &str) -> bool {
 /// Gemini's are 16 characters; the longest route name in play is "settings".
 const MIN_CONVERSATION_ID: usize = 12;
 
+/// The setting that decides whether Sidq reads assistants running in a browser.
+const READS_BROWSERS_KEY: &str = "reads_browsers";
+
+/**
+ * Whether to read assistants that run in a browser at all.
+ *
+ * ── Why this is off for a new install ───────────────────────────────────────
+ * Because it is the scariest thing Sidq asks for and the least of what it
+ * does. Reading a browser needs the Accessibility permission, which is the
+ * same permission a keylogger needs, and macOS says so in the dialog. For a
+ * product whose whole claim is that nothing leaves the machine, the first run
+ * should be able to say "Sidq does not watch your screen, it reads files" and
+ * have that be literally true rather than true-with-a-footnote.
+ *
+ * Everything read from disk — Claude Code, Cursor, Windsurf, Codex, VS Code,
+ * Cowork — is unaffected and needs no permission at all.
+ *
+ * ── Why it is not off for everybody ─────────────────────────────────────────
+ * Somebody already using this has already granted the permission and is
+ * already having their ChatGPT and Claude.ai conversations indexed. Silently
+ * stopping would not read as a new default, it would read as the app breaking:
+ * conversations that were there yesterday simply stop arriving, with nothing
+ * on screen to explain it.
+ *
+ * So the default is decided once, from evidence, and then written down: if the
+ * index already contains a conversation that could only have come from a
+ * browser, this was already working and stays on. Otherwise it starts off.
+ */
+pub fn reads_browsers(conn: &rusqlite::Connection) -> bool {
+    if let Some(set) = crate::index_store::setting(conn, READS_BROWSERS_KEY) {
+        return set == "1";
+    }
+
+    /*
+     * Never asked before. Decide from what is already indexed, and record the
+     * answer so this runs once rather than on every sweep.
+     */
+    let already: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sessions WHERE source IN \
+             ('chatgpt', 'claude.ai', 'gemini', 'grok', 'deepseek')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    let on = already > 0;
+    let _ = crate::index_store::put_setting(conn, READS_BROWSERS_KEY, if on { "1" } else { "0" });
+    on
+}
+
+/// Turn browser reading on or off. The Sources panel is the only caller.
+pub fn set_reads_browsers(conn: &rusqlite::Connection, on: bool) {
+    let _ = crate::index_store::put_setting(conn, READS_BROWSERS_KEY, if on { "1" } else { "0" });
+}
+
 pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
     let mut found = Vec::new();
+
+    // Off by default on a new install, and left alone on one where it was
+    // already working. See `reads_browsers`.
+    if !reads_browsers(conn) {
+        return found;
+    }
 
     for (source, url, title, turns) in read_open_assistants() {
         /*
@@ -1817,4 +1879,76 @@ mod tests {
         assert!(turns[0].1.contains("chain keeps hopping"));
         assert_eq!(turns[1].0, "Assistant");
     }
+
+    // ── Whether browsers are read at all ────────────────────────────────────
+
+    fn settings_db() -> rusqlite::Connection {
+        crate::index_store::tests::memory()
+    }
+
+    fn browser_session(conn: &rusqlite::Connection, source: &str) {
+        conn.execute(
+            "INSERT INTO sessions (session_id, source, title, ended_at) VALUES ('s1', ?1, 'x', 1)",
+            [source],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_new_install_does_not_read_browsers() {
+        /*
+         * The first run should be able to say "Sidq does not watch your screen,
+         * it reads files" and have that be literally true. Reading a browser
+         * needs Accessibility, which is the permission a keylogger needs and
+         * which macOS describes in those terms in the dialog.
+         */
+        assert!(!reads_browsers(&settings_db()));
+    }
+
+    #[test]
+    fn a_machine_where_it_was_already_working_keeps_working() {
+        /*
+         * The regression this avoids. Somebody already using this granted the
+         * permission long ago and is already having ChatGPT indexed. Silently
+         * stopping would not read as a new default: it would read as the app
+         * breaking, with conversations that arrived yesterday no longer
+         * arriving and nothing on screen to say why.
+         */
+        let conn = settings_db();
+        browser_session(&conn, "chatgpt");
+        assert!(reads_browsers(&conn));
+    }
+
+    #[test]
+    fn a_machine_that_only_reads_disk_sources_starts_off() {
+        // Claude Code writes to disk and needs no permission at all, so its
+        // presence is not evidence that anybody ever granted anything.
+        let conn = settings_db();
+        browser_session(&conn, "claude-code");
+        assert!(!reads_browsers(&conn));
+    }
+
+    #[test]
+    fn the_answer_is_decided_once_and_then_written_down() {
+        /*
+         * This runs on every sweep. Without recording the answer the default
+         * would flip under somebody the first time a browser conversation
+         * arrived by some other route.
+         */
+        let conn = settings_db();
+        assert!(!reads_browsers(&conn));
+
+        browser_session(&conn, "chatgpt");
+        assert!(!reads_browsers(&conn), "the recorded answer was re-derived");
+    }
+
+    #[test]
+    fn it_can_be_turned_on_and_off_again() {
+        let conn = settings_db();
+        set_reads_browsers(&conn, true);
+        assert!(reads_browsers(&conn));
+        set_reads_browsers(&conn, false);
+        assert!(!reads_browsers(&conn));
+    }
+
 }

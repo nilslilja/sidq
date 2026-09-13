@@ -320,7 +320,31 @@ const THREAD_LIMIT: usize = 12;
 fn resources(conn: Option<&rusqlite::Connection>) -> Value {
     let Some(conn) = conn else { return json!([]) };
 
-    let rows = index_store::projects(conn, PROJECT_LIMIT);
+    /*
+     * ── Project memory is not offered at handshake any more ─────────────────
+     *
+     * `memory.rs` still compiles, `sidq://memory/<path>` still resolves when a
+     * client asks for one by name, and `read` below is unchanged. What stopped
+     * is *advertising* it: every assistant that connected was handed a list of
+     * project memories before it was handed anything else, which made the first
+     * thing Sidq says about itself "I am an AI memory."
+     *
+     * That is a category with far larger, far better funded incumbents in it,
+     * and it is not the fight this product is picking. What is left in the list
+     * is threads, which is the thing nothing else does: the conversation that
+     * has already moved between assistants.
+     *
+     * Kept as a constant rather than deleted so the two halves stay next to
+     * each other and turning it back on is one word. See `FEATURES` on the
+     * frontend for the same switch on the same decision.
+     */
+    const LIST_PROJECT_MEMORIES: bool = false;
+
+    let rows = if LIST_PROJECT_MEMORIES {
+        index_store::projects(conn, PROJECT_LIMIT)
+    } else {
+        Vec::new()
+    };
     let listed: Vec<Value> = rows
         .iter()
         .map(|p| {

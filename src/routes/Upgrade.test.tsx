@@ -15,6 +15,20 @@ import { Upgrade } from "./Upgrade";
 const token = vi.fn<() => Promise<string | undefined>>();
 const checkout = vi.fn();
 
+/*
+ * Every tier stays tested, including the one that is not currently shown.
+ *
+ * `FEATURES.team` is off, so the Team card is filtered out of `PLANS` in the
+ * shipped app. The guards below are about the tier *definition* rather than
+ * the card: they exist so Team can never silently become a checkout at a
+ * placeholder price, which is the failure that costs real money rather than a
+ * sale. Letting them lapse while the card is dark would mean turning it back
+ * on with that guard gone.
+ */
+vi.mock("@/lib/features", () => ({
+  FEATURES: { team: true, invites: true, sharing: true, projectMemory: true },
+}));
+
 vi.mock("@/lib/supabase", () => ({
   getAccessToken: () => token(),
   getSupabase: () => null,
@@ -163,7 +177,9 @@ describe("the Team tier", () => {
 
     // The Team card's control is the mailto, so pressing anything on this page
     // must never start a team checkout.
-    for (const button of screen.getAllByRole("button", { name: /subscribe/i })) {
+    for (const button of screen.getAllByRole("button", {
+      name: /subscribe/i,
+    })) {
       fireEvent.click(button);
     }
     await waitFor(() => expect(checkout).toHaveBeenCalled());

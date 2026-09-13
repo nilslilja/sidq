@@ -151,6 +151,25 @@ const bridge: Partial<OnboardingBridge> = {
   redeemInvite: vi.fn((code: string) => redeem(code)),
 };
 
+/*
+ * ── Every panel stays tested, including the dark ones ───────────────────────
+ *
+ * `FEATURES` switches the team folder, invites and the project-memory tab out
+ * of the shipped sidebar. It does not switch them out of the product: the code
+ * is there, the panels work, and nothing has been deleted from git.
+ *
+ * If these tests followed the flag, turning a feature back on would mean
+ * turning it back on *untested*, and "reversible in an afternoon" would be a
+ * thing said rather than a thing true. So the tests below run against every
+ * panel as though all of it shipped, which is what keeps that promise honest.
+ *
+ * The one test that deliberately reads the real flags is in `features.test.ts`,
+ * which asserts what the shipped app actually shows.
+ */
+vi.mock("@/lib/features", () => ({
+  FEATURES: { team: true, invites: true, sharing: true, projectMemory: true },
+}));
+
 vi.mock("@/lib/onboarding/bridge", async (original) => ({
   ...(await original<Record<string, unknown>>()),
   desktopBridge: () => bridge,

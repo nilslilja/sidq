@@ -18,6 +18,7 @@ import { adoptSession, shareSessionWithDesktop } from "@/lib/supabase";
 import { ConnectExtension } from "@/components/companion/ConnectExtension";
 import { GrantAccess } from "@/components/companion/GrantAccess";
 import { TrialNotice } from "@/components/companion/TrialNotice";
+import { FEATURES } from "@/lib/features";
 import { SOURCES, sourceLabel, type Source } from "@/lib/companion/sources";
 import { cn } from "@/lib/cn";
 import { SidqMark } from "@/components/SidqMark";
@@ -64,23 +65,38 @@ type IconName = Tab;
  * account is. They are the same list of buttons and the rule for both is the
  * same — every one of them opens a panel that renders something real.
  */
-const TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] = [
-  { id: "overview", label: "Overview", icon: "overview" },
-  { id: "search", label: "Search", icon: "search" },
-  { id: "sources", label: "Sources", icon: "sources" },
-  /*
-   * Beside "How you work", and the pair is the point.
-   *
-   * That one is what you keep telling every assistant, across everything. This
-   * is what you are telling them about one thing. Same evidence, same quoted
-   * lines with a count beside them, different question.
-   */
-  { id: "projects", label: "What you're on", icon: "projects" },
-  { id: "profile", label: "How you work", icon: "profile" },
-  { id: "team", label: "Your team", icon: "team" },
-  { id: "plan", label: "Plan", icon: "plan", secondary: true },
-  { id: "invite", label: "Invite a friend", icon: "invite", secondary: true },
-];
+const ALL_TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] =
+  [
+    { id: "overview", label: "Overview", icon: "overview" },
+    { id: "search", label: "Search", icon: "search" },
+    { id: "sources", label: "Sources", icon: "sources" },
+    /*
+     * Beside "How you work", and the pair is the point.
+     *
+     * That one is what you keep telling every assistant, across everything. This
+     * is what you are telling them about one thing. Same evidence, same quoted
+     * lines with a count beside them, different question.
+     */
+    { id: "projects", label: "What you're on", icon: "projects" },
+    { id: "profile", label: "How you work", icon: "profile" },
+    { id: "team", label: "Your team", icon: "team" },
+    { id: "plan", label: "Plan", icon: "plan", secondary: true },
+    { id: "invite", label: "Invite a friend", icon: "invite", secondary: true },
+  ];
+
+/**
+ * The rows actually in the sidebar this week.
+ *
+ * Filtered rather than edited, so what is switched off is visible in one place
+ * next to what is on. See `FEATURES` for why each of these is dark and why it
+ * is a flag rather than a deletion.
+ */
+const TABS = ALL_TABS.filter((t) => {
+  if (t.id === "team") return FEATURES.team;
+  if (t.id === "invite") return FEATURES.invites;
+  if (t.id === "projects") return FEATURES.projectMemory;
+  return true;
+});
 
 const DAY_MS = 86_400_000;
 
@@ -1063,7 +1079,13 @@ function Overview({
                    * it is not a button advertising a plan on a row about work
                    * somebody already did. Rust refuses it either way.
                    */}
-                  {sharesWithTeam && (
+                  {/*
+                   * Sharing is dark. It is the only feature where a
+                   * conversation leaves this Mac, and the pitch is now that
+                   * none of them do. One exception in a settings panel is the
+                   * exception somebody screenshots. See `FEATURES`.
+                   */}
+                  {FEATURES.sharing && sharesWithTeam && (
                     <button
                       onClick={() => {
                         void bridge
@@ -3452,10 +3474,17 @@ function Sources({
 }) {
   const [stale, setStale] = useState<string[]>([]);
   const [accessible, setAccessible] = useState<boolean | null>(null);
+  /** Whether Sidq reads assistants running in a browser. Off on a new install. */
+  const [readsBrowsers, setReadsBrowsers] = useState(false);
 
   useEffect(() => {
     if (!bridge) return;
     void bridge.staleSources().then(setStale);
+    try {
+      void bridge.readsBrowsers().then(setReadsBrowsers, () => {});
+    } catch {
+      /* An older bridge has no opinion; the default is off either way. */
+    }
 
     // Polled, because it is granted in another application and can change while
     // this window is open.
@@ -3491,6 +3520,43 @@ function Sources({
         title="Sources"
         lead="Sidq is not tied to any one AI. The ones that write conversations to this Mac are read with nothing to set up. The ones that run in a browser keep nothing readable here, so Sidq reads them from the window instead, in whichever browser you already use. Sidq never asks you to log in to anything."
       />
+
+      {/*
+       * ── The permission, as a switch rather than a fait accompli ───────────
+       *
+       * Reading a browser needs Accessibility, which is the same permission a
+       * keylogger needs and which macOS describes that way in its dialog. It
+       * is now off on a new install, so the first run can say "Sidq does not
+       * watch your screen, it reads files" and have that be literally true.
+       *
+       * This is where it comes back on, and it has to exist: a default nobody
+       * can change is not a default, it is a removed feature. Somebody who was
+       * already using it keeps it, untouched — see `reads_browsers` in the Rust
+       * for how that is decided.
+       */}
+      <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-[12px] border border-[var(--w-line)] px-4 py-3">
+        <input
+          type="checkbox"
+          checked={readsBrowsers}
+          onChange={(e) => {
+            const on = e.target.checked;
+            setReadsBrowsers(on);
+            void bridge?.setReadsBrowsers(on);
+          }}
+          className="mt-0.5 size-4 shrink-0 accent-[var(--w-accent)]"
+        />
+        <span className="min-w-0">
+          <span className="block text-[0.875rem] text-[var(--w-text)]">
+            Also read assistants running in a browser
+          </span>
+          <span className="mt-1 block text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
+            ChatGPT, Claude.ai, Gemini, Grok and DeepSeek keep nothing readable
+            on this Mac, so Sidq reads them from the window. That needs the
+            Accessibility permission. Everything read from disk works without it
+            and is unaffected by this.
+          </span>
+        </span>
+      </label>
 
       <ul className="mt-6 space-y-1.5">
         {orderedSources(counts).map((source) => {

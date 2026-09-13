@@ -18,6 +18,7 @@
  * enforcement points read. Nothing is claimed here that is not enforced there.
  */
 
+import { FEATURES } from "./features";
 
 export type PlanId = "free" | "pro" | "duo" | "team";
 
@@ -76,7 +77,7 @@ export interface Plan {
   featured?: boolean;
 }
 
-export const PLANS: Plan[] = [
+const ALL_PLANS: Plan[] = [
   {
     id: "free",
     name: "Starter",
@@ -274,6 +275,20 @@ export const PLANS: Plan[] = [
     ],
   },
 ];
+
+/**
+ * The cards the pricing page actually shows.
+ *
+ * Team is off. It has been offered since the page was written, it has never
+ * been bought, and it is the largest block of concepts on a page whose job is
+ * to explain one number. See `FEATURES` for the rest of the same decision.
+ *
+ * Filtered rather than removed, so the tier and everything written about it
+ * stay where they are and turning it back on is one word.
+ */
+export const PLANS: Plan[] = ALL_PLANS.filter(
+  (p) => p.id !== "team" || FEATURES.team,
+);
 
 /**
  * Everything a plan carries up from the tiers beneath it.
