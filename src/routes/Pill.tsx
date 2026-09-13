@@ -645,8 +645,42 @@ export function Pill() {
   const carryInto = useCallback(
     async (assistant: string) => {
       if (phase.kind !== "saved") return;
+
+      /*
+       * ── The real browser, not the one inside Sidq ─────────────────────────
+       *
+       * This used to open the assistant in Sidq's own webview and type the
+       * handover straight into its composer, which is the better trick exactly
+       * when it works and a trap when it does not: a webview that has never
+       * been signed in shows a logged-out page, so the conversation gets typed
+       * into nothing while the panel reports success.
+       *
+       * Every assistant in this rail runs in a browser. Google refuses OAuth
+       * inside embedded webviews outright, so Gemini can fail that way every
+       * time, and anybody on a passkey fails everywhere. The main window has
+       * defaulted to the real browser for exactly this reason since it shipped;
+       * the pill was the one place still guessing.
+       *
+       * So: compile for the destination, put it on the clipboard, and open the
+       * assistant where the person actually has an account. One paste instead
+       * of none, which is a much smaller cost than landing in a logged-out tab.
+       */
+      const text = await bridge?.handoverTextFor({ ...phase.carry, assistant });
+      if (!text) {
+        setPhase({ kind: "failed" });
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Opening an assistant with nothing to paste is worse than saying so.
+        setPhase({ kind: "failed" });
+        return;
+      }
+
       playCue("done");
-      void bridge?.handOverInto({ ...phase.carry, assistant });
+      void bridge?.openAssistantInBrowser(assistant);
       void bridge?.hidePill();
     },
     [bridge, phase],

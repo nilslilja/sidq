@@ -442,6 +442,21 @@ export interface OnboardingBridge {
    * smeared panel rather than as one piece of glass.
    */
   nativeGlass: () => Promise<boolean>;
+  /**
+   * The handover compiled for one assistant, for the clipboard.
+   *
+   * Paired with `openAssistantInBrowser`: every assistant Sidq can open runs in
+   * a browser, and the browser that matters is the one the person is already
+   * signed in to. Sidq's own webview may never have been signed in at all.
+   */
+  handoverTextFor: (args: {
+    sessionId: string;
+    source: string;
+    resumePoint: string;
+    when: string;
+    project: string;
+    assistant: string;
+  }) => Promise<string | null>;
   /** Whether Sidq reads assistants running in a browser. Off on a new install. */
   readsBrowsers: () => Promise<boolean>;
   setReadsBrowsers: (on: boolean) => Promise<void>;
@@ -829,6 +844,10 @@ export function desktopBridge(): OnboardingBridge | null {
       return Array.isArray(rows) ? (rows as string[]) : [];
     },
     nativeGlass: async () => (await invoke("native_glass")) === true,
+    handoverTextFor: async (args) => {
+      const text = await invoke("handover_text_for", { ...args });
+      return typeof text === "string" ? text : null;
+    },
     readsBrowsers: async () => (await invoke("reads_browsers")) === true,
     setReadsBrowsers: async (on) => {
       await invoke("set_reads_browsers", { on });

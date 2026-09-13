@@ -124,6 +124,16 @@ const bridge: Partial<OnboardingBridge> = {
    * pretending it is would hide the classes every other test reads.
    */
   nativeGlass: vi.fn(async () => false),
+  /*
+   * The handover compiled for one destination, and the real browser.
+   *
+   * The rail used to inject straight into Sidq's own webview. It does not any
+   * more: that webview may never have been signed in, and Google refuses OAuth
+   * inside an embedded one at all, so the conversation could be typed into a
+   * logged-out page while the panel said it worked.
+   */
+  handoverTextFor: vi.fn(async () => "# Carry on\n\nthe whole conversation"),
+  openAssistantInBrowser: vi.fn(async () => {}),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
@@ -582,13 +592,18 @@ describe("the escape hatch", () => {
     }
   });
 
-  test("Enter opens the selected assistant with the conversation in it", async () => {
+  test("Enter copies the handover and opens the assistant in the real browser", async () => {
+    const written = vi.fn(async () => {});
+    Object.assign(navigator, { clipboard: { writeText: written } });
+
     const box = await save();
 
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
 
-    expect(bridge.handOverInto).toHaveBeenCalledWith({
+    // Compiled for the destination it is going to, not generically: what
+    // ChatGPT is told about a file is not what Claude is told.
+    expect(bridge.handoverTextFor).toHaveBeenCalledWith({
       sessionId: "abc",
       source: "claude-code",
       resumePoint: "carry on with the tiers",
@@ -596,8 +611,31 @@ describe("the escape hatch", () => {
       project: "Sidq",
       assistant: "chatgpt",
     });
-    // The picker gets out of the way of the composer it just typed into.
+    expect(written).toHaveBeenCalledWith(
+      "# Carry on\n\nthe whole conversation",
+    );
+
+    /*
+     * The person's own browser, where they are actually signed in. Sidq's
+     * webview may never have been, and typing a conversation into a logged-out
+     * page while reporting success is the failure this replaced.
+     */
+    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("chatgpt");
     expect(bridge.hidePill).toHaveBeenCalled();
+  });
+
+  test("it does not open anything when there is nothing to paste", async () => {
+    // An assistant opened with an empty clipboard is worse than an error: the
+    // person arrives somewhere expecting a conversation and pastes nothing.
+    (bridge.handoverTextFor as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      null,
+    );
+
+    const box = await save();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await settle();
+
+    expect(bridge.openAssistantInBrowser).not.toHaveBeenCalled();
   });
 
   test("it carries the conversation it just saved, not whatever row is under the cursor", async () => {
@@ -617,7 +655,7 @@ describe("the escape hatch", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
 
-    expect(bridge.handOverInto).toHaveBeenCalledWith(
+    expect(bridge.handoverTextFor).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: "abc" }),
     );
   });
@@ -641,9 +679,7 @@ describe("the escape hatch", () => {
 
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
-    expect(bridge.handOverInto).toHaveBeenCalledWith(
-      expect.objectContaining({ assistant: "grok" }),
-    );
+    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("grok");
   });
 
   test("a leftward arrow at the start wraps rather than doing nothing", async () => {
@@ -697,9 +733,7 @@ describe("the escape hatch", () => {
     expect(refused).toHaveAttribute("aria-checked", "false");
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
-    expect(bridge.handOverInto).toHaveBeenCalledWith(
-      expect.objectContaining({ assistant: "chatgpt" }),
-    );
+    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("chatgpt");
   });
 
   test("the refusing cell cannot be reached by a digit either", async () => {

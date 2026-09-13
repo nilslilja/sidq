@@ -699,6 +699,58 @@ fn build_handover_for(
     }
 }
 
+/**
+ * The handover compiled for one particular assistant, for the clipboard.
+ *
+ * ── Why this exists next to `hand_over_into` ────────────────────────────────
+ * Because every assistant in that list runs in a browser, and the browser that
+ * matters is the one the person is already signed in to.
+ *
+ * `hand_over_into` opens the assistant inside Sidq's own webview and types the
+ * handover into its composer, which is the better trick when it works and a
+ * trap when it does not. A webview that has never been signed in shows a
+ * logged-out page, and the handover gets typed into nothing. Google refuses
+ * OAuth inside embedded webviews outright, so Gemini can hit that every time,
+ * and anybody on a passkey hits it everywhere — which `open_assistant_in_browser`
+ * already says in as many words, and is why the main window offers the real
+ * browser first.
+ *
+ * So the pill does the same: compile for the destination, hand back the text to
+ * put on the clipboard, and let the caller open the assistant where the person
+ * actually has an account.
+ *
+ * Targeted, not generic. What ChatGPT is told about a file it is about to read
+ * is not what Claude is told, which is the whole reason `Target::for_source`
+ * exists.
+ */
+#[tauri::command]
+async fn handover_text_for(
+    session_id: String,
+    source: String,
+    resume_point: String,
+    when: String,
+    project: String,
+    assistant: String,
+) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let text = build_handover_for(
+            &session_id,
+            &source,
+            &resume_point,
+            &when,
+            &project,
+            compiler::Target::for_source(&assistant),
+        );
+        if text.is_some() {
+            telemetry::count(telemetry::Event::HandedOver { attached: false });
+        }
+        text
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 /// The compiled handover, for the clipboard.
 #[tauri::command]
 async fn handover_text(
@@ -3005,6 +3057,7 @@ fn main() {
             picker_shortcut,
             open_picker,
             burn_meter,
+            handover_text_for,
             reads_browsers,
             set_reads_browsers,
             native_glass,

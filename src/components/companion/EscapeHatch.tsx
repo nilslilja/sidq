@@ -9,9 +9,19 @@ import { cn } from "@/lib/cn";
  * are the whole reason the keystroke exists, and they were still being done by
  * hand at the last moment of the flow.
  *
- * So this is the last step, in the window: pick an assistant and Sidq opens it
- * with the conversation already typed. It does not press send. That message is
- * theirs to spend, and most people want a sentence in front of it.
+ * So this is the last step: pick an assistant, and Sidq compiles the handover
+ * for that specific destination, puts it on the clipboard and opens the
+ * assistant in the person's own browser. One paste, and the four steps are one
+ * step.
+ *
+ * ── Why the browser and not Sidq's own webview ───────────────────────────────
+ * Sidq can open these inside itself and type straight into the composer, which
+ * is better exactly when it works. It is a trap when it does not: a webview
+ * that has never been signed in shows a logged-out page, and the conversation
+ * is typed into nothing while this panel reports success. Google refuses OAuth
+ * in embedded webviews, so Gemini can fail that way every time, and a passkey
+ * fails everywhere. A paste that always works beats an injection that sometimes
+ * lands nowhere.
  *
  * ── Why a rail and not a list ────────────────────────────────────────────────
  * A list of five rows under a success card is a second menu, and a second menu
@@ -140,7 +150,7 @@ export function EscapeHatch({
          * that types into another app is one keystroke from sending something
          * on your behalf, and this one stops short of it on purpose.
          */}
-        ↵ opens it with the whole conversation typed in. Nothing is sent.
+        ↵ copies the handover and opens it in your browser. Press ⌘V.
       </p>
     </div>
   );
