@@ -903,6 +903,36 @@ fn owns_windows(pid: i32) -> bool {
     !children(app.as_raw()).is_empty()
 }
 
+/**
+ * Every element under a page that claims to hold editable text.
+ *
+ * Deliberately role-based rather than guessing at the site's markup: a composer
+ * is whatever the browser tells accessibility is a text area or text field, and
+ * that is the same answer on all three sites without knowing anything about any
+ * of them.
+ */
+#[cfg(test)]
+fn collect_text_inputs(element: AXUIElementRef, out: &mut Vec<Element>, budget: &mut usize) {
+    if *budget == 0 {
+        return;
+    }
+    *budget -= 1;
+
+    if matches!(
+        string_attribute(element, kAXRoleAttribute).as_deref(),
+        Some("AXTextArea") | Some("AXTextField")
+    ) {
+        out.push(Element::retained(element));
+        // No return: a composer can contain its own structure, and on at least
+        // one of these sites the writable node is a child of the one that
+        // reports the role.
+    }
+
+    for child in children(element) {
+        collect_text_inputs(child.as_raw(), out, budget);
+    }
+}
+
 fn find_web_areas(
     element: AXUIElementRef,
     depth: usize,
@@ -1949,6 +1979,138 @@ mod tests {
         assert!(reads_browsers(&conn));
         set_reads_browsers(&conn, false);
         assert!(!reads_browsers(&conn));
+    }
+
+
+    /**
+     * ── Can Sidq write into a real browser's composer? ──────────────────────
+     *
+     * The gate the whole ambient plan sits behind. Reading these windows is
+     * proven; writing to them is not, and the doubt is specific: ChatGPT and
+     * Claude composers are React-managed, and setting a value without firing
+     * the events React listens for typically leaves text that is on screen and
+     * unsendable. `assistants.rs` needed `execCommand('insertText')` to get
+     * around exactly that inside Sidq's own webview, and there is no
+     * `execCommand` reachable from outside the process.
+     *
+     * So this does not ask "did the text appear". It reports whether the field
+     * even admits to being settable, writes, and reads back — and then a person
+     * has to press send, because the only answer that counts is whether the
+     * message actually submits.
+     *
+     * Open a blank ChatGPT, Claude or Gemini in a browser, then:
+     *   cargo test --lib real_write -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_write() {
+        use accessibility_sys::AXUIElementIsAttributeSettable;
+
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        println!("\n  trusted: {}", is_trusted());
+
+        let apps = readable_processes();
+        for (pid, _) in &apps {
+            enable_web_content(*pid);
+        }
+        std::thread::sleep(TREE_BUILD_WAIT);
+
+        let mut wrote_anywhere = false;
+
+        for (pid, app_name) in apps {
+            // SAFETY: a live pid from the process list a moment ago.
+            let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
+            let mut areas = Vec::new();
+            let mut budget = MAX_NODES;
+            find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+
+            if !areas.is_empty() {
+                println!("  {app_name}: {} web areas", areas.len());
+            }
+            for area in &areas {
+                let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+                let Some(source) = source_for(&url) else {
+                    println!("    (not an assistant: {url})");
+                    continue;
+                };
+                println!("\n  {app_name}: {source} at {url}");
+
+                // Every element under the page that claims to hold text.
+                let mut fields = Vec::new();
+                let mut budget = MAX_NODES;
+                collect_text_inputs(area.as_raw(), &mut fields, &mut budget);
+
+                if fields.is_empty() {
+                    println!("    no text input found under this page");
+                    continue;
+                }
+
+                for field in &fields {
+                    let role =
+                        string_attribute(field.as_raw(), kAXRoleAttribute).unwrap_or_default();
+                    let before =
+                        string_attribute(field.as_raw(), kAXValueAttribute).unwrap_or_default();
+
+                    // Does AppKit even claim this is writable?
+                    let key = CFString::new(kAXValueAttribute);
+                    let mut settable: bool = false;
+                    // SAFETY: live element, key outlives the call, out-pointer
+                    // is read only after it returns.
+                    let err = unsafe {
+                        AXUIElementIsAttributeSettable(
+                            field.as_raw(),
+                            key.as_concrete_TypeRef(),
+                            &mut settable,
+                        )
+                    };
+
+                    println!(
+                        "    {role}: settable={settable} (err {err}), currently {} chars",
+                        before.chars().count()
+                    );
+
+                    /*
+                     * Never write over something somebody is typing. The real
+                     * feature has the same rule and it matters more here,
+                     * because this is running on a live machine.
+                     */
+                    if !before.trim().is_empty() {
+                        println!("      skipped, box is not empty");
+                        continue;
+                    }
+
+                    let probe = "SIDQ WRITE TEST: if you can send this, the write works.";
+                    let value = CFString::new(probe);
+                    // SAFETY: as above; the value is retained by the call.
+                    let set = unsafe {
+                        AXUIElementSetAttributeValue(
+                            field.as_raw(),
+                            key.as_concrete_TypeRef(),
+                            value.as_CFTypeRef(),
+                        )
+                    };
+
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                    let after =
+                        string_attribute(field.as_raw(), kAXValueAttribute).unwrap_or_default();
+
+                    println!("      set returned {set}, reads back {} chars", after.chars().count());
+                    if after.contains("SIDQ WRITE TEST") {
+                        println!("      TEXT LANDED. Now press send by hand.");
+                        println!("      If it will not send, React did not see it and the");
+                        println!("      direct write is not viable.");
+                        wrote_anywhere = true;
+                    } else {
+                        println!("      text did not land");
+                    }
+                }
+            }
+        }
+
+        if !wrote_anywhere {
+            println!("\n  nothing was written. Open a blank assistant in a browser first.");
+        }
+        println!();
     }
 
 }
