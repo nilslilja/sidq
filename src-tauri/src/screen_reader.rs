@@ -2248,6 +2248,18 @@ mod tests {
         // arrived. That is what made the first run of this say UNCLEAR about
         // a send that visibly worked.
         let after = reachable_composers();
+        if after.is_empty() {
+            println!("\n  CANNOT TELL: after sending, no assistant page is readable.");
+            println!("  The send may well have worked. Sidq just cannot see the");
+            println!("  conversation it landed in, which is its own problem.\n");
+            return;
+        }
+        for (app, source, area, _) in &after {
+            println!(
+                "  after: {app} {source}, {} text nodes",
+                collect(area.as_raw()).len()
+            );
+        }
         let left_composer = !after.iter().any(|(_, _, _, field)| holds_probe(field));
         let in_transcript = after.iter().any(|(_, _, area, _)| {
             collect(area.as_raw())
