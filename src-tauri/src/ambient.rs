@@ -64,6 +64,43 @@ impl Arrivals {
     }
 }
 
+/// The setting that decides whether the brief arrives on its own.
+const BRIEF_KEY: &str = "ambient_brief";
+
+/**
+ * Whether to put the brief in front of a blank chat without being asked.
+ *
+ * On unless somebody turned it off. That is a real bet and worth naming: text
+ * appearing in a message box nobody typed into reads as malware to somebody who
+ * was not told it would. What makes it defensible is that Sidq says so the
+ * first time it happens, and that undoing it is the ⌘Z the person already
+ * knows, because a paste is a paste.
+ *
+ * Off would be safer and would also mean nobody ever sees the feature. Every
+ * setting that has to be discovered before it does anything is a feature that
+ * does nothing.
+ */
+pub fn brief_wanted(conn: &rusqlite::Connection) -> bool {
+    crate::index_store::setting(conn, BRIEF_KEY).unwrap_or_else(|| "1".into()) == "1"
+}
+
+/**
+ * The project somebody was last working in.
+ *
+ * Last touched, not largest. `index_store::projects` orders by total turns,
+ * which answers "what have you spent the most time on" — a reasonable question
+ * and the wrong one here. What belongs in a chat you just opened is what you
+ * were doing ten minutes ago, even if that project is two conversations old.
+ */
+pub fn most_recent_project(
+    projects: &[crate::index_store::ProjectRow],
+) -> Option<String> {
+    projects
+        .iter()
+        .max_by_key(|p| p.touched)
+        .map(|p| p.path.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,4 +201,77 @@ mod tests {
             Some("claude.ai".to_string())
         );
     }
+
+    fn project(path: &str, turns: usize, touched: i64) -> crate::index_store::ProjectRow {
+        crate::index_store::ProjectRow {
+            path: path.to_string(),
+            name: path.to_string(),
+            conversations: 1,
+            turns,
+            minutes: 0,
+            started: 0,
+            touched,
+        }
+    }
+
+    /// The big project is not the current one. Briefing a new chat with
+    /// whatever somebody has worked on most would be right roughly once.
+    #[test]
+    fn the_brief_follows_what_was_last_touched_not_what_is_biggest() {
+        let projects = [
+            project("/Users/x/enormous-old-thing", 9000, 100),
+            project("/Users/x/what-i-am-doing-now", 12, 900),
+        ];
+        assert_eq!(
+            most_recent_project(&projects).as_deref(),
+            Some("/Users/x/what-i-am-doing-now")
+        );
+    }
+
+    #[test]
+    fn nothing_indexed_means_nothing_to_say() {
+        assert_eq!(most_recent_project(&[]), None);
+    }
+
+
+    /**
+     * The brief is never sent, and this reads the code to prove it.
+     *
+     * `paste::into_focused` takes a boolean that decides whether return is
+     * pressed afterwards. Putting text in somebody's message box is a help.
+     * Sending it is Sidq speaking in their name to their account, which is a
+     * different product and one nobody asked for, and the distance between the
+     * two is one character in one argument.
+     *
+     * There is no runtime assertion that can catch that character, because by
+     * the time it runs the message has gone. So this reads the call site. It is
+     * the same shape as the guards on the TypeScript side that read Rust: the
+     * thing being protected is not a value, it is a decision somebody could
+     * reverse in a second without noticing what they had done.
+     */
+    #[test]
+    fn nothing_in_the_ambient_path_ever_presses_send() {
+        let source = include_str!("background.rs");
+
+        let calls: Vec<&str> = source
+            .match_indices("into_focused(")
+            .map(|(at, _)| {
+                let rest = &source[at..];
+                &rest[..rest.find(')').map_or(rest.len(), |end| end + 1)]
+            })
+            .collect();
+
+        assert!(
+            !calls.is_empty(),
+            "the ambient brief no longer types at all, so this guard is \
+             watching nothing and one of the two is wrong"
+        );
+        for call in calls {
+            assert!(
+                call.contains("false"),
+                "an ambient paste asks to be sent: {call}"
+            );
+        }
+    }
+
 }

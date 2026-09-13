@@ -407,6 +407,31 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
 }
 
 /**
+ * Say that the brief was put there, because nobody asked for it.
+ *
+ * ── Why this is not optional polish ─────────────────────────────────────────
+ * Text appearing in a message box somebody did not type into is, to anybody who
+ * was not told, indistinguishable from something having gone wrong with their
+ * computer. The feature is only defensible because it announces itself the
+ * moment it acts.
+ *
+ * ── The undo was free, and saying the word is the whole of it ───────────────
+ * Because this arrives as a paste rather than as a synthesised write, the
+ * composer's own history already holds it, and ⌘Z takes it out. Nothing had to
+ * be built for that. What had to be built is a sentence saying so, because an
+ * undo nobody knows about is not an undo.
+ */
+#[cfg(target_os = "macos")]
+fn announce_brief(app: &AppHandle, source: &str) {
+    let _ = app.emit("sidq:briefed", source);
+    notify(
+        app,
+        &format!("Your context is in {}", label_for(source)),
+        "Press ⌘Z to take it back out.",
+    );
+}
+
+/**
  * An assistant stopped. Say so, and have the continuation already aimed.
  *
  * ── Why this is worth interrupting somebody for ─────────────────────────────
@@ -2406,7 +2431,7 @@ fn quit_deliberately(app: &AppHandle) {
 #[cfg(target_os = "macos")]
 fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
     if let Some(conn) = index_store::open() {
-        for found in screen_reader::sweep_into(&conn) {
+        for found in screen_reader::sweep_into(&conn).found {
             announce_found(app, &found);
         }
     }

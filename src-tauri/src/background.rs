@@ -9,7 +9,7 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{index_store, indexer, telemetry, wall};
+use sidq::{ambient, index_store, indexer, memory, paste, telemetry, wall};
 
 // The browser reader is the macOS Accessibility API and exists nowhere else.
 // Imported under the same gate as the thread that uses it, so that the absence
@@ -147,11 +147,15 @@ pub fn spawn(app: tauri::AppHandle) {
         // attached, and a handover made from one would carry it.
         index_store::repair_once(&conn);
 
+        // Outside the loop, because what makes the brief happen once per chat
+        // is remembering the page it was last asked about.
+        let mut arrivals = ambient::Arrivals::default();
+
         loop {
             // Only when something was actually written. A sweep that finds an
             // unchanged conversation must not make the window refetch.
-            let found = screen_reader::sweep_into(&conn);
-            if !found.is_empty() {
+            let seen = screen_reader::sweep_into(&conn);
+            if !seen.found.is_empty() {
                 crate::announce(&app);
             }
 
@@ -168,11 +172,77 @@ pub fn spawn(app: tauri::AppHandle) {
              * while somebody is typing in it, and a notification per turn would
              * be the most irritating thing the product does.
              */
-            for one in found.iter().filter(|f| f.first_time) {
+            for one in seen.found.iter().filter(|f| f.first_time) {
                 crate::announce_found(&app, one);
             }
+
+            offer_the_brief(&conn, &app, &seen.blank, &mut arrivals);
 
             std::thread::sleep(SCREEN_INTERVAL);
         }
     });
+}
+
+/**
+ * Put what somebody was doing in front of the blank chat they just opened.
+ *
+ * ── Why this rides the reader's clock instead of its own ────────────────────
+ * Watching for a new chat wants an event, and the honest options for one are a
+ * thread that asks constantly or an accessibility observer with a lifetime to
+ * manage. Neither is needed: this loop is already walking every open assistant
+ * page every few seconds and already knows the address of each. The trigger is
+ * a use of work that was happening anyway, so it adds no thread and no wake-up.
+ *
+ * The cost is latency. Up to `SCREEN_INTERVAL` passes between opening a chat
+ * and this noticing, which is long enough to start typing, and typing over
+ * somebody's half written sentence is the worst thing this feature could do.
+ * That is what `empty_composer_page` is in front of, and why being late here
+ * degrades to doing nothing rather than to doing harm.
+ */
+#[cfg(target_os = "macos")]
+fn offer_the_brief(
+    conn: &rusqlite::Connection,
+    app: &tauri::AppHandle,
+    blank: &[screen_reader::Blank],
+    arrivals: &mut ambient::Arrivals,
+) {
+    if !ambient::brief_wanted(conn) {
+        return;
+    }
+
+    for page in blank {
+        // Edge, not level: without this, sitting in a new chat would be briefed
+        // every few seconds for as long as somebody sat there.
+        if arrivals.at(Some(page.source), &page.url).is_none() {
+            continue;
+        }
+
+        /*
+         * One read decides whether to type at all: the right window in front,
+         * focus in a message box, the box empty, and the box belonging to this
+         * page rather than another one. Asked separately those are four races.
+         */
+        if screen_reader::empty_composer_page().as_deref() != Some(page.url.as_str()) {
+            continue;
+        }
+
+        let Some(path) = ambient::most_recent_project(&index_store::projects(conn, 200))
+        else {
+            continue;
+        };
+        let Some(brief) = memory::build(conn, &path).map(|m| m.as_markdown()) else {
+            continue;
+        };
+
+        /*
+         * `false`, and this is the line that matters most in the file.
+         *
+         * It never sends. The person sends. Sidq putting words into somebody's
+         * account under their name is a failure with no upside anywhere in it,
+         * and all of the value is already there once the text is in the box.
+         */
+        if paste::into_focused(&brief, false).is_ok() {
+            crate::announce_brief(app, page.source);
+        }
+    }
 }

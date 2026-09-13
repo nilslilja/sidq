@@ -25,8 +25,9 @@
 #![cfg(target_os = "macos")]
 
 use accessibility_sys::{
-    kAXChildrenAttribute, kAXRoleAttribute, kAXValueAttribute, AXError, AXIsProcessTrusted,
-    AXUIElementCopyAttributeValue, AXUIElementCreateApplication, AXUIElementRef,
+    kAXChildrenAttribute, kAXFocusedUIElementAttribute, kAXParentAttribute, kAXRoleAttribute,
+    kAXValueAttribute, AXError, AXIsProcessTrusted, AXUIElementCopyAttributeValue,
+    AXUIElementCreateApplication, AXUIElementCreateSystemWide, AXUIElementRef,
     AXUIElementSetAttributeValue,
 };
 use core_foundation::array::CFArray;
@@ -980,6 +981,93 @@ pub struct Found {
     pub first_time: bool,
 }
 
+/// An assistant page that is open with nothing started in it yet.
+///
+/// The sweep has always seen these and always thrown them away, because there
+/// is nothing in one worth indexing. They are the whole trigger for the ambient
+/// brief, so the pass reports them now instead of dropping them on the floor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Blank {
+    pub source: &'static str,
+    pub url: String,
+}
+
+/// What one pass of the reader saw.
+#[derive(Debug, Default)]
+pub struct Sweep {
+    /// Conversations it wrote.
+    pub found: Vec<Found>,
+    /// Assistant pages with no conversation started in them.
+    pub blank: Vec<Blank>,
+}
+
+/**
+ * The address of the page whose empty message box somebody is sitting in.
+ *
+ * ── Why one question rather than four ────────────────────────────────────────
+ * The ambient brief has to be sure of four separate things before it types
+ * anything: that the right window is in front, that the thing with keyboard
+ * focus is a message box, that the box is empty, and that it belongs to the
+ * blank chat the sweep just saw rather than to some other page. Asked
+ * separately those are four races, because the person is moving between each
+ * answer and the next.
+ *
+ * The focused element answers all four at once. It is by definition in the
+ * frontmost window, its role says whether it is a message box, its value says
+ * whether anything is in it, and walking up its parents to the enclosing web
+ * area says which page it is on. One read, no gap for somebody to move in.
+ *
+ * ── Every way this returns None is a reason not to type ──────────────────────
+ * Nothing focused, focus on something that is not a message box, a box with a
+ * single character already in it, a page with no web area above it. All of them
+ * mean do nothing, which is the cheap mistake. The expensive one is typing over
+ * a sentence somebody was halfway through, and that is what the empty check is
+ * for: this sweep runs on a clock, so between opening a chat and being noticed
+ * there is time to start typing.
+ */
+pub fn empty_composer_page() -> Option<String> {
+    if !is_trusted() {
+        return None;
+    }
+
+    // SAFETY: the system-wide element is a well-known singleton and `Element`
+    // releases the reference this call returns.
+    let system = Element::owned(unsafe { AXUIElementCreateSystemWide() });
+    let focused = element_attribute(system.as_raw(), kAXFocusedUIElementAttribute)?;
+
+    let role = string_attribute(focused.as_raw(), kAXRoleAttribute)?;
+    if !matches!(role.as_str(), "AXTextArea" | "AXTextField") {
+        return None;
+    }
+    if !string_attribute(focused.as_raw(), kAXValueAttribute)
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+    {
+        return None;
+    }
+
+    // Up rather than down. Walking the application's tree to find this element
+    // again would be the same work the sweep already did; the parent chain is a
+    // handful of hops from where we are standing.
+    let mut node = focused;
+    for _ in 0..MAX_DEPTH {
+        if string_attribute(node.as_raw(), kAXRoleAttribute).as_deref() == Some("AXWebArea") {
+            return url_attribute(node.as_raw(), "AXURL");
+        }
+        node = element_attribute(node.as_raw(), kAXParentAttribute)?;
+    }
+    None
+}
+
+/// One attribute that is itself an element, retained for the caller.
+fn element_attribute(element: AXUIElementRef, name: &str) -> Option<Element> {
+    let value = attribute(element, name)?;
+    // SAFETY: `attribute` hands back a live CFType; an AXUIElementRef is one,
+    // and `Element::retained` takes its own reference before the value drops.
+    (value.instance_of::<CFType>()).then(|| Element::retained(value.as_CFTypeRef() as _))
+}
+
 /**
  * Whether a URL names one conversation, as opposed to the place they start.
  *
@@ -1067,13 +1155,13 @@ pub fn set_reads_browsers(conn: &rusqlite::Connection, on: bool) {
     let _ = crate::index_store::put_setting(conn, READS_BROWSERS_KEY, if on { "1" } else { "0" });
 }
 
-pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
-    let mut found = Vec::new();
+pub fn sweep_into(conn: &rusqlite::Connection) -> Sweep {
+    let mut sweep = Sweep::default();
 
     // Off by default on a new install, and left alone on one where it was
     // already working. See `reads_browsers`.
     if !reads_browsers(conn) {
-        return found;
+        return sweep;
     }
 
     for (source, url, title, turns) in read_open_assistants() {
@@ -1094,6 +1182,12 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
          * conversation rings a bell and raises a notification.
          */
         if !url.is_empty() && !identifies_a_conversation(&url) {
+            // Seen, not indexed. A desktop assistant has no URL to judge, so it
+            // cannot be reported either way and is simply not here.
+            sweep.blank.push(Blank {
+                source,
+                url: url.clone(),
+            });
             continue;
         }
 
@@ -1177,7 +1271,7 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
                 kept as u32,
                 0,
             );
-            found.push(Found {
+            sweep.found.push(Found {
                 source,
                 title: clean,
                 first_time,
@@ -1185,7 +1279,7 @@ pub fn sweep_into(conn: &rusqlite::Connection) -> Vec<Found> {
         }
     }
 
-    found
+    sweep
 }
 
 #[cfg(test)]
