@@ -54,6 +54,7 @@ pub mod mcp;
 pub mod mcp_setup;
 pub mod memory;
 pub mod net;
+pub mod paste;
 pub mod profile;
 pub mod quick_grab;
 pub mod redact;

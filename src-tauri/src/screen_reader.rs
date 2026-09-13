@@ -2158,19 +2158,6 @@ mod tests {
         found
     }
 
-    #[cfg(test)]
-    fn press(keystroke: &str) -> Result<(), String> {
-        let out = std::process::Command::new("/usr/bin/osascript")
-            .args(["-e", &format!("tell application \"System Events\" to {keystroke}")])
-            .output()
-            .map_err(|e| e.to_string())?;
-        if out.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
-        }
-    }
-
     /**
      * ── Does a synthesised paste land, and does the message then send? ──────
      *
@@ -2222,23 +2209,13 @@ mod tests {
         println!("\n  aiming at {app_name}: {source}");
         println!("  this sends one real message to that account.");
 
-        // Text, not a file. `quick_grab::put_on_clipboard` writes a file URL,
-        // which is right for attaching and wrong for typing into a box.
-        {
-            use objc2_app_kit::NSPasteboard;
-            use objc2_foundation::NSString;
-            let pb = NSPasteboard::generalPasteboard();
-            unsafe {
-                pb.clearContents();
-                pb.setString_forType(
-                    &NSString::from_str(PROBE),
-                    objc2_app_kit::NSPasteboardTypeString,
-                );
-            }
-        }
-
-        if let Err(e) = press("keystroke \"v\" using command down") {
-            println!("\n  NO RESULT: the paste shortcut was refused: {e}\n");
+        // The shipping path, not a stand-in for it. osascript proved the idea
+        // and needs an Apple Events grant the app would have to ask for
+        // separately; `paste` posts the events itself on the Accessibility
+        // grant Sidq already holds. Different mechanism, so it gets tested
+        // rather than assumed.
+        if let Err(e) = crate::paste::into_focused(PROBE, false) {
+            println!("\n  NO RESULT: {e}\n");
             return;
         }
         std::thread::sleep(std::time::Duration::from_millis(900));
@@ -2256,8 +2233,8 @@ mod tests {
         drop(area);
         drop(composer);
 
-        if let Err(e) = press("keystroke return") {
-            println!("\n  LANDED, SEND UNTESTED: return was refused: {e}\n");
+        if let Err(e) = crate::paste::send_focused() {
+            println!("\n  LANDED, SEND UNTESTED: {e}\n");
             return;
         }
         // Long enough for the turn to render, short enough to stay a test.
