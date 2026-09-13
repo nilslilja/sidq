@@ -992,7 +992,7 @@ pub struct Found {
  * site, which would need editing every time one of them reorganised its routes,
  * and would silently start dropping real conversations when one did.
  */
-fn identifies_a_conversation(url: &str) -> bool {
+pub(crate) fn identifies_a_conversation(url: &str) -> bool {
     let after_scheme = url.split_once("://").map_or(url, |(_, rest)| rest);
     let Some((_, path)) = after_scheme.split_once('/') else {
         return false; // bare origin: chatgpt.com
