@@ -1,4 +1,4 @@
-import type { PlanId } from './plans';
+import type { PlanId } from "./plans";
 
 /*
  * What each plan actually gets.
@@ -86,14 +86,25 @@ const ENTITLEMENTS: Record<PlanId, Entitlements> = {
      * The seven day window was worse than a limit, it was a misrepresentation.
      * Sidq's whole claim is that it already has everything you did before you
      * installed it, and a week of searchable history is indistinguishable from
-     * a broken index. The cap hid the feature it existed to sell.
+     * a broken index. The cap hid the feature it existed to sell. That one
+     * stays gone.
      *
-     * Deliberate and reversible. It comes back when there is a base of people
-     * who would notice, and entitlement.rs has to move at the same time — the
-     * Rust test that compares these two numbers is the thing that stops the
-     * site and the app lying to each other.
+     * ── The handover cap is back, and the history window is not ─────────────
+     *
+     * Four months of downloads and impressions produced no revenue, and the
+     * reason was not that nobody wanted it: the only paid gate was the thread,
+     * which almost nobody ever reaches, so there was nothing to buy. A free
+     * tier that gives away the whole product does not measure demand.
+     *
+     * So five a week, which is what the page said before. Enough to see it
+     * work twice, not enough to run a week on. A new install still gets five
+     * days of everything first, so the cap is only ever met by somebody who
+     * has already seen what the product does uncapped.
+     *
+     * entitlement.rs holds the same number and a Rust test compares the two,
+     * which is the thing that stops the site and the app lying to each other.
      */
-    handoffsPerWeek: UNLIMITED,
+    handoffsPerWeek: 5,
     historyDays: UNLIMITED,
     seats: 1,
   },
@@ -138,8 +149,8 @@ export function entitlementsFor(plan: PlanId): Entitlements {
  * should cost someone a feature, never grant them one.
  */
 export function planFromTier(tier: string | null | undefined): PlanId {
-  if (tier === 'pro' || tier === 'paid') return 'pro';
-  if (tier === 'duo') return 'duo';
+  if (tier === "pro" || tier === "paid") return "pro";
+  if (tier === "duo") return "duo";
   /*
    * Team was sold and never mapped.
    *
@@ -149,8 +160,8 @@ export function planFromTier(tier: string | null | undefined): PlanId {
    * search. The parity tests below only ever looped over pro and duo, which is
    * why nothing caught it.
    */
-  if (tier === 'team') return 'team';
-  return 'free';
+  if (tier === "team") return "team";
+  return "free";
 }
 
 export function isUnlimited(value: number): boolean {

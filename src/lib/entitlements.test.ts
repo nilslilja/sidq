@@ -33,17 +33,23 @@ describe("entitlements", () => {
     expect(planFromTier("paid")).toBe("pro");
   });
 
-  test("free is metered on the two things the app actually enforces", () => {
+  test("free is capped on handovers and never on history", () => {
     /*
-     * This asserted rebuilds, companion minutes and calibration — a planner and
-     * a companion that were both removed from the product. It kept passing
-     * because the fields stayed in the contract long after the features left.
+     * Two different decisions, and the difference is the point.
+     *
+     * A history window makes the product look *broken*: Sidq's claim is that it
+     * already holds everything from before you installed it, so a week of
+     * searchable history is indistinguishable from a bad index. That cap hid
+     * the feature it existed to sell, and it stays gone.
+     *
+     * A handover cap does not make it look broken. It makes it look finite,
+     * which is what a paid tier needs in order to exist at all. Four months
+     * with no cap produced no revenue and no information, because there was
+     * nothing anybody could buy.
      */
     const free = entitlementsFor("free");
 
-    // Uncapped on both, deliberately. See the note in entitlements.ts: a cap
-    // cannot convert somebody who has not formed the habit it interrupts.
-    expect(isUnlimited(free.handoffsPerWeek)).toBe(true);
+    expect(free.handoffsPerWeek).toBe(5);
     expect(isUnlimited(free.historyDays)).toBe(true);
   });
 
@@ -109,7 +115,10 @@ describe("entitlements", () => {
 
     const free = entitlementsFor("free");
     const pro = entitlementsFor("pro");
-    expect(pro.handoffsPerWeek).toBe(free.handoffsPerWeek);
+
+    // Pro beats free on the one thing somebody feels every week.
+    expect(isUnlimited(pro.handoffsPerWeek)).toBe(true);
+    expect(pro.handoffsPerWeek).toBeGreaterThan(free.handoffsPerWeek);
     expect(pro.historyDays).toBe(free.historyDays);
   });
 });
@@ -387,16 +396,16 @@ describe("the site and the app agree about the free plan", () => {
 
   test("the paid plans are unlimited on both sides", () => {
     /*
-     * Rust says `_ => None` for everything that is not Free, so the guard here
-     * is that no second `Plan::X => Some(n)` arm has quietly appeared — which
-     * would be a cap the site is not telling anybody about.
+     * Free is capped and nothing else is, so the guard is that exactly one
+     * `Plan::X => Some(n)` arm exists in the handover function and it is
+     * Free's. A second arm would be a cap on a paying plan that the site is
+     * not telling anybody about, and history must have none at all.
      */
-    /*
-     * Nothing is capped on either side now, so the guard is that no cap has
-     * quietly reappeared for anybody — which would be a limit the site is not
-     * telling people about.
-     */
-    for (const fn of ["handovers_per_week", "history_days"]) {
+    const handovers =
+      bodyOf("handovers_per_week").match(/Plan::(\w+)\s*=>\s*Some\(/g) ?? [];
+    expect(handovers).toEqual(["Plan::Free => Some("]);
+
+    for (const fn of ["history_days"]) {
       const caps = bodyOf(fn).match(/Plan::\w+\s*=>\s*Some\(/g) ?? [];
       expect(caps).toHaveLength(0);
     }
@@ -501,7 +510,9 @@ describe("what Duo promises", () => {
    */
   test("it does not contradict the page's promise that nothing is uploaded", () => {
     const answer = FAQS.find((f) => /Duo actually share/.test(f.q));
-    const text = (Array.isArray(answer?.a) ? answer.a.join(" ") : (answer?.a ?? "")).toLowerCase();
+    const text = (
+      Array.isArray(answer?.a) ? answer.a.join(" ") : (answer?.a ?? "")
+    ).toLowerCase();
 
     expect(text).toContain("uploads nothing");
 

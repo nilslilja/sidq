@@ -72,7 +72,7 @@ const HAND_WRITTEN: Record<string, PageMeta> = {
      */
     title: "Pricing. Free on your Mac. Pay for what runs without you.",
     description:
-      "Unlimited handovers and full search, free, no card. Pro is $19.99 for what you cannot do by hand: one conversation carried across every model. Teams, one invoice.",
+      "Five handovers a week and full search, free, no card. Pro is $19.99 for no weekly limit and the part you cannot do by hand: one conversation carried across every model.",
     canonical: `${SITE}/pricing`,
     ogTitle: "Sidq pricing",
   },

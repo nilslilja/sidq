@@ -95,25 +95,38 @@ impl Plan {
     /**
      * Handovers per rolling week. `None` means no limit.
      *
-     * ── Why the free plan has no cap right now ──────────────────────────────
+     * ── Why the cap is back ─────────────────────────────────────────────────
      *
-     * It was five, which is the number that was on the pricing page. Five is a
-     * reasonable cap for a product with users and the wrong one for a product
-     * with none: it bites hardest during the first serious session somebody
-     * has, which is the only session that decides whether there is ever a
-     * second.
+     * It was removed with a note saying it would return "when there is a base
+     * of people who would notice it". That is not quite what happened. What
+     * happened is that four months passed with impressions, downloads and no
+     * revenue, and the reason turned out to be that there was nothing to buy:
+     * the only paid gate was `may_thread`, which is read in exactly one place
+     * and which almost nobody ever reaches.
      *
-     * At zero paying customers the number worth optimising is not revenue per
-     * user, it is whether anybody uses this twice. A limit cannot convert
-     * somebody who has not yet formed the habit it interrupts.
+     * So "nobody wants it" was never actually tested. A free tier that gives
+     * away the whole product does not measure demand, it measures generosity.
      *
-     * This is a deliberate, reversible position and not a giveaway. The cap
-     * comes back when there is a base of people who would notice it — and the
-     * pricing page has to move with it, because these two numbers lying to
-     * each other is exactly the failure the old comment here warned about.
+     * Five, because that is what the pricing page said before and because five
+     * handovers is enough to see the thing work twice and not enough to run a
+     * week on. The old objection still stands and is worth writing down: a cap
+     * bites hardest during somebody's first serious session, which is the only
+     * session that decides whether there is a second. That is the cost being
+     * accepted here deliberately, in exchange for finding out within a month
+     * whether anyone will pay at all.
+     *
+     * The reverse trial is what makes it defensible: a new install has five
+     * days of everything before this applies, so nobody meets the cap until
+     * after they have seen what the product does when it is not capped.
+     *
+     * If thirty direct asks produce no payers, the answer is not a different
+     * number here. It is that the product is a feature.
      */
     pub fn handovers_per_week(self) -> Option<u32> {
-        None
+        match self {
+            Plan::Free => Some(5),
+            Plan::Pro | Plan::Duo | Plan::Team => None,
+        }
     }
 
     /**
@@ -513,19 +526,25 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_metered_on_any_plan_including_free() {
+    fn free_is_enough_to_evaluate_and_not_enough_to_work_on() {
         /*
-         * Free was five handovers a week and seven days of history. Both are
-         * gone: a cap that bites during somebody's first serious session
-         * cannot convert them, it can only stop them having a second.
+         * The cap is back at five a week on Free, and history stays unlimited
+         * everywhere. Those are deliberately different decisions: a history
+         * window makes the product look *broken*, because Sidq's whole claim is
+         * that it already has everything you did before you installed it. A
+         * handover cap does not make it look broken, it makes it look finite,
+         * which is what a paid tier requires.
          *
-         * src/lib/entitlements.ts holds the same position and
-         * entitlements.test.ts reads this file to check the two agree. Capping
-         * one side alone fails there, which is the only thing stopping the
-         * site and the app lying to each other.
+         * src/lib/entitlements.ts holds the same numbers and
+         * entitlements.test.ts reads this file to check the two agree. Changing
+         * one side alone fails there, which is the only thing stopping the site
+         * and the app lying to each other.
          */
-        for plan in [Plan::Free, Plan::Pro, Plan::Duo, Plan::Team] {
+        assert_eq!(Plan::Free.handovers_per_week(), Some(5));
+        for plan in [Plan::Pro, Plan::Duo, Plan::Team] {
             assert_eq!(plan.handovers_per_week(), None, "{plan:?} is metered");
+        }
+        for plan in [Plan::Free, Plan::Pro, Plan::Duo, Plan::Team] {
             assert_eq!(plan.history_days(), None, "{plan:?} has a history window");
         }
     }
@@ -560,16 +579,21 @@ mod tests {
     }
 
     #[test]
-    fn handing_a_conversation_over_by_hand_is_never_sold() {
+    fn a_new_account_can_always_try_the_thing_before_it_is_asked_for_anything() {
         /*
-         * The one guarantee the whole pitch rests on. Somebody has to be able to
-         * try the thing before they believe any of it, and a handover is the
-         * thing. If this ever starts returning false for Free, the product has
-         * gone back to being one nobody can evaluate.
+         * The half of the old guarantee that survives a cap. Somebody has to be
+         * able to hand a conversation over before they believe any of this, and
+         * no amount of pricing pressure is worth taking the first one away.
+         *
+         * Five, not one. The cap is meant to be met by somebody already using
+         * this, never by somebody still deciding whether to.
          */
         let conn = index_store::tests::memory();
         assert!(may_hand_over(&conn, Plan::Free));
-        assert_eq!(Plan::Free.handovers_per_week(), None);
+        assert!(
+            Plan::Free.handovers_per_week().unwrap_or(0) >= 3,
+            "a cap this tight is met while somebody is still evaluating"
+        );
         assert_eq!(Plan::Free.history_days(), None);
     }
 
@@ -681,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn nothing_is_ever_refused_but_usage_is_still_counted() {
+    fn the_cap_refuses_once_it_is_reached_and_counts_either_way() {
         /*
          * Four tests lived here for the cap: the sixth handover refused, an
          * invite raising the ceiling, an invite reopening a spent week, and
@@ -702,31 +726,33 @@ mod tests {
 
         let (used, cap) = handover_allowance(&conn, Plan::Free);
         assert_eq!(used, 50, "handovers are still counted");
-        assert_eq!(cap, None, "and none of them is refused");
-        assert!(
-            may_hand_over(&conn, Plan::Free),
-            "the fifty-first is fine too"
-        );
+        assert_eq!(cap, Some(5));
+        assert!(!may_hand_over(&conn, Plan::Free), "the sixth went through");
+
+        // And a paying account is not touched by any of it.
+        assert!(may_hand_over(&conn, Plan::Pro));
     }
 
     #[test]
-    fn an_invite_bonus_no_longer_buys_anything() {
+    fn an_invite_bonus_buys_something_again() {
         /*
-         * A consequence worth writing down rather than discovering later. The
-         * referral reward was extra handovers a week, and there is no weekly
-         * ceiling to raise, so inviting somebody now grants nothing.
+         * A consequence worth writing down rather than discovering later.
          *
-         * `invites.rs` still records and displays it. Somebody has to decide
-         * whether the reward becomes something else or the page stops
-         * promising one, and this test is here so that decision is not made by
-         * forgetting.
+         * While there was no weekly ceiling the referral reward raised nothing,
+         * and the invite panel promised a limit that did not exist — which is
+         * part of why that panel is dark in `FEATURES`. With the cap back the
+         * reward is real again, so if invites are ever switched on they work
+         * rather than lie.
          */
         let conn = index_store::tests::memory();
-        let before = handover_allowance(&conn, Plan::Free).1;
+        assert_eq!(handover_allowance(&conn, Plan::Free).1, Some(5));
 
         let _ = index_store::put_setting(&conn, "invite_bonus", "10");
-        assert_eq!(handover_allowance(&conn, Plan::Free).1, before);
-        assert_eq!(before, None, "there was no ceiling for it to raise");
+        assert_eq!(
+            handover_allowance(&conn, Plan::Free).1,
+            Some(15),
+            "the reward has a ceiling to raise again"
+        );
     }
 
     #[test]

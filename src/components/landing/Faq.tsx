@@ -101,7 +101,7 @@ export const FAQS = [
      * survive its number changing shape. There is no quantity left to keep in
      * sync here, so there is nothing for a template to protect.
      */
-    a: "Everything. Every AI on your Mac read with nothing to connect, unlimited handovers, and search that reaches all the way back, including conversations you had before you installed it. No card and no countdown. What Pro buys is the part that happens without you: one conversation carried across every model, so whichever assistant you open next already knows where things got to. Doing it by hand is free and always will be.",
+    a: "Every AI on your Mac read with nothing to connect, search that reaches all the way back including conversations you had before you installed it, and five handovers a week. Word for word, nothing uploaded, no card. Your first five days are unlimited so you can see what it does before the weekly number means anything. What Pro buys is no weekly number at all, plus the part that happens without you: one conversation carried across every model, so whichever assistant you open next already knows where things got to.",
   },
   {
     q: "Is there a web version?",

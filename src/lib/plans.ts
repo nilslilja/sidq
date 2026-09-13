@@ -98,17 +98,19 @@ const ALL_PLANS: Plan[] = [
      * inside Sidq: there is no connecting step left to limit.
      */
     /*
-     * No limits list at all, because there are none to list.
+     * The handover cap is back and the history window is not, so exactly one
+     * line here quotes a number.
      *
-     * It said "5 conversation handovers a week" and "Search back 7 days",
-     * generated from `free` so the two could not drift. Both are gone from
-     * entitlements.ts and the strings would now read "Infinity handovers a
-     * week", which is how a generated line fails when the number behind it
-     * changes shape rather than value.
+     * Written out rather than generated from `free.handoffsPerWeek`. A
+     * generated line is what put "Infinity handovers a week" on the live site
+     * for weeks: a template survives its value changing and does not survive
+     * its *shape* changing. entitlements.test.ts compares the number here
+     * against Rust instead, which catches drift without the page being able to
+     * render a word like Infinity at anybody.
      */
     features: [
       "Every conversation already on your Mac, from day one",
-      "Unlimited handovers, as many as you want",
+      "Five handovers a week, free forever",
       "Search everything, however far back it goes",
       "Word for word, never summarised",
       "Nothing uploaded, ever",

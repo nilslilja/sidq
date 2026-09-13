@@ -230,13 +230,12 @@ describe("the trial notice", () => {
 
     expect(screen.getByText(/3 days of your trial left/i)).toBeInTheDocument();
     /*
-     * The half that does not change is the larger half, and it has to be said.
-     * Sidq's paywall is `may_thread` and nothing else: handovers stay
-     * unlimited on the free plan and search still reaches back forever. A
-     * notice implying otherwise would be a threat the product does not carry
-     * out.
+     * What ends has to be stated, and so does what does not. The cap is real
+     * and weekly; the index and the search are untouched. A notice implying
+     * everything stopped would be a threat the product does not carry out, and
+     * one implying nothing did is the reason nobody pays.
      */
-    expect(screen.getByText(/handovers, the whole index/i)).toBeInTheDocument();
+    expect(screen.getByText(/five handovers a week/i)).toBeInTheDocument();
   });
 
   test("says the trial is over without claiming more stopped than did", async () => {
@@ -249,9 +248,7 @@ describe("the trial notice", () => {
     await settle();
 
     expect(screen.getByText(/Your 5 days are up/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/handovers are still\s+unlimited/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/five handovers a week now/i)).toBeInTheDocument();
   });
 
   test("the last day is singular, because 1 days is how you spot a template", async () => {

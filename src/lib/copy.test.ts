@@ -37,9 +37,12 @@ function everyLine(): { where: string; text: string }[] {
   for (const plan of PLANS) {
     lines.push({ where: `${plan.name} price`, text: plan.price });
     lines.push({ where: `${plan.name} promise`, text: plan.promise });
-    for (const f of plan.features) lines.push({ where: `${plan.name} feature`, text: f });
-    for (const l of plan.limits ?? []) lines.push({ where: `${plan.name} limit`, text: l });
-    if (plan.priceNote) lines.push({ where: `${plan.name} priceNote`, text: plan.priceNote });
+    for (const f of plan.features)
+      lines.push({ where: `${plan.name} feature`, text: f });
+    for (const l of plan.limits ?? [])
+      lines.push({ where: `${plan.name} limit`, text: l });
+    if (plan.priceNote)
+      lines.push({ where: `${plan.name} priceNote`, text: plan.priceNote });
   }
 
   for (const [path, meta] of Object.entries(PAGES)) {
@@ -65,23 +68,37 @@ describe("what a visitor reads", () => {
     }
   });
 
-  it("does not sell a cap that no longer exists", () => {
+  it("does not describe a limit the app does not enforce", () => {
     /*
-     * Every meter came out of entitlement.rs — handovers, history, sources —
-     * and the copy that sold them stayed up. These are the exact phrases that
-     * were live after the caps were gone.
+     * This guard has now been both ways round, which is exactly why it exists.
+     *
+     * First the meters came out of entitlement.rs and the copy selling them
+     * stayed up, so the page sold caps that were gone. Then the handover cap
+     * came back and the copy still said "unlimited handovers", so the page gave
+     * away something the app refuses. Both are the same failure: a claim about
+     * a number, written by hand, next to a number that moved.
+     *
+     * So the assertion is not a list of banned phrases any more. It is that the
+     * two limits the app actually has are described the way they are: handovers
+     * capped, history not. entitlements.test.ts compares the figure itself
+     * against Rust.
      */
     const gone = [
-      /five handovers/i,
-      /5 handovers a week/i,
-      /handovers a week/i,
+      // History was seven days and is now unlimited on every plan. Any copy
+      // that still puts a number on it is selling a window that is not there.
       /search back \d/i,
       /reaches back \d+ days on free/i,
+      // The opposite failure, from the other direction.
+      /unlimited handovers/i,
+      /handovers, as many as you want/i,
     ];
 
     for (const { where, text } of everyLine()) {
       for (const phrase of gone) {
-        expect(text, `${where} still sells a removed cap`).not.toMatch(phrase);
+        expect(
+          text,
+          `${where} describes a limit the app does not have`,
+        ).not.toMatch(phrase);
       }
     }
   });
@@ -111,7 +128,8 @@ describe("what a visitor reads", () => {
       for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) walk(full);
-        else if (/\.tsx?$/.test(entry) && !entry.includes(".test.")) files.push(full);
+        else if (/\.tsx?$/.test(entry) && !entry.includes(".test."))
+          files.push(full);
       }
     };
     walk("src");
@@ -135,14 +153,21 @@ describe("what a visitor reads", () => {
         .split("\n")
         .forEach((line, i) => {
           const trimmed = line.trim();
-          if (trimmed.startsWith("*") || trimmed.startsWith("//") || trimmed.startsWith("/*")) {
+          if (
+            trimmed.startsWith("*") ||
+            trimmed.startsWith("//") ||
+            trimmed.startsWith("/*")
+          ) {
             return;
           }
-          if (DASH.test(line)) offences.push(`${file}:${i + 1}  ${trimmed.slice(0, 70)}`);
+          if (DASH.test(line))
+            offences.push(`${file}:${i + 1}  ${trimmed.slice(0, 70)}`);
         });
     }
 
-    expect(offences, `em dashes in copy:\n${offences.join("\n")}`).toHaveLength(0);
+    expect(offences, `em dashes in copy:\n${offences.join("\n")}`).toHaveLength(
+      0,
+    );
   });
 
   it("does not charge for something the tier below already gives", () => {
@@ -155,13 +180,18 @@ describe("what a visitor reads", () => {
     const pro = PLANS.find((p) => p.id === "pro");
     expect(free && pro).toBeTruthy();
 
-    const normalise = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
+    const normalise = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z ]/g, "")
+        .trim();
     const freeFeatures = new Set((free?.features ?? []).map(normalise));
 
     for (const feature of pro?.features ?? []) {
-      expect(freeFeatures.has(normalise(feature)), `Pro sells "${feature}", which Free gives`).toBe(
-        false,
-      );
+      expect(
+        freeFeatures.has(normalise(feature)),
+        `Pro sells "${feature}", which Free gives`,
+      ).toBe(false);
     }
   });
 });
@@ -193,7 +223,8 @@ describe("the word saved", () => {
       for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) walk(full);
-        else if (/\.tsx?$/.test(entry) && !entry.includes(".test.")) files.push(full);
+        else if (/\.tsx?$/.test(entry) && !entry.includes(".test."))
+          files.push(full);
       }
     };
     walk("src");

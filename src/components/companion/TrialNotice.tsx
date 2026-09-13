@@ -6,15 +6,17 @@ import { cn } from "@/lib/cn";
  * ── Why this is not a modal that blocks the window ──────────────────────────
  * Because of what actually changes on day six, which is less than it sounds.
  * Sidq's paywall is deliberate and documented in `entitlement.rs`: nothing that
- * Sidq *is* gets metered. Handovers are unlimited on the free plan, search
- * reaches back forever, every source stays readable. The single thing a paid
- * plan buys is `may_thread` — Sidq carrying a conversation across models on its
- * own, which an assistant reads over MCP without anybody pressing anything.
+ * Sidq *is* gets crippled. Search still reaches back forever and every source
+ * stays readable, because a history window makes the product look broken
+ * rather than limited.
  *
- * So a modal announcing that you have been cut off would be announcing
- * something most people cannot feel. Blocking the window to say it is how an
- * app gets deleted. This says the true thing, in the place somebody is already
- * looking at their plan, and the upgrade is one click from it.
+ * What does change is real and weekly: five handovers instead of as many as
+ * you like, and the thread stops. Enough to keep using it, not enough to run
+ * a week on.
+ *
+ * Still not a modal over the window. Blocking somebody's screen to announce a
+ * downgrade is how an app gets deleted; this says the true thing in the place
+ * they are already looking at their plan, with the upgrade one click away.
  *
  * The countdown matters more than the expiry, and it is the half that was
  * missing entirely: a trial nobody is told about is not a trial, it is a
@@ -62,17 +64,18 @@ export function TrialNotice({
       <p className="mt-2 max-w-[56ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
         {running ? (
           <>
-            You are on Pro until then. After that Sidq stops carrying
-            conversations across models on its own, which is the part you cannot
-            do by hand. Everything else stays: handovers, the whole index,
-            search back to the beginning, every assistant it reads.
+            You are on Pro until then. After that it is five handovers a week
+            instead of as many as you like, and Sidq stops carrying
+            conversations across models on its own. The index, the search and
+            every assistant it reads all stay exactly as they are.
           </>
         ) : (
           <>
-            Sidq has stopped carrying conversations across models on its own.
-            Nothing else changed, and nothing is locked: handovers are still
-            unlimited, search still reaches back to the beginning, and every
-            assistant it read yesterday it still reads today.
+            You are on five handovers a week now, and Sidq has stopped carrying
+            conversations across models on its own. Nothing is locked and
+            nothing was taken: the whole index is still there, search still
+            reaches back to the beginning, and every assistant it read yesterday
+            it still reads today.
           </>
         )}
       </p>
