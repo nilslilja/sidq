@@ -76,6 +76,19 @@ const HAND_WRITTEN: Record<string, PageMeta> = {
     canonical: `${SITE}/pricing`,
     ogTitle: "Sidq pricing",
   },
+  /*
+   * The one page here that is an argument about somebody else's product, so
+   * the title is the question it answers rather than the name of the page. It
+   * exists to be sent to a person and posted, and a shared link showing the
+   * site's generic title is a shared link nobody clicks.
+   */
+  "/receipts": {
+    title: "How long a Claude plan lasts before it cuts you off",
+    description:
+      "What Claude Pro, Max and Max 20x publish about their own limits, and what a real machine measures against them. Every figure is quoted or measured, and labelled which.",
+    canonical: `${SITE}/receipts`,
+    ogTitle: "What your plan lasts before it stops",
+  },
   "/faq": {
     title: "How Sidq works. Which AIs, what it reads, what it never sends.",
     description:

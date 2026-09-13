@@ -31,6 +31,10 @@ export const ROUTES = [
   "/",
   "/pricing",
   "/faq",
+  // Prerendered like the rest, because it exists to be posted: a link preview
+  // is generated from the served HTML, and a client-rendered page hands the
+  // crawler the site's generic title instead of the argument on the page.
+  "/receipts",
   "/chatgpt-to-claude",
   // The rest of the guides, from the same array that holds their words. A
   // route table typed out by hand beside a content table is how a page ends up
