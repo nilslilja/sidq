@@ -592,4 +592,32 @@ describe("the team tier", () => {
     expect(planFromTier("enterprise-plus")).toBe("free");
     expect(planFromTier(null)).toBe("free");
   });
+
+  /**
+   * The switch that turns Team into a checkout is discoverable, and by its
+   * real name.
+   *
+   * It was not. The code read `VITE_TEAM_SEAT_PRICE`, two comments told you to
+   * set `VITE_TEAM_PRICE`, and `.env.example` listed neither. Following the
+   * documentation would have set a variable nothing reads, left the card
+   * saying "Let's talk", and given no clue why. The same shape as every other
+   * bug this file guards against: a description drifting away from the thing
+   * it describes.
+   */
+  it("documents the team price switch under the name the code reads", async () => {
+    const { readFileSync } = await import("node:fs");
+    const plans = readFileSync("src/lib/plans.ts", "utf8");
+
+    const read = plans.match(/import\.meta\.env\?\.(VITE_[A-Z_]+)/)?.[1];
+    expect(read).toBeTruthy();
+
+    // Named in the file that exists to tell somebody it exists.
+    expect(readFileSync(".env.example", "utf8")).toContain(`${read}=`);
+
+    // And nowhere does prose name a near miss of it.
+    for (const file of ["src/lib/plans.ts", "src/routes/Upgrade.test.tsx"]) {
+      const named = readFileSync(file, "utf8").match(/VITE_TEAM[A-Z_]*/g) ?? [];
+      expect([...new Set(named)]).toEqual([read]);
+    }
+  });
 });

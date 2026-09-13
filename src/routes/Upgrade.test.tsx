@@ -157,8 +157,9 @@ describe("the Team tier", () => {
     const { PLANS } = await import("@/lib/plans");
     const team = PLANS.find((p) => p.id === "team")!;
 
-    // VITE_TEAM_PRICE is unset in the test environment, which is the shipped
-    // default. If this flips, somebody can buy at a number nobody chose.
+    // VITE_TEAM_SEAT_PRICE is unset in the test environment, which is the
+    // shipped default. If this flips, somebody can buy at a number nobody
+    // chose.
     expect(team.ctaHref).toMatch(/^mailto:/);
     expect(team.price).toBe("Let's talk");
     expect(team.cadence).toBeNull();

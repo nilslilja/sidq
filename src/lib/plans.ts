@@ -229,9 +229,9 @@ const ALL_PLANS: Plan[] = [
      *
      * What is missing is a price, and a price is a decision rather than a
      * value with a sensible default. So this reads the number from the build
-     * rather than carrying a placeholder: set VITE_TEAM_PRICE and the card
-     * becomes a checkout, leave it unset and it stays the conversation it is
-     * today. A wrong number on a live pricing page is worse than no number,
+     * rather than carrying a placeholder: set VITE_TEAM_SEAT_PRICE and the
+     * card becomes a checkout, leave it unset and it stays the conversation it
+     * is today. A wrong number on a live pricing page is worse than no number,
      * because somebody can buy at it.
      */
     price: TEAM_SEAT ?? "Let's talk",
