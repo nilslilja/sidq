@@ -2117,31 +2117,88 @@ mod tests {
     }
 
 
+    /// Every reachable assistant composer, with the page it belongs to.
+    #[cfg(test)]
+    fn reachable_composers() -> Vec<(String, &'static str, Element, Element)> {
+        let apps = readable_processes();
+        for (pid, _) in &apps {
+            enable_web_content(*pid);
+        }
+        std::thread::sleep(TREE_BUILD_WAIT);
+
+        let mut found = Vec::new();
+        for (pid, app_name) in apps {
+            // SAFETY: a live pid from the process list a moment ago.
+            let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
+            let mut areas = Vec::new();
+            let mut budget = MAX_NODES;
+            find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+
+            for area in areas {
+                let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+                let Some(source) = source_for(&url) else {
+                    continue;
+                };
+                let mut fields = Vec::new();
+                let mut budget = MAX_NODES;
+                collect_text_inputs(area.as_raw(), &mut fields, &mut budget);
+
+                // The composer is the last editable node on the page on all
+                // three sites: everything above it is the transcript.
+                if let Some(field) = fields.pop() {
+                    found.push((
+                        app_name.clone(),
+                        source,
+                        Element::retained(area.as_raw()),
+                        field,
+                    ));
+                }
+            }
+        }
+        found
+    }
+
+    #[cfg(test)]
+    fn press(keystroke: &str) -> Result<(), String> {
+        let out = std::process::Command::new("/usr/bin/osascript")
+            .args(["-e", &format!("tell application \"System Events\" to {keystroke}")])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+        }
+    }
+
     /**
-     * ── Does a synthesised paste land where the direct write did not? ───────
+     * ── Does a synthesised paste land, and does the message then send? ──────
      *
-     * `real_write` proved AXUIElementSetAttributeValue reports success and
-     * changes nothing: these composers are React-managed and never see the
-     * write. This is the other way in, and it is what a person does: put the
-     * text on the pasteboard and press the paste shortcut.
+     * `real_write` proved the direct accessibility write is dead: settable,
+     * reports success, changes nothing, because these composers are
+     * React-managed and never see it. This is the other route, the one a
+     * person uses: the pasteboard and the paste shortcut. The paste half has
+     * been confirmed by hand on ChatGPT. This closes the other half.
      *
-     * No new dependency. The keystroke goes through System Events, which needs
-     * the Apple Events entitlement the app already declares and the
-     * Accessibility grant it already has.
+     * Landing is not the question. A composer holding text that never leaves
+     * it is a worse outcome than nothing, because the handover would look
+     * finished and would not have happened.
+     *
+     * Two facts together mean it sent, and either alone does not: the probe
+     * has left the composer, and the probe is now in the transcript. A cleared
+     * composer on its own could be the site discarding the text.
      *
      * ── Why this refuses to answer more often than it answers ───────────────
      * A paste test that is not aimed at a composer reports "it did not land",
-     * which is the same sentence a real failure produces and means something
-     * completely different. The first run of this test said exactly that while
-     * Safari was showing a fullscreen video: the keystroke went to a video
-     * player, and the tree held the player's web area rather than the tab that
-     * AppleScript called current.
+     * which is the sentence a real failure prints and means something
+     * completely different. The first version said exactly that while Safari
+     * was showing a fullscreen video: the keystroke went to a video player,
+     * and the tree held the player's web area rather than the tab AppleScript
+     * called current. So the aim is checked before the shot. If no supported
+     * composer is reachable, nothing is typed and nothing is claimed.
      *
-     * So the aim is checked before the shot. If no supported composer is in
-     * front, nothing is typed and nothing is claimed.
-     *
-     * Open a blank ChatGPT, Claude or Gemini, leave it frontmost and click the
-     * message box, then:
+     * This sends one real message, the probe text, to whichever account is
+     * signed in. Open a blank chat, click the message box, leave it frontmost:
      *   cargo test --lib real_paste -- --ignored --nocapture
      */
     #[test]
@@ -2154,54 +2211,16 @@ mod tests {
             return;
         }
 
-        // Aim first. Every composer reachable right now, with its source.
-        let composers = |probe: Option<&str>| -> Vec<(String, String, String)> {
-            let apps = readable_processes();
-            for (pid, _) in &apps {
-                enable_web_content(*pid);
-            }
-            std::thread::sleep(TREE_BUILD_WAIT);
-
-            let mut found = Vec::new();
-            for (pid, app_name) in apps {
-                // SAFETY: a live pid from the process list a moment ago.
-                let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
-                let mut areas = Vec::new();
-                let mut budget = MAX_NODES;
-                find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
-
-                for area in &areas {
-                    let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
-                    let Some(source) = source_for(&url) else {
-                        continue;
-                    };
-                    let mut fields = Vec::new();
-                    let mut budget = MAX_NODES;
-                    collect_text_inputs(area.as_raw(), &mut fields, &mut budget);
-
-                    for field in &fields {
-                        let value = string_attribute(field.as_raw(), kAXValueAttribute)
-                            .unwrap_or_default();
-                        if probe.is_none_or(|p| value.contains(p)) {
-                            found.push((app_name.clone(), source.to_string(), url.clone()));
-                        }
-                    }
-                }
-            }
-            found
-        };
-
-        let before = composers(None);
-        if before.is_empty() {
+        let aimed = reachable_composers();
+        let Some((app_name, source, area, composer)) = aimed.into_iter().next() else {
             println!("\n  NO RESULT: no assistant composer is reachable.");
             println!("  Open ChatGPT, Claude or Gemini in a browser, click the");
             println!("  message box, leave it frontmost, and run this again.");
             println!("  A blind paste would land somewhere unknown, so none was sent.\n");
             return;
-        }
-        for (app, source, url) in &before {
-            println!("\n  aiming at {app}: {source} ({url})");
-        }
+        };
+        println!("\n  aiming at {app_name}: {source}");
+        println!("  this sends one real message to that account.");
 
         // Text, not a file. `quick_grab::put_on_clipboard` writes a file URL,
         // which is right for attaching and wrong for typing into a box.
@@ -2218,41 +2237,43 @@ mod tests {
             }
         }
 
-        let sent = std::process::Command::new("/usr/bin/osascript")
-            .args([
-                "-e",
-                "tell application \"System Events\" to keystroke \"v\" using command down",
-            ])
-            .output();
-
-        match &sent {
-            Ok(out) if out.status.success() => println!("  sent the paste shortcut"),
-            Ok(out) => {
-                println!(
-                    "\n  NO RESULT: osascript refused: {}\n",
-                    String::from_utf8_lossy(&out.stderr).trim()
-                );
-                return;
-            }
-            Err(e) => {
-                println!("\n  NO RESULT: could not run osascript: {e}\n");
-                return;
-            }
+        if let Err(e) = press("keystroke \"v\" using command down") {
+            println!("\n  NO RESULT: the paste shortcut was refused: {e}\n");
+            return;
         }
-
         std::thread::sleep(std::time::Duration::from_millis(900));
 
-        // Did it reach the page? After a real paste the DOM genuinely changes,
-        // so if accessibility can see the text now, React saw it too, which is
-        // the whole question.
-        let after = composers(Some(PROBE));
-        if after.is_empty() {
+        let in_composer = || {
+            string_attribute(composer.as_raw(), kAXValueAttribute)
+                .unwrap_or_default()
+                .contains(PROBE)
+        };
+        if !in_composer() {
             println!("\n  IT DID NOT LAND. The composer is unchanged.\n");
-        } else {
-            for (app, source, _) in &after {
-                println!("\n  IT LANDED in {app}: {source}.");
-            }
-            println!("  Press return by hand to find out whether it also sends.\n");
+            return;
+        }
+        println!("  it landed in the composer.");
+
+        if let Err(e) = press("keystroke return") {
+            println!("\n  LANDED, SEND UNTESTED: return was refused: {e}\n");
+            return;
+        }
+        // Long enough for the turn to render, short enough to stay a test.
+        std::thread::sleep(std::time::Duration::from_secs(3));
+
+        let left_composer = !in_composer();
+        let in_transcript = collect(area.as_raw())
+            .iter()
+            .any(|node| node.text.contains(PROBE));
+
+        match (left_composer, in_transcript) {
+            (true, true) => println!("\n  IT SENT on {source}.\n"),
+            (false, _) => println!(
+                "\n  IT DID NOT SEND on {source}. The text is still in the composer.\n"
+            ),
+            (true, false) => println!(
+                "\n  UNCLEAR on {source}: the composer cleared but no turn appeared.\n"
+            ),
         }
     }
 
