@@ -24,6 +24,23 @@ node_modules/
 # Local build output. Vercel runs its own build.
 dist/
 
+# ── Why release/ is not here, and why git cannot deploy this site ───────────
+#
+# release/*.dmg is excluded by .gitignore — ~5MB each, and they are what took
+# .git to 2.66GB — but deliberately NOT excluded here, so a CLI deploy from
+# the machine that just built them carries them up and copy-web-assets.mjs
+# puts them in dist/downloads.
+#
+# The consequence is that a build from GitHub has no disk images and cannot
+# have any, so a git-triggered deploy publishes a site whose Download button
+# 404s. That happened after 0.9.8: the release deployed and verified both
+# images at 200, three unrelated pushes later the URL was a 404, the SPA
+# served an HTML page in its place, and the file people downloaded was 4KB.
+#
+# So vercel.json sets "github": { "enabled": false } and scripts/release.sh is
+# the only thing that publishes. JSON has no comments, which is why this note
+# lives here; src/lib/deploy.test.ts asserts both halves still agree.
+
 # Credentials, in case an ignore rule is ever loosened elsewhere.
 .env
 .env.*

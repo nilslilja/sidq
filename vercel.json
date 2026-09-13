@@ -2,26 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build:web",
 
-  "_comment_github": [
-    "Git pushes must not deploy this site, and that is not a preference.",
-    "",
-    "The installers live in release/, which .gitignore excludes because they are",
-    "~5MB each and are what took .git to 2.66GB. .vercelignore deliberately does",
-    "NOT exclude them, so a CLI deploy from a machine that has just built them",
-    "uploads them and copy-web-assets.mjs puts them in dist/downloads.",
-    "",
-    "A build from GitHub has no release/*.dmg and cannot have one. So every",
-    "git-triggered deploy either fails or publishes a site whose Download button",
-    "404s, and a push of an unrelated copy change silently replaces a working",
-    "deploy with a broken one. That is exactly what happened after 0.9.8: the",
-    "release deployed and verified 200, three pushes later the DMG was a 404 and",
-    "the file people downloaded was 4KB.",
-    "",
-    "So the only thing that publishes is scripts/release.sh. If the site should",
-    "ever deploy from git again, downloads have to stop being built artifacts",
-    "first: point VITE_RELEASE_BASE at GitHub Releases, which copy-web-assets.mjs",
-    "already supports, and then turn this back on."
-  ],
   "github": {
     "enabled": false
   },
