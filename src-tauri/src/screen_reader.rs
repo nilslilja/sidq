@@ -1401,9 +1401,11 @@ mod tests {
             let mut areas = Vec::new();
             let mut budget = MAX_NODES;
             find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+            println!("  {app_name} (pid {pid}): {} web areas", areas.len());
 
             for area in &areas {
                 let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+                println!("  {app_name}: web area url = {url:?}");
                 let Some(source) = source_for(&url) else {
                     continue;
                 };
@@ -2023,6 +2025,7 @@ mod tests {
             let mut areas = Vec::new();
             let mut budget = MAX_NODES;
             find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+            println!("  {app_name} (pid {pid}): {} web areas", areas.len());
 
             if !areas.is_empty() {
                 println!("  {app_name}: {} web areas", areas.len());
@@ -2111,6 +2114,146 @@ mod tests {
             println!("\n  nothing was written. Open a blank assistant in a browser first.");
         }
         println!();
+    }
+
+
+    /**
+     * ── Does a synthesised paste land where the direct write did not? ───────
+     *
+     * `real_write` proved AXUIElementSetAttributeValue reports success and
+     * changes nothing: these composers are React-managed and never see the
+     * write. This is the other way in, and it is what a person does: put the
+     * text on the pasteboard and press the paste shortcut.
+     *
+     * No new dependency. The keystroke goes through System Events, which needs
+     * the Apple Events entitlement the app already declares and the
+     * Accessibility grant it already has.
+     *
+     * ── Why this refuses to answer more often than it answers ───────────────
+     * A paste test that is not aimed at a composer reports "it did not land",
+     * which is the same sentence a real failure produces and means something
+     * completely different. The first run of this test said exactly that while
+     * Safari was showing a fullscreen video: the keystroke went to a video
+     * player, and the tree held the player's web area rather than the tab that
+     * AppleScript called current.
+     *
+     * So the aim is checked before the shot. If no supported composer is in
+     * front, nothing is typed and nothing is claimed.
+     *
+     * Open a blank ChatGPT, Claude or Gemini, leave it frontmost and click the
+     * message box, then:
+     *   cargo test --lib real_paste -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_paste() {
+        const PROBE: &str = "SIDQ PASTE TEST";
+
+        if !is_trusted() {
+            println!("\n  NO RESULT: this process has no Accessibility grant.\n");
+            return;
+        }
+
+        // Aim first. Every composer reachable right now, with its source.
+        let composers = |probe: Option<&str>| -> Vec<(String, String, String)> {
+            let apps = readable_processes();
+            for (pid, _) in &apps {
+                enable_web_content(*pid);
+            }
+            std::thread::sleep(TREE_BUILD_WAIT);
+
+            let mut found = Vec::new();
+            for (pid, app_name) in apps {
+                // SAFETY: a live pid from the process list a moment ago.
+                let app = Element::owned(unsafe { AXUIElementCreateApplication(pid) });
+                let mut areas = Vec::new();
+                let mut budget = MAX_NODES;
+                find_web_areas(app.as_raw(), 0, &mut areas, &mut budget);
+
+                for area in &areas {
+                    let url = url_attribute(area.as_raw(), "AXURL").unwrap_or_default();
+                    let Some(source) = source_for(&url) else {
+                        continue;
+                    };
+                    let mut fields = Vec::new();
+                    let mut budget = MAX_NODES;
+                    collect_text_inputs(area.as_raw(), &mut fields, &mut budget);
+
+                    for field in &fields {
+                        let value = string_attribute(field.as_raw(), kAXValueAttribute)
+                            .unwrap_or_default();
+                        if probe.is_none_or(|p| value.contains(p)) {
+                            found.push((app_name.clone(), source.to_string(), url.clone()));
+                        }
+                    }
+                }
+            }
+            found
+        };
+
+        let before = composers(None);
+        if before.is_empty() {
+            println!("\n  NO RESULT: no assistant composer is reachable.");
+            println!("  Open ChatGPT, Claude or Gemini in a browser, click the");
+            println!("  message box, leave it frontmost, and run this again.");
+            println!("  A blind paste would land somewhere unknown, so none was sent.\n");
+            return;
+        }
+        for (app, source, url) in &before {
+            println!("\n  aiming at {app}: {source} ({url})");
+        }
+
+        // Text, not a file. `quick_grab::put_on_clipboard` writes a file URL,
+        // which is right for attaching and wrong for typing into a box.
+        {
+            use objc2_app_kit::NSPasteboard;
+            use objc2_foundation::NSString;
+            let pb = NSPasteboard::generalPasteboard();
+            unsafe {
+                pb.clearContents();
+                pb.setString_forType(
+                    &NSString::from_str(PROBE),
+                    objc2_app_kit::NSPasteboardTypeString,
+                );
+            }
+        }
+
+        let sent = std::process::Command::new("/usr/bin/osascript")
+            .args([
+                "-e",
+                "tell application \"System Events\" to keystroke \"v\" using command down",
+            ])
+            .output();
+
+        match &sent {
+            Ok(out) if out.status.success() => println!("  sent the paste shortcut"),
+            Ok(out) => {
+                println!(
+                    "\n  NO RESULT: osascript refused: {}\n",
+                    String::from_utf8_lossy(&out.stderr).trim()
+                );
+                return;
+            }
+            Err(e) => {
+                println!("\n  NO RESULT: could not run osascript: {e}\n");
+                return;
+            }
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(900));
+
+        // Did it reach the page? After a real paste the DOM genuinely changes,
+        // so if accessibility can see the text now, React saw it too, which is
+        // the whole question.
+        let after = composers(Some(PROBE));
+        if after.is_empty() {
+            println!("\n  IT DID NOT LAND. The composer is unchanged.\n");
+        } else {
+            for (app, source, _) in &after {
+                println!("\n  IT LANDED in {app}: {source}.");
+            }
+            println!("  Press return by hand to find out whether it also sends.\n");
+        }
     }
 
 }
