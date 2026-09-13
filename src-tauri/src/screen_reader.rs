@@ -2243,16 +2243,18 @@ mod tests {
         }
         std::thread::sleep(std::time::Duration::from_millis(900));
 
-        let in_composer = || {
-            string_attribute(composer.as_raw(), kAXValueAttribute)
+        let holds_probe = |field: &Element| {
+            string_attribute(field.as_raw(), kAXValueAttribute)
                 .unwrap_or_default()
                 .contains(PROBE)
         };
-        if !in_composer() {
+        if !holds_probe(&composer) {
             println!("\n  IT DID NOT LAND. The composer is unchanged.\n");
             return;
         }
         println!("  it landed in the composer.");
+        drop(area);
+        drop(composer);
 
         if let Err(e) = press("keystroke return") {
             println!("\n  LANDED, SEND UNTESTED: return was refused: {e}\n");
@@ -2261,10 +2263,20 @@ mod tests {
         // Long enough for the turn to render, short enough to stay a test.
         std::thread::sleep(std::time::Duration::from_secs(3));
 
-        let left_composer = !in_composer();
-        let in_transcript = collect(area.as_raw())
-            .iter()
-            .any(|node| node.text.contains(PROBE));
+        // Walked again from the application, never through the elements found
+        // before the send. Sending starts a conversation, which moves the tab
+        // from the site's root to a conversation URL and rebuilds the tree
+        // underneath; the earlier refs answer for a page that is gone, and
+        // they answer emptily, which reads exactly like a message that never
+        // arrived. That is what made the first run of this say UNCLEAR about
+        // a send that visibly worked.
+        let after = reachable_composers();
+        let left_composer = !after.iter().any(|(_, _, _, field)| holds_probe(field));
+        let in_transcript = after.iter().any(|(_, _, area, _)| {
+            collect(area.as_raw())
+                .iter()
+                .any(|node| node.text.contains(PROBE))
+        });
 
         match (left_composer, in_transcript) {
             (true, true) => println!("\n  IT SENT on {source}.\n"),
