@@ -134,6 +134,7 @@ const bridge: Partial<OnboardingBridge> = {
    */
   handoverTextFor: vi.fn(async () => "# Carry on\n\nthe whole conversation"),
   openAssistantInBrowser: vi.fn(async () => {}),
+  carryIntoBrowser: vi.fn(async () => true),
   indexStats: vi.fn(async () => [16, 5414] as [number, number]),
   expandPill: vi.fn(async () => {}),
   hidePill: vi.fn(async () => {}),
@@ -619,8 +620,14 @@ describe("the escape hatch", () => {
      * The person's own browser, where they are actually signed in. Sidq's
      * webview may never have been, and typing a conversation into a logged-out
      * page while reporting success is the failure this replaced.
+     *
+     * And the text goes with it, because the handover used to end one step
+     * short and leave the last press to them.
      */
-    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("chatgpt");
+    expect(bridge.carryIntoBrowser).toHaveBeenCalledWith(
+      "chatgpt",
+      "# Carry on\n\nthe whole conversation",
+    );
     expect(bridge.hidePill).toHaveBeenCalled();
   });
 
@@ -635,7 +642,7 @@ describe("the escape hatch", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
 
-    expect(bridge.openAssistantInBrowser).not.toHaveBeenCalled();
+    expect(bridge.carryIntoBrowser).not.toHaveBeenCalled();
   });
 
   test("it carries the conversation it just saved, not whatever row is under the cursor", async () => {
@@ -679,7 +686,10 @@ describe("the escape hatch", () => {
 
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
-    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("grok");
+    expect(bridge.carryIntoBrowser).toHaveBeenCalledWith(
+      "grok",
+      expect.any(String),
+    );
   });
 
   test("a leftward arrow at the start wraps rather than doing nothing", async () => {
@@ -733,7 +743,10 @@ describe("the escape hatch", () => {
     expect(refused).toHaveAttribute("aria-checked", "false");
     fireEvent.keyDown(box, { key: "Enter" });
     await settle();
-    expect(bridge.openAssistantInBrowser).toHaveBeenCalledWith("chatgpt");
+    expect(bridge.carryIntoBrowser).toHaveBeenCalledWith(
+      "chatgpt",
+      expect.any(String),
+    );
   });
 
   test("the refusing cell cannot be reached by a digit either", async () => {

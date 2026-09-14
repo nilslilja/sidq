@@ -1283,6 +1283,55 @@ fn open_assistant_in_browser(app: tauri::AppHandle, id: String) -> Result<(), St
 }
 
 /**
+ * Open the assistant and put the handover in its box, without being asked twice.
+ *
+ * ── Why this exists, and what it is not ─────────────────────────────────────
+ * The handover has always ended one step short. Sidq compiled it, copied it,
+ * opened the browser, and then a person pressed ⌘V. One press, and small, and
+ * it is also the seam: everything before it is the product working and the
+ * press is the part somebody has to be told about.
+ *
+ * This closes it with the route proven by hand on Saturday. It is emphatically
+ * **not** the thing `open_assistant_in_browser` warns about above: nothing is
+ * typed into Sidq's own webview, where a person is not signed in. This types
+ * into their real browser, where they already are.
+ *
+ * ── Every way it declines ───────────────────────────────────────────────────
+ * Returns false rather than failing. The text is on the clipboard before this
+ * is called, so declining costs a keystroke and nothing else, and there are
+ * several honest reasons to decline: the page never settles, somebody clicks
+ * away, somebody starts typing. `await_empty_composer` is watching for an empty
+ * box on the right page, so all three end the wait by making it disagree.
+ *
+ * It never sends. `false`, and a test in `ambient` reads this call site.
+ */
+#[tauri::command]
+async fn carry_into_browser(app: tauri::AppHandle, id: String, text: String) -> bool {
+    if open_assistant_in_browser(app, id.clone()).is_err() {
+        return false;
+    }
+
+    // Long enough for a cold browser to open a tab and render, short enough
+    // that somebody who changed their mind is not held up by it.
+    const SETTLE: std::time::Duration = std::time::Duration::from_secs(8);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(assistant) = assistants::find(&id) else {
+            return false;
+        };
+        let Some(source) = screen_reader::source_for(assistant.url) else {
+            return false;
+        };
+        if !screen_reader::await_empty_composer(source, SETTLE) {
+            return false;
+        }
+        sidq::paste::into_focused(&text, false).is_ok()
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/**
  * Open an assistant inside Sidq instead.
  *
  * Kept for accounts that sign in with an email and a password, where the
@@ -3094,6 +3143,7 @@ fn main() {
             assistant_list,
             open_assistant,
             open_assistant_in_browser,
+            carry_into_browser,
             import_export,
             handover_text,
             set_desktop_session,

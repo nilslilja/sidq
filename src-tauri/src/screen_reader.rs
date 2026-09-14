@@ -1060,6 +1060,43 @@ pub fn empty_composer_page() -> Option<String> {
     None
 }
 
+/// Is the page at `url` the assistant `source` names?
+///
+/// Compared through `source_for` rather than by prefix, because by the time
+/// somebody has sent anything the address is `chatgpt.com/c/<id>` and a prefix
+/// test against `chatgpt.com/` stops matching the moment it matters.
+pub fn page_belongs_to(url: &str, source: &str) -> bool {
+    source_for(url).is_some_and(|found| found == source)
+}
+
+/**
+ * Wait for an empty message box on `source` to take focus, or give up.
+ *
+ * ── Why a bounded wait and not a watcher ────────────────────────────────────
+ * This is the gap between opening a browser and the page being ready to type
+ * in, which is a second or two and is over. A notification-based observer would
+ * be correct and would also need a lifetime, a registration and a teardown for
+ * something that is finished before any of that pays for itself. This asks a
+ * few times and stops.
+ *
+ * It stops for good reasons as well as bad ones. Somebody who clicks away, or
+ * who starts typing before the page settles, ends the wait by making
+ * `empty_composer_page` disagree, and the caller falls back to the clipboard,
+ * which is where the text already is.
+ */
+pub fn await_empty_composer(source: &str, give_up_after: std::time::Duration) -> bool {
+    const ASK_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
+
+    let deadline = std::time::Instant::now() + give_up_after;
+    while std::time::Instant::now() < deadline {
+        if empty_composer_page().is_some_and(|url| page_belongs_to(&url, source)) {
+            return true;
+        }
+        std::thread::sleep(ASK_EVERY);
+    }
+    false
+}
+
 /// One attribute that is itself an element, retained for the caller.
 fn element_attribute(element: AXUIElementRef, name: &str) -> Option<Element> {
     let value = attribute(element, name)?;
@@ -2370,6 +2407,25 @@ mod tests {
                 "\n  UNCLEAR on {source}: the composer cleared but no turn appeared.\n"
             ),
         }
+    }
+
+
+    #[test]
+    fn a_started_conversation_still_belongs_to_its_assistant() {
+        // A prefix test against the assistant's landing URL stops matching the
+        // moment somebody sends, which is exactly when this is asked.
+        assert!(page_belongs_to(
+            "https://chatgpt.com/c/6a58d612-6a10-83eb-ba16-a25d6f94eb61",
+            "chatgpt"
+        ));
+        assert!(page_belongs_to("https://chatgpt.com/", "chatgpt"));
+    }
+
+    #[test]
+    fn a_different_assistant_is_not_a_match() {
+        assert!(!page_belongs_to("https://claude.ai/new", "chatgpt"));
+        assert!(!page_belongs_to("https://news.ycombinator.com/", "chatgpt"));
+        assert!(!page_belongs_to("", "chatgpt"));
     }
 
 }

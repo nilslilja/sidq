@@ -680,7 +680,20 @@ export function Pill() {
       }
 
       playCue("done");
-      void bridge?.openAssistantInBrowser(assistant);
+
+      /*
+       * ── The last step, which used to be theirs ───────────────────────────
+       *
+       * This ended with the browser opening and a person pressing ⌘V. One
+       * press, and also the seam: everything before it was the product
+       * working and that press was the part somebody had to be told about.
+       *
+       * `carryIntoBrowser` opens the same real browser and puts the text in
+       * the box itself. It declines for ordinary reasons, the page not
+       * settling or them starting to type, and the clipboard write above is
+       * why declining costs a keystroke rather than the handover.
+       */
+      void bridge?.carryIntoBrowser(assistant, text);
       void bridge?.hidePill();
     },
     [bridge, phase],

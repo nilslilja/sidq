@@ -486,6 +486,14 @@ export interface OnboardingBridge {
    * at all.
    */
   openAssistantInBrowser: (id: string) => Promise<void>;
+  /**
+   * Open the assistant and put `text` in its box, closing the last step.
+   *
+   * Resolves false when it declined, which is ordinary: the page never
+   * settled, they clicked away, they started typing. The text is on the
+   * clipboard either way, so declining costs one keystroke.
+   */
+  carryIntoBrowser: (id: string, text: string) => Promise<boolean>;
   /** Open one inside Sidq instead. Fine for email and password accounts. */
   openAssistant: (id: string) => Promise<void>;
   /** The plan, as Rust understands it. Read for wording, never for gating. */
@@ -869,6 +877,8 @@ export function desktopBridge(): OnboardingBridge | null {
     openAssistantInBrowser: async (id) => {
       await invoke("open_assistant_in_browser", { id });
     },
+    carryIntoBrowser: async (id, text) =>
+      (await invoke("carry_into_browser", { id, text })) === true,
     openAssistant: async (id) => {
       await invoke("open_assistant", { id });
     },
