@@ -1116,4 +1116,51 @@ mod profile_timing {
             );
         }
     }
+
+    /**
+     * ── Is there a verdict in a real index, or only a year in review? ────────
+     *
+     * The pivot rests on one claim: that what somebody has said to an assistant,
+     * read back, is uncomfortable enough to be worth sharing. That claim is
+     * cheap to make and cheap to check, and checking it against a real machine
+     * before building anything is the same discipline that killed the direct
+     * accessibility write in a morning.
+     *
+     * Runs the real extractor over every project at once rather than one, which
+     * is the shape the verdict needs and the shape nothing calls today.
+     *
+     *   cargo test --lib real_verdict -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore]
+    fn real_verdict() {
+        let Some(conn) = crate::index_store::open() else {
+            println!("\n  NO RESULT: no index on this machine.\n");
+            return;
+        };
+
+        let mut turns: Vec<(String, String)> = Vec::new();
+        for project in crate::index_store::projects(&conn, 200) {
+            turns.extend(crate::index_store::own_turns_for_project(
+                &conn,
+                &project.path,
+                5_000,
+            ));
+        }
+        println!("\n  {} of your own messages, across every project.", turns.len());
+
+        let injected = turns.iter().filter(|(_, b)| super::is_injected(b)).count();
+        println!("  {injected} of them are machinery and are excluded.");
+
+        let facts = super::build(&turns, 40);
+        println!("  {} facts extracted.\n", facts.len());
+
+        for fact in &facts {
+            let text = fact.text.replace('\n', " ");
+            let text: String = text.chars().take(110).collect();
+            println!("  [{:>2} conversations] {}", fact.conversations, text);
+        }
+        println!();
+    }
+
 }
