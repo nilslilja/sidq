@@ -24,14 +24,14 @@ Missing supabase/.env.functions
   cp supabase/.env.functions.example supabase/.env.functions
 
 Then fill it in and run this again. That file is gitignored and must stay that
-way: it holds the Anthropic key, which is billed per token, and the Stripe
-secret key, which can move money.
+way: it holds the Stripe secret key, which can move money, and the Resend key,
+which can send mail as you.
 MSG
   exit 1
 fi
 
-# Refuse to continue if the secrets file would be committed. A leaked Anthropic
-# key is somebody else's bill; a leaked Stripe key is worse.
+# Refuse to continue if the secrets file would be committed. A leaked Stripe key
+# can move money; a leaked Resend key can send mail that looks like yours.
 if git check-ignore -q "$SECRETS_FILE"; then
   :
 else
@@ -66,13 +66,13 @@ echo "==> Setting function secrets"
 $CLI secrets set --env-file "$SECRETS_FILE"
 
 echo "==> Deploying functions"
-# generate-day is the one that matters: without it the app silently falls back
-# to the local planner and every plan is generic.
-# Only the two that still exist. The others served the planner, the morning
-# ritual, the coach dashboard and the voice, all of which are deleted — and
-# deploying them would demand an Anthropic key, VAPID keys and an ElevenLabs key
-# for features nobody can reach.
-for fn in create-checkout stripe-webhook; do
+# Every function in supabase/functions, and only those.
+#
+# This listed two for a while, while three more were live and had been deployed
+# by hand — so the script that claimed to deploy the backend could not have
+# rebuilt it. The list is the directory now, minus `_shared`, so a new function
+# cannot be added without being deployed by the one command meant to do it.
+for fn in $(ls supabase/functions | grep -v '^_'); do
   echo "    $fn"
   # The webhook is called by Stripe, which cannot present a user JWT.
   if [ "$fn" = "stripe-webhook" ]; then
@@ -86,10 +86,13 @@ cat <<'MSG'
 
 Done.
 
-Check it worked: open the app, click "Build today's plan", and confirm the tasks
-are about your actual goals rather than the generic fallback set. If they are
-still generic, the function is deployed but ANTHROPIC_API_KEY is missing or
-wrong, and the function is falling back rather than erroring.
+Check it worked, cheapest first:
 
-  npx supabase@2 functions logs generate-day
+  npx supabase@2 functions list          # every function ACTIVE
+  npx supabase@2 secrets list            # names only; values are never shown
+
+Then the one that matters: open https://www.sidq.tech/upgrade signed in, press
+a plan, and confirm Stripe's checkout page opens. If it does not, the browser
+console will name the reason — a CORS refusal means ALLOWED_ORIGINS is missing
+the site you pressed it from.
 MSG

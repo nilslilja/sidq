@@ -67,12 +67,15 @@ them. Founders and developers first, because they feel it daily.
 
 **Blocked on you, not on code:**
 
-1. **`RESEND_API_KEY` is unset.** The waitlist records the address and the
-   function reports `sent: false`. Anybody who signed up is waiting on a link
-   that has to be sent by hand until this is set.
-2. **No real card has gone through Stripe.** It is in live mode.
-3. **Nothing since 0.1.51 is shipped.** The perf fix and Duo are in the binary,
-   so they need a release, not just a site deploy.
+1. **No real card has gone through Stripe.** It is in live mode, and as of
+   23 September every secret it needs is set in production: the secret key,
+   the webhook signing secret, the Pro monthly, Pro annual and Duo prices, and
+   `ALLOWED_ORIGINS` covering both www.sidq.tech and sidq.tech. The checkout
+   is ready. Nobody has used it.
+
+*Resolved since this was written:* `RESEND_API_KEY` and `MAIL_FROM` were set
+on 3 September, so the waitlist does send. And "nothing since 0.1.51 is
+shipped" is long out of date — releases reached 0.9.x.
 
 **Unverified rather than broken:**
 
@@ -109,6 +112,7 @@ them. Founders and developers first, because they feel it daily.
 
 1. **Ship it.** The perf fix alone is the difference between the shortcut feeling
    instant and feeling broken, and it is sitting in the repository.
-2. **Set `RESEND_API_KEY`** and send the backlog by hand.
+2. **Send by hand anything the waitlist collected before 3 September**, when
+   the mail key was set.
 3. **Put one real card through Stripe**, then decide whether Windows is worth it
    on the evidence rather than on two requests.
