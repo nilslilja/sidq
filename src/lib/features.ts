@@ -25,19 +25,35 @@ export const FEATURES = {
   /**
    * The team folder, seats and everything around them.
    *
-   * Nobody has bought one, and it is the largest block of concepts on the
-   * screen: a folder, a code, seats, who is in it, what gets shared into it.
+   * ── Why this is back on ────────────────────────────────────────────────
+   *
+   * It went off because nobody had bought one. That reasoning had a hole in
+   * it: nobody could. The tier is filtered out of `PLANS` by this flag, so the
+   * card never rendered, and the only two unprompted feature requests this
+   * product has ever received were both for team context.
+   *
+   * Direct outreach since then pointed at the same place from the other side:
+   * an individual with no personal stake in their own speed does not convert,
+   * and the people who do are organisations buying for the developers they
+   * employ. That is this tier.
+   *
+   * It is still the largest block of concepts on the screen. The difference is
+   * that it is now the block the identified buyer came asking for.
    */
-  team: false,
+  team: true,
 
   /**
    * Invites.
    *
-   * This one is not a judgement call. Invites grant extra weekly handovers,
-   * and there is no weekly handover cap on any plan any more — see
-   * `handovers_per_week` in entitlement.rs, which returns `None` for
-   * everybody. So the reward is for a limit that does not exist, which makes
-   * the whole panel a promise the product cannot keep.
+   * Invites grant extra weekly handovers. This was written when
+   * `handovers_per_week` returned `None` for everybody, which made the reward
+   * a prize for beating a limit that did not exist.
+   *
+   * That is no longer the state: Free is capped at five a week again. So the
+   * reasoning here is stale rather than wrong-headed, and this flag is now an
+   * open question instead of a settled one. Left off deliberately until the
+   * team tier has been sold to somebody, because a referral loop for a product
+   * with no customers refers nobody.
    */
   invites: false,
 

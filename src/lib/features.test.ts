@@ -19,22 +19,33 @@ import { PLANS } from "./plans";
  */
 
 describe("what the app actually ships", () => {
-  it("is dark on everything that is not the keystroke", () => {
+  it("shows the keystroke, and the tier somebody asked for", () => {
     /*
      * Written out one at a time rather than looped, because the point is to be
      * a list somebody reads before changing it. A flag flipped by accident
      * should fail here with the name of the thing it turned on.
+     *
+     * `team` is on deliberately. It was off on the grounds that nobody had
+     * bought one, which was true and unfalsifiable: the flag is what removes
+     * the card from the pricing page, so there was nothing to buy. The only
+     * two unprompted requests this product has received were both for it.
      */
-    expect(FEATURES.team).toBe(false);
+    expect(FEATURES.team).toBe(true);
     expect(FEATURES.invites).toBe(false);
     expect(FEATURES.sharing).toBe(false);
     expect(FEATURES.projectMemory).toBe(false);
   });
 
-  it("does not offer a tier it is not showing", () => {
-    // The pricing page and the sidebar have to agree. A Team card on the
-    // pricing page with no team panel in the app is a sale nobody can fulfil.
-    expect(PLANS.find((p) => p.id === "team")).toBeUndefined();
+  it("offers exactly the tiers it can actually fulfil", () => {
+    /*
+     * The pricing page and the sidebar have to agree, in both directions. A
+     * Team card with no team panel in the app is a sale nobody can fulfil; a
+     * team panel with no card is a feature nobody can buy, which is the state
+     * this was in while fifty people were being asked to pay.
+     */
+    expect(PLANS.find((p) => p.id === "team") !== undefined).toBe(
+      FEATURES.team,
+    );
   });
 
   it("still offers the tier the paywall is actually about", () => {
