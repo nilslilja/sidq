@@ -143,15 +143,17 @@ export function Privacy() {
       <P>
         What is counted is a fixed list of events with no text in them: the app was
         opened, setup reached a step, setup was finished, a handover was made, a memory was
-        taken, an
-        assistant was connected, how many conversations are indexed, the free weekly
-        limit was reached, the plans were opened. Each one carries a name from that list,
-        a number, and nothing else.
+        taken, an assistant was connected, how many conversations are indexed, the free
+        weekly limit was reached, the plans were opened, and an assistant you use stopped
+        you at its own limit, with how many minutes you had been working. Which assistant
+        it was is not sent. Each one carries a name from that list, a number, and nothing
+        else.
       </P>
       <List
         items={[
           'No conversation text, ever. Not a title, not a prompt, not a folder name, not a filename. The events are a fixed set in the code and none of them can hold text you wrote.',
           'A random identifier for this copy of the app, made on your machine. It is not your email, your account, your hostname or your hardware, so it cannot be matched to you by anybody holding it, including us.',
+          'The version of the app, and which plan it is on, so a problem can be tied to a release and a limit to the people it applies to.',
           'Nothing is sent while it is off, and turning it off deletes anything not yet sent.',
         ]}
       />

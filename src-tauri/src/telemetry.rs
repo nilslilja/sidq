@@ -725,6 +725,45 @@ mod tests {
         );
     }
 
+    /**
+     * The privacy policy names every event the app can send.
+     *
+     * The list in Settings reads its rows from `catalogue`, so it cannot fall
+     * behind. The policy is prose in `Legal.tsx` and nothing read it: when
+     * `AssistantStopped` was added, the app started sending an event the policy
+     * did not mention, and it stayed that way until somebody counted by hand.
+     *
+     * The match is exhaustive on purpose. A new variant is a compile error here
+     * until somebody writes down the sentence that discloses it.
+     */
+    #[test]
+    fn the_privacy_policy_names_every_event() {
+        let policy: String = include_str!("../../src/routes/Legal.tsx")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        for event in EVERY_EVENT {
+            let disclosed = match event {
+                Event::Opened => "the app was opened",
+                Event::Setup { .. } => "setup reached a step",
+                Event::Ready => "setup was finished",
+                Event::HandedOver { .. } => "a handover was made",
+                Event::MemoryTaken { .. } => "a memory was taken",
+                Event::Connected => "an assistant was connected",
+                Event::Indexed { .. } => "how many conversations are indexed",
+                Event::HitTheLimit => "the free weekly limit was reached",
+                Event::SawThePlans => "the plans were opened",
+                Event::AssistantStopped { .. } => "stopped you at its own limit",
+            };
+            assert!(
+                policy.contains(disclosed),
+                "{event:?} is sent but the privacy policy never says so \
+                 (looked for \"{disclosed}\" in Legal.tsx)"
+            );
+        }
+    }
+
     #[test]
     fn every_event_is_actually_counted_somewhere() {
         /*
