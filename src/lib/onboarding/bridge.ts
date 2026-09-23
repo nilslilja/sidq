@@ -49,6 +49,21 @@ export interface HandoverResult {
   wall?: string | null;
 }
 
+/**
+ * The clipboard handover, and what the plan said about it.
+ *
+ * Shaped like `HandoverResult` on purpose. The two routes out of the picker —
+ * Enter writes a file, ⌘Enter copies — are the same act, and for a while only
+ * one of them was counted or refused. A window that reads them differently is
+ * how that happens again.
+ */
+export interface ClipboardHandover {
+  text: string | null;
+  limited: boolean;
+  used: number;
+  cap: number | null;
+}
+
 /** What the plan allows. For describing only; every limit is applied in Rust. */
 /**
  * Your invite code and what it has earned.
@@ -275,11 +290,12 @@ export interface OnboardingBridge {
    */
   handoverText: (args: {
     sessionId: string;
+    title: string;
     source: string;
     resumePoint: string;
     when: string;
     project: string;
-  }) => Promise<string | null>;
+  }) => Promise<ClipboardHandover>;
   /**
    * Write the conversation to a file in Downloads and return its path.
    *
@@ -726,8 +742,11 @@ export function desktopBridge(): OnboardingBridge | null {
       return Array.isArray(rows) ? rows : [];
     },
     handoverText: async (args) => {
-      const text = await invoke("handover_text", args);
-      return typeof text === "string" ? text : null;
+      const out = (await invoke(
+        "handover_text",
+        args,
+      )) as ClipboardHandover | null;
+      return out ?? { text: null, limited: false, used: 0, cap: null };
     },
     saveTranscript: async (args) => {
       const out = (await invoke(

@@ -14,7 +14,7 @@
 //! Without that, indexing 29 conversations means reparsing about 50MB every few
 //! minutes, forever, on battery.
 
-use crate::{cursor_history, index_store, work_history};
+use crate::{cursor_history, index_store, thread, work_history};
 use rusqlite::Connection;
 
 /**
@@ -80,6 +80,16 @@ pub fn sweep(conn: &Connection) -> usize {
 
         let fingerprint = fingerprint_of(&session.session_id, session.ended_at, session.turns);
 
+        /*
+         * Asked before the write, because the write is what makes it false.
+         *
+         * Only a session the index has never seen may claim a thread. Without
+         * that, every sweep would re-offer the whole history to whatever is
+         * awaiting a continuation, and a handover made at lunch would adopt a
+         * conversation from last Tuesday that happens to share a project.
+         */
+        let first_sighting = !index_store::has_session(conn, &session.session_id);
+
         // Metadata is written every pass: it is small, and it keeps the picker
         // correct even for a conversation whose text has not changed.
         let _ = index_store::put_session(
@@ -94,6 +104,24 @@ pub fn sweep(conn: &Connection) -> usize {
             session.turns,
             session.active_minutes,
         );
+
+        /*
+         * The automatic half of a thread.
+         *
+         * Somebody hit a limit in one assistant, opened another, and started
+         * typing. This is that second session arriving. `claim` refuses unless
+         * something in the same project is genuinely awaiting a continuation
+         * and the wait has not gone stale, and it clears the flag on the first
+         * claim, so one handover adopts one continuation and no more.
+         */
+        if first_sighting {
+            let _ = thread::claim(
+                conn,
+                &session.session_id,
+                session.source,
+                &session.project,
+            );
+        }
 
         if index_store::is_current(conn, &session.session_id, &fingerprint) {
             continue;

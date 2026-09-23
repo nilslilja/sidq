@@ -28,7 +28,7 @@ mod pill_window;
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
     capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
-    burn, login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, wall,
+    burn, login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, thread, wall,
     work_history,
 };
 
@@ -537,11 +537,11 @@ async fn save_transcript(
 
         let written = write_handover(
             session_id.clone(),
-            title,
+            title.clone(),
             source.clone(),
             resume_point,
             when,
-            project,
+            project.clone(),
         );
 
         if let (Some(conn), Some(_)) = (conn.as_ref(), written.as_ref()) {
@@ -550,6 +550,29 @@ async fn save_transcript(
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
             let _ = index_store::record_handover(conn, &session_id, stamp);
+
+            /*
+             * The thread this handover belongs to, and the fact that it is
+             * waiting for whatever comes next.
+             *
+             * ── Why this call is the whole paid tier ────────────────────────
+             *
+             * `thread.rs` has been complete and tested since it was written and
+             * had no caller outside its own tests, so no thread could exist,
+             * `thread::recent` always returned empty, and `may_thread` — the
+             * one capability Pro buys — gated a feature that could never run.
+             * Fifty people were asked to pay for it. None of them could have
+             * received it.
+             *
+             * Deliberately not gated on `may_thread`. Recording is local, cheap
+             * and invisible; what is paid for is reading it back, which is
+             * already gated in mcp.rs. Gating the write instead would mean a
+             * new subscriber's first sight of the feature is an empty list,
+             * which is the same shape of bug as the one being fixed here.
+             */
+            let _ = thread::start(conn, &session_id, &title, &project)
+                .and_then(|id| thread::expect_continuation(conn, &id));
+
             telemetry::record(conn, telemetry::Event::HandedOver { attached: true });
 
             // The window is open and showing a number that has just changed.
@@ -785,28 +808,94 @@ async fn handover_text_for(
     .flatten()
 }
 
-/// The compiled handover, for the clipboard.
+/// The compiled handover for the clipboard, and what the plan had to say.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ClipboardHandover {
+    /// The handover. Absent when the limit refused it or the read failed.
+    text: Option<String>,
+    /// True when the weekly limit refused it, as opposed to a read failing.
+    limited: bool,
+    used: u32,
+    cap: Option<u32>,
+}
+
+/**
+ * The compiled handover, for the clipboard.
+ *
+ * ── Why this looks like `save_transcript` now ───────────────────────────────
+ *
+ * It used to compile and return the text with no limit check and no record of
+ * having happened. Enter went through `save_transcript` and was counted;
+ * ⌘Enter came through here and was not. So the free plan's only limit was
+ * five handovers a week or unlimited, depending which of two keys somebody
+ * pressed, and the faster one was the one that did not count.
+ *
+ * Both ways out of the picker are the same act and are now counted, refused
+ * and threaded in the same place. The window is told what happened and words
+ * it; it does not decide it.
+ */
 #[tauri::command]
 async fn handover_text(
     session_id: String,
+    title: String,
     source: String,
     resume_point: String,
     when: String,
     project: String,
-) -> Option<String> {
+) -> ClipboardHandover {
     tauri::async_runtime::spawn_blocking(move || {
-        // The clipboard half of the same act. Counted here rather than in the
-        // window, so that both ways out of the picker are counted in one place
-        // and neither depends on the page remembering to say so.
-        let text = build_handover(&session_id, &source, &resume_point, &when, &project);
-        if text.is_some() {
-            telemetry::count(telemetry::Event::HandedOver { attached: false });
+        let conn = index_store::open();
+        let plan = conn
+            .as_ref()
+            .map(entitlement::current)
+            .unwrap_or(entitlement::Plan::Free);
+
+        if let Some(conn) = conn.as_ref() {
+            if !entitlement::may_hand_over(conn, plan) {
+                telemetry::record(conn, telemetry::Event::HitTheLimit);
+                let (used, cap) = entitlement::handover_allowance(conn, plan);
+                return ClipboardHandover {
+                    text: None,
+                    limited: true,
+                    used,
+                    cap,
+                };
+            }
         }
-        text
+
+        let text = build_handover(&session_id, &source, &resume_point, &when, &project);
+
+        if let (Some(conn), Some(_)) = (conn.as_ref(), text.as_ref()) {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            let _ = index_store::record_handover(conn, &session_id, stamp);
+            let _ = thread::start(conn, &session_id, &title, &project)
+                .and_then(|id| thread::expect_continuation(conn, &id));
+            telemetry::record(conn, telemetry::Event::HandedOver { attached: false });
+        }
+
+        let (used, cap) = conn
+            .as_ref()
+            .map(|c| entitlement::handover_allowance(c, plan))
+            .unwrap_or((0, plan.handovers_per_week()));
+
+        ClipboardHandover {
+            text,
+            limited: false,
+            used,
+            cap,
+        }
     })
     .await
-    .ok()
-    .flatten()
+    .unwrap_or(ClipboardHandover {
+        text: None,
+        limited: false,
+        used: 0,
+        cap: None,
+    })
 }
 
 /// Build the file and put it in Downloads. The part that touches no limits.

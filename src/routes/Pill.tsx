@@ -714,21 +714,34 @@ export function Pill() {
        * and answers accordingly.
        */
       const id = target.session.sessionId;
-      const text = id
+      const out = id
         ? await bridge?.handoverText({
             sessionId: id,
+            title: target.session.title ?? "",
             source: target.session.source ?? "claude-code",
             resumePoint: target.session.lastPrompt || "",
             when: target.reason,
             project: target.session.projectName ?? "",
           })
         : null;
-      if (!text) {
+
+      /*
+       * The limit refuses both routes out of the picker, so both say so.
+       *
+       * This branch used to not exist, because this route was not checked at
+       * all: ⌘Enter was the way past the weekly cap and it was faster than the
+       * way into it.
+       */
+      if (out?.limited) {
+        setPhase({ kind: "limited", used: out.used, cap: out.cap ?? 0 });
+        return;
+      }
+      if (!out?.text) {
         setPhase({ kind: "failed" });
         return;
       }
 
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(out.text);
       playCue("done");
       setPhase({ kind: "done" });
 
@@ -1308,7 +1321,8 @@ export function Pill() {
             </p>
             <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/45">
               The count rolls, so the oldest one frees up seven days after you
-              made it. Pro removes the limit and the seven-day reach on search.
+              made it. Pro removes the limit, and carries the conversation on
+              into whatever you open next without you asking it to.
             </p>
             {/*
              * The plans, in a browser, not the app window.

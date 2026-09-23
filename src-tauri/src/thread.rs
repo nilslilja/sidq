@@ -131,6 +131,19 @@ pub fn of_session(conn: &Connection, session_id: &str) -> Option<String> {
  * intention: the claim below is bounded by how long ago this was.
  */
 pub fn expect_continuation(conn: &Connection, thread_id: &str) -> Option<()> {
+    // The other half of the empty-project guard in `claim`: a thread with no
+    // project can never legitimately be claimed, so it never starts waiting.
+    let project: String = conn
+        .query_row(
+            "SELECT project FROM threads WHERE thread_id = ?1",
+            [thread_id],
+            |r| r.get(0),
+        )
+        .unwrap_or_default();
+    if project.is_empty() {
+        return None;
+    }
+
     conn.execute(
         "UPDATE threads SET awaiting = ?1 WHERE thread_id = ?2",
         rusqlite::params![index_store::now_millis(), thread_id],
@@ -152,6 +165,20 @@ pub fn expect_continuation(conn: &Connection, thread_id: &str) -> Option<()> {
  */
 pub fn claim(conn: &Connection, session_id: &str, source: &str, project: &str) -> Option<String> {
     if of_session(conn, session_id).is_some() {
+        return None;
+    }
+
+    /*
+     * No project, no claim.
+     *
+     * Every conversation read out of a browser is stored with an empty project
+     * — `own_turns_by_project` substitutes the source for exactly this reason.
+     * Matching on it would make one empty string equal to every other, so the
+     * first unrelated chat indexed after a handover would join a thread it has
+     * nothing to do with. A missing thread is recoverable; a wrong one merges
+     * two conversations and reads as the product hallucinating.
+     */
+    if project.is_empty() {
         return None;
     }
 
@@ -436,6 +463,37 @@ mod tests {
         .unwrap();
     }
 
+    /**
+     * Something outside this file actually starts and claims threads.
+     *
+     * ── The state this module shipped in ────────────────────────────────────
+     *
+     * Complete, and called by nothing. `start`, `join`, `claim` and
+     * `expect_continuation` had no caller outside these tests, so no thread
+     * could ever exist and `recent` always returned empty. Every test below
+     * passed throughout, because they all check this file against itself and
+     * this file is not where threads are made.
+     *
+     * `may_thread` is the only capability Pro buys. Fifty people were asked to
+     * pay for it while it could not run. That is the bug this guards.
+     *
+     * Same trick as `telemetry::every_event_is_actually_counted_somewhere`, and
+     * for the same reason: a producer has to be read from where it is called,
+     * never from where it is defined.
+     */
+    #[test]
+    fn a_thread_is_actually_produced_somewhere() {
+        let callers = concat!(include_str!("main.rs"), include_str!("indexer.rs"));
+
+        for producer in ["thread::start", "thread::claim"] {
+            assert!(
+                callers.contains(producer),
+                "{producer} has no caller: threads cannot exist, and the paid \
+                 tier is empty again"
+            );
+        }
+    }
+
     #[test]
     fn a_conversation_that_moved_three_times_is_one_thread() {
         /*
@@ -498,6 +556,30 @@ mod tests {
             None,
             "a second session claimed it"
         );
+    }
+
+    /**
+     * A conversation with no project never joins anything.
+     *
+     * Browser sessions are all stored with an empty project — ChatGPT has no
+     * checkout, so there is nothing to record. Matching on that value makes
+     * every browser conversation identical to every other one, and the first
+     * unrelated chat indexed after a handover would be swallowed by it.
+     *
+     * Found by reading the wiring after it was written, not by a failing test,
+     * which is the reason this one exists.
+     */
+    #[test]
+    fn a_conversation_with_no_project_is_never_claimed() {
+        let conn = db();
+        a_session(&conn, "browser-one", "chatgpt");
+        a_session(&conn, "browser-two", "claude");
+
+        let id = start(&conn, "browser-one", "Pricing wording", "").unwrap();
+        // It refuses to even start waiting.
+        assert!(expect_continuation(&conn, &id).is_none());
+        assert!(claim(&conn, "browser-two", "claude", "").is_none());
+        assert!(of_session(&conn, "browser-two").is_none());
     }
 
     #[test]
