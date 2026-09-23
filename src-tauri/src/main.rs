@@ -65,10 +65,19 @@ use tauri_plugin_opener::OpenerExt;
 /*
  * Where you actually stopped.
  *
- * Opt-in and read-only. The heavy lifting is in work_history.rs, which reads
- * only a title, a last prompt, a project path and a branch out of transcripts
- * that contain entire working conversations. Nothing else is extracted and
- * nothing is uploaded.
+ * Read-only, and it reads the moment it is called. The heavy lifting is in
+ * work_history.rs, which takes only a title, a last prompt, a project path and
+ * a branch out of transcripts that contain entire working conversations.
+ * Nothing else is extracted and nothing is uploaded.
+ *
+ * This used to say "opt-in", which was not true of this function. There is no
+ * consent check here and there cannot usefully be one: `reads_browsers()`
+ * governs the screen reader, not transcripts already on disk, and the pill
+ * calls this legitimately every time it opens. The gate belongs to the caller,
+ * and onboarding is the caller that has to have one — it shows the count on the
+ * "Connect your AIs" step, so it must not ask before the person is standing on
+ * it. That gate is `step !== "sources"` in src/routes/Onboarding.tsx, pinned by
+ * Onboarding.test.tsx. It was missing once and a user noticed.
  *
  * Runs on a blocking task: this touches the filesystem and can scan tens of
  * megabytes, which must never happen on the UI thread.

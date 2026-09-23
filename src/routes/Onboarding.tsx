@@ -155,13 +155,22 @@ export default function Onboarding() {
     return () => clearInterval(timer);
   }, [bridge, step]);
 
+  /*
+   * Count what is already on this Mac, but only once the user has reached the
+   * screen that asks to read it.
+   *
+   * The gate is the whole point. This used to run on mount, which meant the
+   * transcripts were read while the sign-in step was still up and the answer
+   * was displayed a screen later on "Connect your AIs" — the consent screen it
+   * had already gone behind. A user reported exactly that.
+   */
   useEffect(() => {
-    if (!bridge) return;
+    if (!bridge || step !== "sources") return;
     void bridge
       .recentWork(20)
       .then((sessions) => setClaudeSessions(sessions.length))
       .catch(() => undefined);
-  }, [bridge]);
+  }, [bridge, step]);
 
   const index = stepIndex(step);
   const current = STEPS[index];
