@@ -74,14 +74,6 @@ pub fn start(conn: &Connection, session_id: &str, title: &str, project: &str) ->
         return Some(existing);
     }
 
-    let id = new_id()?;
-    let now = index_store::now_millis();
-    conn.execute(
-        "INSERT INTO threads (thread_id, started_at, title, project) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![id, now, title, project],
-    )
-    .ok()?;
-
     /*
      * The starting session's own assistant, looked up rather than passed in.
      *
@@ -89,14 +81,28 @@ pub fn start(conn: &Connection, session_id: &str, title: &str, project: &str) ->
      * member nobody could name: `state` headed it "another assistant" and the
      * summary read "another assistant and Cursor" for a thread that started in
      * Claude Code. The index already knows, so nothing had to be asked for.
+     *
+     * The project is looked up for the same reason. Callers pass the name a
+     * person uses, and `claim` is handed the working folder, so the thread is
+     * keyed by the folder whenever the index has one. Browser sessions have
+     * none and keep what was passed, which is empty, which `claim` refuses.
      */
-    let source: String = conn
+    let (source, path): (String, String) = conn
         .query_row(
-            "SELECT source FROM sessions WHERE session_id = ?1",
+            "SELECT source, project_path FROM sessions WHERE session_id = ?1",
             [session_id],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap_or_default();
+    let project = if path.is_empty() { project } else { path.as_str() };
+
+    let id = new_id()?;
+    let now = index_store::now_millis();
+    conn.execute(
+        "INSERT INTO threads (thread_id, started_at, title, project) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![id, now, title, project],
+    )
+    .ok()?;
 
     join(conn, &id, session_id, &source)?;
     Some(id)
@@ -580,6 +586,33 @@ mod tests {
         assert!(expect_continuation(&conn, &id).is_none());
         assert!(claim(&conn, "browser-two", "claude", "").is_none());
         assert!(of_session(&conn, "browser-two").is_none());
+    }
+
+    /**
+     * The two halves of a thread name the project differently, and must meet.
+     *
+     * The pill starts a thread with the name a person uses ("Sidq", from
+     * `projectName` in Pill.tsx). The indexer claims with the working folder
+     * (`session.project` in indexer.rs, an absolute path). Compared as given,
+     * they never match, so a handover waited twenty minutes for a continuation
+     * that could not arrive and every thread stayed one conversation long.
+     */
+    #[test]
+    fn a_thread_started_by_name_is_claimed_by_path() {
+        let conn = db();
+        conn.execute(
+            "INSERT INTO sessions (session_id, source, project, project_path)
+             VALUES ('walled', 'claude-code', 'Sidq', '/Users/someone/Sidq')",
+            [],
+        )
+        .unwrap();
+
+        // As the pill calls it.
+        let id = start(&conn, "walled", "Pricing", "Sidq").unwrap();
+        expect_continuation(&conn, &id).unwrap();
+
+        // As the indexer calls it.
+        assert_eq!(claim(&conn, "next", "cursor", "/Users/someone/Sidq"), Some(id));
     }
 
     #[test]
