@@ -9,7 +9,7 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{ambient, embed, index_store, indexer, memory, paste, semantic, telemetry, wall};
+use sidq::{ambient, embed, index_store, indexer, memory, paste, relay, semantic, telemetry, thread, wall};
 
 // The browser reader is the macOS Accessibility API and exists nowhere else.
 // Imported under the same gate as the thread that uses it, so that the absence
@@ -116,7 +116,11 @@ pub fn spawn(app: tauri::AppHandle) {
                         .unwrap_or(0);
 
                     telemetry::record(&conn, telemetry::Event::AssistantStopped { minutes });
-                    crate::announce_stopped(&disk, &stopped);
+                    if relay_to_agent(&conn, &stopped) {
+                        crate::announce_relayed(&disk, &stopped);
+                    } else {
+                        crate::announce_stopped(&disk, &stopped);
+                    }
                 }
             }
 
@@ -260,4 +264,51 @@ fn offer_the_brief(
             crate::announce_brief(app, page.source);
         }
     }
+}
+
+/**
+ * Relay, when the person turned it on: the stopped conversation, compiled as a
+ * handover, given to Codex in the same folder. False means nothing was
+ * started (off, no Codex, no folder) and the usual announcement should run.
+ *
+ * The thread is started here too, so the Codex session the indexer finds next
+ * is claimed into it and the two read as one conversation.
+ */
+#[cfg(target_os = "macos")]
+fn relay_to_agent(conn: &rusqlite::Connection, stopped: &wall::Stopped) -> bool {
+    if !relay::enabled(conn) {
+        return false;
+    }
+    let project = std::path::Path::new(&stopped.project);
+    let name = project
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let Some(text) = crate::build_handover(&stopped.session_id, &stopped.source, "", "today", &name)
+    else {
+        return false;
+    };
+    let Some(dir) = relay::folder() else {
+        return false;
+    };
+    let agent = relay::agent();
+    let started = relay::start(
+        &dir,
+        project,
+        &stopped.title,
+        &text,
+        agent.as_deref(),
+        relay::in_terminal,
+    )
+    .is_some();
+    if started {
+        let _ = thread::start(conn, &stopped.session_id, &stopped.title, &stopped.project)
+            .and_then(|id| thread::expect_continuation(conn, &id));
+    }
+    started
+}
+
+#[cfg(not(target_os = "macos"))]
+fn relay_to_agent(_: &rusqlite::Connection, _: &wall::Stopped) -> bool {
+    false
 }

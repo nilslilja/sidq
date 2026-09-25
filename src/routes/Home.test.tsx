@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act, fireEvent, within } from "@testing-library/react";
 import type {
   OnboardingBridge,
   InviteSummary,
@@ -91,6 +91,11 @@ const bridge: Partial<OnboardingBridge> = {
    */
   counting: vi.fn(async () => false),
   setCounting: vi.fn(async () => {}),
+  // Off by default, like counting: both change what happens without a press.
+  recall: vi.fn(async () => false),
+  setRecall: vi.fn(async () => true),
+  relay: vi.fn(async () => ({ on: false, agent: "/opt/homebrew/bin/codex" })),
+  setRelay: vi.fn(async () => true),
   countedEvents: vi.fn(
     async () =>
       [
@@ -208,6 +213,7 @@ beforeEach(() => {
   bridge.teamHandovers = vi.fn(async () => []);
   bridge.teamFolderOptions = vi.fn(async () => []);
   bridge.teamNearby = vi.fn(async () => []);
+  bridge.relay = vi.fn(async () => ({ on: false, agent: "/opt/homebrew/bin/codex" }));
   vi.clearAllMocks();
   /*
    * `clearAllMocks` clears recorded calls. It does not undo an implementation
@@ -571,6 +577,47 @@ describe("what setup asked for", () => {
 
     expect(rows[0]).toMatch(/Claude Code/);
     bridge.recentWork = work;
+  });
+});
+
+describe("the things Sidq does with nobody pressing anything", () => {
+  /*
+   * Both change what happens in another program, so both start off and both
+   * say so. A mock that reported them on would let a regression that flipped
+   * either default pass every test here.
+   */
+  test("recall and relay are offered, and both are off", async () => {
+    await open("Overview");
+    expect(screen.getByText("Claude Code knows what you said elsewhere")).toBeInTheDocument();
+    expect(
+      screen.getByText("When Claude Code hits its limit, carry on in Codex"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/^Off\. Turn it on and Claude Code reads/)).toHaveLength(1);
+  });
+
+  test("turning recall on writes it and only then says it is on", async () => {
+    await open("Overview");
+    const section = screen.getByText("Claude Code knows what you said elsewhere").closest("div")!
+      .parentElement!;
+    await act(async () => {
+      fireEvent.click(within(section).getByRole("button", { name: "Turn it on" }));
+    });
+    await settle();
+    expect(bridge.setRecall).toHaveBeenCalledWith(true);
+    expect(screen.getByText(/^On\. Every time you send Claude Code a message/)).toBeInTheDocument();
+  });
+
+  /*
+   * A switch that saves "on" for a feature with nothing to run would look like
+   * it works and then do nothing at the one moment it was for.
+   */
+  test("relay cannot be turned on when Codex is not installed", async () => {
+    bridge.relay = vi.fn(async () => ({ on: false, agent: null }));
+    await open("Overview");
+    expect(screen.getByText(/Codex is not installed on this Mac/)).toBeInTheDocument();
+    const section = screen.getByText("When Claude Code hits its limit, carry on in Codex")
+      .closest("div")!.parentElement!;
+    expect(within(section).getByRole("button", { name: "Turn it on" })).toBeDisabled();
   });
 });
 

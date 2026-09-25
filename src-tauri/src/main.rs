@@ -28,8 +28,8 @@ mod pill_window;
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
     capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
-    burn, login_item, mcp_setup, memory, profile, sharing, team_context, telemetry, thread, wall,
-    work_history,
+    burn, hooks, login_item, mcp_setup, memory, profile, relay, sharing, team_context, telemetry,
+    thread, wall, work_history,
 };
 
 /*
@@ -457,6 +457,17 @@ fn announce_brief(app: &AppHandle, source: &str) {
  * open the pill themselves — three routes to one answer, and no window in which
  * one of them is aimed at something else.
  */
+/// Relay started the next agent already, so the banner says so rather than
+/// offering a picker for work that is carrying on without anyone.
+fn announce_relayed(app: &AppHandle, stopped: &sidq::wall::Stopped) {
+    let _ = app.emit("sidq:stopped", stopped);
+    notify(
+        app,
+        &format!("{} hit its limit", label_for(&stopped.source)),
+        &format!("{} is carrying on in Codex, in Terminal.", stopped.title),
+    );
+}
+
 fn announce_stopped(app: &AppHandle, stopped: &sidq::wall::Stopped) {
     aim_at(Some(stopped.session_id.clone()));
     let _ = app.emit("sidq:stopped", stopped);
@@ -2157,6 +2168,62 @@ async fn connect_mcp(client: String) -> Option<String> {
     .flatten()
 }
 
+/// Whether Claude Code is set to receive recall on every prompt.
+#[tauri::command]
+async fn recall_status() -> bool {
+    tauri::async_runtime::spawn_blocking(hooks::recall_installed)
+        .await
+        .unwrap_or(false)
+}
+
+/**
+ * Turn recall on or off in Claude Code's own settings.
+ *
+ * Needs the sidecar, because that is what Claude Code runs on each prompt. In a
+ * development build without one it reports failure rather than writing a hook
+ * that points at nothing and makes every prompt wait for it.
+ */
+#[tauri::command]
+async fn set_recall(on: bool) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        if on {
+            mcp_setup::sidecar()
+                .and_then(|binary| hooks::install_recall(&binary))
+                .is_some()
+        } else {
+            hooks::remove_recall().is_some()
+        }
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[derive(serde::Serialize)]
+struct RelayState {
+    on: bool,
+    /// Where Codex was found, or nothing when it is not installed.
+    agent: Option<String>,
+}
+
+#[tauri::command]
+async fn relay_status() -> RelayState {
+    tauri::async_runtime::spawn_blocking(|| RelayState {
+        on: index_store::open().is_some_and(|conn| relay::enabled(&conn)),
+        agent: relay::agent().map(|p| p.to_string_lossy().to_string()),
+    })
+    .await
+    .unwrap_or(RelayState { on: false, agent: None })
+}
+
+#[tauri::command]
+async fn set_relay(on: bool) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        index_store::open().and_then(|conn| relay::set(&conn, on)).is_some()
+    })
+    .await
+    .unwrap_or(false)
+}
+
 /// The config block, for anyone who would rather paste it themselves.
 #[tauri::command]
 async fn mcp_config_block() -> Option<String> {
@@ -3262,6 +3329,10 @@ fn main() {
             memory_text,
             mcp_clients,
             connect_mcp,
+            recall_status,
+            set_recall,
+            relay_status,
+            set_relay,
             mcp_config_block,
             counting,
             set_counting,

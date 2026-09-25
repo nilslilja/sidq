@@ -60,6 +60,7 @@ pub mod net;
 pub mod paste;
 pub mod profile;
 pub mod quick_grab;
+pub mod relay;
 pub mod redact;
 pub mod screen_reader;
 pub mod selection;

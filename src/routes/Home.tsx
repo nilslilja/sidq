@@ -1212,8 +1212,115 @@ function Overview({
         </aside>
       </div>
 
+      <Autopilot bridge={bridge} />
       <Counting bridge={bridge} />
     </>
+  );
+}
+
+/**
+ * The two things Sidq can do with nobody pressing anything.
+ *
+ * Both are off until switched on here, because both change what happens in
+ * another program: recall adds to what Claude Code reads, and relay starts
+ * Codex. Each says exactly that in its own line, and each is absent until its
+ * state has been read, so neither ever shows a switch in the wrong position.
+ */
+function Autopilot({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+  const [recall, setRecall] = useState<boolean | null>(null);
+  const [relay, setRelay] = useState<{ on: boolean; agent: string | null } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!bridge) return;
+    void bridge.recall().then(setRecall);
+    void bridge.relay().then(setRelay);
+  }, [bridge]);
+
+  if (recall === null || relay === null) return null;
+
+  return (
+    <section className="mt-10 border-t border-[var(--w-line)] pt-6">
+      <Switch
+        title="Claude Code knows what you said elsewhere"
+        body={
+          recall
+            ? "On. Every time you send Claude Code a message, Sidq finds what you said about the same thing in Cursor, ChatGPT or an older session and hands Claude up to three of those turns, quoted. Found on this Mac; nothing is sent anywhere."
+            : "Off. Turn it on and Claude Code reads the relevant parts of your other conversations before it answers, with nothing pressed or pasted."
+        }
+        on={recall}
+        onChange={(next) => {
+          setProblem(null);
+          void bridge?.setRecall(next).then((ok) => {
+            if (ok) setRecall(next);
+            else setProblem("Could not change Claude Code's settings. Is ~/.claude/settings.json valid JSON?");
+          });
+        }}
+      />
+      <Switch
+        title="When Claude Code hits its limit, carry on in Codex"
+        body={
+          !relay.agent
+            ? "Codex is not installed on this Mac, so there is nothing to carry on in."
+            : relay.on
+              ? "On. When Claude Code stops for a limit, Sidq writes the conversation to a file and opens Codex in the same folder, in Terminal, told to read it and continue. Codex's own approval settings still apply."
+              : "Off. When Claude Code stops, Sidq offers the conversation to carry somewhere else, and you choose."
+        }
+        on={relay.on}
+        disabled={!relay.agent}
+        onChange={(next) => {
+          setProblem(null);
+          void bridge?.setRelay(next).then((ok) => {
+            if (ok) setRelay({ ...relay, on: next });
+            else setProblem("Could not save that. Try again in a moment.");
+          });
+        }}
+      />
+      {problem && (
+        <p role="alert" className="mt-3 text-[0.8125rem] text-[var(--w-text-3)]">
+          {problem}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function Switch({
+  title,
+  body,
+  on,
+  disabled = false,
+  onChange,
+}: {
+  title: string;
+  body: string;
+  on: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="mt-5 flex flex-wrap items-start justify-between gap-4 first:mt-0">
+      <div className="min-w-0">
+        <p className="text-[0.875rem] font-medium text-[var(--w-text)]">{title}</p>
+        <p className="mt-1.5 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+          {body}
+        </p>
+      </div>
+      <button
+        onClick={() => onChange(!on)}
+        disabled={disabled}
+        aria-pressed={on}
+        className={cn(
+          "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+          "cursor-pointer transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40",
+          on
+            ? "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)] hover:bg-[var(--w-line)]"
+            : "bg-[var(--w-invert)] text-[var(--w-on-invert)] hover:opacity-90",
+        )}
+      >
+        {on ? "Turn it off" : "Turn it on"}
+      </button>
+    </div>
   );
 }
 

@@ -43,7 +43,8 @@ you do.
 | `list_projects` | The projects Sidq has seen, busiest first |
 | `get_memory` | What a project is, what was asked first and last, and the rules that kept coming up |
 | `how_i_work` | Standing instructions taken from things this person has actually repeated |
-| `search_history` | Search every conversation, however far back it goes |
+| `search_history` | Search every conversation, however far back it goes, by meaning as well as by the exact words |
+| `find_relevant` | The turns most relevant to a question, quoted, with the assistant and the day they came from |
 | `get_conversation` | One conversation, word for word |
 | `note_decision` | Record a decision against a project, kept separate from what the person said |
 | `publish_to_team` | Share a project's memory with the team (Team tier) |
@@ -57,6 +58,29 @@ tool call and nobody deciding to fetch anything.
 ```
 sidq://memory/<project path>    text/markdown
 ```
+
+## Recall (Claude Code hook)
+
+The same binary answers a Claude Code `UserPromptSubmit` hook:
+
+```
+sidq-mcp hook recall
+```
+
+Turned on from the Sidq window ("Claude Code knows what you said elsewhere"),
+which adds one entry to `~/.claude/settings.json` and removes exactly that
+entry when turned off. On each prompt it hands Claude up to three turns from
+the person's other conversations that are about the same thing, quoted with the
+assistant and the day, or nothing when none clears the similarity bar. It never
+blocks a prompt: every failure is no output and exit 0.
+
+## Meaning, on the Mac
+
+Search and recall use an embedding model (all-MiniLM-L6-v2, int8, 23MB) that
+ships inside the app and runs locally through `tract`, which is pure Rust. It
+was chosen by measurement over Apple's built-in embeddings (8 of 8 against 4
+and 3 on the same questions). It reads text and returns numbers; it has no
+network code.
 
 ## Privacy
 

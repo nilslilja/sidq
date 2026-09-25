@@ -623,6 +623,17 @@ export interface OnboardingBridge {
    */
   counting: () => Promise<boolean>;
   setCounting: (on: boolean) => Promise<void>;
+  /**
+   * Recall: Claude Code receiving, on every prompt, what was said about the
+   * same thing in other conversations. Lives in Claude Code's own settings,
+   * so this reads and writes that file rather than a Sidq setting.
+   */
+  recall: () => Promise<boolean>;
+  /** True when the change was written. */
+  setRecall: (on: boolean) => Promise<boolean>;
+  /** Relay: Codex carrying on when Claude Code hits its limit. */
+  relay: () => Promise<{ on: boolean; agent: string | null }>;
+  setRelay: (on: boolean) => Promise<boolean>;
   /** Each event's name on the wire, and what it means, from Rust. */
   countedEvents: () => Promise<[string, string][]>;
   /**
@@ -950,6 +961,16 @@ export function desktopBridge(): OnboardingBridge | null {
     memoryInto: async (path: string, assistant: string) => {
       await invoke("memory_into", { path, assistant });
     },
+    recall: async () => ((await invoke("recall_status")) as boolean) ?? false,
+    setRecall: async (on: boolean) =>
+      ((await invoke("set_recall", { on })) as boolean) ?? false,
+    relay: async () =>
+      ((await invoke("relay_status")) as { on: boolean; agent: string | null }) ?? {
+        on: false,
+        agent: null,
+      },
+    setRelay: async (on: boolean) =>
+      ((await invoke("set_relay", { on })) as boolean) ?? false,
     counting: async () => ((await invoke("counting")) as boolean) ?? false,
     setCounting: async (on: boolean) => {
       await invoke("set_counting", { on });
