@@ -110,6 +110,13 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-deep-link = { version = "2", optional = true }
 tauri-plugin-opener = { version = "2", optional = true }
 
+# Accent stripping for the embedding tokeniser (NFD, then drop the marks), the
+# same folding the model saw in training. Tiny and pure Rust.
+unicode-normalization = "0.1"
+# Runs the on-device embedding model (src/embed.rs). Pure Rust: no C++ runtime
+# to bundle, sign or notarise, and the MCP sidecar stays portable.
+tract-onnx = "0.23.8"
+
 # Reading assistant windows through macOS Accessibility, which is what makes
 # Sidq work with no extension, no store and no sign-in. Thin bindings over
 # ApplicationServices rather than hand-rolled FFI: CoreFoundation ownership
@@ -154,3 +161,30 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+# The embedding model does real arithmetic. Unoptimised, a sentence that takes
+# 5ms takes seconds, which makes the tests that check relevance unusable. Only
+# the inference crates are optimised, so the rest of the build stays as cheap.
+[profile.dev.package.tract-linalg]
+opt-level = 3
+[profile.dev.package.tract-core]
+opt-level = 3
+[profile.dev.package.tract-data]
+opt-level = 3
+[profile.dev.package.tract-onnx]
+opt-level = 3
+[profile.dev.package.tract-hir]
+opt-level = 3
+[profile.dev.package.tract-onnx-opl]
+opt-level = 3
+[profile.dev.package.tract-nnef]
+opt-level = 3
+[profile.dev.package.ndarray]
+opt-level = 3
+
+# Same crates, same reason, in the shipped build: "s" optimises for size, and the
+# embedding runs in the background of an app people keep open all day.
+[profile.release.package.tract-linalg]
+opt-level = 3
+[profile.release.package.tract-core]
+opt-level = 3

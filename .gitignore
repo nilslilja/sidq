@@ -64,3 +64,7 @@ src-tauri/binaries/sidq-mcp-*
 # Build output. These are 8MB a release and they are why .git reached 2.66GB;
 # they belong on GitHub Releases, not in history.
 release/*.dmg
+
+# The on-device embedding model. A 23MB build input fetched and checksum-verified
+# by scripts/fetch-embed-model.sh, not source.
+src-tauri/resources/embed/*.onnx

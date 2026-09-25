@@ -122,6 +122,9 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    },
+    "resources": {
+      "resources/embed/minilm-l6-q8.onnx": "embed/minilm-l6-q8.onnx"
     }
   },
   "plugins": {

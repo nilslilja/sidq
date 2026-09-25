@@ -71,6 +71,10 @@ mkdir -p src-tauri/binaries
 # A separate target directory means the two feature sets never share a slot.
 # It costs some disk and rebuild time, which is nothing against shipping an
 # app that does not open.
+# The embedding model is bundled as a resource and is not in git. Fetched and
+# checksum-verified before anything builds, so a release can never ship without it.
+./scripts/fetch-embed-model.sh
+
 ( cd src-tauri
   CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --features mcp --bin sidq-mcp
   CARGO_TARGET_DIR=target/mcp cargo build --release --no-default-features --features mcp --bin sidq-mcp --target x86_64-apple-darwin
