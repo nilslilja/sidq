@@ -1253,7 +1253,10 @@ function Autopilot({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
           setProblem(null);
           void bridge?.setRecall(next).then((ok) => {
             if (ok) setRecall(next);
-            else setProblem("Could not change Claude Code's settings. Is ~/.claude/settings.json valid JSON?");
+            else
+              setProblem(
+                "Could not change Claude Code's settings. Either Sidq's helper is missing from this build, or ~/.claude/settings.json is not valid JSON.",
+              );
           });
         }}
       />
