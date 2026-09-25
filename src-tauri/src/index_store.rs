@@ -39,7 +39,10 @@ use std::path::PathBuf;
  * the whole batch is skipped once user_version has caught up, so a new table
  * only reaches an existing install if this number moves.
  */
-const SCHEMA_VERSION: i64 = 7;
+/*
+ * 8 adds `vectors` and `vectored`, for search and relevance by meaning.
+ */
+const SCHEMA_VERSION: i64 = 8;
 
 /// One indexed exchange, as the search UI needs it.
 #[derive(Debug, Clone, Serialize)]
@@ -264,6 +267,28 @@ fn migrate(conn: &Connection) -> Option<()> {
             ended_at       INTEGER NOT NULL,
             turns          INTEGER NOT NULL,
             active_minutes INTEGER NOT NULL
+        );
+
+        -- What each turn means, as numbers, from the on-device model in embed.rs.
+        -- Keyed by the turn's position in its conversation rather than by the
+        -- messages rowid, because put_messages rewrites every row of a session
+        -- that grows and a rowid key would throw away every vector with it.
+        -- `digest` is a hash of the turn's text: an unchanged turn is never
+        -- embedded twice. `vec` is one signed byte per dimension.
+        CREATE TABLE IF NOT EXISTS vectors (
+            session_id TEXT NOT NULL,
+            ord        INTEGER NOT NULL,
+            win        INTEGER NOT NULL,
+            digest     INTEGER NOT NULL,
+            vec        BLOB NOT NULL,
+            PRIMARY KEY (session_id, ord, win)
+        );
+
+        -- Which sessions have every turn embedded, as of which state of their
+        -- messages. Lets a pass skip conversations that have not changed.
+        CREATE TABLE IF NOT EXISTS vectored (
+            session_id  TEXT PRIMARY KEY,
+            fingerprint TEXT NOT NULL
         );
         ",
     )
@@ -1162,6 +1187,11 @@ pub fn search(conn: &Connection, query: &str, since: i64, limit: usize) -> (Vec<
     (hits, withheld.max(0) as usize)
 }
 
+/// The FTS5 query for what somebody typed, for the other searches over this index.
+pub fn fts_query(query: &str) -> String {
+    sanitise(query)
+}
+
 /**
  * Make a user's typing safe for FTS5.
  *
@@ -1207,6 +1237,12 @@ pub fn now_millis() -> i64 {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// Bring an existing index file up to the current schema, for tests that
+    /// read a copy of a real one.
+    pub(crate) fn migrate_for_tests(conn: &Connection) {
+        migrate(conn).unwrap();
+    }
 
     /// An in-memory index with the real schema. Shared with `entitlement`.
     pub(crate) fn memory() -> Connection {

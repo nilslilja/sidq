@@ -960,7 +960,7 @@ async fn search_conversations(query: String, limit: usize) -> (Vec<index_store::
             return (Vec::new(), 0);
         };
         let floor = entitlement::history_floor(entitlement::current(&conn));
-        index_store::search(&conn, &query, floor, limit.min(100))
+        sidq::semantic::search(&conn, sidq::embed::shared(), &query, floor, limit.min(100))
     })
     .await
     .unwrap_or((Vec::new(), 0))

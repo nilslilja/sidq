@@ -62,6 +62,7 @@ pub mod quick_grab;
 pub mod redact;
 pub mod screen_reader;
 pub mod selection;
+pub mod semantic;
 pub mod sharing;
 pub mod sources;
 pub mod team_context;

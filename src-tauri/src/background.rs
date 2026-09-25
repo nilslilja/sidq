@@ -9,7 +9,7 @@
 //! move: an `AppHandle` in the middle of a file otherwise makes every function
 //! in that file unreachable from a binary that has no app.
 
-use sidq::{ambient, index_store, indexer, memory, paste, telemetry, wall};
+use sidq::{ambient, embed, index_store, indexer, memory, paste, semantic, telemetry, wall};
 
 // The browser reader is the macOS Accessibility API and exists nowhere else.
 // Imported under the same gate as the thread that uses it, so that the absence
@@ -20,6 +20,11 @@ use std::time::Duration;
 
 /// How often to look. Conversations do not change on a scale that needs faster.
 const SWEEP_INTERVAL: Duration = Duration::from_secs(90);
+
+/// Embedding time per sweep. The first launch has every existing conversation to
+/// read, about a minute of work on this machine's index, so it is spread over a
+/// quarter of an hour instead of spent at once on somebody's battery.
+const EMBED_BUDGET: Duration = Duration::from_secs(5);
 
 /**
  * How often to read the AIs that live in a browser. Far more often, and for a
@@ -122,6 +127,16 @@ pub fn spawn(app: tauri::AppHandle) {
              * endpoint was compiled in, so the common case costs a branch.
              */
             telemetry::send_queued(&conn);
+
+            /*
+             * Meaning, a few seconds at a time. Only turns that are new or have
+             * changed are embedded, so once the backlog is done a sweep costs
+             * nothing here unless somebody said something. No model file means
+             * search stays keyword-only, which is what it was before this.
+             */
+            if let Some(model) = embed::shared() {
+                semantic::catch_up(&conn, model, EMBED_BUDGET);
+            }
 
             std::thread::sleep(SWEEP_INTERVAL);
         }

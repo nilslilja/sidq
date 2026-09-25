@@ -40,6 +40,10 @@ pub const SERVER_NAME: &str = "sidq";
 /// How many results a search returns before it stops being a search.
 const SEARCH_LIMIT: usize = 20;
 
+/// Passages handed back by find_relevant. Each is up to ~300 characters, so
+/// eight is a few thousand characters of context, not a transcript.
+const RELEVANT_LIMIT: usize = 8;
+
 /// Projects listed. Past this it is a file browser, not an answer.
 const PROJECT_LIMIT: usize = 25;
 
@@ -79,13 +83,37 @@ pub fn tools() -> Value {
         },
         {
             "name": "search_history",
-            "description": "Full-text search across every AI conversation on this Mac, including \
-                             ones with other assistants. Use it for 'have I asked this before', \
-                             'what did I decide about X', or to find a conversation to open.",
+            "description": "Search every AI conversation on this Mac, including ones with other \
+                             assistants, by meaning as well as by the exact words. Use it for \
+                             'have I asked this before', 'what did I decide about X', or to find \
+                             a conversation to open.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": { "type": "string", "description": "Words to look for." }
+                },
+                "required": ["query"]
+            }
+        },
+        {
+            "name": "find_relevant",
+            "description": "The turns most relevant to a question, from every conversation with \
+                             every assistant on this Mac, found by meaning and quoted word for \
+                             word with which assistant and which day they came from. Call it \
+                             before answering anything this person may already have worked out \
+                             somewhere else. Found on the Mac; nothing is sent anywhere.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "What you need to know, in your own words."
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Absolute path, from list_projects, to stay inside one \
+                                        project. Optional."
+                    }
                 },
                 "required": ["query"]
             }
@@ -270,6 +298,10 @@ fn call(conn: Option<&rusqlite::Connection>, params: Option<&Value>) -> Result<V
         "search_history" => match arg("query") {
             Some(q) => search(conn, &q),
             None => failed("search_history needs a query."),
+        },
+        "find_relevant" => match arg("query") {
+            Some(q) => relevant(conn, &q, arg("project_path").as_deref()),
+            None => failed("find_relevant needs a query."),
         },
         "get_conversation" => match arg("session_id") {
             Some(id) => conversation(conn, &id),
@@ -544,15 +576,12 @@ fn search(conn: &rusqlite::Connection, query: &str) -> Value {
     // Everything, rather than a window. An assistant asking "have I discussed
     // this" means ever, and a silent seven-day cutoff answers a question it was
     // not asked. The app's own limit is a plan boundary, not a search one.
-    let (hits, total) = index_store::search(conn, query, 0, SEARCH_LIMIT);
+    let (hits, _) = crate::semantic::search(conn, crate::embed::shared(), query, 0, SEARCH_LIMIT);
     if hits.is_empty() {
         return text(format!("Nothing in any conversation matches \"{query}\"."));
     }
 
-    let mut out = format!(
-        "{total} conversations match \"{query}\". Showing {}:\n\n",
-        hits.len()
-    );
+    let mut out = format!("{} results for \"{query}\", best first:\n\n", hits.len());
     for h in &hits {
         out.push_str(&format!(
             "- [{}] {}\n  {}\n  session_id: {}\n",
@@ -564,6 +593,45 @@ fn search(conn: &rusqlite::Connection, query: &str) -> Value {
             },
             h.snippet.replace('\n', " "),
             h.session_id
+        ));
+    }
+    text(out)
+}
+
+/// Passages, not conversations: the turns themselves, each with the assistant,
+/// the day and the conversation it came from, so a model can cite rather than
+/// paraphrase what was decided somewhere else.
+fn relevant(conn: &rusqlite::Connection, query: &str, project: Option<&str>) -> Value {
+    let found =
+        crate::semantic::passages(conn, crate::embed::shared(), query, project, RELEVANT_LIMIT);
+    if found.is_empty() {
+        return text(format!(
+            "Nothing this person has said to any assistant is about \"{query}\"."
+        ));
+    }
+
+    let mut out = format!(
+        "What this person's past conversations say about \"{query}\", most relevant first. \
+         Quoted, not summarised.\n\n"
+    );
+    for p in &found {
+        let assistant = crate::sources::label(&p.source).unwrap_or(p.source.as_str());
+        let who = if p.role == "You" {
+            "They said"
+        } else {
+            "The assistant said"
+        };
+        out.push_str(&format!(
+            "- {assistant}, {}, \"{}\". {who}:\n  > {}\n  session_id: {}, turn {}\n",
+            crate::semantic::day_label(p.ended_at),
+            if p.title.is_empty() {
+                "untitled"
+            } else {
+                &p.title
+            },
+            p.excerpt.replace('\n', " "),
+            p.session_id,
+            p.ord + 1
         ));
     }
     text(out)
@@ -974,7 +1042,12 @@ mod tests {
         // A model reads the schema, not the description. A required argument
         // that is not marked required is a tool that gets called without it.
         let tools = tools();
-        for name in ["search_history", "get_conversation", "note_decision"] {
+        for name in [
+            "search_history",
+            "find_relevant",
+            "get_conversation",
+            "note_decision",
+        ] {
             let tool = tools
                 .as_array()
                 .unwrap()
@@ -1012,6 +1085,73 @@ mod tests {
         assert_eq!(out["result"]["isError"], true);
         let body = out["result"]["content"][0]["text"].as_str().unwrap();
         assert!(body.contains("Open the Sidq app"));
+    }
+
+    /// A conversation from another assistant, in the real schema, embedded.
+    fn remembered() -> rusqlite::Connection {
+        let conn = crate::index_store::tests::memory();
+        conn.execute(
+            "INSERT INTO sessions (session_id, source, title, project, project_path, ended_at)
+             VALUES ('s1', 'cursor', 'Checkout', 'Sidq', '/work/sidq', 1790356615000)",
+            [],
+        )
+        .unwrap();
+        let turns = vec![
+            (
+                "You".to_string(),
+                "why is the landing page so slow on phones".to_string(),
+            ),
+            (
+                "Assistant".to_string(),
+                "Stripe checkout success_url points at a route that does not exist".to_string(),
+            ),
+        ];
+        crate::index_store::put_messages(&conn, "s1", &turns, "fp").unwrap();
+        let model = crate::embed::shared().expect("run ./scripts/fetch-embed-model.sh");
+        crate::semantic::catch_up(&conn, model, std::time::Duration::from_secs(60));
+        conn
+    }
+
+    fn answer(conn: &rusqlite::Connection, name: &str, arguments: Value) -> String {
+        let out = handle(
+            Some(conn),
+            &request(
+                "tools/call",
+                json!({ "name": name, "arguments": arguments }),
+            ),
+        )
+        .expect("a reply");
+        out["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    /// Asked in words the conversation never used, from another assistant, it
+    /// still answers with the turn itself and says where and when it was said.
+    #[test]
+    fn find_relevant_quotes_the_turn_and_where_it_came_from() {
+        let conn = remembered();
+        let body = answer(
+            &conn,
+            "find_relevant",
+            json!({ "query": "payment redirect goes to a 404 after buying" }),
+        );
+        assert!(
+            body.contains("success_url points at a route that does not exist"),
+            "{body}"
+        );
+        assert!(body.contains("Cursor"), "{body}");
+        assert!(body.contains("25 Sep 2026"), "{body}");
+        assert!(body.contains("session_id: s1"), "{body}");
+    }
+
+    #[test]
+    fn search_history_says_how_many_it_found_rather_than_zero() {
+        let conn = remembered();
+        let body = answer(&conn, "search_history", json!({ "query": "checkout" }));
+        assert!(!body.starts_with('0'), "{body}");
+        assert!(body.contains("success_url"), "{body}");
     }
 
     #[test]
