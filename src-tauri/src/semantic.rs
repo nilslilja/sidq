@@ -192,6 +192,36 @@ fn digest_of(body: &str) -> i64 {
 /// A turn, as the fusion sees it.
 type Key = (String, usize);
 
+/// Two turns sharing this much of their vocabulary are copies of one turn.
+const SAME_TURN: f32 = 0.8;
+
+/// The distinct words of the first few hundred, lowercased, punctuation dropped.
+fn word_set(body: &str) -> std::collections::HashSet<String> {
+    body.split_whitespace()
+        .take(400)
+        .map(|w| {
+            w.chars()
+                .filter(|c| c.is_alphanumeric())
+                .flat_map(char::to_lowercase)
+                .collect::<String>()
+        })
+        .filter(|w| !w.is_empty())
+        .collect()
+}
+
+/// How much of the smaller turn is inside the other, 0 to 1. Containment
+/// rather than Jaccard, because a re-read copy is the turn plus a little page
+/// chrome ("Copy code", "just now"), and two copies with different chrome are
+/// further from each other than either is from the turn. Below eight words
+/// containment says too little, so short turns must match exactly.
+fn overlap(a: &std::collections::HashSet<String>, b: &std::collections::HashSet<String>) -> f32 {
+    let smaller = a.len().min(b.len());
+    if smaller < 8 {
+        return if a == b { 1.0 } else { 0.0 };
+    }
+    a.intersection(b).count() as f32 / smaller as f32
+}
+
 /**
  * Search every conversation by keyword and by meaning, merged.
  *
@@ -270,7 +300,7 @@ fn ranked(
     order.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
     let mut bodies: HashMap<String, Vec<(String, String)>> = HashMap::new();
-    let mut seen_text = std::collections::HashSet::new();
+    let mut kept: Vec<std::collections::HashSet<String>> = Vec::new();
     order
         .into_iter()
         .filter_map(|(key, _)| {
@@ -282,11 +312,14 @@ fn ranked(
             if crate::profile::is_injected(&body) {
                 return None;
             }
-            // A page read more than once can store the same turn several times.
+            // A page read more than once can store the same turn several times,
+            // each copy a little different (a "Copy code" button, a timestamp).
             // One copy answers the question; three push the other answers out.
-            if !seen_text.insert(digest_of(&body)) {
+            let words = word_set(&body);
+            if kept.iter().any(|k| overlap(k, &words) >= SAME_TURN) {
                 return None;
             }
+            kept.push(words);
             let excerpt = excerpt(&body, windows.get(&key).copied().unwrap_or(0));
             let snippet = snippets
                 .get(&key)
@@ -671,6 +704,24 @@ mod tests {
             "a",
             &[PAYMENT, "hello there, nothing to see", PAYMENT, PICKER],
         );
+        catch_up(&conn, model(), all_time());
+        let found = passages(&conn, Some(model()), "checkout redirect is broken", None, 5);
+        let copies = found
+            .iter()
+            .filter(|p| p.excerpt.contains("success_url"))
+            .count();
+        assert_eq!(copies, 1, "{found:?}");
+    }
+
+    /// As a page reader stores them: the same turn, re-read with a little of
+    /// the page around it.
+    #[test]
+    fn near_copies_of_one_turn_come_back_once() {
+        let conn = db();
+        session(&conn, "a", "/p", 10);
+        let copy = format!("{PAYMENT}. Copy code");
+        let other = format!("just now {PAYMENT}");
+        turns(&conn, "a", &[PAYMENT, PICKER, &copy, &other]);
         catch_up(&conn, model(), all_time());
         let found = passages(&conn, Some(model()), "checkout redirect is broken", None, 5);
         let copies = found
