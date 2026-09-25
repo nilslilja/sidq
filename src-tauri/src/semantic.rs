@@ -272,6 +272,66 @@ pub fn passages(
         .collect()
 }
 
+/// How close a turn must be before it is put in front of an assistant that did
+/// not ask. Search shows a list a person scans; recall speaks uninvited, so it
+/// has to be right or say nothing.
+///
+/// Set from real prompts against a real index (`real_recall`, 25 Sep 2026):
+/// prompts about something actually discussed reached 0.55 to 0.70 ("what did
+/// we decide about the team plan pricing" found the answer at 0.70), and
+/// unrelated ones mostly stayed under 0.55 ("make the button blue": 0.39). The
+/// one miss at this bar was a generic "fix the typo in the footer" meeting an
+/// equally generic "also fix the…" at 0.552.
+pub const RECALL_MIN: f32 = 0.55;
+
+/// "yes", "go on", "do it": nothing to recall against, and the commonest prompts.
+const RECALL_MIN_WORDS: usize = 4;
+
+/**
+ * What this person already said elsewhere that bears on what they just typed.
+ *
+ * Meaning only, because a keyword match is too weak a reason to interrupt. The
+ * conversation being typed into is excluded (its assistant already has it), and
+ * so is every other project; conversations with no project, which is every
+ * browser chat, stay in.
+ */
+pub fn recall(
+    conn: &Connection,
+    model: &Embedder,
+    prompt: &str,
+    project: Option<&str>,
+    current_session: Option<&str>,
+    limit: usize,
+) -> Vec<Passage> {
+    if prompt.split_whitespace().count() < RECALL_MIN_WORDS {
+        return Vec::new();
+    }
+    let mut turns: HashMap<String, Vec<(String, String)>> = HashMap::new();
+    let mut kept: Vec<std::collections::HashSet<String>> = Vec::new();
+    meaning_scored(conn, model, prompt, project, true)
+        .into_iter()
+        .filter(|(_, _, score)| *score >= RECALL_MIN)
+        .filter(|((session, _), _, _)| Some(session.as_str()) != current_session)
+        .filter_map(|((session, ord), win, _)| {
+            let (role, body) = turns
+                .entry(session.clone())
+                .or_insert_with(|| turns_of(conn, &session))
+                .get(ord)?
+                .clone();
+            if crate::profile::is_injected(&body) {
+                return None;
+            }
+            let words = word_set(&body);
+            if kept.iter().any(|k| overlap(k, &words) >= SAME_TURN) {
+                return None;
+            }
+            kept.push(words);
+            describe(conn, &session, ord, role, excerpt(&body, win))
+        })
+        .take(limit)
+        .collect()
+}
+
 /// Both rankings, fused. Each passage comes with the snippet a list would show:
 /// FTS5's highlighted one when the keywords found it, an excerpt otherwise.
 fn ranked(
@@ -376,6 +436,22 @@ fn meaning_ranking(
     query: &str,
     project: Option<&str>,
 ) -> Vec<(Key, usize)> {
+    meaning_scored(conn, model, query, project, false)
+        .into_iter()
+        .map(|(key, win, _)| (key, win))
+        .collect()
+}
+
+/// As `meaning_ranking`, with each turn's similarity kept. `unfiled` also lets
+/// in conversations with no project at all, which is every browser chat: a
+/// ChatGPT conversation has no folder, and is exactly what recall is for.
+fn meaning_scored(
+    conn: &Connection,
+    model: &Embedder,
+    query: &str,
+    project: Option<&str>,
+    unfiled: bool,
+) -> Vec<(Key, usize, f32)> {
     let Some(q) = model.embed(query) else {
         return Vec::new();
     };
@@ -385,10 +461,10 @@ fn meaning_ranking(
             "SELECT v.session_id, v.ord, v.win, v.vec
              FROM vectors v
              JOIN sessions s ON s.session_id = v.session_id
-             WHERE ?1 IS NULL OR s.project_path = ?1",
+             WHERE ?1 IS NULL OR s.project_path = ?1 OR (?2 AND s.project_path = '')",
         )
         .and_then(|mut stmt| {
-            let rows = stmt.query_map(params![project], |r| {
+            let rows = stmt.query_map(params![project, unfiled], |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, i64>(1)? as usize,
@@ -408,13 +484,13 @@ fn meaning_ranking(
             }
             Ok(())
         });
-    let mut ranked: Vec<(Key, (f32, usize))> = best.into_iter().collect();
-    ranked.sort_by(|a, b| b.1 .0.total_cmp(&a.1 .0).then_with(|| a.0.cmp(&b.0)));
-    ranked
+    let mut ranked: Vec<(Key, usize, f32)> = best
         .into_iter()
-        .take(CANDIDATES)
-        .map(|(key, (_, win))| (key, win))
-        .collect()
+        .map(|(key, (score, win))| (key, win, score))
+        .collect();
+    ranked.sort_by(|a, b| b.2.total_cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+    ranked.truncate(CANDIDATES);
+    ranked
 }
 
 /// rowid → position, for one session.
@@ -732,6 +808,83 @@ mod tests {
     }
 
     #[test]
+    fn recall_brings_back_what_was_said_in_another_conversation() {
+        let conn = db();
+        session(&conn, "cursor-chat", "/work/sidq", 10);
+        session(&conn, "typing-now", "/work/sidq", 20);
+        turns(&conn, "cursor-chat", &[PAYMENT, PICKER]);
+        turns(
+            &conn,
+            "typing-now",
+            &["the checkout page is broken after payment"],
+        );
+        catch_up(&conn, model(), all_time());
+
+        let found = recall(
+            &conn,
+            model(),
+            "the stripe checkout success_url goes to a route that does not exist",
+            Some("/work/sidq"),
+            Some("typing-now"),
+            3,
+        );
+        assert_eq!(
+            found.first().map(|p| p.session_id.as_str()),
+            Some("cursor-chat"),
+            "{found:?}"
+        );
+        assert!(found.iter().all(|p| p.session_id != "typing-now"));
+    }
+
+    #[test]
+    fn recall_says_nothing_rather_than_something_loosely_related() {
+        let conn = db();
+        session(&conn, "a", "/p", 10);
+        turns(&conn, "a", &[PAYMENT, PICKER]);
+        catch_up(&conn, model(), all_time());
+        assert!(recall(
+            &conn,
+            model(),
+            "make the button blue please",
+            Some("/p"),
+            None,
+            3
+        )
+        .is_empty());
+        assert!(recall(&conn, model(), "yes do it", Some("/p"), None, 3).is_empty());
+    }
+
+    /// A browser chat has no project folder. It is still this person's, and it
+    /// is the whole reason recall exists; another project's work is not.
+    #[test]
+    fn recall_reaches_browser_chats_but_not_other_projects() {
+        let conn = db();
+        session(&conn, "chatgpt", "", 10);
+        session(&conn, "elsewhere", "/work/other", 10);
+        turns(&conn, "chatgpt", &[PAYMENT]);
+        turns(
+            &conn,
+            "elsewhere",
+            &["Stripe checkout success_url points at a route that is missing"],
+        );
+        catch_up(&conn, model(), all_time());
+
+        let found = recall(
+            &conn,
+            model(),
+            "stripe checkout success_url points at a missing route",
+            Some("/work/sidq"),
+            None,
+            3,
+        );
+        assert!(found.iter().any(|p| p.session_id == "chatgpt"), "{found:?}");
+        assert!(
+            found.iter().all(|p| p.session_id != "elsewhere"),
+            "{found:?}"
+        );
+    }
+
+    #[test]
     fn with_no_model_search_is_the_keyword_search_it_always_was() {
         let conn = db();
         session(&conn, "a", "/p", 10);
@@ -828,6 +981,44 @@ mod tests {
                     day_label(p.ended_at),
                     p.ord + 1,
                     p.excerpt
+                );
+            }
+        }
+    }
+
+    /**
+     * The scores real prompts reach, for setting `RECALL_MIN`. Prints the best
+     * three per prompt; asserts nothing.
+     *
+     *   SIDQ_INDEX_COPY=/tmp/idx.sqlite SIDQ_QUERIES="a|b" cargo test --lib real_recall -- --ignored --nocapture
+     */
+    #[test]
+    #[ignore = "reads a copy of a real index"]
+    fn real_recall() {
+        let conn = Connection::open(std::env::var("SIDQ_INDEX_COPY").unwrap()).unwrap();
+        index_store::tests::migrate_for_tests(&conn);
+        let prompts = std::env::var("SIDQ_QUERIES").unwrap_or_default();
+        for q in prompts.split('|').filter(|q| !q.trim().is_empty()) {
+            println!("\n## {q}");
+            for ((session, ord), _, score) in meaning_scored(&conn, model(), q, None, true)
+                .into_iter()
+                .take(3)
+            {
+                let body = turns_of(&conn, &session)
+                    .get(ord)
+                    .map(|t| t.1.clone())
+                    .unwrap_or_default();
+                let flag = if crate::profile::is_injected(&body) {
+                    " [machinery]"
+                } else {
+                    ""
+                };
+                println!(
+                    "  {score:.3}{flag}  {}",
+                    body.chars()
+                        .take(110)
+                        .collect::<String>()
+                        .replace('\n', " ")
                 );
             }
         }

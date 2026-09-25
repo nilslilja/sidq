@@ -47,6 +47,7 @@ pub mod downloads;
 pub mod double_tap;
 pub mod embed;
 pub mod entitlement;
+pub mod hooks;
 pub mod imports;
 pub mod index_store;
 pub mod indexer;

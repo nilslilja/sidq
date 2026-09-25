@@ -19,6 +19,25 @@
 use std::io::{BufRead, Write};
 
 fn main() {
+    /*
+     * `sidq-mcp hook recall`: one Claude Code hook call, not a server. Reads the
+     * event from stdin, prints context or nothing, and always exits 0, because
+     * a hook that fails must never cost somebody the message they just sent.
+     */
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("hook") {
+        if args.get(1).map(String::as_str) == Some("recall") {
+            let mut input = String::new();
+            let _ = std::io::Read::read_to_string(&mut std::io::stdin(), &mut input);
+            let conn = sidq::index_store::open();
+            if let Some(out) = sidq::hooks::run_recall(&input, conn.as_ref(), sidq::embed::shared())
+            {
+                println!("{out}");
+            }
+        }
+        return;
+    }
+
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
 

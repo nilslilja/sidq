@@ -181,7 +181,7 @@ const MIN_WORD_CHARS: usize = 4;
  * (HIG, MD)` and `use labels with icons (Material Design)` — lines out of a
  * design skill, presented back to the person as their own standing rules.
  */
-const INJECTED_MARKERS: [&str; 14] = [
+const INJECTED_MARKERS: [&str; 15] = [
     "<system-reminder>",
     "<command-name>",
     "<command-message>",
@@ -239,6 +239,12 @@ const INJECTED_MARKERS: [&str; 14] = [
     "A record of a conversation that happened somewhere else",
     "Do not summarise it back to them",
     "Standing instructions this person has given assistants before",
+    /*
+     * Recall, handed to Claude Code by `hooks` on every prompt. If it ever
+     * lands in a transcript it is Sidq's own output, and indexing it as speech
+     * would make recall find its previous answers.
+     */
+    crate::hooks::RECALL_HEADER,
 ];
 
 /**
