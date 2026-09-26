@@ -148,6 +148,10 @@ const bridge: Partial<OnboardingBridge> = {
    */
   aimAt: vi.fn(async () => {}),
   onChanged: vi.fn(async () => () => {}),
+  onStopped: vi.fn(async (cb: () => void) => {
+    announceStopped = cb;
+    return () => {};
+  }),
   /*
    * Captured rather than ignored, so the test below can fire a find the way
    * Rust does instead of reaching into the component.
@@ -159,6 +163,9 @@ const bridge: Partial<OnboardingBridge> = {
     };
   }),
 };
+
+/** Set by the mocked `onStopped` once the pill has subscribed. */
+let announceStopped: (() => void) | undefined;
 
 /** Set by the mocked `onFound` once the pill has subscribed. */
 let announceFound: ((found: FoundConversation) => void) | undefined;
@@ -203,6 +210,55 @@ describe("the pill, across the two states", () => {
     // The count alone. The bar lives inside the menu bar now and "16
     // conversations" does not fit in 152 points without covering something.
     expect(screen.getByText("16")).toBeInTheDocument();
+  });
+
+  /*
+   * The bar is a tomato now. At rest it is the tomato and nothing else; the
+   * count and the shortcut are there for whoever hovers.
+   */
+  test("at rest the bar is the tomato, calm", async () => {
+    render(<Pill />);
+    await settle();
+    const bar = screen.getByRole("button", { name: /pick up a conversation/i });
+    expect(bar).toHaveAttribute("data-mood", "idle");
+    expect(bar.querySelector("svg.tomato")).not.toBeNull();
+  });
+
+  /*
+   * An assistant hitting its limit is the worst moment of somebody's day with
+   * it, and the one thing always on screen should notice. It also has to calm
+   * down again, or it is a worried tomato about something long over.
+   */
+  test("the tomato panics when an assistant hits its limit, then calms down", async () => {
+    vi.useFakeTimers();
+    try {
+      render(<Pill />);
+      await settle();
+      const bar = screen.getByRole("button", { name: /pick up a conversation/i });
+
+      await act(async () => {
+        announceStopped?.();
+      });
+      expect(bar).toHaveAttribute("data-mood", "panic");
+
+      await act(async () => {
+        vi.advanceTimersByTime(7000);
+      });
+      expect(bar).toHaveAttribute("data-mood", "idle");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("the tomato hops when a conversation is picked up", async () => {
+    render(<Pill />);
+    await settle();
+    await act(async () => {
+      announceFound?.({ source: "chatgpt", title: "A conversation", firstTime: true });
+    });
+    expect(
+      screen.getByRole("button", { name: /pick up a conversation/i }),
+    ).toHaveAttribute("data-mood", "hop");
   });
 
   test("tells Rust which conversation the picker is aimed at, and stops when it shuts", async () => {

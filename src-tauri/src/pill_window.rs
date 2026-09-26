@@ -827,25 +827,24 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool, bar: bool) {
         measure_notch(ns_window);
 
         /*
-         * ── The bar is glass. The picker is not. ────────────────────────────
+         * ── No glass on either size now ─────────────────────────────────────
          *
-         * Not a preference. Glass behind the webview stops `backdrop-filter`
-         * working inside it, and the picker needs that blur to keep
-         * conversation titles legible over whatever is behind the window.
-         * `glass::remove` carries the measurements.
+         * The bar used to be a bead of native glass. It is a tomato now
+         * (Tomato.tsx), drawn by the webview on a transparent window, and glass
+         * behind it would put the old capsule back around the new face. The
+         * picker never had glass: it needs `backdrop-filter`, which glass
+         * behind the webview stops working. `glass::remove` says why.
          *
-         * The bar has no small text to protect and everything to gain, so it
-         * gets the real material, in Clear, and reads as a bead of glass
-         * sitting on the desktop.
+         * The bar also drops its window shadow. macOS derives a transparent
+         * window's shadow from the pixels it draws and caches it, so a tomato
+         * that bobs would trail a shadow of where it was a moment ago. The
+         * picker keeps its shadow; it is what lifts the card off the desktop.
          */
-        if let Some(mtm) = objc2::MainThreadMarker::new() {
+        if objc2::MainThreadMarker::new().is_some() {
             let ns: &objc2_app_kit::NSWindow = &*(handle as *const objc2_app_kit::NSWindow);
-            if bar {
-                crate::glass::apply(ns, BAR.1 / 2.0, true, mtm);
-            } else {
-                crate::glass::remove(ns);
-            }
+            crate::glass::remove(ns);
         }
+        let _: () = msg_send![ns_window, setHasShadow: !bar];
 
         /*
          * ── The material ─────────────────────────────────────────────────

@@ -249,4 +249,8 @@ mod imp {
 }
 
 #[cfg(target_os = "macos")]
+// `apply` is unused since the bar became the tomato and dropped its glass. Kept,
+// because it is the only working route to Liquid Glass and the picker or a
+// future surface may want it back; not re-deriving it is worth a line.
+#[allow(unused_imports)]
 pub use imp::{apply, available, remove};

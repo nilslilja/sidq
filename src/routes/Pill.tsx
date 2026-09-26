@@ -16,7 +16,7 @@ import { desktopBridge } from "@/lib/onboarding/bridge";
 import type { PillState, ProjectRow } from "@/lib/onboarding/bridge";
 import type { WorkSession } from "@/lib/companion/work-history";
 import { cn } from "@/lib/cn";
-import { SidqMark } from "@/components/SidqMark";
+import { Tomato, type TomatoMood } from "@/components/Tomato";
 import { EscapeHatch, type Hatch } from "@/components/companion/EscapeHatch";
 
 /*
@@ -136,6 +136,12 @@ interface Carry {
 /** How long the bar shows what just landed before returning to the count. */
 const SAVED_BANNER_MS = 4200;
 
+/** One hop, from a conversation being picked up. Matches `tomato-hop` in global.css. */
+const HOP_MS = 600;
+
+/** How long the tomato stays worried after an assistant hits its limit. */
+const PANIC_MS = 6000;
+
 /** Which way each arrow moves the window, held with ⌘. */
 const NUDGES: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -194,19 +200,9 @@ export function Pill() {
   const [hatches, setHatches] = useState<Hatch[]>([]);
   /** Which of them the rail has selected. */
   const [hatch, setHatch] = useState(0);
-  /**
-   * Whether macOS is drawing the surface under all of this.
-   *
-   * Starts false, which is the safe way round: a frame or two of CSS glass on a
-   * machine that is about to say "native" is a slightly heavy pill, while a
-   * frame of nothing at all on a machine with no native glass is an invisible
-   * one.
-   */
-  const [nativeGlass, setNativeGlass] = useState(false);
   /*
-   * Bumped whenever the count changes, and used as a React key so the pulse
-   * restarts. Re-adding the same class does not replay a CSS animation; a new
-   * key remounts the element, which does.
+   * Bumped whenever the count changes. Each bump makes the tomato hop, which
+   * is the one sign on screen that Sidq just read something.
    */
   const [beat, setBeat] = useState(0);
   const [source, setSource] = useState(ANY_SOURCE);
@@ -341,7 +337,6 @@ export function Pill() {
     };
 
     optional(() => bridge.assistantList(), setHatches);
-    optional(() => bridge.nativeGlass(), setNativeGlass);
   }, [bridge]);
 
   /*
@@ -384,13 +379,20 @@ export function Pill() {
   useEffect(() => {
     if (!bridge || mode !== "collapsed") return;
 
+    /*
+     * The first read is the count as it already was, not news. Bumping on it
+     * made the tomato hop every time the window loaded, for nothing.
+     */
+    let first = true;
     const read = () =>
-      void bridge.indexStats().then(([count]) =>
+      void bridge.indexStats().then(([count]) => {
+        const settling = first;
+        first = false;
         setIndexed((was) => {
-          if (count !== was) setBeat((n) => n + 1);
+          if (count !== was && !settling) setBeat((n) => n + 1);
           return count;
-        }),
-      );
+        });
+      });
     read();
 
     /*
@@ -426,6 +428,47 @@ export function Pill() {
     const timer = setTimeout(() => setSaved(null), SAVED_BANNER_MS);
     return () => clearTimeout(timer);
   }, [saved]);
+
+  /*
+   * ── The tomato's mood ────────────────────────────────────────────────────
+   *
+   * It hops when the count moves or a conversation is picked up, and panics
+   * when an assistant hits its limit. Both wear off on their own, so it is
+   * never left looking worried about something that is over.
+   */
+  const [hopping, setHopping] = useState(false);
+  const [panicking, setPanicking] = useState(false);
+
+  useEffect(() => {
+    if (beat === 0 && !saved) return;
+    setHopping(true);
+    const timer = setTimeout(() => setHopping(false), HOP_MS);
+    return () => clearTimeout(timer);
+  }, [beat, saved]);
+
+  useEffect(() => {
+    if (!bridge?.onStopped) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void bridge
+      .onStopped(() => setPanicking(true))
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!panicking) return;
+    const timer = setTimeout(() => setPanicking(false), PANIC_MS);
+    return () => clearTimeout(timer);
+  }, [panicking]);
+
+  const mood: TomatoMood = panicking ? "panic" : hopping ? "hop" : "idle";
 
   /*
    * ── The tone for a conversation arriving ─────────────────────────────────
@@ -912,129 +955,45 @@ export function Pill() {
     return (
       <div
         data-transparent-window
-        data-native-glass={nativeGlass || undefined}
         className="flex h-[100dvh] w-full items-center justify-center bg-transparent"
       >
         <button
           onClick={() => void bridge?.expandPill()}
           aria-label="Open Sidq and pick up a conversation"
+          data-mood={mood}
           className={cn(
-            /*
-             * A pill inside the window rather than the window itself.
-             *
-             * Rust gives this a canvas larger than the bar on every side, and
-             * the margin is not wasted: the glow and the shadow are painted
-             * outside this element's box and would be clipped square at the
-             * window edge without it. Fixed height rather than `h-full` for the
-             * same reason — filling the window would put the pill back against
-             * the edges the whole change was about getting away from.
-             */
-            "group flex h-6 w-[112px] items-center justify-center gap-1.5 px-2.5",
-            /*
-             * Rounded at the bottom only, and no top border.
-             *
-             * It sits inside the menu bar now rather than hanging below it,
-             * because below the menu bar is where a browser draws its tabs and
-             * the old bar covered three of them in every window. The menu bar's
-             * middle belongs to nobody, so this covers nothing.
-             *
-             * Which means it has to read as part of that strip rather than as a
-             * card resting on it: no elevation shadow and no ring, only the rim
-             * and a hairline of contact, so the seam with the menu bar
-             * disappears. `.lip-glass` carries all of that — see global.css.
-             */
-            // Fully round, because it no longer meets an edge to be squared
-            // against. A bottom-only radius on a floating object reads as a
-            // piece that has broken off something.
-            "rounded-full bar-float bar-breathe",
-            "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-lilac/70",
+            "group flex h-6 items-center justify-center gap-1.5 rounded-full",
+            "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac/70",
           )}
         >
+          <Tomato mood={mood} size={20} className="shrink-0" />
           {/*
-           * The mark, and it is doing the job the dot used to.
+           * Words only when there is news, or when somebody hovers to ask.
            *
-           * This was a violet dot beside the word "Sidq", which is a label
-           * telling you the name of the thing you already installed. The mark
-           * says the same thing without spending any of a 152 point bar on
-           * spelling it, and it is the one drawing that ties this strip to the
-           * Dock icon and the window.
-           *
-           * It also absorbs the status dot rather than sitting next to one.
-           * The mark already ends in a filled circle — the wave runs into it —
-           * so the beat lands on a shape that was always there instead of
-           * adding a second one. Two dots twelve points apart in a strip this
-           * size reads as a rendering fault.
-           *
-           * The beat itself stays: the reader captures a conversation every
-           * fifteen seconds and used to say nothing about it, so the one
-           * always-visible piece of the product gave no sign it was working.
-           * Keyed on the change so the animation replays — re-adding a class
-           * does not restart one.
+           * The tomato is the whole bar at rest: it bobbing is the sign Sidq is
+           * running, and a hop is the sign it just read something. The label
+           * says which assistant a pickup came from, and on hover gives the
+           * count and the shortcut, in a capsule of its own so it stays
+           * readable over any menu bar.
            */}
-          <SidqMark
-            key={beat}
-            width={22}
-            height={12}
-            /*
-             * Heavier than the icon, deliberately. At 22 by 12 the icon's own
-             * weight of 20 thins out to the point where the trailing dot stops
-             * reading as part of the stroke. This is the one place that wants
-             * more, and it says so rather than leaving a bare number.
-             */
-            strokeWidth={24}
+          <span
             className={cn(
-              "shrink-0 transition-colors duration-200",
-              saved ? "text-[#D8CCFF]" : "text-white/75 group-hover:text-white",
-              (beat > 0 || saved) && "animate-pulse-once",
+              "bar-float max-w-[84px] truncate rounded-full px-2 py-[3px]",
+              "text-[0.6875rem] leading-none tabular-nums transition-opacity duration-200",
+              saved
+                ? "text-[#D8CCFF] opacity-100"
+                : "text-white/70 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
             )}
-          />
-          {/*
-           * The bar says what just happened, then goes back to the count.
-           *
-           * This is the only surface Sidq has that is guaranteed to be on
-           * screen at the moment a conversation is found: reading a browser
-           * assistant needs that browser in front, so the main window is
-           * behind something and the notification may be a banner that has
-           * already gone. The bar floats above everything, including another
-           * app's fullscreen Space.
-           *
-           * 152 points is not room for a conversation title, so it carries the
-           * assistant's name and the notification carries the title.
-           */}
-          {/*
-           * Only when there is something to report.
-           *
-           * The fallback used to be the string "Sidq", which is the one piece
-           * of information a person looking at their own menu bar already has.
-           * Idle, the mark alone is the whole bar; the text appears when the
-           * count exists or a handover has just landed.
-           */}
-          {(saved || indexed > 0) && (
-            <span
-              className={cn(
-                "truncate text-[0.6875rem] leading-none tabular-nums transition-colors duration-200",
-                saved ? "text-[#D8CCFF]" : "text-white/70",
-              )}
-            >
-              {/*
-               * "Picked up", not "Saved".
-               *
-               * The same correction as the notification in main.rs. Nothing is
-               * written to disk when a conversation is indexed, and this bar
-               * sat two lines away from a panel that says "Saved to Downloads"
-               * about the one thing that is. One word, two meanings, and the
-               * folder is real.
-               */}
-              {saved ? `Picked up · ${saved}` : indexed.toLocaleString()}
-            </span>
-          )}
-          {/*
-           * The shortcut only on hover. At this size it is the difference
-           * between a label and a cluttered one, and anybody who has not
-           * hovered has not needed it yet.
-           */}
-          <span className="text-[0.625rem] leading-none text-white/0 transition-colors duration-150 group-hover:text-white/40">
-            ⌘⇧K
+          >
+            {saved ? (
+              `Picked up · ${saved}`
+            ) : (
+              <>
+                {indexed > 0 && <span>{indexed.toLocaleString()}</span>}
+                {indexed > 0 && " · "}
+                ⌘⇧K
+              </>
+            )}
           </span>
         </button>
       </div>

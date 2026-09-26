@@ -261,6 +261,11 @@ export interface OnboardingBridge {
    */
   onChanged: (callback: () => void) => Promise<() => void>;
   /**
+   * An assistant hit its usage limit (Rust's `wall`), whether or not relay then
+   * carried the work on. The tomato panics; nothing else listens.
+   */
+  onStopped: (callback: () => void) => Promise<() => void>;
+  /**
    * A conversation Sidq had never seen before, just read out of a browser.
    *
    * Separate from `onChanged` because it means something different. `onChanged`
@@ -735,6 +740,7 @@ export function desktopBridge(): OnboardingBridge | null {
       }),
     onShortcut: (name, callback) => event.listen(name, () => callback()),
     onChanged: (callback) => event.listen("sidq:changed", () => callback()),
+    onStopped: (callback) => event.listen("sidq:stopped", () => callback()),
     onFound: (callback) =>
       event.listen("sidq:found", (e) => {
         // Rust's own struct, but it arrives as JSON over an event channel like
