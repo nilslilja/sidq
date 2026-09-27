@@ -465,7 +465,7 @@ export function Home() {
                     className={cn(
                       "mt-3 w-full rounded-[10px] px-3 py-2",
                       "bg-[var(--w-invert)] text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
-                      "cursor-pointer transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.98]",
+                      "cursor-pointer transition-[opacity,transform,translate,scale] duration-150 hover:opacity-85 active:scale-[0.98]",
                     )}
                   >
                     Upgrade to Pro
@@ -591,7 +591,7 @@ function NavRow({
          * theme switch should do anyway. Hover still animates the parts that
          * do not depend on the palette.
          */
-        "text-[0.875rem] transition-[background-color,box-shadow,transform] duration-150",
+        "text-[0.875rem] transition-[background-color,box-shadow,transform,translate,scale] duration-150",
         active
           ? "bg-[var(--w-surface)] font-medium text-[var(--w-text)] shadow-[0_0_0_1px_var(--w-line)]"
           : "text-[var(--w-text-3)] hover:bg-[var(--w-raised)] hover:text-[var(--w-text)]",
@@ -2573,7 +2573,7 @@ function Profile({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
             key={fact.text}
             className={cn(
               "flex items-baseline gap-4 rounded-[10px] px-3 py-2.5",
-              "transition-[transform,background-color] duration-150",
+              "transition-[transform,translate,scale,background-color] duration-150",
               "hover:-translate-y-px hover:bg-[var(--w-raised)]",
             )}
           >

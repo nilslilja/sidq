@@ -40,10 +40,10 @@ function Step({
   return (
     <li className="relative border-t border-ink/10 pt-8">
       <div className="flex items-baseline gap-4">
-        <span className="font-display text-[0.875rem] tabular-nums text-ink/35">
+        <span className="font-display font-semibold text-[0.875rem] tabular-nums text-ink/35">
           {String(n).padStart(2, "0")}
         </span>
-        <h3 className="font-display text-[clamp(1.25rem,2.2vw,1.625rem)] leading-tight tracking-[-0.03em]">
+        <h3 className="font-display font-semibold text-[clamp(1.25rem,2.2vw,1.625rem)] leading-tight tracking-[-0.03em]">
           {title}
         </h3>
       </div>
@@ -61,7 +61,7 @@ export function ChatgptToClaude() {
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
           <Link
             to="/"
-            className="inline-flex min-h-11 items-center font-display text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
+            className="inline-flex min-h-11 items-center font-display font-semibold text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
           >
             Sidq
           </Link>
@@ -96,7 +96,7 @@ export function ChatgptToClaude() {
          * loses in a result, where the reader is scanning ten blue lines for
          * the one that repeats what they just typed.
          */}
-        <h1 className="max-w-[24ch] font-serif text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.0]">
+        <h1 className="max-w-[24ch] font-display font-semibold tracking-[-0.05em] text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.02]">
           How to move a ChatGPT conversation into Claude
         </h1>
 
@@ -115,8 +115,8 @@ export function ChatgptToClaude() {
          * works is how a page gets closed, and a page that gets closed in four
          * seconds does not keep whatever position it earned.
          */}
-        <div className="mt-10 max-w-[62ch] rounded-[14px] border border-ink/12 bg-ink/[0.03] p-6">
-          <p className="text-[0.75rem] uppercase tracking-[0.16em] text-ink/45">
+        <div className="mt-10 max-w-[62ch] border-l-2 border-[#2448E8] pl-6">
+          <p className="text-[0.8125rem] font-medium text-[#2448E8]">
             Short answer
           </p>
           <p className="mt-2 text-[1rem] leading-relaxed">
@@ -128,7 +128,7 @@ export function ChatgptToClaude() {
           </p>
         </div>
 
-        <h2 className="mt-16 font-display text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
+        <h2 className="mt-16 font-display font-semibold text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
           The four ways, worst to best
         </h2>
 
@@ -211,7 +211,7 @@ export function ChatgptToClaude() {
           </Step>
         </ol>
 
-        <h2 className="mt-20 font-display text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
+        <h2 className="mt-20 font-display font-semibold text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
           What actually transfers, and what does not
         </h2>
 
@@ -229,7 +229,7 @@ export function ChatgptToClaude() {
           </p>
         </div>
 
-        <h2 className="mt-20 font-display text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
+        <h2 className="mt-20 font-display font-semibold text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
           Going the other way, or anywhere else
         </h2>
 
@@ -255,7 +255,7 @@ export function ChatgptToClaude() {
          * thing everybody searching this has already closed twice.
          */}
         <div className="mt-20 max-w-[62ch] rounded-[16px] border border-ink/12 bg-ink/[0.03] p-8">
-          <h2 className="font-display text-[1.5rem] leading-tight tracking-[-0.035em]">
+          <h2 className="font-display font-semibold text-[1.5rem] leading-tight tracking-[-0.035em]">
             If you do this more than once a week
           </h2>
           <p className="mt-3 text-[1rem] leading-relaxed text-ink/70">
@@ -310,7 +310,7 @@ function GuidePage({ guide }: { guide: Guide }) {
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
           <Link
             to="/"
-            className="inline-flex min-h-11 items-center font-display text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
+            className="inline-flex min-h-11 items-center font-display font-semibold text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
           >
             Sidq
           </Link>
@@ -339,7 +339,7 @@ function GuidePage({ guide }: { guide: Guide }) {
 
       <main className="mx-auto max-w-[76rem] px-6 py-16 lg:py-24">
         {/* The h1 is the query, near enough word for word. See above. */}
-        <h1 className="max-w-[24ch] font-display text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]">
+        <h1 className="max-w-[24ch] font-display font-semibold text-[clamp(2rem,4.6vw,3.5rem)] leading-[0.96] tracking-[-0.04em]">
           {guide.title}
         </h1>
 
@@ -347,7 +347,7 @@ function GuidePage({ guide }: { guide: Guide }) {
           {guide.intro}
         </p>
 
-        <h2 className="mt-16 font-display text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
+        <h2 className="mt-16 font-display font-semibold text-[clamp(1.5rem,2.8vw,2rem)] leading-tight tracking-[-0.035em]">
           The four ways, worst to best
         </h2>
 
@@ -363,7 +363,7 @@ function GuidePage({ guide }: { guide: Guide }) {
 
         {/* The download sits at the end. Three of the four answers are free. */}
         <div className="mt-20 max-w-[62ch] rounded-[16px] border border-ink/12 bg-ink/[0.03] p-8">
-          <h2 className="font-display text-[1.5rem] leading-tight tracking-[-0.035em]">
+          <h2 className="font-display font-semibold text-[1.5rem] leading-tight tracking-[-0.035em]">
             If you do this more than once a week
           </h2>
           <p className="mt-3 text-[1rem] leading-relaxed text-ink/70">

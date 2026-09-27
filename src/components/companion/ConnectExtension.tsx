@@ -51,12 +51,12 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
     return (
       <div
         className={cn(
-          'rounded-[12px] border border-lilac/45 bg-[#F5F1FF] p-4',
+          'rounded-[12px] border border-[#2448E8]/25 bg-[#EEF1FD] p-4',
           compact && 'p-3',
         )}
       >
-        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#6A4BEA]" />
+        <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#12121A]">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-[#2448E8]" />
           Extension connected
         </p>
         <p className="mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed text-[#57516A]">
@@ -69,7 +69,7 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={cn('rounded-[12px] border border-black/[0.11] bg-[#FAF9FD] p-4', compact && 'p-3')}>
-      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#16141C]">
+      <p className="flex items-center gap-2 text-[0.875rem] font-medium text-[#12121A]">
         {/* Amber, not red. Nothing is broken; something is simply not added yet. */}
         <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-400/70" />
         Add the browser extension
@@ -85,15 +85,15 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
         </li>
         <li>
           <span className="text-[#8E8899]">2.</span> Open Chrome and go to{' '}
-          <code className="text-[#16141C]/70">chrome://extensions</code>
+          <code className="text-[#12121A]/70">chrome://extensions</code>
         </li>
         <li>
           <span className="text-[#8E8899]">3.</span> Turn on{' '}
-          <span className="text-[#16141C]/70">Developer mode</span>, top right
+          <span className="text-[#12121A]/70">Developer mode</span>, top right
         </li>
         <li>
           <span className="text-[#8E8899]">4.</span> Click{' '}
-          <span className="text-[#16141C]/70">Load unpacked</span> and pick the folder
+          <span className="text-[#12121A]/70">Load unpacked</span> and pick the folder
         </li>
       </ol>
 
@@ -102,7 +102,7 @@ export function ConnectExtension({ compact = false }: { compact?: boolean }) {
           onClick={() => void bridge?.downloadExtension()}
           className={cn(
             'rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium',
-            'bg-[#16141C] text-white transition-opacity duration-150',
+            'bg-[#12121A] text-white transition-opacity duration-150',
             'cursor-pointer hover:opacity-90',
           )}
         >

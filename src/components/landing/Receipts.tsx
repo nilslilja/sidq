@@ -1,4 +1,3 @@
-import { Reveal, Stagger } from "./Reveal";
 
 /**
  * What a subscription actually buys before it stops.
@@ -46,29 +45,21 @@ const PUBLISHED = [
 export function Receipts() {
   return (
     <>
-      <Reveal mode="pop" repeat>
-        <p className="text-[0.8125rem] font-medium uppercase tracking-[0.14em] ink-muted">
+        <p className="text-[0.8125rem] font-medium ink-muted">
           Receipts
         </p>
-      </Reveal>
-
-      <Reveal mode="pop" repeat delay={0.06}>
-        <h1 className="mt-4 max-w-[20ch] font-serif text-[clamp(2.25rem,5.2vw,4rem)] leading-[1.02]">
+        <h1 className="mt-4 max-w-[20ch] font-display font-semibold tracking-[-0.04em] text-[clamp(2.25rem,5.2vw,4rem)] leading-[1.02]">
           What your plan lasts before it stops
         </h1>
-      </Reveal>
-
-      <Reveal mode="pop" repeat delay={0.12}>
         <p className="mt-6 max-w-[62ch] text-[1.0625rem] leading-relaxed ink-muted">
           Sidq reads the conversations already on your Mac, so it can see the
           exact moment an assistant stopped answering: the limit message is the
           last thing in the transcript. This page is that measurement and
           nothing else.
         </p>
-      </Reveal>
 
       <section className="mt-16">
-        <h2 className="font-serif text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
+        <h2 className="font-display font-semibold tracking-[-0.04em] text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
           What they publish
         </h2>
         <p className="mt-3 max-w-[62ch] text-[0.9375rem] leading-relaxed ink-muted">
@@ -78,11 +69,10 @@ export function Receipts() {
         </p>
 
         <div className="mt-8 grid gap-px overflow-hidden rounded-[18px] bg-ink/10 ring-1 ring-ink/10 sm:grid-cols-3">
-          <Stagger step={0.06}>
             {PUBLISHED.map((row) => (
               <div key={row.plan} className="bg-paper p-6">
                 <p className="font-medium">{row.plan}</p>
-                <p className="mt-1 font-serif text-[1.75rem] leading-none">
+                <p className="mt-1 font-display font-semibold tracking-[-0.04em] text-[1.75rem] leading-none">
                   {row.price}
                   <span className="text-[0.875rem] ink-muted"> a month</span>
                 </p>
@@ -91,16 +81,13 @@ export function Receipts() {
                 </p>
               </div>
             ))}
-          </Stagger>
         </div>
       </section>
 
       <section className="mt-20">
-        <h2 className="font-serif text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
+        <h2 className="font-display font-semibold tracking-[-0.04em] text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
           What we measured
         </h2>
-
-        <Reveal mode="pop" repeat>
           <div className="mt-6 max-w-[62ch] rounded-[18px] border border-ink/12 bg-ink/[0.02] p-6">
             {/*
              * The empty state, said out loud.
@@ -125,11 +112,10 @@ export function Receipts() {
               the number is worth.
             </p>
           </div>
-        </Reveal>
       </section>
 
       <section className="mt-20">
-        <h2 className="font-serif text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
+        <h2 className="font-display font-semibold tracking-[-0.04em] text-[clamp(1.5rem,3vw,2.25rem)] leading-tight">
           How you would check it yourself
         </h2>
         <p className="mt-3 max-w-[62ch] text-[0.9375rem] leading-relaxed ink-muted">

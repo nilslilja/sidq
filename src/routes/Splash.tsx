@@ -19,6 +19,7 @@
  */
 
 import { SidqMark } from '@/components/SidqMark';
+import { SidqDot } from '@/components/SidqDot';
 
 export function Splash() {
   return (
@@ -33,34 +34,27 @@ export function Splash() {
       className="flex h-[100dvh] w-full items-center justify-center bg-transparent p-1"
     >
       <div
-        className="flex h-full w-full flex-col items-center justify-center rounded-[22px]"
+        className="flex h-full w-full flex-col items-center justify-center rounded-[22px] bg-paper"
         style={{
-          // The hero's dawn, cropped to the top where it is still night. The
-          // same three stops the website opens on, so the first thing you see
-          // at login is the thing that sold it to you.
-          background:
-            "linear-gradient(165deg, #46437B 0%, #3A3968 55%, #2E2D55 100%)",
-          boxShadow:
-            "0 1px 0 0 rgba(255,255,255,0.10) inset, 0 24px 60px -20px rgba(0,0,0,0.55)",
+          // The website's card: paper, a hairline, one neutral shadow. It was a
+          // violet gradient, the last thing on screen still in the old colour.
+          boxShadow: "0 0 0 1px rgba(18,18,26,0.08), 0 24px 60px -20px rgba(18,18,26,0.45)",
         }}
       >
         <Mark />
 
-        <p className="mt-6 font-display text-[1.75rem] leading-none tracking-[-0.04em] text-white">
+        <p className="mt-6 font-display text-[1.75rem] font-semibold leading-none tracking-[-0.05em] text-ink">
           Sidq
         </p>
 
         {/*
-         * A ring, not a percentage.
-         *
-         * There is no progress to report: the app is reading transcripts and
-         * opening a database, and either it is ready or it is not. A bar that
-         * moves at a rate nobody can predict is a worse lie than a spinner.
+         * The dot instead of a spinner. It is what sits on screen once Sidq is
+         * running, so the first thing anybody sees of it is the thing they will
+         * see all day, already breathing.
          */}
-        <span
-          aria-hidden="true"
-          className="splash-spin mt-14 size-5 rounded-full border-2 border-white/20 border-t-white/80"
-        />
+        <span className="mt-14">
+          <SidqDot mood="idle" />
+        </span>
 
         <span className="sr-only" role="status">
           Starting Sidq
@@ -82,7 +76,7 @@ function Mark() {
     <SidqMark
       width={132}
       height={71}
-      className="text-white"
+      className="text-[#4F46E5]"
     />
   );
 }

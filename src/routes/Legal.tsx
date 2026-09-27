@@ -258,14 +258,14 @@ function Page({
       <header className="mx-auto max-w-[46rem] px-6 pt-10">
         <Link
           to="/"
-          className="font-display text-[1.5rem] leading-none tracking-[-0.05em] transition-opacity duration-150 hover:opacity-70"
+          className="font-display font-semibold text-[1.5rem] leading-none tracking-[-0.05em] transition-opacity duration-150 hover:opacity-70"
         >
           Sidq
         </Link>
       </header>
 
       <main className="mx-auto max-w-[46rem] px-6 py-16">
-        <h1 className="font-serif text-[clamp(2.5rem,6vw,4rem)] leading-[1.0]">
+        <h1 className="font-display font-semibold tracking-[-0.05em] text-[clamp(2.5rem,6vw,4rem)] leading-[1.02]">
           {title}
         </h1>
         <p className="mt-4 text-[0.8125rem] ink-muted">Last updated {updated}</p>
@@ -280,7 +280,7 @@ function Page({
 
 function H({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mt-12 font-display text-[1.375rem] leading-snug tracking-[-0.02em] first:mt-0">
+    <h2 className="mt-12 font-display font-semibold text-[1.375rem] leading-snug tracking-[-0.02em] first:mt-0">
       {children}
     </h2>
   );

@@ -83,7 +83,7 @@ export default function Build() {
     return (
       <Page>
         <div className="animate-[rise_500ms_cubic-bezier(0.16,1,0.3,1)_both]">
-          <p className="font-display text-[clamp(1.75rem,4vw,2.5rem)] leading-[1.05] tracking-[-0.03em] text-ink">
+          <p className="font-display font-semibold text-[clamp(1.75rem,4vw,2.5rem)] leading-[1.05] tracking-[-0.03em] text-ink">
             {kind === "sponsor" ? "Got it." : "You're in."}
           </p>
           <p className="ink-muted mt-4 max-w-[42ch] text-[1.0625rem] leading-relaxed">
@@ -99,10 +99,10 @@ export default function Build() {
   return (
     <Page>
       <header>
-        <p className="text-[0.75rem] uppercase tracking-[0.18em] text-ink/45">
+        <p className="text-[0.75rem] font-medium text-ink/45">
           {EVENT.city}
         </p>
-        <h1 className="mt-3 font-display text-[clamp(2rem,5.5vw,3.5rem)] leading-[0.98] tracking-[-0.04em] text-ink">
+        <h1 className="mt-3 font-display font-semibold text-[clamp(2rem,5.5vw,3.5rem)] leading-[0.98] tracking-[-0.04em] text-ink">
           {EVENT.name}
         </h1>
         <p className="ink-muted mt-4 max-w-[46ch] text-[1.0625rem] leading-relaxed">

@@ -144,7 +144,7 @@ export function PrimaryAction({
       className={cn(
         'flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] px-6',
         'bg-ink text-[0.9375rem] font-medium text-paper',
-        'transition-[background-color,transform] duration-150 hover:bg-ink/85 active:scale-[0.985]',
+        'transition-[background-color,transform,translate,scale] duration-150 hover:bg-ink/85 active:scale-[0.985]',
       )}
     >
       {label}
@@ -158,7 +158,7 @@ export function Key({ children, lit }: { children: React.ReactNode; lit?: boolea
     <span
       className={cn(
         'grid h-11 min-w-11 place-items-center rounded-[10px] px-3',
-        'font-mono text-[0.8125rem] transition-[background-color,color,transform,box-shadow] duration-150',
+        'font-mono text-[0.8125rem] transition-[background-color,color,transform,translate,scale,box-shadow] duration-150',
         lit
           ? 'translate-y-px bg-[#2448E8] text-white shadow-[0_0_0_4px_rgba(36,72,232,0.15)]'
           : 'bg-white text-ink shadow-[0_0_0_1px_rgba(18,18,26,0.1),0_2px_0_rgba(18,18,26,0.08)]',

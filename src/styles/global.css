@@ -463,7 +463,7 @@
    *
    * Scoped to `[data-native-glass]`, which only the pill window carries. The
    * website draws the same classes in a browser with no native layer anywhere
-   * near it, and `PillPreview`, `DesktopMock` and the film all depend on them
+   * near it, and `PillPreview` and the film both depend on them
    * looking exactly as they do now.
    *
    * The elevation that the glow and the drop shadows were faking is a real
@@ -1691,27 +1691,6 @@
   .edge-lit::before {
     animation: none;
     --edge-angle: 0.2turn;
-  }
-}
-
-/*
- * The launch spinner. One element, one property, off under reduced motion —
- * where the ring simply sits still rather than vanishing, because it is the
- * only thing on that card saying the app is doing something.
- */
-@keyframes splash-spin {
-  to {
-    rotate: 1turn;
-  }
-}
-
-.splash-spin {
-  animation: splash-spin 800ms linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .splash-spin {
-    animation: none;
   }
 }
 

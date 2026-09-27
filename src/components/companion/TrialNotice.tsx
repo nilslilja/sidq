@@ -84,7 +84,7 @@ export function TrialNotice({
         className={cn(
           "mt-4 cursor-pointer rounded-[10px] px-4 py-2 text-[0.8125rem] font-medium",
           "bg-[var(--w-invert)] text-[var(--w-on-invert)]",
-          "transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.98]",
+          "transition-[opacity,transform,translate,scale] duration-150 hover:opacity-85 active:scale-[0.98]",
         )}
       >
         {running ? "Keep it after the trial" : "Turn it back on"}

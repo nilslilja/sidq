@@ -43,14 +43,14 @@ function Rendered({ markdown }: { markdown: string }) {
         }
         if (text.startsWith("## ")) {
           return (
-            <h2 key={key} className="pt-4 font-display text-[1.375rem] tracking-tight">
+            <h2 key={key} className="pt-4 font-display font-semibold text-[1.375rem] tracking-tight">
               {text.slice(3)}
             </h2>
           );
         }
         if (text.startsWith("# ")) {
           return (
-            <h1 key={key} className="font-display text-[2rem] tracking-tight">
+            <h1 key={key} className="font-display font-semibold text-[2rem] tracking-tight">
               {text.slice(2)}
             </h1>
           );
@@ -131,7 +131,7 @@ export default function SharedMemory() {
 
         {state.kind === "missing" && (
           <section aria-labelledby="gone">
-            <h1 id="gone" className="font-display text-[2rem] tracking-tight">
+            <h1 id="gone" className="font-display font-semibold text-[2rem] tracking-tight">
               There is nothing at this link
             </h1>
             <p className="mt-4 max-w-[46ch] text-[0.9375rem] leading-relaxed text-black/60">
@@ -150,10 +150,10 @@ export default function SharedMemory() {
         {state.kind === "found" && (
           <>
             <header className="border-b border-black/10 pb-6">
-              <p className="text-[0.75rem] uppercase tracking-[0.14em] text-black/35">
+              <p className="text-[0.75rem] font-medium text-black/35">
                 A project memory
               </p>
-              <h1 className="mt-2 font-display text-[2.25rem] leading-[1.05] tracking-tight">
+              <h1 className="mt-2 font-display font-semibold text-[2.25rem] leading-[1.05] tracking-tight">
                 {state.project}
               </h1>
               <p className="mt-3 text-[0.8125rem] text-black/45">

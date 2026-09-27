@@ -165,7 +165,7 @@ export function WaitlistForPlatform({ platform }: { platform: Platform }) {
           type="submit"
           disabled={state === "saving"}
           className={cn(
-            "btn-soft min-h-11 shrink-0 rounded-full px-5 text-[0.875rem] font-medium",
+            "min-h-11 shrink-0 cursor-pointer rounded-[10px] bg-ink px-5 text-[0.875rem] font-medium text-paper transition-[background-color,scale] duration-150 hover:bg-ink/85 active:scale-[0.98]",
             "disabled:opacity-50",
           )}
         >

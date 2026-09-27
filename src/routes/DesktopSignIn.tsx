@@ -92,46 +92,42 @@ export function DesktopSignIn() {
   };
 
   return (
-    <div className="grid min-h-[100dvh] place-items-center bg-[#0B0B10] px-6 text-white">
-      <div
-        aria-hidden="true"
-        className="bloom-breathe pointer-events-none fixed left-1/2 top-1/4 size-[32rem] -translate-x-1/2 rounded-full bg-lilac opacity-[0.13] blur-[110px]"
-      />
+    <div className="grid min-h-[100dvh] place-items-center bg-paper px-6 text-ink">
 
       <main className="relative w-full max-w-[24rem]">
-        <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">Sidq</div>
+        <div className="font-display text-[1.25rem] font-semibold leading-none tracking-[-0.05em]">Sidq</div>
 
         {phase === 'returning' ? (
           <>
-            <h1 className="mt-8 font-display text-[1.75rem] leading-tight tracking-[-0.03em]">
+            <h1 className="mt-10 font-display text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.05em]">
               Signed in
             </h1>
-            <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/50">
+            <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink/60">
               Returning you to the app. You can close this tab.
             </p>
           </>
         ) : phase === 'sent' ? (
           <>
-            <h1 className="mt-8 font-display text-[1.75rem] leading-tight tracking-[-0.03em]">
+            <h1 className="mt-10 font-display text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.05em]">
               Check your email
             </h1>
-            <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/50">
-              We sent a link to <span className="text-white">{email}</span>. Open it in this
+            <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink/60">
+              We sent a link to <span className="text-ink">{email}</span>. Open it in this
               browser and the app will pick it up by itself.
             </p>
             <button
               onClick={() => setPhase('idle')}
-              className="mt-6 text-[0.8125rem] text-white/45 transition-colors duration-150 hover:text-white"
+              className="mt-6 cursor-pointer text-[0.8125rem] text-ink/50 underline-offset-4 transition-colors duration-150 hover:text-ink hover:underline"
             >
               Use a different address
             </button>
           </>
         ) : (
           <>
-            <h1 className="mt-8 font-display text-[1.75rem] leading-tight tracking-[-0.03em]">
+            <h1 className="mt-10 font-display text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.05em]">
               Continue to Sidq
             </h1>
-            <p className="mt-3 text-[0.9375rem] leading-relaxed text-white/50">
+            <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink/60">
               Sign in here and you will land back in the app automatically.
             </p>
 
@@ -142,9 +138,9 @@ export function DesktopSignIn() {
             </div>
 
             <div className="my-6 flex items-center gap-4">
-              <span className="h-px flex-1 bg-white/10" />
-              <span className="text-[0.6875rem] uppercase tracking-[0.16em] text-white/35">or</span>
-              <span className="h-px flex-1 bg-white/10" />
+              <span className="h-px flex-1 bg-ink/10" />
+              <span className="text-[0.75rem] text-ink/40">or</span>
+              <span className="h-px flex-1 bg-ink/10" />
             </div>
 
             <form onSubmit={magicLink}>
@@ -160,15 +156,15 @@ export function DesktopSignIn() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className={cn(
-                  'w-full rounded-[12px] border border-white/12 bg-white/[0.04] px-4 py-3',
-                  'text-[0.9375rem] text-white placeholder:text-white/30',
-                  'outline-none transition-colors duration-150 focus:border-white/30',
+                  'h-12 w-full rounded-[10px] border border-ink/12 bg-white px-4',
+                  'text-[0.9375rem] text-ink placeholder:text-ink/35',
+                  'outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#2448E8]/50 focus:shadow-[0_0_0_4px_rgba(36,72,232,0.1)]',
                 )}
               />
               <button
                 type="submit"
                 disabled={phase === 'sending'}
-                className="btn-soft mt-2.5 min-h-[3rem] w-full rounded-[12px] text-[0.9375rem] font-medium disabled:opacity-60"
+                className="mt-2.5 h-12 w-full cursor-pointer rounded-[10px] bg-ink text-[0.9375rem] font-medium text-paper transition-[background-color,scale] duration-150 hover:bg-ink/85 active:scale-[0.99] disabled:opacity-60"
               >
                 {phase === 'sending' ? 'Sending…' : 'Email me a link'}
               </button>
@@ -177,13 +173,13 @@ export function DesktopSignIn() {
         )}
 
         {error && (
-          <p role="alert" className="mt-5 text-[0.8125rem] text-[#FFB4A2]">
+          <p role="alert" className="mt-5 text-[0.8125rem] text-[#B23B32]">
             {error}
           </p>
         )}
 
         {!isBackendConfigured && (
-          <p className="mt-6 text-[0.75rem] leading-relaxed text-white/30">
+          <p className="mt-6 text-[0.75rem] leading-relaxed text-ink/40">
             No backend is connected in this environment, so sign-in is unavailable. The app
             keeps your history and your subscription across machines.
           </p>

@@ -76,10 +76,11 @@ export function ProviderButton({ provider, onClick, busy, disabled }: ProviderBu
       onClick={() => onClick(provider)}
       disabled={disabled || busy}
       className={cn(
-        'sheen glass group flex min-h-[3.25rem] w-full items-center justify-center gap-3',
-        'rounded-(--radius) px-5 text-[0.9375rem] font-medium text-text',
-        'transition-[transform,box-shadow] duration-(--duration-fast) ease-(--ease-out-expo)',
-        'hover:-translate-y-px active:translate-y-0 active:scale-[0.99]',
+        // The site's quiet button: white on paper, one hairline, no glass.
+        'group flex h-12 w-full cursor-pointer items-center justify-center gap-3',
+        'rounded-[10px] bg-white px-5 text-[0.9375rem] font-medium text-ink ring-1 ring-inset ring-ink/12',
+        'transition-[background-color,scale] duration-150',
+        'hover:bg-ink/[0.03] active:scale-[0.99]',
         'disabled:pointer-events-none disabled:opacity-50',
       )}
     >

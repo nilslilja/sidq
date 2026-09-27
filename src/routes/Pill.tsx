@@ -1031,7 +1031,7 @@ export function Pill() {
             className={cn(
               "max-w-[84px] truncate rounded-[6px] bg-[#F7F6F3] px-1.5 py-[3px] ring-1 ring-black/10",
               "text-[0.6875rem] font-medium leading-none tabular-nums text-ink",
-              "transition-[opacity,transform] duration-200 ease-out",
+              "transition-[opacity,transform,translate,scale] duration-200 ease-out",
               saved
                 ? "translate-x-0 opacity-100"
                 : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100",
@@ -1348,11 +1348,9 @@ export function Pill() {
                 void bridge?.hidePill();
               }}
               className={cn(
-                "mt-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium",
+                "mt-3 rounded-[10px] px-3.5 py-1.5 text-[0.8125rem] font-medium",
                 "bg-ink text-paper",
-                "shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]",
-                "cursor-pointer transition-[box-shadow,transform] duration-150",
-                "hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]",
+                "cursor-pointer transition-[background-color,scale] duration-150 hover:bg-ink/85 active:scale-[0.98]",
               )}
             >
               See the plans

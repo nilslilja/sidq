@@ -134,7 +134,7 @@ function Said({ show, children }: { show: boolean; children: React.ReactNode }) 
     <div
       className={cn(
         'ml-auto w-fit max-w-[85%] rounded-[12px] bg-[#F1F0EC] px-3 py-2 text-[0.8125rem] leading-snug text-ink',
-        'transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+        'transition-[opacity,transform,translate,scale] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
         show ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
       )}
     >
@@ -150,7 +150,7 @@ function Lines({ show, widths }: { show: boolean; widths: string[] }) {
         <div
           key={i}
           className={cn(
-            'h-2 origin-left rounded-full bg-ink/[0.08] transition-[opacity,transform] duration-500',
+            'h-2 origin-left rounded-full bg-ink/[0.08] transition-[opacity,transform,translate,scale] duration-500',
             show ? 'scale-x-100 opacity-100' : 'scale-x-50 opacity-0',
           )}
           style={{ width: w, transitionDelay: `${i * 90}ms` }}
@@ -173,7 +173,7 @@ function Overlay({ splash, label }: { splash: number; label: string | null }) {
       <span
         className={cn(
           'rounded-[6px] bg-paper px-1.5 py-[3px] text-[0.6875rem] font-medium whitespace-nowrap text-ink ring-1 ring-ink/10',
-          'transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'transition-[opacity,transform,translate,scale] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
           label ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0',
         )}
       >
@@ -230,7 +230,7 @@ export function SamePageFilm() {
         app="Claude"
         logo="/claude-logo.svg"
         className={cn(
-          'relative z-10 -mt-6 ml-auto w-[82%] transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'relative z-10 -mt-6 ml-auto w-[82%] transition-[opacity,transform,translate,scale] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
           at(4) ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
         )}
       >
@@ -307,7 +307,7 @@ export function ReadingFilm({ sources }: { sources: FoundSource[] }) {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'grid size-4 place-items-center rounded-full text-[0.5625rem] text-white transition-[transform,background-color] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+                    'grid size-4 place-items-center rounded-full text-[0.5625rem] text-white transition-[transform,translate,scale,background-color] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
                     lit && s.count > 0 ? 'scale-100 bg-[#2448E8]' : 'scale-0 bg-ink/10',
                   )}
                 >
@@ -369,7 +369,7 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
       <div className="absolute left-[6%] top-[60%] z-20 flex items-center gap-1.5">
         <span
           className={cn(
-            'grid h-10 place-items-center rounded-[9px] px-3 font-mono text-[0.75rem] transition-[transform,background-color,color,box-shadow] duration-100',
+            'grid h-10 place-items-center rounded-[9px] px-3 font-mono text-[0.75rem] transition-[transform,translate,scale,background-color,color,box-shadow] duration-100',
             down
               ? 'translate-y-[2px] bg-[#2448E8] text-white shadow-[0_0_0_4px_rgba(36,72,232,0.18)]'
               : 'bg-white text-ink shadow-[0_0_0_1px_rgba(18,18,26,0.12),0_3px_0_rgba(18,18,26,0.1)]',
@@ -387,14 +387,14 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
         app="ChatGPT"
         logo="/openai-logo.svg"
         className={cn(
-          'relative z-10 -mt-10 ml-auto w-[80%] transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'relative z-10 -mt-10 ml-auto w-[80%] transition-[opacity,transform,translate,scale] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
           at(4) ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
         )}
       >
         <div className="rounded-[12px] border border-ink/10 p-2.5">
           <div
             className={cn(
-              'mb-2 flex w-fit items-center gap-2 rounded-[8px] bg-[#F1F0EC] px-2 py-1.5 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+              'mb-2 flex w-fit items-center gap-2 rounded-[8px] bg-[#F1F0EC] px-2 py-1.5 transition-[opacity,transform,translate,scale] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
               at(6) ? 'scale-100 opacity-100' : 'scale-90 opacity-0',
             )}
           >
@@ -480,6 +480,108 @@ export function BriefedFilm() {
           </div>
         </div>
       </Window>
+    </Frame>
+  );
+}
+
+/* ── Before any of it: installing ───────────────────────────────────────── */
+
+const INSTALL = [600, 1500, 2300, 3100, 3900] as const;
+
+/**
+ * The disk image window, the icon going into Applications, and the dot turning
+ * up at the top of the screen. The three steps on the download page, played.
+ */
+export function InstallFilm() {
+  const beat = useBeat(INSTALL);
+  const at = (n: number) => beat === -1 || beat >= n;
+
+  return (
+    <Frame beat={beat}>
+      <div className="mb-6 flex h-8 items-center justify-end gap-3 rounded-[10px] bg-white/70 px-3 shadow-[0_0_0_1px_rgba(18,18,26,0.06)]">
+        <span className="mr-auto text-[0.6875rem] font-semibold text-ink/70">Finder</span>
+        <span
+          className={cn(
+            'transition-[opacity,transform,translate,scale] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+            at(5) ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
+          )}
+        >
+          <Overlay splash={at(5) ? 1 : 0} label={at(5) ? 'Reading' : null} />
+        </span>
+        <span className="text-[0.6875rem] tabular-nums text-ink/50">9:41</span>
+      </div>
+
+      <div className="overflow-hidden rounded-[14px] bg-white shadow-[0_0_0_1px_rgba(18,18,26,0.08),0_24px_48px_-24px_rgba(18,18,26,0.35)]">
+        <div className="flex h-9 items-center gap-2 border-b border-ink/[0.06] px-3.5">
+          <span className="flex gap-1.5" aria-hidden="true">
+            <span className="size-2.5 rounded-full bg-ink/10" />
+            <span className="size-2.5 rounded-full bg-ink/10" />
+            <span className="size-2.5 rounded-full bg-ink/10" />
+          </span>
+          <span className="ml-2 text-[0.75rem] font-medium text-ink/60">Sidq</span>
+        </div>
+        {/*
+         * Positioned in container units so the icon's trip always ends on the
+         * folder, whatever width the panel is: both sit on the same line, 64%
+         * of the window apart.
+         */}
+        <div className="relative h-44 [container-type:inline-size]">
+          <span
+            aria-hidden="true"
+            className={cn(
+              'absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 text-[1.25rem] text-ink/25 transition-opacity duration-300',
+              at(2) ? 'opacity-0' : 'opacity-100',
+            )}
+          >
+            →
+          </span>
+
+          <div className="absolute left-[82%] top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
+            <span
+              className={cn(
+                'grid size-16 place-items-center rounded-[14px] transition-[background-color,transform,translate,scale] duration-300',
+                at(2) && !at(4) ? 'scale-105 bg-[#EEF1FD]' : 'scale-100 bg-[#F1F0EC]',
+              )}
+            >
+              <svg viewBox="0 0 24 24" className="size-8 text-[#2448E8]" aria-hidden="true">
+                <path
+                  d="M3 7.5a1.5 1.5 0 0 1 1.5-1.5h4.2l1.8 2h9a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5Z"
+                  fill="currentColor"
+                  opacity="0.85"
+                />
+              </svg>
+            </span>
+            <span className="text-[0.6875rem] text-ink/70">Applications</span>
+          </div>
+
+          <div
+            className={cn(
+              'absolute left-[18%] top-1/2 z-10 -translate-x-1/2 -translate-y-1/2',
+              'transition-[translate] duration-[900ms] ease-[cubic-bezier(0.65,0,0.35,1)]',
+              at(2) && 'translate-x-[calc(-50%+64cqw)]',
+            )}
+          >
+            <div
+              className={cn(
+                'flex flex-col items-center gap-2 transition-[transform,translate,scale,opacity] duration-300',
+                at(3) ? 'scale-50 opacity-0' : at(1) ? 'scale-105' : 'scale-100',
+              )}
+            >
+              <img
+                src="/icons/icon.svg"
+                alt=""
+                width={64}
+                height={64}
+                className={cn(
+                  'size-16 rounded-[14px] transition-shadow duration-300',
+                  at(1) ? 'shadow-[0_16px_30px_-12px_rgba(18,18,26,0.45)]' : 'shadow-none',
+                )}
+              />
+              <span className="text-[0.6875rem] text-ink/70">Sidq</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </Frame>
   );
 }

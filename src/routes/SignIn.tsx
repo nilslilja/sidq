@@ -129,7 +129,7 @@ export function SignIn() {
   if (sent) {
     return (
       <Shell>
-        <h1 className="font-display text-[2.5rem]">Check your email</h1>
+        <h1 className="font-display font-semibold text-[2.5rem]">Check your email</h1>
         <p className="mt-4 max-w-[34ch] text-[0.9375rem] leading-relaxed text-muted">
           We sent a link to <span className="text-text">{email}</span>. Open it on this device
           and you are in.
@@ -146,7 +146,7 @@ export function SignIn() {
 
   return (
     <Shell>
-      <h1 className="font-display text-[2.75rem] leading-[1.02]">
+      <h1 className="font-display font-semibold text-[2.75rem] leading-[1.02]">
         Keep your
         <br />
         history.
@@ -178,7 +178,7 @@ export function SignIn() {
 
       <div className="my-6 flex items-center gap-4">
         <span className="h-px flex-1 bg-line" />
-        <span className="text-xs uppercase tracking-[0.16em] text-muted">or</span>
+        <span className="text-xs text-muted">or</span>
         <span className="h-px flex-1 bg-line" />
       </div>
 
