@@ -139,6 +139,9 @@ const SAVED_BANNER_MS = 4200;
 /** One ripple, from a conversation being picked up. Two 900ms rings of `sidq-dot-ripple` in global.css. */
 const HOP_MS = 1800;
 
+/** How long the splash plays before the picker opens over it. */
+const OPEN_AFTER_SPLASH_MS = 170;
+
 /** How long the dot stays amber after an assistant hits its limit. */
 const PANIC_MS = 6000;
 
@@ -438,6 +441,12 @@ export function Pill() {
    */
   const [hopping, setHopping] = useState(false);
   const [panicking, setPanicking] = useState(false);
+  /*
+   * Bumped for every moment worth a splash: a press on the dot, a conversation
+   * picked up, a grab put on the clipboard, a brief put into a blank chat. The
+   * dot replays its splash each time the number moves.
+   */
+  const [splash, setSplash] = useState(0);
 
   useEffect(() => {
     if (beat === 0 && !saved) return;
@@ -492,7 +501,8 @@ export function Pill() {
     void bridge
       .onFound((one) => {
         playCue("found");
-        setSaved(labelFor(one.source));
+        setSaved(`Picked up · ${labelFor(one.source)}`);
+        setSplash((n) => n + 1);
       })
       .then((fn) => {
         if (cancelled) fn();
@@ -513,6 +523,40 @@ export function Pill() {
    * driven by the resize itself, which is the one signal that is guaranteed to
    * have already happened by the time anyone could react to it.
    */
+  /*
+   * ── What Sidq did on its own, shown where the eye already is ─────────────
+   *
+   * Both of these used to be a notification and nothing else, which is a line
+   * of grey text in a corner somebody has learned to ignore. The dot is on
+   * screen all day; when a grab lands on the clipboard or a brief lands in a
+   * blank chat, it splashes and says so in three words, and that is how the
+   * person knows the thing is done without having looked for it.
+   */
+  useEffect(() => {
+    if (!bridge?.onGrabbed || !bridge?.onBriefed) return;
+    let cancelled = false;
+    const offs: (() => void)[] = [];
+    const keep = (fn: () => void) => (cancelled ? fn() : offs.push(fn));
+    void bridge
+      .onGrabbed(() => {
+        playCue("done");
+        setSaved("Copied · ⌘V");
+        setSplash((n) => n + 1);
+      })
+      .then(keep);
+    void bridge
+      .onBriefed((source) => {
+        playCue("found");
+        setSaved(`In ${labelFor(source)} · ⌘Z`);
+        setSplash((n) => n + 1);
+      })
+      .then(keep);
+    return () => {
+      cancelled = true;
+      offs.forEach((fn) => fn());
+    };
+  }, [bridge]);
+
   useEffect(() => {
     const follow = () => setMode(modeForWidth(window.innerWidth));
     follow();
@@ -957,36 +1001,44 @@ export function Pill() {
         data-transparent-window
         className="flex h-[100dvh] w-full items-center justify-center bg-transparent"
       >
+        {/*
+         * The whole window is the button, not just the dot. A ten point target
+         * floating over somebody's work is a thing you miss; the window is 112
+         * by 24 and every point of it opens Sidq.
+         *
+         * The splash starts on press, not on release, so the dot answers the
+         * finger immediately, and the picker opens a beat later so the splash
+         * is seen rather than swallowed by the window changing size.
+         */}
         <button
-          onClick={() => void bridge?.expandPill()}
+          onPointerDown={() => setSplash((n) => n + 1)}
+          onClick={() => {
+            window.setTimeout(() => void bridge?.expandPill(), OPEN_AFTER_SPLASH_MS);
+          }}
           aria-label="Open Sidq and pick up a conversation"
           data-mood={mood}
           className={cn(
-            "group flex h-6 items-center justify-center gap-1.5 rounded-full",
-            "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac/70",
+            "group flex h-full w-full items-center justify-center gap-1.5",
+            "cursor-pointer focus-visible:outline-none",
           )}
         >
-          <SidqDot mood={mood} className="shrink-0" />
+          <SidqDot mood={mood} splash={splash} className="shrink-0" />
           {/*
-           * Words only when there is news, or when somebody hovers to ask.
-           *
-           * The dot is the whole bar at rest: it breathing is the sign Sidq is
-           * running, and a ripple is the sign it just read something. The label
-           * says which assistant a pickup came from, and on hover gives the
-           * count and the shortcut, in a capsule of its own so it stays
-           * readable over any menu bar.
+           * Words only when there is news, or when somebody hovers to ask:
+           * three of them, on a scrap of paper, beside the dot.
            */}
           <span
             className={cn(
-              "bar-float max-w-[84px] truncate rounded-full px-2 py-[3px]",
-              "text-[0.6875rem] leading-none tabular-nums transition-opacity duration-200",
+              "max-w-[84px] truncate rounded-[6px] bg-[#F7F6F3] px-1.5 py-[3px] ring-1 ring-black/10",
+              "text-[0.6875rem] font-medium leading-none tabular-nums text-ink",
+              "transition-[opacity,transform] duration-200 ease-out",
               saved
-                ? "text-[#D8CCFF] opacity-100"
-                : "text-white/70 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+                ? "translate-x-0 opacity-100"
+                : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100",
             )}
           >
             {saved ? (
-              `Picked up · ${saved}`
+              saved
             ) : (
               <>
                 {indexed > 0 && <span>{indexed.toLocaleString()}</span>}
@@ -1023,10 +1075,10 @@ export function Pill() {
           // shadow is painted outside this box and clips square without margin
           // to fall into.
           "mx-2 mt-1 w-[calc(100%-1rem)] overflow-hidden rounded-[22px]",
-          // Border and shadow both live in `.pane-glass`, which also supplies
+          // Border and shadow both live in `.pane-paper`, which also supplies
           // the specular rim and the saturation pass. Setting a border here too
           // would double the rim and read as a seam.
-          "pane-glass animate-pane",
+          "pane-paper animate-pane",
         )}
       >
         {/* ── Header ────────────────────────────────────────────────────── */}
@@ -1075,7 +1127,7 @@ export function Pill() {
             <p
               className={cn(
                 "truncate text-[0.9375rem] leading-tight",
-                query ? "text-white" : "font-medium text-white/90",
+                query ? "text-ink" : "font-medium text-ink/90",
               )}
             >
               {/*
@@ -1086,11 +1138,11 @@ export function Pill() {
               {query && (
                 <span
                   aria-hidden="true"
-                  className="ml-px inline-block h-[0.95em] w-px translate-y-[0.14em] bg-lilac"
+                  className="ml-px inline-block h-[0.95em] w-px translate-y-[0.14em] bg-[#2448E8]"
                 />
               )}
             </p>
-            <p className="mt-1 truncate text-[0.6875rem] leading-none text-white/35">
+            <p className="mt-1 truncate text-[0.6875rem] leading-none text-ink/50">
               {statusLine(
                 visible.length,
                 inSource.length,
@@ -1122,8 +1174,8 @@ export function Pill() {
                   "flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1",
                   "text-[0.75rem]",
                   source === ANY_SOURCE
-                    ? "chip-glass text-white/55 hover:text-white/85"
-                    : "chip-glass-on text-[#D8CCFF]",
+                    ? "chip-paper text-ink/60 hover:text-ink/85"
+                    : "chip-paper-on text-[#2448E8]",
                 )}
               >
                 {source === ANY_SOURCE ? "All AIs" : sourceLabel(source, true)}
@@ -1142,7 +1194,7 @@ export function Pill() {
                 <div
                   className={cn(
                     "absolute right-0 top-[calc(100%+8px)] z-20 min-w-[11.5rem] overflow-hidden",
-                    "popover-glass rounded-[14px] p-1",
+                    "pane-paper rounded-[12px] p-1",
                   )}
                 >
                   <SourceRow
@@ -1185,7 +1237,7 @@ export function Pill() {
          * something, so it gets the whole card and long enough to read.
          */}
         {phase.kind === "saved" && (
-          <div className="animate-pane-body border-t border-white/[0.06] px-4 py-5">
+          <div className="animate-pane-body border-t border-ink/[0.08] px-4 py-5">
             <div className="flex items-start gap-3">
               {/*
                * The tick lands rather than appears.
@@ -1199,15 +1251,15 @@ export function Pill() {
                */}
               <span
                 aria-hidden="true"
-                className="animate-land chip-glass-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#D8CCFF]"
+                className="animate-land chip-paper-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#2448E8]"
               >
                 ✓
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[0.9375rem] font-medium leading-tight text-white">
+                <p className="text-[0.9375rem] font-medium leading-tight text-ink">
                   Saved to Downloads
                 </p>
-                <p className="mt-1 truncate text-[0.8125rem] text-white/50">
+                <p className="mt-1 truncate text-[0.8125rem] text-ink/55">
                   {phase.path.split("/").pop()}
                 </p>
 
@@ -1227,18 +1279,18 @@ export function Pill() {
                  * some is worse than saying nothing.
                  */}
                 {phase.words > 0 && (
-                  <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-white/70">
-                    <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#D8CCFF]">
+                  <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-ink/70">
+                    <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#2448E8]">
                       {phase.words.toLocaleString()}
                     </span>
                     <span>words carried</span>
                     {phase.turns ? (
-                      <span className="text-white/35">
+                      <span className="text-ink/50">
                         · {phase.turns.toLocaleString()} messages
                       </span>
                     ) : null}
                     {phase.minutes ? (
-                      <span className="text-white/35">
+                      <span className="text-ink/50">
                         · {Math.round(phase.minutes / 60)}h of work
                       </span>
                     ) : null}
@@ -1263,7 +1315,7 @@ export function Pill() {
                     onPick={(id) => void carryInto(id)}
                   />
                 ) : (
-                  <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
+                  <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-ink/50">
                     Attach it to any AI. It already tells them to read it and
                     carry on rather than summarise it back to you.
                   </p>
@@ -1274,11 +1326,11 @@ export function Pill() {
         )}
 
         {phase.kind === "limited" && (
-          <div className="border-t border-white/[0.06] px-4 py-5">
-            <p className="text-[0.9375rem] font-medium text-white">
+          <div className="border-t border-ink/[0.08] px-4 py-5">
+            <p className="text-[0.9375rem] font-medium text-ink">
               That is {phase.cap} handovers this week
             </p>
-            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-white/45">
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink/55">
               The count rolls, so the oldest one frees up seven days after you
               made it. Pro removes the limit, and carries the conversation on
               into whatever you open next without you asking it to.
@@ -1297,7 +1349,7 @@ export function Pill() {
               }}
               className={cn(
                 "mt-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium",
-                "bg-gradient-to-b from-[#C9BBFF] to-[#A794FF] text-[#141319]",
+                "bg-ink text-paper",
                 "shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]",
                 "cursor-pointer transition-[box-shadow,transform] duration-150",
                 "hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]",
@@ -1339,22 +1391,21 @@ export function Pill() {
                   className={cn(
                     "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
                     "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                    selected === 0 ? "row-glass-on" : "hover:row-glass",
+                    selected === 0 ? "row-paper-on" : "hover:row-paper",
                   )}
                 >
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "size-1.5 shrink-0 rounded-full bg-lilac transition-shadow duration-150",
-                      selected === 0 &&
-                        "shadow-[0_0_8px_rgba(184,166,255,0.8)]",
+                      "size-1.5 shrink-0 rounded-full bg-[#2448E8] transition-shadow duration-150",
+                      selected === 0 && "ring-[3px] ring-[#2448E8]/15",
                     )}
                   />
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
                         "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
-                        selected === 0 ? "text-white" : "text-white/85",
+                        selected === 0 ? "text-ink" : "text-ink/85",
                       )}
                     >
                       {project.name}
@@ -1366,14 +1417,14 @@ export function Pill() {
                      * summary, so the line says how much it was built from
                      * rather than characterising it.
                      */}
-                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-ink/50">
                       Everything you decided · {project.conversations}{" "}
                       {project.conversations === 1
                         ? "conversation"
                         : "conversations"}
                     </span>
                   </span>
-                  <span className="chip-glass shrink-0 rounded-[6px] px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap text-lilac/80">
+                  <span className="chip-paper shrink-0 rounded-[6px] px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap text-[#2448E8]">
                     memory
                   </span>
                 </button>
@@ -1390,7 +1441,7 @@ export function Pill() {
                   className={cn(
                     "flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
                     "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                    i === pickedRow ? "row-glass-on" : "hover:row-glass",
+                    i === pickedRow ? "row-paper-on" : "hover:row-paper",
                   )}
                 >
                   <span
@@ -1398,20 +1449,20 @@ export function Pill() {
                     className={cn(
                       "size-1.5 shrink-0 rounded-full transition-colors duration-150",
                       i === pickedRow
-                        ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
-                        : "bg-white/20",
+                        ? "bg-[#2448E8] ring-[3px] ring-[#2448E8]/15"
+                        : "bg-ink/15",
                     )}
                   />
                   <span className="min-w-0 flex-1">
                     <span
                       className={cn(
                         "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
-                        i === pickedRow ? "text-white" : "text-white/85",
+                        i === pickedRow ? "text-ink" : "text-ink/85",
                       )}
                     >
                       {row.session.title || row.session.lastPrompt}
                     </span>
-                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                    <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-ink/50">
                       {row.reason}
                       {row.session.projectName &&
                         ` · ${row.session.projectName}`}
@@ -1424,7 +1475,7 @@ export function Pill() {
         )}
 
         {/* ── Footer ────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2.5">
+        <div className="flex items-center gap-3 border-t border-ink/[0.08] px-4 py-2.5">
           {/*
            * Status and the way out share the left, in one group.
            *
@@ -1432,7 +1483,7 @@ export function Pill() {
            * the middle one, which clumped the first two together with no gap:
            * "⌘↵ copy insteadSearch all history ›" ran as one string.
            */}
-          <span className="min-w-0 truncate text-[0.6875rem] text-white/30">
+          <span className="min-w-0 truncate text-[0.6875rem] text-ink/45">
             {phase.kind === "working" && "Reading the conversation…"}
             {phase.kind === "done" && "Copied. Paste it anywhere."}
             {/*
@@ -1459,13 +1510,13 @@ export function Pill() {
               void bridge?.hidePill();
             }}
             className={cn(
-              "shrink-0 text-[0.6875rem] whitespace-nowrap text-white/30",
-              "cursor-pointer transition-colors duration-100 hover:text-white/70",
+              "shrink-0 text-[0.6875rem] whitespace-nowrap text-ink/45",
+              "cursor-pointer transition-colors duration-100 hover:text-ink/70",
             )}
           >
             Open Sidq ⌘O
           </button>
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-ink/40">
             <Key>↑↓</Key>
             {/*
              * Clickable, because the rest of this window is.
@@ -1478,7 +1529,7 @@ export function Pill() {
             <button
               onClick={dismiss}
               aria-label="Close"
-              className="chip-glass cursor-pointer rounded-[6px] px-1.5 py-0.5 text-white/45 hover:text-white/85"
+              className="chip-paper cursor-pointer rounded-[6px] px-1.5 py-0.5 text-ink/55 hover:text-ink/85"
             >
               esc
             </button>
@@ -1513,12 +1564,12 @@ function SourceRow({
         "flex w-full cursor-pointer items-center justify-between gap-4 rounded-[10px] px-2.5 py-1.5 text-left",
         "text-[0.8125rem] transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
         on
-          ? "row-glass-on text-[#D8CCFF]"
-          : "text-white/70 hover:row-glass hover:text-white",
+          ? "row-paper-on text-[#2448E8]"
+          : "text-ink/70 hover:row-paper hover:text-ink",
       )}
     >
       <span className="min-w-0 truncate">{label}</span>
-      <span className="shrink-0 text-[0.75rem] tabular-nums text-white/30">
+      <span className="shrink-0 text-[0.75rem] tabular-nums text-ink/45">
         {count}
       </span>
     </button>
@@ -1527,7 +1578,7 @@ function SourceRow({
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">
+    <span className="chip-paper rounded-[6px] px-1.5 py-0.5 text-ink/55">
       {children}
     </span>
   );

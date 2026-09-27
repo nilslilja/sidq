@@ -9,8 +9,8 @@ import { cn } from "@/lib/cn";
  * and a keyboard, none of which exist on a marketing page. So the page draws
  * it, and the drawing has to be kept honest by hand.
  *
- * It was not. The pill was remastered into liquid glass — `pane-glass` panes,
- * inset `row-glass` rows, `chip-glass` keycaps, a 22px radius — and this file
+ * It was not. The pill was remastered into liquid glass — `pane-paper` panes,
+ * inset `row-glass` rows, `chip-paper` keycaps, a 22px radius — and this file
  * stayed on the flat `bg-[#141319]` box from before it, so the front page spent
  * a week showing an interface the product no longer had.
  *
@@ -78,13 +78,13 @@ export function PillPreview({
   return (
     <div
       className={cn(
-        // Pill.tsx: 'overflow-hidden rounded-[22px]' + 'pane-glass'. The border
-        // and shadow live inside pane-glass; adding any here doubles the rim.
+        // Pill.tsx: 'overflow-hidden rounded-[22px]' + 'pane-paper'. The border
+        // and shadow live inside pane-paper; adding any here doubles the rim.
         "w-full overflow-hidden rounded-[22px] text-left",
         // `animate-pane` too, because the real panel does not appear, it opens
         // (Pill.tsx:784). Without it the film popped the window into frame in a
         // single frame, which is the one thing a window never does.
-        "pane-glass animate-pane",
+        "pane-paper animate-pane",
         className,
       )}
     >
@@ -98,18 +98,18 @@ export function PillPreview({
           <p
             className={cn(
               "truncate text-[0.9375rem] leading-tight",
-              query ? "text-white" : "font-medium text-white/90",
+              query ? "text-ink" : "font-medium text-ink/90",
             )}
           >
             {query || "Pick up where you stopped"}
             {query && (
               // Static caret. A blink in a still frame reads as a rendering
               // fault, and nothing on this page has focus anyway.
-              <span className="ml-0.5 inline-block h-[1.05em] w-px translate-y-[0.15em] bg-white/70" />
+              <span className="ml-0.5 inline-block h-[1.05em] w-px translate-y-[0.15em] bg-ink/70" />
             )}
           </p>
         </div>
-        <span className="shrink-0 text-[0.6875rem] tabular-nums text-white/35">
+        <span className="shrink-0 text-[0.6875rem] tabular-nums text-ink/50">
           {status ?? count}
         </span>
       </div>
@@ -125,41 +125,41 @@ export function PillPreview({
          * scales it in, which is the difference between "the panel updated" and
          * "that worked", and is the whole reason this state is worth drawing.
          */
-        <div className="animate-pane-body border-t border-white/[0.06] px-4 py-5">
+        <div className="animate-pane-body border-t border-ink/[0.08] px-4 py-5">
           <div className="flex items-start gap-3">
             <span
               aria-hidden="true"
-              className="animate-land chip-glass-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#D8CCFF]"
+              className="animate-land chip-paper-on mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[0.8125rem] text-[#2448E8]"
             >
               ✓
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[0.9375rem] font-medium leading-tight text-white">
+              <p className="text-[0.9375rem] font-medium leading-tight text-ink">
                 Saved to Downloads
               </p>
-              <p className="mt-1 truncate text-[0.8125rem] text-white/50">
+              <p className="mt-1 truncate text-[0.8125rem] text-ink/55">
                 {saved.file}
               </p>
 
               {/* The product stated as a number: what you did not retype. */}
               {saved.words > 0 && (
-                <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-white/70">
-                  <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#D8CCFF]">
+                <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[0.8125rem] text-ink/70">
+                  <span className="font-display text-[1.125rem] leading-none tabular-nums text-[#2448E8]">
                     {saved.words.toLocaleString()}
                   </span>
                   <span>words carried</span>
                   {saved.turns ? (
-                    <span className="text-white/35">
+                    <span className="text-ink/50">
                       · {saved.turns.toLocaleString()} messages
                     </span>
                   ) : null}
                   {saved.hours ? (
-                    <span className="text-white/35">· {saved.hours}h of work</span>
+                    <span className="text-ink/50">· {saved.hours}h of work</span>
                   ) : null}
                 </p>
               )}
 
-              <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-white/40">
+              <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-ink/50">
                 Attach it to any AI. It already tells them to read it and carry
                 on rather than summarise it back to you.
               </p>
@@ -174,10 +174,10 @@ export function PillPreview({
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left",
                   "transition-[background,box-shadow] duration-150 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  i === selected ? "row-glass-on" : "",
+                  i === selected ? "row-paper-on" : "",
                   // The press. Brief, small, and on the row itself rather than a
                   // separate ripple, because that is what the real one does.
-                  i === selected && pressed ? "scale-[0.985] brightness-125" : "",
+                  i === selected && pressed ? "scale-[0.985]" : "",
                 )}
               >
                 <span
@@ -185,20 +185,20 @@ export function PillPreview({
                   className={cn(
                     "size-1.5 shrink-0 rounded-full transition-colors duration-150",
                     i === selected
-                      ? "bg-lilac shadow-[0_0_8px_rgba(184,166,255,0.8)]"
-                      : "bg-white/20",
+                      ? "bg-[#2448E8] ring-[3px] ring-[#2448E8]/15"
+                      : "bg-ink/15",
                   )}
                 />
                 <span className="min-w-0 flex-1">
                   <span
                     className={cn(
                       "block truncate text-[0.875rem] leading-tight transition-colors duration-150",
-                      i === selected ? "text-white" : "text-white/85",
+                      i === selected ? "text-ink" : "text-ink/85",
                     )}
                   >
                     {row.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-white/35">
+                  <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-ink/50">
                     {row.meta}
                   </span>
                 </span>
@@ -213,11 +213,11 @@ export function PillPreview({
        * exists but belongs to the collapsed bar; using it here would invent a
        * surface the picker does not have.
        */}
-      <div className="flex items-center gap-3 border-t border-white/[0.06] px-4 py-2.5">
-        <span className="min-w-0 truncate text-[0.6875rem] text-white/30">
+      <div className="flex items-center gap-3 border-t border-ink/[0.08] px-4 py-2.5">
+        <span className="min-w-0 truncate text-[0.6875rem] text-ink/45">
           {footer}
         </span>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-white/25">
+        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[0.625rem] text-ink/40">
           <Cap>↑↓</Cap>
           <Cap>↵</Cap>
           <Cap>⌘↵</Cap>
@@ -228,9 +228,9 @@ export function PillPreview({
 }
 
 function Cap({ children }: { children: React.ReactNode }) {
-  // Pill.tsx: 'chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45'.
+  // Pill.tsx: 'chip-paper rounded-[6px] px-1.5 py-0.5 text-ink/55'.
   return (
-    <span className="chip-glass rounded-[6px] px-1.5 py-0.5 text-white/45">
+    <span className="chip-paper rounded-[6px] px-1.5 py-0.5 text-ink/55">
       {children}
     </span>
   );

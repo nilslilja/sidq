@@ -4,10 +4,11 @@ import { describe, expect, test } from "vitest";
 /*
  * The front page must show the interface the product actually has.
  *
- * This is not hypothetical. The pill was remastered into liquid glass — glass
- * panes, inset rows, keycaps, a 22px radius — and the marketing mock was not
+ * This is not hypothetical. The pill was remastered into liquid glass (glass
+ * panes, inset rows, keycaps, a 22px radius) and the marketing mock was not
  * updated with it, so sidq.tech spent a week showing a flat picker the app no
- * longer had. Nobody noticed, because both versions look perfectly fine on
+ * longer had. It has since moved again, onto the website's paper, and this is
+ * the test that dragged the mock along with it. Nobody noticed, because both versions look perfectly fine on
  * their own; the only way to see it is to put them side by side, which nobody
  * ever does.
  *
@@ -37,8 +38,8 @@ describe("the picture of the picker matches the picker", () => {
    * something finer would fail on ordinary layout edits and get deleted.
    */
   const SURFACES = [
-    "pane-glass",
-    "row-glass-on",
+    "pane-paper",
+    "row-paper-on",
     // The panel opens rather than appearing, and so does the body that replaces
     // the list once a conversation is picked.
     "animate-pane",
@@ -46,10 +47,10 @@ describe("the picture of the picker matches the picker", () => {
     // The tick lands. This is the one moment the product proves it did
     // something, and it is the first thing an approximation would leave out.
     "animate-land",
-    "chip-glass-on",
+    "chip-paper-on",
     "Saved to Downloads",
-    "border-white/[0.06]",
-    "chip-glass",
+    "border-ink/[0.08]",
+    "chip-paper",
     "rounded-[22px]",
     "rounded-[10px]",
   ];
@@ -61,17 +62,20 @@ describe("the picture of the picker matches the picker", () => {
     });
   }
 
-  test("the mock has not fallen back to a flat panel", () => {
+  test("neither has fallen back to a generation it left behind", () => {
     /*
-     * The exact tell from last time: a solid fill standing in for the glass.
-     * The real picker has no such colour anywhere.
+     * The two tells: the solid dark fill that once stood in for the glass, and
+     * the dark glass itself, which the website's paper replaced.
      */
-    expect(MOCK).not.toContain("bg-[#141319]");
+    for (const old of ["bg-[#141319]", "pane-glass", "row-glass", "text-white/"]) {
+      expect(REAL).not.toContain(old);
+      expect(MOCK).not.toContain(old);
+    }
   });
 
   test("the selected row is marked the way the real one marks it", () => {
-    // The violet dot with its glow is the selection, not a background change.
-    expect(REAL).toContain("shadow-[0_0_8px_rgba(184,166,255,0.8)]");
-    expect(MOCK).toContain("shadow-[0_0_8px_rgba(184,166,255,0.8)]");
+    // The blue dot with a soft ring is the selection, not a background change.
+    expect(REAL).toContain("ring-[3px] ring-[#2448E8]/15");
+    expect(MOCK).toContain("ring-[3px] ring-[#2448E8]/15");
   });
 });

@@ -266,6 +266,17 @@ export interface OnboardingBridge {
    */
   onStopped: (callback: () => void) => Promise<() => void>;
   /**
+   * The grab gesture put a conversation on the clipboard (Rust's
+   * `grab_and_announce`). The title comes with it. The dot shows it happened,
+   * so the person never has to read a notification to know.
+   */
+  onGrabbed: (callback: (title: string) => void) => Promise<() => void>;
+  /**
+   * Sidq put the project brief into a blank chat on its own (`announce_brief`).
+   * The source is which assistant it went into.
+   */
+  onBriefed: (callback: (source: string) => void) => Promise<() => void>;
+  /**
    * A conversation Sidq had never seen before, just read out of a browser.
    *
    * Separate from `onChanged` because it means something different. `onChanged`
@@ -741,6 +752,10 @@ export function desktopBridge(): OnboardingBridge | null {
     onShortcut: (name, callback) => event.listen(name, () => callback()),
     onChanged: (callback) => event.listen("sidq:changed", () => callback()),
     onStopped: (callback) => event.listen("sidq:stopped", () => callback()),
+    onGrabbed: (callback) =>
+      event.listen("sidq:grabbed", (e) => callback(typeof e.payload === "string" ? e.payload : "")),
+    onBriefed: (callback) =>
+      event.listen("sidq:briefed", (e) => callback(typeof e.payload === "string" ? e.payload : "")),
     onFound: (callback) =>
       event.listen("sidq:found", (e) => {
         // Rust's own struct, but it arrives as JSON over an event channel like

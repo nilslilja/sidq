@@ -590,6 +590,48 @@
   }
 
   /*
+   * ── Paper: the picker in the website's material ─────────────────────────
+   *
+   * The picker was dark glass with lilac light in it, which is the app the
+   * website stopped being. On paper it is the same object as the page people
+   * downloaded it from: warm white, ink, a hairline, one shadow because it
+   * floats over somebody's desktop, and blue only where something is chosen.
+   */
+  .pane-paper {
+    background: #f7f6f3;
+    border: 1px solid rgba(20, 18, 14, 0.1);
+    box-shadow:
+      0 1px 2px rgba(20, 18, 14, 0.06),
+      0 24px 60px -24px rgba(20, 18, 14, 0.38);
+  }
+
+  .row-paper {
+    transition: background 140ms cubic-bezier(0.32, 0.72, 0, 1);
+    background: rgba(20, 18, 14, 0.04);
+  }
+
+  .row-paper-on {
+    background: #ffffff;
+    box-shadow:
+      0 0 0 1px rgba(20, 18, 14, 0.1) inset,
+      0 1px 2px rgba(20, 18, 14, 0.06);
+  }
+
+  .chip-paper {
+    background: rgba(20, 18, 14, 0.05);
+    transition: background 140ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .chip-paper:hover {
+    background: rgba(20, 18, 14, 0.09);
+  }
+
+  .chip-paper-on {
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgba(20, 18, 14, 0.14) inset;
+  }
+
+  /*
    * The menu that drops out of the source filter. Heavier blur than the pane
    * behind it, because it is in front of it and a popover that shares its
    * parent's material looks pasted on rather than layered above.
@@ -2105,6 +2147,81 @@ button:focus-visible .sidq-dot-core {
   animation-duration: 900ms;
 }
 
+/* Alive: a drift under a point, on two loops of different lengths. */
+.sidq-dot {
+  animation: sidq-dot-drift-x 7.3s ease-in-out infinite, sidq-dot-drift-y 5.9s ease-in-out infinite;
+}
+
+@keyframes sidq-dot-drift-x {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0.7px 0;
+  }
+}
+
+@keyframes sidq-dot-drift-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.6px);
+  }
+}
+
+.sidq-dot-splash {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.sidq-dot-burst {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(109, 99, 255, 0.9);
+  animation: sidq-dot-burst 520ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+.sidq-dot-spark {
+  position: absolute;
+  left: 3.5px;
+  top: 3.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: #6d63ff;
+  transform: rotate(var(--a)) translateX(0);
+  animation: sidq-dot-spark 480ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes sidq-dot-burst {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+
+@keyframes sidq-dot-spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateX(4px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(15px) scale(0.4);
+  }
+}
+
 @keyframes sidq-dot-breathe {
   0%,
   100% {
@@ -2151,10 +2268,15 @@ button:focus-visible .sidq-dot-core {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sidq-dot,
   .sidq-dot-halo,
   .sidq-dot-ring,
-  .sidq-dot-core {
+  .sidq-dot-core,
+  .sidq-dot-spark {
     animation: none !important;
+  }
+  .sidq-dot-spark {
+    display: none;
   }
 }
 

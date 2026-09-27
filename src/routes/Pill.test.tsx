@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import type {
   OnboardingBridge,
   FoundConversation,
@@ -162,7 +162,19 @@ const bridge: Partial<OnboardingBridge> = {
       announceFound = undefined;
     };
   }),
+  onGrabbed: vi.fn(async (cb: (title: string) => void) => {
+    announceGrabbed = cb;
+    return () => {};
+  }),
+  onBriefed: vi.fn(async (cb: (source: string) => void) => {
+    announceBriefed = cb;
+    return () => {};
+  }),
 };
+
+/** Set by the mocked `onGrabbed` and `onBriefed` once the pill has subscribed. */
+let announceGrabbed: ((title: string) => void) | undefined;
+let announceBriefed: ((source: string) => void) | undefined;
 
 /** Set by the mocked `onStopped` once the pill has subscribed. */
 let announceStopped: (() => void) | undefined;
@@ -391,8 +403,51 @@ describe("the pill, across the two states", () => {
     await act(async () => {
       getByRole("button", { name: /pick up a conversation/i }).click();
     });
+    // A beat later, so the splash is seen before the window changes size.
+    await waitFor(() => expect(bridge.expandPill).toHaveBeenCalled());
+  });
 
-    expect(bridge.expandPill).toHaveBeenCalled();
+  /*
+   * The two things Sidq does on its own used to be a notification in a corner.
+   * The dot says them now, where the eye already is.
+   */
+  test("a grab splashes the dot and says it is on the clipboard", async () => {
+    const { getByRole } = render(<Pill />);
+    await settle();
+    await act(async () => {
+      announceGrabbed?.("Checkout rounding");
+    });
+    const bar = getByRole("button", { name: /pick up a conversation/i });
+    expect(screen.getByText("Copied · ⌘V")).toBeInTheDocument();
+    expect(bar.querySelector(".sidq-dot-splash")).not.toBeNull();
+  });
+
+  test("a brief in a blank chat says which assistant, and how to undo it", async () => {
+    render(<Pill />);
+    await settle();
+    await act(async () => {
+      announceBriefed?.("chatgpt");
+    });
+    expect(screen.getByText("In ChatGPT · ⌘Z")).toBeInTheDocument();
+  });
+
+  test("the whole bar is the target, not just the dot", async () => {
+    const { getByRole } = render(<Pill />);
+    await settle();
+    const bar = getByRole("button", { name: /pick up a conversation/i });
+    expect(bar.className).toMatch(/\bh-full\b/);
+    expect(bar.className).toMatch(/\bw-full\b/);
+  });
+
+  test("pressing the dot splashes it", async () => {
+    const { getByRole } = render(<Pill />);
+    await settle();
+    const bar = getByRole("button", { name: /pick up a conversation/i });
+    expect(bar.querySelector(".sidq-dot-splash")).toBeNull();
+    await act(async () => {
+      fireEvent.pointerDown(bar);
+    });
+    expect(bar.querySelector(".sidq-dot-splash")).not.toBeNull();
   });
 });
 
