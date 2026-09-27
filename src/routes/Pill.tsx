@@ -14,7 +14,7 @@ import { sourceLabel } from "@/lib/companion/sources";
 import { playCue } from "@/lib/companion/sound";
 import { desktopBridge } from "@/lib/onboarding/bridge";
 import type { PillState, ProjectRow } from "@/lib/onboarding/bridge";
-import type { WorkSession } from "@/lib/companion/work-history";
+import { projectLabel, titleOf, type WorkSession } from "@/lib/companion/work-history";
 import { cn } from "@/lib/cn";
 import { SidqDot, type DotMood } from "@/components/SidqDot";
 import { EscapeHatch, type Hatch } from "@/components/companion/EscapeHatch";
@@ -1472,12 +1472,12 @@ export function Pill() {
                         i === pickedRow ? "text-ink" : "text-ink/85",
                       )}
                     >
-                      {row.session.title || row.session.lastPrompt}
+                      {titleOf(row.session)}
                     </span>
                     <span className="mt-0.5 block truncate text-[0.75rem] leading-none text-ink/50">
                       {row.reason}
-                      {row.session.projectName &&
-                        ` · ${row.session.projectName}`}
+                      {projectLabel(row.session.projectName) &&
+                        ` · ${projectLabel(row.session.projectName)}`}
                     </span>
                   </span>
                 </button>

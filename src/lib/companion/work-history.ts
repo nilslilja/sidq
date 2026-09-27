@@ -148,3 +148,36 @@ function firstSentence(text: string): string {
 function hoursBetween(then: number, now: number): number {
   return (now - then) / 3_600_000;
 }
+
+/**
+ * The folders Claude Code makes for a session started outside any project:
+ * `scratch-` then a date then a short hash. They name nothing a person would
+ * recognise, so a row shows no folder rather than one of these.
+ */
+const SCRATCH_FOLDER = /^scratch-\d{4}-\d{2}-\d{2}-[0-9a-f]+$/;
+
+/** A project name fit to show, or empty when there is nothing worth showing. */
+export function projectLabel(name: string): string {
+  return SCRATCH_FOLDER.test(name) ? '' : name;
+}
+
+/** Longest a borrowed prompt runs as a title before it is cut. */
+const PROMPT_AS_TITLE = 60;
+
+/**
+ * What to call a conversation in a list.
+ *
+ * Its title when it has one. Otherwise the last thing asked in it, which is
+ * what the person would call it, cut at a word; "Untitled conversation" only
+ * when there is nothing at all.
+ */
+export function titleOf(session: Pick<WorkSession, 'title' | 'lastPrompt'>): string {
+  const title = session.title.trim();
+  if (title) return title;
+  const prompt = session.lastPrompt.trim().replace(/\s+/g, ' ');
+  if (!prompt) return 'Untitled conversation';
+  if (prompt.length <= PROMPT_AS_TITLE) return prompt;
+  const cut = prompt.slice(0, PROMPT_AS_TITLE);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 20 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}

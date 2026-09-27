@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { findResumePoint, type WorkSession } from './work-history';
+import { findResumePoint, projectLabel, titleOf, type WorkSession } from './work-history';
 
 const NOW = new Date(2026, 7, 15, 9, 0, 0).getTime();
 const hoursAgo = (h: number) => NOW - h * 3_600_000;
@@ -102,5 +102,48 @@ describe('findResumePoint', () => {
     const real = session({ title: 'Real work', endedAt: hoursAgo(5) });
 
     expect(findResumePoint([empty, real], NOW)?.session.title).toBe('Real work');
+  });
+});
+
+/*
+ * What a row calls a conversation and its folder, on screen.
+ *
+ * Seen on a real index on 27 Sep: rows reading "scratch-2026-09-25-3610db"
+ * and "Untitled conversation". The first is a folder Claude Code makes for a
+ * session with no project, which names nothing a person would recognise; the
+ * second threw away the one line that did say what the conversation was.
+ */
+describe('projectLabel', () => {
+  test("hides the throwaway folders Claude Code makes for a session with no project", () => {
+    expect(projectLabel('scratch-2026-09-25-3610db')).toBe('');
+    expect(projectLabel('scratch-2026-09-14-dec166')).toBe('');
+  });
+
+  test('keeps a real project, including one that merely starts with the word', () => {
+    expect(projectLabel('Sidq')).toBe('Sidq');
+    expect(projectLabel('scratchpad')).toBe('scratchpad');
+    expect(projectLabel('scratch-notes')).toBe('scratch-notes');
+  });
+});
+
+describe('titleOf', () => {
+  test('a titled conversation is called by its title', () => {
+    expect(titleOf(session())).toBe('Stripe webhook retries');
+  });
+
+  test('an untitled one is called by what was last asked in it', () => {
+    expect(titleOf(session({ title: '' }))).toBe('the retry still drops the second event, can you look');
+  });
+
+  test('a long prompt is cut at a word, not mid-word', () => {
+    const long = 'please rewrite the whole onboarding flow so that it has fewer steps and more motion in it';
+    const out = titleOf(session({ title: '', lastPrompt: long }));
+    expect(out.length).toBeLessThanOrEqual(61);
+    expect(out.endsWith('…')).toBe(true);
+    expect(long.startsWith(out.slice(0, -1).trimEnd())).toBe(true);
+  });
+
+  test('with neither, it still says something', () => {
+    expect(titleOf(session({ title: '', lastPrompt: '' }))).toBe('Untitled conversation');
   });
 });

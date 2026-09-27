@@ -13,7 +13,7 @@ import {
   type SharedHandover,
   type TeamSettings,
 } from "@/lib/onboarding/bridge";
-import type { WorkSession } from "@/lib/companion/work-history";
+import { projectLabel, titleOf, type WorkSession } from "@/lib/companion/work-history";
 import { adoptSession, shareSessionWithDesktop } from "@/lib/supabase";
 import { ConnectExtension } from "@/components/companion/ConnectExtension";
 import { GrantAccess } from "@/components/companion/GrantAccess";
@@ -822,11 +822,11 @@ function Across({ sessions }: { sessions: WorkSession[] }) {
               <SourceGlyph source={source} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
-                  {s.title || "Untitled conversation"}
+                  {titleOf(s)}
                 </span>
                 <span className="block truncate text-[0.75rem] text-[var(--w-text-3)]">
                   {sourceLabel(source)}
-                  {s.projectName && ` · ${s.projectName}`}
+                  {projectLabel(s.projectName) && ` · ${projectLabel(s.projectName)}`}
                 </span>
               </span>
               <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-3)]">
@@ -1079,12 +1079,14 @@ function Overview({
         />
 
         {rows !== null && rows.length === 0 && (
-          <p className="mt-4 max-w-[56ch] border-y border-[var(--w-line)] py-5 text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
-            Nothing handed over yet. Press <Keys>&#8984;&#8679;K</Keys>, pick a
-            conversation, press Enter. Each one is also written to your
-            Downloads folder as a Markdown file, so nothing is lost to a
-            misclick the way a clipboard is.
-          </p>
+          <div className="mt-4 border-y border-[var(--w-line)] py-5">
+            <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
+              Nothing handed over yet. Press <Keys>&#8984;&#8679;K</Keys>, pick a
+              conversation, press Enter. Each one is also written to your
+              Downloads folder as a Markdown file, so nothing is lost to a
+              misclick the way a clipboard is.
+            </p>
+          </div>
         )}
 
         {rows !== null && rows.length > 0 && (
@@ -1101,7 +1103,7 @@ function Overview({
                   </span>
                   <span className="block truncate text-[0.75rem] text-[var(--w-text-3)]">
                     {sourceLabel(row.source)}
-                    {row.project && ` · ${row.project}`}
+                    {projectLabel(row.project) && ` · ${projectLabel(row.project)}`}
                   </span>
                 </span>
                 <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-3)]">
@@ -3510,7 +3512,7 @@ function Hit({ hit }: { hit: SearchHit }) {
         </span>
         <span className="shrink-0 text-[0.6875rem] text-[var(--w-text-5)]">
           {sourceLabel(hit.source)}
-          {hit.project && ` · ${hit.project}`}
+          {projectLabel(hit.project) && ` · ${projectLabel(hit.project)}`}
           {hit.endedAt > 0 && ` · ${whenLabel(hit.endedAt)}`}
         </span>
       </div>
