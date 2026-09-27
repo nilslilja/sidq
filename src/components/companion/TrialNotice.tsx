@@ -43,13 +43,12 @@ export function TrialNotice({
   return (
     <section
       className={cn(
-        "rounded-[18px] border p-5",
-        running
-          ? "border-[var(--w-line)] bg-[var(--w-raise)]"
-          : "border-[#B8A6FF]/40 bg-[#B8A6FF]/[0.07]",
+        // The site's card: paper, one hairline. The trial ending is news, not an
+        // alarm, so it gets no colour of its own.
+        "rounded-[14px] border border-[var(--w-line)] bg-[var(--w-bg)] p-5",
       )}
     >
-      <p className="text-[0.9375rem] font-medium text-[var(--w-text-1)]">
+      <p className="text-[0.9375rem] font-medium text-[var(--w-text)]">
         {running
           ? daysLeft === 1
             ? "Last day of your trial"
@@ -83,11 +82,9 @@ export function TrialNotice({
       <button
         onClick={onUpgrade}
         className={cn(
-          "mt-4 cursor-pointer rounded-full px-4 py-2 text-[0.8125rem] font-medium",
-          "bg-gradient-to-b from-[#C9BBFF] to-[#A794FF] text-[#141319]",
-          "shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset,0_6px_18px_-6px_rgba(184,166,255,0.7)]",
-          "transition-[box-shadow,transform] duration-150",
-          "hover:shadow-[0_1px_0_0_rgba(255,255,255,0.5)_inset,0_10px_26px_-6px_rgba(184,166,255,0.85)]",
+          "mt-4 cursor-pointer rounded-[10px] px-4 py-2 text-[0.8125rem] font-medium",
+          "bg-[var(--w-invert)] text-[var(--w-on-invert)]",
+          "transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.98]",
         )}
       >
         {running ? "Keep it after the trial" : "Turn it back on"}

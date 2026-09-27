@@ -84,6 +84,11 @@ pub fn brief_wanted(conn: &rusqlite::Connection) -> bool {
     crate::index_store::setting(conn, BRIEF_KEY).unwrap_or_else(|| "1".into()) == "1"
 }
 
+/// Switch the brief on or off, from the window. Remembered across launches.
+pub fn set_brief_wanted(conn: &rusqlite::Connection, on: bool) -> Option<()> {
+    crate::index_store::put_setting(conn, BRIEF_KEY, if on { "1" } else { "0" })
+}
+
 /**
  * The project somebody was last working in.
  *
@@ -200,6 +205,25 @@ mod tests {
             arrivals.at(Some("claude.ai"), "https://claude.ai/new"),
             Some("claude.ai".to_string())
         );
+    }
+
+    fn settings_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
+            .unwrap();
+        conn
+    }
+
+    #[test]
+    fn the_brief_is_on_until_somebody_turns_it_off_and_stays_where_they_put_it() {
+        let conn = settings_db();
+        assert!(brief_wanted(&conn), "a fresh install briefs new chats");
+
+        set_brief_wanted(&conn, false).unwrap();
+        assert!(!brief_wanted(&conn), "off is remembered");
+
+        set_brief_wanted(&conn, true).unwrap();
+        assert!(brief_wanted(&conn), "and so is on again");
     }
 
     fn project(path: &str, turns: usize, touched: i64) -> crate::index_store::ProjectRow {

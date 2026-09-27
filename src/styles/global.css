@@ -1736,112 +1736,144 @@
  */
 [data-app-theme="light"] {
   /*
-   * Warm paper, not lavender grey. The window read as a template because every
-   * surface was a cool tint of the brand colour; Wispr's lesson is that warmth
-   * lives in the ground, and the accent is more precious for being the only
-   * cool thing on it.
+   * The website's paper, ink and blue, and nothing else.
+   *
+   * The window had its own warm palette with a violet accent, which made it a
+   * second product next to the site people downloaded it from. It is now the
+   * same three things: #F7F6F3 paper, #12121A ink, and the #2448E8 blue the
+   * handwriting on the front page is set in. Surfaces are white on the paper,
+   * separated by hairlines rather than by tinted cards and coloured shadows.
    */
-  --w-bg: #f3efe7;
-  --w-surface: #fffdf9;
-  --w-raised: #f6f1e9;
-  --w-tint: #f7f1ff;
-  --w-line: #e7e0d4;
-  --w-line-accent: #ebe4fb;
+  --w-bg: #f7f6f3;
+  --w-surface: #ffffff;
+  --w-raised: #f1f0ec;
+  --w-tint: #eef1fd;
+  --w-line: #e6e4de;
+  --w-line-accent: #d9e0fb;
 
-  --w-text: #1b1914;
-  --w-text-2: #3b362d;
-  --w-text-3: #5c5549;
-  --w-text-4: #7b7366;
+  --w-text: #12121a;
+  --w-text-2: #2f2f38;
+  --w-text-3: #5c5c66;
+  --w-text-4: #7a7a84;
   /*
    * text-4 and below are not for text on the page background.
    *
-   * Measured against `--w-bg` (#f3efe7): text-3 is 6.4:1 and carries every
-   * label; text-4 is 4.1:1 and text-5 about 3:1, which are for icons,
+   * Measured against `--w-bg` (#f7f6f3): text-3 is 6.3:1 and carries every
+   * label; text-4 is 4.2:1 and text-5 about 2.9:1, which are for icons,
    * dividers and disabled states only.
    */
-  --w-text-5: #928a7d;
-  --w-text-6: #a9a194;
+  --w-text-5: #9a9aa2;
+  --w-text-6: #b8b8be;
 
-  --w-accent: #5b4de6;
-  --w-accent-deep: #4637c9;
-  --w-accent-ink: #251b57;
-  --w-accent-soft: #b8a6ff;
+  --w-accent: #2448e8;
+  --w-accent-deep: #1b39c2;
+  --w-accent-ink: #0f1e66;
+  --w-accent-soft: #a9b7f4;
   --w-mark: #4f46e5;
   --w-danger: #b23b32;
 
-  --w-invert: #1b1914;
+  --w-invert: #12121a;
   --w-on-invert: #ffffff;
   --w-on-accent: #ffffff;
 
-  /* The main card: a hair of the ground at the top, paper at the bottom. */
-  --w-panel-from: #fffcf6;
+  --w-panel-from: #ffffff;
   --w-panel-to: #ffffff;
-  /* Light catching the card's top lip. Bright on paper, barely there on navy. */
-  --w-sheen: rgba(255, 255, 255, 0.95);
-  /* The plan card, lifted off the sidebar. */
+  --w-sheen: rgba(255, 255, 255, 0);
   --w-card-from: #ffffff;
-  --w-card-to: #f8f2e8;
+  --w-card-to: #ffffff;
+  /* The one shadow in the window: neutral ink, never a colour. */
+  --w-lift: 0 1px 2px rgba(18, 18, 26, 0.04), 0 18px 40px -24px rgba(18, 18, 26, 0.22);
 }
 
 /*
- * Dark blue rather than grey, and lifted rather than black.
+ * Ink, not navy.
  *
- * Every surface is a step in one hue so nothing has to be told apart by
- * brightness alone, and the darkest thing on screen is the window rather than
- * a panel inside it — a panel darker than its own background reads as a hole.
- *
- * The accent moves. #6A4BEA is a good indigo on white and close to unreadable
- * on navy, so the dark side takes a lighter one at the same hue. The mark goes
- * white, which is what an app icon does on a dark surface.
+ * The dark side is the site's ink turned into a ground, with the blue lifted
+ * enough to read on it. Every surface is a step in one neutral so nothing has
+ * to be told apart by hue, and the darkest thing on screen is the window
+ * rather than a panel inside it: a panel darker than its own background reads
+ * as a hole.
  */
 [data-app-theme="dark"] {
-  --w-bg: #0e1322;
-  --w-surface: #161d31;
-  --w-raised: #1c2440;
-  --w-tint: #1b2247;
-  --w-line: #29314c;
-  --w-line-accent: #38407a;
+  --w-bg: #0f0f13;
+  --w-surface: #17171c;
+  --w-raised: #1f1f25;
+  --w-tint: #161b33;
+  --w-line: #2a2a31;
+  --w-line-accent: #2c3766;
 
-  --w-text: #eef1f8;
-  --w-text-2: #d2d8e8;
-  --w-text-3: #aeb7ce;
-  --w-text-4: #949db6;
-  --w-text-5: #7f889f;
-  --w-text-6: #6e7791;
+  --w-text: #f3f3f5;
+  --w-text-2: #d7d7dc;
+  --w-text-3: #a9a9b2;
+  --w-text-4: #8b8b94;
+  --w-text-5: #72727b;
+  --w-text-6: #5c5c65;
 
-  --w-accent: #8fa0ff;
-  --w-accent-deep: #a9b6ff;
-  --w-accent-ink: #cdd5ff;
-  --w-accent-soft: #b8a6ff;
+  --w-accent: #8ea2ff;
+  --w-accent-deep: #aab9ff;
+  --w-accent-ink: #d4dcff;
+  --w-accent-soft: #4a5bb0;
   --w-mark: #ffffff;
   --w-danger: #ff9a8f;
 
-  --w-invert: #e9edf7;
-  --w-on-invert: #0e1322;
-  /*
-   * The upgrade button is a gradient of the accent, and the accent got lighter
-   * so it would read on navy. White on it was the one place in the dark theme
-   * where text nearly disappeared into its own button.
-   */
-  --w-on-accent: #131a33;
+  --w-invert: #f3f3f5;
+  --w-on-invert: #0f0f13;
+  --w-on-accent: #0f0f13;
 
-  /*
-   * The card gets darker downward rather than lighter.
-   *
-   * These were `to-white` and `from-white` written straight into the class
-   * list, which `bg-white` did not match, so the main panel faded from navy to
-   * paper and the plan card was a bright block with light text on it.
-   */
-  --w-panel-from: #182034;
-  --w-panel-to: #131a2b;
-  /*
-   * The sheen was rgba(255,255,255,0.9): a full-strength white hairline across
-   * the top of the card. Right on paper, and on navy it is the white bar
-   * sitting over the greeting.
-   */
-  --w-sheen: rgba(255, 255, 255, 0.06);
-  --w-card-from: #1f2947;
-  --w-card-to: #182034;
+  --w-panel-from: #141418;
+  --w-panel-to: #141418;
+  --w-sheen: rgba(255, 255, 255, 0.04);
+  --w-card-from: #17171c;
+  --w-card-to: #17171c;
+  --w-lift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * A switch, for the things Sidq does on its own.
+ *
+ * A track and a knob, the control every Mac settings pane uses for "this runs
+ * without you". The knob moves on transform only. Blue when on, because on is
+ * the state the blue on the website means: it is doing something for you.
+ */
+.w-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--w-line);
+  transition: background-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.w-switch[aria-pressed="true"] {
+  background: var(--w-accent);
+}
+.w-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 18, 26, 0.25);
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.w-switch[aria-pressed="true"]::after {
+  transform: translateX(14px);
+}
+.w-switch:active::after {
+  transform: scale(0.92);
+}
+.w-switch[aria-pressed="true"]:active::after {
+  transform: translateX(14px) scale(0.92);
+}
+.w-switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.w-switch:focus-visible {
+  outline: 2px solid var(--w-accent);
+  outline-offset: 2px;
 }
 
 /*

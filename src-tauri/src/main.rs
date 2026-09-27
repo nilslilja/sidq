@@ -27,7 +27,7 @@ mod pill_window;
 
 // The library, imported by name so the call sites below did not have to change.
 use sidq::{
-    capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
+    ambient, capture, codex_history, compiler, cursor_history, entitlement, imports, index_store, invites,
     burn, hooks, login_item, mcp_setup, memory, profile, relay, sharing, team_context, telemetry,
     thread, wall, work_history,
 };
@@ -2198,6 +2198,35 @@ async fn set_recall(on: bool) -> bool {
     .unwrap_or(false)
 }
 
+/**
+ * Whether a blank chat gets the project brief without being asked.
+ *
+ * On by default (see `ambient::brief_wanted`), so the window's switch reads it
+ * rather than assuming, and shows nothing until it has.
+ */
+#[tauri::command]
+async fn brief_status() -> bool {
+    tauri::async_runtime::spawn_blocking(|| {
+        index_store::open()
+            .map(|c| ambient::brief_wanted(&c))
+            .unwrap_or(true)
+    })
+    .await
+    .unwrap_or(true)
+}
+
+/// Turn the brief on or off. False when the setting could not be written.
+#[tauri::command]
+async fn set_brief(on: bool) -> bool {
+    tauri::async_runtime::spawn_blocking(move || {
+        index_store::open()
+            .and_then(|c| ambient::set_brief_wanted(&c, on))
+            .is_some()
+    })
+    .await
+    .unwrap_or(false)
+}
+
 #[derive(serde::Serialize)]
 struct RelayState {
     on: bool,
@@ -3331,6 +3360,8 @@ fn main() {
             connect_mcp,
             recall_status,
             set_recall,
+            brief_status,
+            set_brief,
             relay_status,
             set_relay,
             mcp_config_block,

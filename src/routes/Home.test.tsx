@@ -94,6 +94,12 @@ const bridge: Partial<OnboardingBridge> = {
   // Off by default, like counting: both change what happens without a press.
   recall: vi.fn(async () => false),
   setRecall: vi.fn(async () => true),
+  /*
+   * The brief is the exception: on by default, because a feature that has to be
+   * found before it does anything does nothing (see `ambient::brief_wanted`).
+   */
+  brief: vi.fn(async () => true),
+  setBrief: vi.fn(async () => true),
   relay: vi.fn(async () => ({ on: false, agent: "/opt/homebrew/bin/codex" })),
   setRelay: vi.fn(async () => true),
   countedEvents: vi.fn(
@@ -629,6 +635,37 @@ describe("the things Sidq does with nobody pressing anything", () => {
     const section = screen.getByText("When Claude Code hits its limit, carry on in Codex")
       .closest("div")!.parentElement!;
     expect(within(section).getByRole("button", { name: "Turn it on" })).toBeDisabled();
+  });
+});
+
+describe("the brief in every new chat", () => {
+  test("is offered, and says it is on, because on is the default", async () => {
+    await open("Overview");
+    expect(screen.getByText("Every new chat starts briefed")).toBeInTheDocument();
+    expect(screen.getByText(/^On\. Open a blank chat in ChatGPT, Claude or Gemini/)).toBeInTheDocument();
+  });
+
+  test("turning it off writes it and only then says it is off", async () => {
+    await open("Overview");
+    const row = screen.getByText("Every new chat starts briefed").closest("div")!.parentElement!;
+    await act(async () => {
+      fireEvent.click(within(row).getByRole("button", { name: "Turn it off" }));
+    });
+    await settle();
+    expect(bridge.setBrief).toHaveBeenCalledWith(false);
+    expect(screen.getByText(/^Off\. New chats start empty/)).toBeInTheDocument();
+  });
+
+  test("a refused write leaves the switch where it was and says so", async () => {
+    (bridge.setBrief as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+    await open("Overview");
+    const row = screen.getByText("Every new chat starts briefed").closest("div")!.parentElement!;
+    await act(async () => {
+      fireEvent.click(within(row).getByRole("button", { name: "Turn it off" }));
+    });
+    await settle();
+    expect(screen.getByRole("alert")).toHaveTextContent(/Could not save that/);
+    expect(within(row).getByRole("button", { name: "Turn it off" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 

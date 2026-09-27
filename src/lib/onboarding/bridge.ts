@@ -647,6 +647,13 @@ export interface OnboardingBridge {
   recall: () => Promise<boolean>;
   /** True when the change was written. */
   setRecall: (on: boolean) => Promise<boolean>;
+  /**
+   * The brief: a blank chat in ChatGPT, Claude or Gemini gets the project you
+   * were last in pasted into its box, unsent. On unless turned off.
+   */
+  brief: () => Promise<boolean>;
+  /** True when the change was written. */
+  setBrief: (on: boolean) => Promise<boolean>;
   /** Relay: Codex carrying on when Claude Code hits its limit. */
   relay: () => Promise<{ on: boolean; agent: string | null }>;
   setRelay: (on: boolean) => Promise<boolean>;
@@ -983,6 +990,9 @@ export function desktopBridge(): OnboardingBridge | null {
       await invoke("memory_into", { path, assistant });
     },
     recall: async () => ((await invoke("recall_status")) as boolean) ?? false,
+    brief: async () => ((await invoke("brief_status")) as boolean) ?? true,
+    setBrief: async (on: boolean) =>
+      ((await invoke("set_brief", { on })) as boolean) ?? false,
     setRecall: async (on: boolean) =>
       ((await invoke("set_recall", { on })) as boolean) ?? false,
     relay: async () =>

@@ -366,21 +366,17 @@ export function Home() {
     <div
       data-app-theme={theme}
       className={cn(
-        "grid h-[100dvh] grid-cols-[16.5rem_1fr] overflow-hidden text-[var(--w-text)]",
+        "grid h-[100dvh] grid-cols-[15.5rem_1fr] overflow-hidden text-[var(--w-text)]",
         /*
-         * ── Warmth, and where it comes from ──────────────────────────────────
+         * The website's paper, flat.
          *
-         * This was one flat fill and it read as sterile: a white card on a grey
-         * sheet, no light in it anywhere. Two soft washes of the product's own
-         * lavender, one warm counterpoint, painted into the ground rather than
-         * onto anything — so the card floats on colour instead of on nothing,
-         * and the sidebar picks it up without being tinted itself.
-         *
-         * Fixed, not animated, and behind everything. Decoration that moves
-         * costs a frame budget on a window somebody keeps open all day.
+         * There were washes of peach and lavender painted into the ground here,
+         * to stop a white card on grey reading as sterile. They also made this
+         * window a different product from the page it was downloaded from. The
+         * site gets its warmth from the paper itself and so does this now: one
+         * fill, a white surface on it, hairlines between things.
          */
         "bg-[var(--w-bg)]",
-        "bg-[radial-gradient(110%_85%_at_0%_0%,rgba(255,196,150,0.22),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(139,110,255,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(255,214,170,0.14),transparent_60%)]",
       )}
     >
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
@@ -396,7 +392,7 @@ export function Home() {
 
         <div className="flex items-center gap-2 px-3 pb-1 pt-2">
           <Mark />
-          <span className="font-display text-[1.125rem] leading-none tracking-[-0.045em]">
+          <span className="font-display text-[1.125rem] font-semibold leading-none tracking-[-0.05em]">
             Sidq
           </span>
 
@@ -442,13 +438,7 @@ export function Home() {
          */}
         <div className="mt-auto pt-6">
           {plan && (
-            <div
-              className={cn(
-                "rounded-[14px] border border-[var(--w-accent-soft)]/45 px-4 py-3.5",
-                "bg-gradient-to-b from-[var(--w-card-from)] to-[var(--w-card-to)]",
-                "shadow-[0_1px_2px_rgba(20,18,28,0.04)]",
-              )}
-            >
+            <div className="border-t border-[var(--w-line)] px-3 pt-4">
               {plan.handoversCap == null ? (
                 <>
                   <p className="text-[0.875rem] font-medium capitalize text-[var(--w-text)]">
@@ -473,9 +463,9 @@ export function Home() {
                   <button
                     onClick={() => void bridge?.openUpgrade()}
                     className={cn(
-                      "mt-3 w-full rounded-[8px] px-3 py-2",
+                      "mt-3 w-full rounded-[10px] px-3 py-2",
                       "bg-[var(--w-invert)] text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
-                      "cursor-pointer transition-opacity duration-150 hover:opacity-85",
+                      "cursor-pointer transition-[opacity,transform] duration-150 hover:opacity-85 active:scale-[0.98]",
                     )}
                   >
                     Upgrade to Pro
@@ -485,7 +475,7 @@ export function Home() {
             </div>
           )}
 
-          <div className="mt-3 flex flex-col gap-0.5 border-t border-[var(--w-line)] pt-3">
+          <div className="mt-4 flex flex-col gap-0.5">
             {TABS.filter((t) => t.secondary).map((t) => (
               <NavRow
                 key={t.id}
@@ -524,17 +514,15 @@ export function Home() {
              * under the app rather than a soft edge. Contained, the bounce ends
              * at the card and no chain reaches the window.
              */
-            "h-full min-h-0 overflow-y-auto overscroll-contain rounded-[18px]",
-            // Not flat white. A hair of the ground shows through the top of the
-            // card, which is what stops it reading as a sheet of paper.
-            "bg-gradient-to-b from-[var(--w-panel-from)] to-[var(--w-panel-to)]",
-            "ring-1 ring-[var(--w-line)]",
-            "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.04),0_12px_32px_-16px_rgba(70,50,140,0.18)]",
+            "h-full min-h-0 overflow-y-auto overscroll-contain rounded-[16px]",
+            // White on the paper, a hairline round it and one neutral shadow:
+            // the site's own card, rather than a gradient with a violet glow.
+            "bg-[var(--w-surface)] ring-1 ring-[var(--w-line)] shadow-[var(--w-lift)]",
           )}
         >
           <div data-tauri-drag-region className="h-3" />
           {/* Keyed on the tab so switching panels replays the entrance. */}
-          <div key={tab} className="animate-rise px-9 pb-12 pt-5">
+          <div key={tab} className="animate-rise mx-auto max-w-[54rem] px-10 pb-14 pt-6">
             {tab === "overview" && (
               <Overview
                 bridge={bridge}
@@ -603,15 +591,16 @@ function NavRow({
          * theme switch should do anyway. Hover still animates the parts that
          * do not depend on the palette.
          */
-        "text-[0.875rem] transition-[background-color,box-shadow] duration-150",
+        "text-[0.875rem] transition-[background-color,box-shadow,transform] duration-150",
         active
-          ? "bg-[var(--w-surface)] text-[var(--w-text)] shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.07),0_4px_12px_-6px_rgba(106,75,234,0.25)]"
-          : "text-[var(--w-text-3)] hover:bg-[var(--w-surface)]/60 hover:text-[var(--w-text)]",
+          ? "bg-[var(--w-surface)] font-medium text-[var(--w-text)] shadow-[0_0_0_1px_var(--w-line)]"
+          : "text-[var(--w-text-3)] hover:bg-[var(--w-raised)] hover:text-[var(--w-text)]",
+        "cursor-pointer active:scale-[0.985]",
       )}
     >
       <Icon
         name={tab.icon}
-        className={active ? "text-[var(--w-accent)]" : "text-[var(--w-text-5)]"}
+        className={active ? "text-[var(--w-text)]" : "text-[var(--w-text-5)]"}
       />
       <span className="min-w-0 truncate">{tab.label}</span>
     </button>
@@ -782,12 +771,12 @@ function MemoryCard({
   return (
     <section
       aria-label="What Sidq remembers"
-      className="mt-7 border-y border-[var(--w-line)] py-6"
+      className="mt-9 border-y border-[var(--w-line)] py-7"
     >
       <div className="grid grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
         {figures.map(([value, label]) => (
           <div key={label}>
-            <p className="font-serif text-[2.4rem] leading-none tabular-nums tracking-[-0.02em] text-[var(--w-text)]">
+            <p className="font-display text-[2.25rem] font-semibold leading-none tabular-nums tracking-[-0.05em] text-[var(--w-text)]">
               {value}
             </p>
             <p className="mt-2 text-[0.8125rem] text-[var(--w-text-3)]">{label}</p>
@@ -808,6 +797,8 @@ function MemoryCard({
  */
 const SOURCE_LOGO: Record<string, string> = {
   chatgpt: "/openai-logo.svg",
+  // Codex is OpenAI's, and its mark is theirs.
+  codex: "/openai-logo.svg",
   "claude-code": "/claude-logo.svg",
   "claude.ai": "/claude-logo.svg",
   cowork: "/claude-logo.svg",
@@ -818,28 +809,17 @@ const SOURCE_LOGO: Record<string, string> = {
 function Across({ sessions }: { sessions: WorkSession[] }) {
   if (sessions.length === 0) return null;
   return (
-    <section aria-labelledby="across" className="mt-8">
-      <h2 id="across" className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
-        LATELY, ACROSS YOUR AIS
-      </h2>
-      <ul className="mt-3 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
+    <section aria-labelledby="across" className="mt-12">
+      <SectionHead id="across" title="Lately, across your AIs" />
+      <ul className="mt-4 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
         {sessions.map((s) => {
           const source = s.source ?? "claude-code";
-          const logo = SOURCE_LOGO[source];
           return (
             <li
               key={`${s.sessionId ?? s.title}-${s.endedAt}`}
               className="flex items-center gap-3 py-3"
             >
-              <span className="grid size-6 shrink-0 place-items-center">
-                {logo ? (
-                  <img src={logo} alt="" width={16} height={16} className="size-4" />
-                ) : (
-                  <span className="text-[0.75rem] font-semibold text-[var(--w-text-2)]">
-                    {sourceLabel(source).slice(0, 1)}
-                  </span>
-                )}
-              </span>
+              <SourceGlyph source={source} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
                   {s.title || "Untitled conversation"}
@@ -909,13 +889,13 @@ function PanelHead({
   return (
     <header>
       {eyebrow && (
-        <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-3)]">
+        <p className="text-[0.6875rem] font-medium tracking-[0.08em] text-[var(--w-text-3)]">
           {eyebrow.toUpperCase()}
         </p>
       )}
       <h1
         className={cn(
-          "font-display text-[1.75rem] leading-[1.1] tracking-[-0.04em]",
+          "font-display text-[2rem] font-semibold leading-[1.05] tracking-[-0.045em]",
           // Only pulled down when there is an eyebrow to be pulled down from.
           eyebrow && "mt-1.5",
         )}
@@ -1046,31 +1026,26 @@ function Overview({
        * two things a person can check against reality the moment the window
        * opens, which is what makes a greeting read as the app being awake
        * rather than as decoration.
+       *
+       * Set like the website's headlines: Geist, semibold, tracked in hard. It
+       * was a serif here once, which made this the one screen of Sidq that did
+       * not look like Sidq.
        */}
-      <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-3)]">
-        {today().toUpperCase()}
-      </p>
-      {/*
-       * Serif, and large, because this is the one line in the app that is
-       * spoken to the person rather than about their data. Wispr opens the
-       * same way and it is the thing that makes a utility feel like a place.
-       */}
-      <h1 className="mt-2 font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-[var(--w-text)]">
+      <p className="text-[0.8125rem] text-[var(--w-text-3)]">{today()}</p>
+      <h1 className="mt-2 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-[-0.05em] text-[var(--w-text)]">
         {salutation()}
       </h1>
-      <p className="mt-3 max-w-[56ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
+      <p className="mt-3 max-w-[54ch] text-[1rem] leading-relaxed text-[var(--w-text-3)]">
         {reading > 0 ? (
           <>
             Your AIs are on the same page. Sidq is reading{" "}
             <span className="text-[var(--w-text)]">{reading}</span>{" "}
-            of them on this Mac, and nothing here has left it. Press{" "}
-            <Keys>&#8984;&#8679;K</Keys> to carry any conversation anywhere.
+            of them on this Mac, and nothing here has left it.
           </>
         ) : (
           <>
-            Open any AI you use and Sidq starts remembering. Press{" "}
-            <Keys>&#8984;&#8679;K</Keys> to carry a conversation into another
-            one.
+            Open any AI you use and Sidq starts remembering. Nothing it reads
+            leaves this Mac.
           </>
         )}
       </p>
@@ -1082,297 +1057,343 @@ function Overview({
         reading={reading}
       />
 
+      {/*
+       * ── Working for you ──────────────────────────────────────────────────
+       *
+       * Second on the screen, above the history, because this is the product.
+       * Every one of these happens without the window being open: a new chat
+       * briefed, a conversation grabbed with two taps, Claude Code handed what
+       * you said elsewhere. They used to be scattered across a sidebar card, a
+       * footnote and two buttons at the bottom of the page, which is how a
+       * person with Sidq running for a month could still not know it did them.
+       */}
+      <Autopilot bridge={bridge} taps={taps} />
+
       <Across sessions={recent} />
 
-      <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
-        <div className="min-w-0">
-          <h2 className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
-            HANDOVERS
-          </h2>
+      <section aria-labelledby="handovers" className="mt-12">
+        <SectionHead
+          id="handovers"
+          title="Handovers"
+          note={`${(plan?.handoversUsed ?? 0).toLocaleString()} in the last 7 days`}
+        />
 
-          {rows !== null && rows.length === 0 && (
-            <div className="mt-3 rounded-[14px] border border-dashed border-[var(--w-line)] px-5 py-6">
-              <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
-                Nothing handed over yet
-              </p>
-              <p className="mt-1.5 max-w-[52ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
-                Press <Keys>&#8984;&#8679;K</Keys>, pick a conversation, press
-                Enter. Each one is also written to your Downloads folder as a
-                Markdown file, so nothing is lost to a misclick the way a
-                clipboard is.
-              </p>
-            </div>
-          )}
+        {rows !== null && rows.length === 0 && (
+          <p className="mt-4 max-w-[56ch] border-y border-[var(--w-line)] py-5 text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
+            Nothing handed over yet. Press <Keys>&#8984;&#8679;K</Keys>, pick a
+            conversation, press Enter. Each one is also written to your
+            Downloads folder as a Markdown file, so nothing is lost to a
+            misclick the way a clipboard is.
+          </p>
+        )}
 
-          {rows !== null && rows.length > 0 && (
-            <ul className="mt-3 divide-y divide-black/[0.06] border-y border-[var(--w-line)]">
-              {rows.map((row) => (
-                <li
-                  key={`${row.sessionId}-${row.madeAt}`}
-                  className={cn(
-                    "flex items-baseline gap-4 rounded-[8px] px-3 py-3",
-                    "transition-colors duration-150 hover:bg-[var(--w-raised)]",
-                  )}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
-                      {row.title || "Untitled conversation"}
-                    </span>
-                    <span className="block truncate text-[0.75rem] text-[var(--w-text-5)]">
-                      {sourceLabel(row.source)}
-                      {row.project && ` · ${row.project}`}
-                    </span>
+        {rows !== null && rows.length > 0 && (
+          <ul className="mt-4 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
+            {rows.map((row) => (
+              <li
+                key={`${row.sessionId}-${row.madeAt}`}
+                className="group flex items-center gap-3 py-3"
+              >
+                <SourceGlyph source={row.source} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
+                    {row.title || "Untitled conversation"}
                   </span>
-                  <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-5)]">
-                    {whenHandedOver(row.madeAt)}
+                  <span className="block truncate text-[0.75rem] text-[var(--w-text-3)]">
+                    {sourceLabel(row.source)}
+                    {row.project && ` · ${row.project}`}
                   </span>
-                  {/*
-                   * Send it straight into an assistant's box.
-                   *
-                   * The promise was one keystroke and it stopped at the
-                   * clipboard: switch application, find the composer, click it,
-                   * paste. Sidq already opens these assistants in its own
-                   * window, so it puts the conversation where it was going.
-                   *
-                   * It does not press send. That message costs the person a
-                   * turn on their own plan, and they may want a line in front
-                   * of it.
-                   */}
-                  {assistants.length > 0 && (
-                    <select
-                      aria-label={`Send ${row.title || "this conversation"} into an assistant`}
-                      value=""
-                      onChange={(e) => {
-                        const assistant = e.target.value;
-                        if (!assistant) return;
-                        e.target.value = "";
-                        void bridge?.handOverInto({
+                </span>
+                <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-3)]">
+                  {whenHandedOver(row.madeAt)}
+                </span>
+                {/*
+                 * Send it straight into an assistant's box.
+                 *
+                 * The promise was one keystroke and it stopped at the
+                 * clipboard: switch application, find the composer, click it,
+                 * paste. Sidq already opens these assistants in its own
+                 * window, so it puts the conversation where it was going.
+                 *
+                 * It does not press send. That message costs the person a
+                 * turn on their own plan, and they may want a line in front
+                 * of it.
+                 */}
+                {assistants.length > 0 && (
+                  <select
+                    aria-label={`Send ${row.title || "this conversation"} into an assistant`}
+                    value=""
+                    onChange={(e) => {
+                      const assistant = e.target.value;
+                      if (!assistant) return;
+                      e.target.value = "";
+                      void bridge?.handOverInto({
+                        sessionId: row.sessionId,
+                        source: row.source,
+                        resumePoint: "",
+                        when: whenHandedOver(row.madeAt),
+                        project: row.project,
+                        assistant,
+                      });
+                    }}
+                    className={cn(
+                      "shrink-0 cursor-pointer rounded-[8px] bg-transparent px-2 py-1",
+                      "text-[0.75rem] text-[var(--w-text-3)] ring-1 ring-inset ring-transparent",
+                      "transition-colors duration-150 hover:text-[var(--w-text)] hover:ring-[var(--w-line)]",
+                    )}
+                  >
+                    <option value="">Send to…</option>
+                    {assistants.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {/*
+                 * Sharing is dark. It is the only feature where a
+                 * conversation leaves this Mac, and the pitch is now that
+                 * none of them do. One exception in a settings panel is the
+                 * exception somebody screenshots. See `FEATURES`.
+                 */}
+                {FEATURES.sharing && sharesWithTeam && (
+                  <button
+                    onClick={() => {
+                      void bridge
+                        ?.shareHandover({
                           sessionId: row.sessionId,
+                          title: row.title || "Untitled conversation",
                           source: row.source,
                           resumePoint: "",
                           when: whenHandedOver(row.madeAt),
                           project: row.project,
-                          assistant,
-                        });
-                      }}
-                      className={cn(
-                        "shrink-0 cursor-pointer rounded-md bg-transparent px-2 py-1",
-                        "text-[0.75rem] text-[var(--w-text-3)]",
-                        "transition-colors duration-150 hover:text-[var(--w-text)]",
-                      )}
-                    >
-                      <option value="">Send to…</option>
-                      {assistants.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {/*
-                   * Shown only to a team that has somewhere to share into, so
-                   * it is not a button advertising a plan on a row about work
-                   * somebody already did. Rust refuses it either way.
-                   */}
-                  {/*
-                   * Sharing is dark. It is the only feature where a
-                   * conversation leaves this Mac, and the pitch is now that
-                   * none of them do. One exception in a settings panel is the
-                   * exception somebody screenshots. See `FEATURES`.
-                   */}
-                  {FEATURES.sharing && sharesWithTeam && (
-                    <button
-                      onClick={() => {
-                        void bridge
-                          ?.shareHandover({
-                            sessionId: row.sessionId,
-                            title: row.title || "Untitled conversation",
-                            source: row.source,
-                            resumePoint: "",
-                            when: whenHandedOver(row.madeAt),
-                            project: row.project,
-                          })
-                          .then((ok) => ok && setShared(row.sessionId));
-                      }}
-                      className={cn(
-                        "shrink-0 rounded-md px-2 py-1 text-[0.75rem] font-medium",
-                        "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
-                        "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
-                      )}
-                    >
-                      {shared === row.sessionId ? "Shared" : "Share with team"}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                        })
+                        .then((ok) => ok && setShared(row.sessionId));
+                    }}
+                    className={cn(
+                      "shrink-0 rounded-[8px] px-2 py-1 text-[0.75rem] font-medium",
+                      "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
+                      "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
+                    )}
+                  >
+                    {shared === row.sessionId ? "Shared" : "Share with team"}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/*
-         * ── The trial, where somebody is already looking at their plan ──────
+         * ── What stopped you this week, and how far back it reads ─────────
          *
-         * Above the figures rather than over the window. What ends on day six
-         * is real but narrow, so a blocking modal announcing it would be
-         * announcing something most people cannot feel — see the note in
-         * TrialNotice. Draws nothing for an account that pays.
+         * The one line on this screen that is about somebody else's product
+         * rather than this one, and the only number here that is an argument.
+         * Read out of this machine's own transcripts by `burn`, so it is
+         * arithmetic rather than a claim, and simply absent on a week when
+         * nothing stopped: an empty meter is not a zero, it is nothing to
+         * report.
          */}
+        {(burn.length > 0 || reach) && (
+          <div className="mt-4 space-y-1.5">
+            {burn.map((b) => (
+              <p
+                key={b.label}
+                className="text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]"
+              >
+                <span className="font-medium text-[var(--w-text)]">
+                  {b.label}
+                </span>{" "}
+                cut you off {b.walls === 1 ? "once" : `${b.walls} times`} this
+                week. Longest run before it did:{" "}
+                <span className="font-medium text-[var(--w-text)]">
+                  {b.medianMinutes} minutes
+                </span>
+                .
+              </p>
+            ))}
+            {reach && (
+              <p className="text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+                Read back to {new Date(reach[0]).toLocaleDateString()}. Last
+                read {whenLabel(reach[1])}.
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/*
+       * ── The trial, where somebody is already looking at their plan ──────
+       *
+       * Below the record rather than over the window. What ends on day six is
+       * real but narrow, so a blocking modal announcing it would be announcing
+       * something most people cannot feel; see the note in TrialNotice. Draws
+       * nothing for an account that pays.
+       */}
+      <div className="mt-10 empty:hidden">
         <TrialNotice
           daysLeft={trial[0]}
           totalDays={trial[1]}
           paid={(plan?.plan ?? "free") !== "free"}
           onUpgrade={() => void bridge?.openUpgrade()}
         />
-
-        {/* The standing figures. Wispr's shape, and it is the right one: a
-            small stack of numbers that never moves, next to a list that does. */}
-        <aside
-          className={cn(
-            "rounded-[14px] px-5 py-4 ring-1 ring-[var(--w-accent-soft)]/30",
-            "bg-gradient-to-b from-[var(--w-tint)] to-[var(--w-surface)]",
-            /*
-             * The same rim and contact shadow the panel beside it has.
-             *
-             * Without them this was a tinted rectangle sitting on a raised
-             * surface, which reads as a hole rather than as a card — the one
-             * element on the screen that looked drawn on instead of placed.
-             * `--w-sheen` is the theme-aware highlight, near-white on paper and
-             * a six percent white in the dark, so this holds in both.
-             */
-            "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.05),0_10px_28px_-14px_rgba(70,50,140,0.22)]",
-          )}
-        >
-          <Stat
-            value={(plan?.handoversUsed ?? 0).toLocaleString()}
-            label="handovers, 7 days"
-          />
-          {/*
-           * ── What stopped you this week ────────────────────────────────────
-           *
-           * The one line on this screen that is about somebody else's product
-           * rather than this one, and the only number here that is an argument.
-           * Read out of this machine's own transcripts by `burn`, so it is
-           * arithmetic rather than a claim, and simply absent on a week when
-           * nothing stopped: an empty meter is not a zero, it is nothing to
-           * report.
-           */}
-          {burn.length > 0 && (
-            <div className="mt-4 border-t border-[var(--w-line)] pt-3">
-              {burn.map((b) => (
-                <p
-                  key={b.label}
-                  className="text-[0.75rem] leading-relaxed text-[var(--w-text-3)]"
-                >
-                  <span className="font-medium text-[var(--w-text-1)]">
-                    {b.label}
-                  </span>{" "}
-                  cut you off {b.walls === 1 ? "once" : `${b.walls} times`} this
-                  week. Longest run before it did:{" "}
-                  <span className="font-medium text-[var(--w-text-1)]">
-                    {b.medianMinutes} minutes
-                  </span>
-                  .
-                </p>
-              ))}
-            </div>
-          )}
-
-          {reach && (
-            <p className="mt-4 border-t border-[var(--w-line)] pt-3 text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
-              Read back to {new Date(reach[0]).toLocaleDateString()}. Last read{" "}
-              {whenLabel(reach[1])}.
-            </p>
-          )}
-
-          {/*
-           * The gesture, where somebody who already finished setup can find it.
-           *
-           * It is taught on one screen during setup, which every existing user
-           * has already been through — so for all of them it does not exist.
-           * The tray menu was the only other place, and nobody opens a tray
-           * menu to discover a feature.
-           *
-           * Read from Rust rather than written here: which key does what is a
-           * setting, and a hard-coded one starts lying the moment it changes.
-           */}
-          {taps && (
-            <p className="mt-4 border-t border-[var(--w-line)] pt-3 text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
-              Double-tap <Chip>{taps[0]}</Chip> to grab the conversation you
-              were just in. <Chip>{taps[1]}</Chip> puts the last one back.
-            </p>
-          )}
-        </aside>
       </div>
 
-      <Autopilot bridge={bridge} />
       <Counting bridge={bridge} />
     </>
   );
 }
 
 /**
- * The two things Sidq can do with nobody pressing anything.
+ * Everything Sidq does with nobody pressing anything, in one list.
  *
- * Both are off until switched on here, because both change what happens in
- * another program: recall adds to what Claude Code reads, and relay starts
- * Codex. Each says exactly that in its own line, and each is absent until its
- * state has been read, so neither ever shows a switch in the wrong position.
+ * Three kinds of row, and each says which it is on the right: a switch for the
+ * ones that change what happens in another program, the keys for the ones that
+ * are a gesture, and "Always on" for the ones that simply are. The brief is on
+ * by default (see `ambient::brief_wanted`); recall and relay are off until
+ * switched on here, because both change what another program does.
+ *
+ * Each switch is absent until its state has been read, so none of them ever
+ * shows the wrong position; a row whose state is still loading is left out
+ * rather than drawn guessing.
  */
-function Autopilot({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
+function Autopilot({
+  bridge,
+  taps,
+}: {
+  bridge: ReturnType<typeof desktopBridge>;
+  taps: [string, string] | null;
+}) {
+  const [brief, setBrief] = useState<boolean | null>(null);
   const [recall, setRecall] = useState<boolean | null>(null);
   const [relay, setRelay] = useState<{ on: boolean; agent: string | null } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bridge) return;
+    /*
+     * Wrapped like the burn meter: a bridge from an older build has no
+     * `brief`, and a synchronous throw here would take the whole screen.
+     */
+    try {
+      void bridge.brief().then(setBrief, () => setBrief(null));
+    } catch {
+      setBrief(null);
+    }
     void bridge.recall().then(setRecall);
     void bridge.relay().then(setRelay);
   }, [bridge]);
 
-  if (recall === null || relay === null) return null;
-
   return (
-    <section className="mt-10 border-t border-[var(--w-line)] pt-6">
-      <Switch
-        title="Claude Code knows what you said elsewhere"
-        body={
-          recall
-            ? "On. Every time you send Claude Code a message, Sidq finds what you said about the same thing in Cursor, ChatGPT or an older session and hands Claude up to three of those turns, quoted. Found on this Mac; nothing is sent anywhere."
-            : "Off. Turn it on and Claude Code reads the relevant parts of your other conversations before it answers, with nothing pressed or pasted."
-        }
-        on={recall}
-        onChange={(next) => {
-          setProblem(null);
-          void bridge?.setRecall(next).then((ok) => {
-            if (ok) setRecall(next);
-            else
-              setProblem(
-                "Could not change Claude Code's settings. Either Sidq's helper is missing from this build, or ~/.claude/settings.json is not valid JSON.",
-              );
-          });
-        }}
+    <section aria-labelledby="for-you" className="mt-12">
+      <SectionHead
+        id="for-you"
+        title="Working for you"
+        note="Runs on this Mac, with nothing to press"
       />
-      <Switch
-        title="When Claude Code hits its limit, carry on in Codex"
-        body={
-          !relay.agent
-            ? "Codex is not installed on this Mac, so there is nothing to carry on in."
-            : relay.on
-              ? "On. When Claude Code stops for a limit, Sidq writes the conversation to a file and opens Codex in the same folder, in Terminal, told to read it and continue. Codex's own approval settings still apply."
-              : "Off. When Claude Code stops, Sidq offers the conversation to carry somewhere else, and you choose."
-        }
-        on={relay.on}
-        disabled={!relay.agent}
-        onChange={(next) => {
-          setProblem(null);
-          void bridge?.setRelay(next).then((ok) => {
-            if (ok) setRelay({ ...relay, on: next });
-            else setProblem("Could not save that. Try again in a moment.");
-          });
-        }}
-      />
+      <ul className="mt-4 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
+        {brief !== null && (
+          <AutoRow
+            title="Every new chat starts briefed"
+            body={
+              brief
+                ? "On. Open a blank chat in ChatGPT, Claude or Gemini and the project you were last in is already in the box, unsent. ⌘Z takes it out."
+                : "Off. New chats start empty. Turn it on and the project you were last in is waiting in the box of every blank chat, unsent."
+            }
+          >
+            <Toggle
+              on={brief}
+              onChange={(next) => {
+                setProblem(null);
+                void bridge?.setBrief(next).then((ok) => {
+                  if (ok) setBrief(next);
+                  else setProblem("Could not save that. Try again in a moment.");
+                });
+              }}
+            />
+          </AutoRow>
+        )}
+
+        {/*
+         * The gesture, where somebody who already finished setup can find it.
+         *
+         * Read from Rust rather than written here: which key does what is a
+         * setting, and a hard-coded one starts lying the moment it changes.
+         */}
+        {taps && (
+          <AutoRow
+            title="Grab the chat you are in"
+            body={
+              <>
+                Double-tap <Chip>{taps[0]}</Chip> to grab the conversation you
+                were just in, as a file, ready to paste into any AI.{" "}
+                <Chip>{taps[1]}</Chip> twice puts the last one back.
+              </>
+            }
+          >
+            <span className="text-[0.75rem] text-[var(--w-text-3)]">Always on</span>
+          </AutoRow>
+        )}
+
+        <AutoRow
+          title="Carry any conversation anywhere"
+          body="Opens the picker over whatever you are in. Pick a conversation and the next AI gets it, with what you decided."
+        >
+          <Keys>&#8984;&#8679;K</Keys>
+        </AutoRow>
+
+        {recall !== null && (
+          <AutoRow
+            title="Claude Code knows what you said elsewhere"
+            body={
+              recall
+                ? "On. Every time you send Claude Code a message, Sidq finds what you said about the same thing in Cursor, ChatGPT or an older session and hands Claude up to three of those turns, quoted. Found on this Mac; nothing is sent anywhere."
+                : "Off. Turn it on and Claude Code reads the relevant parts of your other conversations before it answers, with nothing pressed or pasted."
+            }
+          >
+            <Toggle
+              on={recall}
+              onChange={(next) => {
+                setProblem(null);
+                void bridge?.setRecall(next).then((ok) => {
+                  if (ok) setRecall(next);
+                  else
+                    setProblem(
+                      "Could not change Claude Code's settings. Either Sidq's helper is missing from this build, or ~/.claude/settings.json is not valid JSON.",
+                    );
+                });
+              }}
+            />
+          </AutoRow>
+        )}
+
+        {relay !== null && (
+          <AutoRow
+            title="When Claude Code hits its limit, carry on in Codex"
+            body={
+              !relay.agent
+                ? "Codex is not installed on this Mac, so there is nothing to carry on in."
+                : relay.on
+                  ? "On. When Claude Code stops for a limit, Sidq writes the conversation to a file and opens Codex in the same folder, in Terminal, told to read it and continue. Codex's own approval settings still apply."
+                  : "Off. When Claude Code stops, Sidq offers the conversation to carry somewhere else, and you choose."
+            }
+          >
+            <Toggle
+              on={relay.on}
+              disabled={!relay.agent}
+              onChange={(next) => {
+                setProblem(null);
+                void bridge?.setRelay(next).then((ok) => {
+                  if (ok) setRelay({ ...relay, on: next });
+                  else setProblem("Could not save that. Try again in a moment.");
+                });
+              }}
+            />
+          </AutoRow>
+        )}
+      </ul>
       {problem && (
-        <p role="alert" className="mt-3 text-[0.8125rem] text-[var(--w-text-3)]">
+        <p role="alert" className="mt-3 text-[0.8125rem] text-[var(--w-danger)]">
           {problem}
         </p>
       )}
@@ -1380,42 +1401,107 @@ function Autopilot({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   );
 }
 
-function Switch({
+/**
+ * One thing Sidq does, as a row: what it is, what it is doing right now, and
+ * on the right the one control that changes it.
+ *
+ * The text sits in its own element so a switch can find the row it belongs to
+ * from its title, the way a person reads it.
+ */
+function AutoRow({
   title,
   body,
+  children,
+}: {
+  title: string;
+  body: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="flex items-start gap-6 py-4">
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--w-text)]">
+          {title}
+        </p>
+        <p className="mt-1 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
+          {body}
+        </p>
+      </div>
+      <div className="flex min-w-[4.5rem] shrink-0 justify-end pt-0.5">{children}</div>
+    </li>
+  );
+}
+
+/**
+ * On or off, as a switch rather than a button that says what it will do.
+ *
+ * Named for the action it takes, so a screen reader hears "Turn it on" on a
+ * switch that is off, and pressed state says which it is. The look is in
+ * `.w-switch`: a track that goes blue and a knob that moves on transform only.
+ */
+function Toggle({
   on,
   disabled = false,
   onChange,
 }: {
-  title: string;
-  body: string;
   on: boolean;
   disabled?: boolean;
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div className="mt-5 flex flex-wrap items-start justify-between gap-4 first:mt-0">
-      <div className="min-w-0">
-        <p className="text-[0.875rem] font-medium text-[var(--w-text)]">{title}</p>
-        <p className="mt-1.5 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-          {body}
-        </p>
-      </div>
-      <button
-        onClick={() => onChange(!on)}
-        disabled={disabled}
-        aria-pressed={on}
-        className={cn(
-          "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-          "cursor-pointer transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40",
-          on
-            ? "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)] hover:bg-[var(--w-line)]"
-            : "bg-[var(--w-invert)] text-[var(--w-on-invert)] hover:opacity-90",
-        )}
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      disabled={disabled}
+      aria-pressed={on}
+      aria-label={on ? "Turn it off" : "Turn it on"}
+      className="w-switch shrink-0 cursor-pointer"
+    />
+  );
+}
+
+/**
+ * A section's title, set small and in sentence case, with an optional note in
+ * the same line. Replaces the letter-spaced capitals that labelled these, which
+ * is the one typographic habit the website does not have.
+ */
+function SectionHead({
+  id,
+  title,
+  note,
+}: {
+  id: string;
+  title: string;
+  note?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <h2
+        id={id}
+        className="font-display text-[1.125rem] font-semibold tracking-[-0.03em] text-[var(--w-text)]"
       >
-        {on ? "Turn it off" : "Turn it on"}
-      </button>
+        {title}
+      </h2>
+      {note && (
+        <p className="text-[0.75rem] text-[var(--w-text-3)]">{note}</p>
+      )}
     </div>
+  );
+}
+
+/** The assistant a row came from, as its real logo, or its initial. */
+function SourceGlyph({ source }: { source: string }) {
+  const logo = SOURCE_LOGO[source];
+  return (
+    <span className="grid size-6 shrink-0 place-items-center">
+      {logo ? (
+        <img src={logo} alt="" width={16} height={16} className="size-4" />
+      ) : (
+        <span className="grid size-4 place-items-center rounded-[4px] bg-[var(--w-invert)] text-[0.5625rem] font-semibold text-[var(--w-on-invert)]">
+          {sourceLabel(source).slice(0, 1)}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -1448,35 +1534,26 @@ function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   if (on === null) return null;
 
   return (
-    <section className="mt-10 border-t border-[var(--w-line)] pt-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
-            Counting how you use Sidq
-          </p>
-          <p className="mt-1.5 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-            {on
-              ? "On. Numbers only, with no text of any kind in them: never a conversation, a title, a prompt or a filename. Turning it off also deletes anything not yet sent."
-              : "Off. Nothing about how you use Sidq leaves this Mac."}
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            const next = !on;
-            setOn(next);
-            void bridge?.setCounting(next);
-          }}
-          className={cn(
-            "shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-            "cursor-pointer transition-colors duration-150",
+    <section aria-labelledby="privacy" className="mt-12">
+      <SectionHead id="privacy" title="Privacy" />
+      <ul className="mt-4 border-y border-[var(--w-line)]">
+        <AutoRow
+          title="Counting how you use Sidq"
+          body={
             on
-              ? "bg-[var(--w-raised)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)] hover:bg-[var(--w-line)]"
-              : "bg-[var(--w-invert)] text-[var(--w-on-invert)] hover:opacity-90",
-          )}
+              ? "On. Numbers only, with no text of any kind in them: never a conversation, a title, a prompt or a filename. Turning it off also deletes anything not yet sent."
+              : "Off. Nothing about how you use Sidq leaves this Mac."
+          }
         >
-          {on ? "Turn it off" : "Turn it on"}
-        </button>
-      </div>
+          <Toggle
+            on={on}
+            onChange={(next) => {
+              setOn(next);
+              void bridge?.setCounting(next);
+            }}
+          />
+        </AutoRow>
+      </ul>
 
       {events.length > 0 && (
         <>
@@ -3736,49 +3813,52 @@ function Sources({
        * already using it keeps it, untouched — see `reads_browsers` in the Rust
        * for how that is decided.
        */}
-      <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-[12px] border border-[var(--w-line)] px-4 py-3">
-        <input
-          type="checkbox"
-          checked={readsBrowsers}
-          onChange={(e) => {
-            const on = e.target.checked;
-            setReadsBrowsers(on);
-            void bridge?.setReadsBrowsers(on);
-          }}
-          className="mt-0.5 size-4 shrink-0 accent-[var(--w-accent)]"
-        />
-        <span className="min-w-0">
-          <span className="block text-[0.875rem] text-[var(--w-text)]">
+      <div className="mt-8 flex items-start gap-6 border-y border-[var(--w-line)] py-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--w-text)]">
             Also read assistants running in a browser
-          </span>
-          <span className="mt-1 block text-[0.75rem] leading-relaxed text-[var(--w-text-3)]">
+          </p>
+          <p className="mt-1 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
             ChatGPT, Claude.ai, Gemini, Grok and DeepSeek keep nothing readable
             on this Mac, so Sidq reads them from the window. That needs the
             Accessibility permission. Everything read from disk works without it
             and is unaffected by this.
-          </span>
-        </span>
-      </label>
+          </p>
+        </div>
+        <div className="shrink-0 pt-0.5">
+          <Toggle
+            on={readsBrowsers}
+            onChange={(on) => {
+              setReadsBrowsers(on);
+              void bridge?.setReadsBrowsers(on);
+            }}
+          />
+        </div>
+      </div>
 
-      <ul className="mt-6 space-y-1.5">
+      <ul className="mt-8 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
         {orderedSources(counts).map((source) => {
           const found = counts.get(source.id) ?? 0;
           return (
             <li
               key={source.id}
-              className="flex items-center gap-3 rounded-[10px] bg-[var(--w-raised)] px-4 py-2.5"
+              className={cn(
+                "flex items-center gap-3 py-3",
+                // Read ones at full strength, the rest a step back: the list
+                // is what you use first and what you could use after.
+                found === 0 && "opacity-60",
+              )}
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "size-1.5 shrink-0 rounded-full",
-                  found > 0 ? "bg-[var(--w-accent)]" : "bg-[var(--w-line)]",
-                )}
-              />
+              <SourceGlyph source={source.id} />
               <span className="flex-1 text-[0.875rem] text-[var(--w-text)]">
                 {source.label}
               </span>
-              <span className="text-[0.75rem] text-[var(--w-text-4)]">
+              <span
+                className={cn(
+                  "text-[0.75rem] tabular-nums",
+                  found > 0 ? "text-[var(--w-accent)]" : "text-[var(--w-text-3)]",
+                )}
+              >
                 {/*
                  * What a row with nothing in it is waiting for, which is a
                  * different thing for the two kinds of source. A local one has
@@ -3804,7 +3884,7 @@ function Sources({
          * that looks identical to one nobody has used. These sites redesign
          * without notice and the extension reads nothing when they do.
          */
-        <div className="mt-6 rounded-[12px] border border-amber-500/30 bg-amber-50 p-4">
+        <div className="mt-6 rounded-[14px] border border-[var(--w-line)] bg-[var(--w-bg)] p-4">
           <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
             {stale.join(" and ")} changed, and Sidq stopped reading{" "}
             {stale.length === 1 ? "it" : "them"}
@@ -3837,27 +3917,6 @@ function Sources({
       <OpenAssistants bridge={bridge} />
       <ImportHistory bridge={bridge} />
     </>
-  );
-}
-
-/* ── Stats ────────────────────────────────────────────────────────────────── */
-
-/**
- * One measured number in the rail.
- *
- * Baseline-aligned with its label rather than stacked over it: at this size a
- * label underneath reads as a caption, and these are a list of facts.
- */
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <p className="flex items-baseline gap-2 py-1">
-      <span className="font-display text-[1.5rem] leading-none tabular-nums tracking-[-0.045em] text-[var(--w-accent-ink)]">
-        {value}
-      </span>
-      <span className="min-w-0 truncate text-[0.75rem] text-[var(--w-text-3)]">
-        {label}
-      </span>
-    </p>
   );
 }
 
