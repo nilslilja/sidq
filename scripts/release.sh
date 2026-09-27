@@ -275,7 +275,11 @@ p = pathlib.Path('src/lib/releases.ts'); s = p.read_text()
 # once said "11 MB" and neither was.
 for key, mb in sizes.items():
     s = re.sub(
-        rf"('{key}': \{{[^}}]*?size: ')[^']+(')",
+        # Non-greedy across lines, not "anything but a brace": the url above
+        # each size is a template literal with `${RELEASE_BASE}` in it, and the
+        # brace-free version stopped there and silently updated nothing. The
+        # site said 2.9 MB for a 34 MB download from 0.9.11 until 0.9.12.
+        rf"('{key}': \{{.*?size: ')[^']+(')",
         lambda m: f"{m.group(1)}{mb:.1f} MB{m.group(2)}",
         s, flags=re.S,
     )

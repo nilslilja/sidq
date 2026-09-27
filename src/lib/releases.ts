@@ -61,12 +61,12 @@ const ARTIFACTS: Partial<Record<Platform, ReleaseArtifact>> = {
   'macos-arm': {
     url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_aarch64.dmg`,
     filename: `Sidq ${RELEASE_VERSION}.dmg`,
-    size: '2.9 MB',
+    size: '34.1 MB',
   },
   'macos-intel': {
     url: `${RELEASE_BASE}/Sidq_${RELEASE_VERSION}_x64.dmg`,
     filename: `Sidq ${RELEASE_VERSION}.dmg`,
-    size: '3.2 MB',
+    size: '37.0 MB',
   },
   /*
    * There is no Windows or Linux entry, and that is not an oversight.
