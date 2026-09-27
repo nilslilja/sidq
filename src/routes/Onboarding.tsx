@@ -359,7 +359,7 @@ export default function Onboarding() {
                     onClick={() => setDiscovery(on ? null : option.id)}
                     aria-pressed={on}
                     className={cn(
-                      "h-7 cursor-pointer rounded-[8px] px-2.5 text-[0.75rem] transition-[background-color,color,transform] duration-150 active:scale-[0.97]",
+                      "h-7 cursor-pointer rounded-[8px] px-2.5 text-[0.75rem] transition-[background-color,color,transform,translate,scale] duration-150 active:scale-[0.97]",
                       on ? "bg-ink text-paper" : "bg-ink/[0.05] text-ink/65 hover:bg-ink/[0.09] hover:text-ink",
                     )}
                   >
