@@ -262,7 +262,7 @@ export interface OnboardingBridge {
   onChanged: (callback: () => void) => Promise<() => void>;
   /**
    * An assistant hit its usage limit (Rust's `wall`), whether or not relay then
-   * carried the work on. The tomato panics; nothing else listens.
+   * carried the work on. The dot turns amber; nothing else listens.
    */
   onStopped: (callback: () => void) => Promise<() => void>;
   /**

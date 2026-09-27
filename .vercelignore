@@ -47,3 +47,8 @@ dist/
 supabase/.env.functions
 
 .git/
+
+# Launch film projects and renders. The one film the site plays is copied
+# into public/video/; the working files are gigabytes and not part of the site.
+videos/
+brag-output/

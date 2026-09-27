@@ -1516,15 +1516,36 @@
  * colours, because the point is to tell them apart at a glance, and two
  * identical glows in different hues reads as a theme rather than a hierarchy.
  *
- * Both animate `rotate` and `translate` only — the independent transform
- * properties, which stay on the compositor. Nothing here touches layout, and
- * neither element is in the flow: they are absolutely positioned inside a card
- * that already clips them.
+ * Nothing here touches layout, and neither element is in the flow: they are
+ * absolutely positioned inside a card that already clips them.
+ *
+ * This used to say both animate only `rotate` and `translate` and so stay on
+ * the compositor. The rim does not: it animates `--edge-angle`, and a custom
+ * property is repainted on the main thread every frame. Measured, it was most
+ * of the page's idle work, because it never stopped. It still repaints while
+ * the pricing table is in view; it no longer does anywhere else, because
+ * `usePauseOffscreen` pauses it the moment the table leaves the screen.
  *
  * The rim is drawn by putting the sweep behind the card and covering all but a
  * hairline of it with the card's own surface, so there is no border to animate
  * and no second box to keep in sync with the first.
  */
+/*
+ * Everything under an element that has scrolled out of view stops.
+ *
+ * Written by `usePauseOffscreen`. Paused rather than removed, so an animation
+ * resumes where it was instead of restarting. See that hook for the numbers
+ * that made this necessary.
+ */
+[data-offscreen],
+[data-offscreen]::before,
+[data-offscreen]::after,
+[data-offscreen] *,
+[data-offscreen] *::before,
+[data-offscreen] *::after {
+  animation-play-state: paused !important;
+}
+
 @property --edge-angle {
   syntax: "<angle>";
   inherits: false;
@@ -1615,6 +1636,23 @@
 }
 
 /*
+ * Still on phones, too.
+ *
+ * The rim is a main-thread repaint every frame for as long as it is on screen.
+ * On a desktop that measured at about 5% of the main thread while the pricing
+ * table is in view, which is fine. On a phone-class CPU it measured at 22%,
+ * for a light going round the edge of one card while somebody is trying to
+ * read three prices. A lit, still rim tells Duo apart from the others just as
+ * well, which was the point of it.
+ */
+@media (hover: none) and (pointer: coarse) {
+  .edge-lit::before {
+    animation: none;
+    --edge-angle: 0.2turn;
+  }
+}
+
+/*
  * The launch spinner. One element, one property, off under reduced motion —
  * where the ring simply sits still rather than vanishing, because it is the
  * only thing on that card saying the app is doing something.
@@ -1655,47 +1693,52 @@
  * whatever is legible on top.
  */
 [data-app-theme="light"] {
-  --w-bg: #f1eff7;
-  --w-surface: #fbfafe;
-  --w-raised: #f4f2fb;
-  --w-tint: #f5f1ff;
-  --w-line: #e3dff1;
-  --w-line-accent: #e9e2ff;
+  /*
+   * Warm paper, not lavender grey. The window read as a template because every
+   * surface was a cool tint of the brand colour; Wispr's lesson is that warmth
+   * lives in the ground, and the accent is more precious for being the only
+   * cool thing on it.
+   */
+  --w-bg: #f3efe7;
+  --w-surface: #fffdf9;
+  --w-raised: #f6f1e9;
+  --w-tint: #f7f1ff;
+  --w-line: #e7e0d4;
+  --w-line-accent: #ebe4fb;
 
-  --w-text: #16141c;
-  --w-text-2: #3a3547;
-  --w-text-3: #57516a;
-  --w-text-4: #7a7489;
+  --w-text: #1b1914;
+  --w-text-2: #3b362d;
+  --w-text-3: #5c5549;
+  --w-text-4: #7b7366;
   /*
    * text-4 and below are not for text on the page background.
    *
-   * Measured against `--w-bg` (#f1eff7): text-4 is 3.93:1, text-5 is 3.01:1 and
-   * text-6 is 2.33:1, all under AA for anything below 24px. They are for icons,
-   * dividers and disabled states. The eyebrow labels used text-5 and were the
-   * two failures this ramp caused; they take text-3 (6.6:1) now.
+   * Measured against `--w-bg` (#f3efe7): text-3 is 6.4:1 and carries every
+   * label; text-4 is 4.1:1 and text-5 about 3:1, which are for icons,
+   * dividers and disabled states only.
    */
-  --w-text-5: #8e8899;
-  --w-text-6: #a29cb0;
+  --w-text-5: #928a7d;
+  --w-text-6: #a9a194;
 
-  --w-accent: #6a4bea;
-  --w-accent-deep: #5436c9;
-  --w-accent-ink: #2a1b57;
+  --w-accent: #5b4de6;
+  --w-accent-deep: #4637c9;
+  --w-accent-ink: #251b57;
   --w-accent-soft: #b8a6ff;
   --w-mark: #4f46e5;
   --w-danger: #b23b32;
 
-  --w-invert: #16141c;
+  --w-invert: #1b1914;
   --w-on-invert: #ffffff;
   --w-on-accent: #ffffff;
 
   /* The main card: a hair of the ground at the top, paper at the bottom. */
-  --w-panel-from: #fbfafe;
+  --w-panel-from: #fffcf6;
   --w-panel-to: #ffffff;
   /* Light catching the card's top lip. Bright on paper, barely there on navy. */
-  --w-sheen: rgba(255, 255, 255, 0.9);
+  --w-sheen: rgba(255, 255, 255, 0.95);
   /* The plan card, lifted off the sidebar. */
   --w-card-from: #ffffff;
-  --w-card-to: #f5f1ff;
+  --w-card-to: #f8f2e8;
 }
 
 /*
@@ -1994,104 +2037,177 @@
 }
 
 /*
- * ── The tomato ────────────────────────────────────────────────────────────────
+ * ── The dot ──────────────────────────────────────────────────────────────────
  *
- * Sidq's face in the menu bar (src/components/Tomato.tsx). Transform and
- * opacity only, so it costs the compositor and never layout. Anchored at its
- * base, so a squash reads as weight rather than as shrinking.
+ * Sidq's presence on screen (src/components/SidqDot.tsx): the point at the end
+ * of the mark, with light around it instead of a capsule. Indigo core, a white
+ * hairline so it holds against a dark or a pale wallpaper, and a halo that
+ * breathes. Transform and opacity only, so it costs the compositor and never
+ * layout, in a window that is on screen all day.
  */
-.tomato {
-  overflow: visible;
-  transform-origin: 50% 100%;
-  animation: tomato-bob 2.8s ease-in-out infinite;
+.sidq-dot {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
 }
 
-.tomato .tomato-eye {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: tomato-blink 4.6s infinite;
+.sidq-dot > span {
+  grid-area: 1 / 1;
+  border-radius: 9999px;
 }
 
-.tomato .tomato-sweat,
-.tomato .tomato-worried {
-  opacity: 0;
-  transition: opacity 200ms ease-out;
+.sidq-dot-core {
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle at 35% 30%, #a7a0ff 0%, #6d63ff 45%, #4f46e5 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.9),
+    0 1px 4px rgba(20, 18, 40, 0.45);
+  transition: background 300ms ease, transform 300ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-/* A conversation picked up: one hop, then back to bobbing. */
-.tomato-hop {
-  animation:
-    tomato-hop 520ms cubic-bezier(0.2, 0.8, 0.3, 1) 1,
-    tomato-bob 2.8s ease-in-out 520ms infinite;
+.sidq-dot-halo {
+  width: 22px;
+  height: 22px;
+  background: radial-gradient(closest-side, rgba(109, 99, 255, 0.55), rgba(109, 99, 255, 0));
+  animation: sidq-dot-breathe 3.2s ease-in-out infinite;
 }
 
-/* An assistant hit its limit: squinting, sweating, shaking. */
-.tomato-panic {
-  animation: tomato-shake 420ms ease-in-out 5;
-}
-.tomato-panic .tomato-eye {
-  animation: none;
-  transform: scaleY(0.35);
-}
-.tomato-panic .tomato-sweat,
-.tomato-panic .tomato-worried {
-  opacity: 1;
-}
-.tomato-panic .tomato-mouth {
+.sidq-dot-ring {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(167, 160, 255, 0.9);
   opacity: 0;
 }
 
-@keyframes tomato-bob {
+.sidq-dot:hover .sidq-dot-core,
+button:focus-visible .sidq-dot-core {
+  transform: scale(1.18);
+}
+
+.sidq-dot-hop .sidq-dot-ring {
+  animation: sidq-dot-ripple 900ms cubic-bezier(0.2, 0.8, 0.3, 1) 2;
+}
+
+.sidq-dot-hop .sidq-dot-core {
+  animation: sidq-dot-pop 520ms cubic-bezier(0.2, 0.8, 0.3, 1) 1;
+}
+
+.sidq-dot-panic .sidq-dot-core {
+  background: radial-gradient(circle at 35% 30%, #ffe2a3 0%, #ffb020 50%, #e08600 100%);
+  animation: sidq-dot-urgent 900ms ease-in-out infinite;
+}
+
+.sidq-dot-panic .sidq-dot-halo {
+  background: radial-gradient(closest-side, rgba(255, 176, 32, 0.6), rgba(255, 176, 32, 0));
+  animation-duration: 900ms;
+}
+
+@keyframes sidq-dot-breathe {
   0%,
   100% {
-    transform: translateY(0) scale(1, 1);
+    opacity: 0.45;
+    transform: scale(0.8);
   }
   50% {
-    transform: translateY(-1.5px) scale(0.98, 1.03);
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-@keyframes tomato-blink {
-  0%,
-  94%,
-  100% {
-    transform: scaleY(1);
-  }
-  96% {
-    transform: scaleY(0.1);
-  }
-}
-
-@keyframes tomato-hop {
+@keyframes sidq-dot-ripple {
   0% {
-    transform: translateY(0) scale(1.12, 0.88);
-  }
-  45% {
-    transform: translateY(-5px) scale(0.94, 1.08);
+    opacity: 0.9;
+    transform: scale(1);
   }
   100% {
-    transform: translateY(0) scale(1, 1);
+    opacity: 0;
+    transform: scale(2.6);
   }
 }
 
-@keyframes tomato-shake {
+@keyframes sidq-dot-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes sidq-dot-urgent {
   0%,
   100% {
-    transform: rotate(0);
+    transform: scale(1);
   }
-  25% {
-    transform: rotate(-9deg);
-  }
-  75% {
-    transform: rotate(9deg);
+  50% {
+    transform: scale(1.3);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tomato,
-  .tomato .tomato-eye,
-  .tomato-hop,
-  .tomato-panic {
+  .sidq-dot-halo,
+  .sidq-dot-ring,
+  .sidq-dot-core {
+    animation: none !important;
+  }
+}
+
+/*
+ * ── Handwriting ──────────────────────────────────────────────────────────────
+ *
+ * The pen for HandwritingText. Every contour carries pathLength="1", so the
+ * dash runs from 1 to 0 without measuring anything, and the whole effect is
+ * CSS: it plays in the prerendered page before any script has loaded. The ink
+ * underneath fades in as the pen lands. Reduced motion gets the ink, still.
+ */
+.handwriting-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation-name: handwriting-draw;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.handwriting-ink {
+  opacity: 0;
+  animation: handwriting-ink 0.45s ease-out forwards;
+}
+
+@keyframes handwriting-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes handwriting-ink {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .handwriting-stroke {
+    stroke-dashoffset: 0;
     animation: none;
   }
+  .handwriting-ink {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+/*
+ * Two of the assistants' marks are drawn in solid black, which disappears on
+ * the navy theme. Inverted there, they read as the same marks in white, which
+ * is how both companies show them on dark surfaces themselves.
+ */
+[data-app-theme="dark"] img[src$="openai-logo.svg"],
+[data-app-theme="dark"] img[src$="grok-logo.svg"] {
+  filter: invert(1);
 }

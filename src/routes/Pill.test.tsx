@@ -213,23 +213,25 @@ describe("the pill, across the two states", () => {
   });
 
   /*
-   * The bar is a tomato now. At rest it is the tomato and nothing else; the
-   * count and the shortcut are there for whoever hovers.
+   * The bar is one dot now: the point at the end of the Sidq mark. At rest it
+   * is the dot and nothing else; the count and the shortcut are there for
+   * whoever hovers.
    */
-  test("at rest the bar is the tomato, calm", async () => {
+  test("at rest the bar is the dot, calm, and nothing else is drawn", async () => {
     render(<Pill />);
     await settle();
     const bar = screen.getByRole("button", { name: /pick up a conversation/i });
     expect(bar).toHaveAttribute("data-mood", "idle");
-    expect(bar.querySelector("svg.tomato")).not.toBeNull();
+    expect(bar.querySelector(".sidq-dot")).not.toBeNull();
+    expect(bar.querySelector("svg.tomato")).toBeNull();
   });
 
   /*
    * An assistant hitting its limit is the worst moment of somebody's day with
    * it, and the one thing always on screen should notice. It also has to calm
-   * down again, or it is a worried tomato about something long over.
+   * down again, or it is an amber dot about something long over.
    */
-  test("the tomato panics when an assistant hits its limit, then calms down", async () => {
+  test("the dot turns urgent when an assistant hits its limit, then calms down", async () => {
     vi.useFakeTimers();
     try {
       render(<Pill />);
@@ -250,7 +252,7 @@ describe("the pill, across the two states", () => {
     }
   });
 
-  test("the tomato hops when a conversation is picked up", async () => {
+  test("the dot ripples when a conversation is picked up", async () => {
     render(<Pill />);
     await settle();
     await act(async () => {

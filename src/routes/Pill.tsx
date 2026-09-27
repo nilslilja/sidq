@@ -16,7 +16,7 @@ import { desktopBridge } from "@/lib/onboarding/bridge";
 import type { PillState, ProjectRow } from "@/lib/onboarding/bridge";
 import type { WorkSession } from "@/lib/companion/work-history";
 import { cn } from "@/lib/cn";
-import { Tomato, type TomatoMood } from "@/components/Tomato";
+import { SidqDot, type DotMood } from "@/components/SidqDot";
 import { EscapeHatch, type Hatch } from "@/components/companion/EscapeHatch";
 
 /*
@@ -136,10 +136,10 @@ interface Carry {
 /** How long the bar shows what just landed before returning to the count. */
 const SAVED_BANNER_MS = 4200;
 
-/** One hop, from a conversation being picked up. Matches `tomato-hop` in global.css. */
-const HOP_MS = 600;
+/** One ripple, from a conversation being picked up. Two 900ms rings of `sidq-dot-ripple` in global.css. */
+const HOP_MS = 1800;
 
-/** How long the tomato stays worried after an assistant hits its limit. */
+/** How long the dot stays amber after an assistant hits its limit. */
 const PANIC_MS = 6000;
 
 /** Which way each arrow moves the window, held with ⌘. */
@@ -201,7 +201,7 @@ export function Pill() {
   /** Which of them the rail has selected. */
   const [hatch, setHatch] = useState(0);
   /*
-   * Bumped whenever the count changes. Each bump makes the tomato hop, which
+   * Bumped whenever the count changes. Each bump makes the dot ripple, which
    * is the one sign on screen that Sidq just read something.
    */
   const [beat, setBeat] = useState(0);
@@ -381,7 +381,7 @@ export function Pill() {
 
     /*
      * The first read is the count as it already was, not news. Bumping on it
-     * made the tomato hop every time the window loaded, for nothing.
+     * made the dot ripple every time the window loaded, for nothing.
      */
     let first = true;
     const read = () =>
@@ -430,11 +430,11 @@ export function Pill() {
   }, [saved]);
 
   /*
-   * ── The tomato's mood ────────────────────────────────────────────────────
+   * ── The dot's mood ───────────────────────────────────────────────────────
    *
-   * It hops when the count moves or a conversation is picked up, and panics
-   * when an assistant hits its limit. Both wear off on their own, so it is
-   * never left looking worried about something that is over.
+   * It ripples when the count moves or a conversation is picked up, and turns
+   * amber when an assistant hits its limit. Both wear off on their own, so it
+   * is never left alarmed about something that is over.
    */
   const [hopping, setHopping] = useState(false);
   const [panicking, setPanicking] = useState(false);
@@ -468,7 +468,7 @@ export function Pill() {
     return () => clearTimeout(timer);
   }, [panicking]);
 
-  const mood: TomatoMood = panicking ? "panic" : hopping ? "hop" : "idle";
+  const mood: DotMood = panicking ? "panic" : hopping ? "hop" : "idle";
 
   /*
    * ── The tone for a conversation arriving ─────────────────────────────────
@@ -966,12 +966,12 @@ export function Pill() {
             "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac/70",
           )}
         >
-          <Tomato mood={mood} size={20} className="shrink-0" />
+          <SidqDot mood={mood} className="shrink-0" />
           {/*
            * Words only when there is news, or when somebody hovers to ask.
            *
-           * The tomato is the whole bar at rest: it bobbing is the sign Sidq is
-           * running, and a hop is the sign it just read something. The label
+           * The dot is the whole bar at rest: it breathing is the sign Sidq is
+           * running, and a ripple is the sign it just read something. The label
            * says which assistant a pickup came from, and on hover gives the
            * count and the shortcut, in a capsule of its own so it stays
            * readable over any menu bar.

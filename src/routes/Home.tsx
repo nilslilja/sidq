@@ -380,7 +380,7 @@ export function Home() {
          * costs a frame budget on a window somebody keeps open all day.
          */
         "bg-[var(--w-bg)]",
-        "bg-[radial-gradient(120%_90%_at_0%_0%,rgba(139,110,255,0.16),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(255,175,130,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(106,75,234,0.07),transparent_60%)]",
+        "bg-[radial-gradient(110%_85%_at_0%_0%,rgba(255,196,150,0.22),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(139,110,255,0.10),transparent_50%),radial-gradient(80%_80%_at_50%_100%,rgba(255,214,170,0.14),transparent_60%)]",
       )}
     >
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
@@ -736,48 +736,6 @@ function today(): string {
   });
 }
 
-/**
- * Morning, afternoon or evening.
- *
- * Cheap, and it is the difference between a window that greets you and a window
- * with a heading on it. The boundaries are the ordinary ones rather than
- * anything clever: nobody has ever been annoyed by "good afternoon" at 12:01.
- */
-function greeting(): string {
-  /*
-   * Not "Good evening".
-   *
-   * The time of day is the one thing on this screen the person already knows,
-   * and every application ever written has said it to them. It cost a heading
-   * and returned nothing.
-   *
-   * What is worth saying every time the window opens is the claim the whole
-   * product rests on, addressed to the one person who can check it: everything
-   * Sidq has read is still on this machine. It is short, it is true, and no
-   * competitor can put it on their own overview.
-   */
-
-  /*
-   * The name setup asked for, and the reason it is worth asking.
-   *
-   * Setup used to collect two answers and use neither — both went to
-   * localStorage and were read by nothing. A question whose answer changes
-   * nothing is a question that should not be asked. This one is on screen every
-   * time the window opens.
-   */
-  const name = (() => {
-    try {
-      return localStorage.getItem("sidq.name")?.trim() ?? "";
-    } catch {
-      // A browser refusing storage is not worth failing a greeting over.
-      return "";
-    }
-  })();
-
-  return name
-    ? `${name}, nothing here has left this Mac.`
-    : "Nothing here has left this Mac.";
-}
 
 /**
  * How often this window renews the token Rust holds.
@@ -785,6 +743,140 @@ function greeting(): string {
  * Half of the roughly one-hour life of an access token, so a single missed
  * tick is not enough to let one lapse.
  */
+/** Good morning, afternoon or evening, with the name somebody gave at setup. */
+function salutation(): string {
+  const hour = new Date().getHours();
+  const part = hour < 5 ? "evening" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  const name = (() => {
+    try {
+      return localStorage.getItem("sidq.name")?.trim() ?? "";
+    } catch {
+      return "";
+    }
+  })();
+  return name ? `Good ${part}, ${name}.` : `Good ${part}.`;
+}
+
+/*
+ * ── The memory, as four numbers ──────────────────────────────────────────────
+ *
+ * The first thing on the screen that is not a sentence, and it is what Sidq
+ * has actually done: every figure is read from the index, none is estimated.
+ * Serif and large, on a card with light in it, because a number somebody is
+ * proud of should look like one. The mark sits faded in the corner as the
+ * card's watermark, which is the only decoration the window allows itself.
+ */
+function MemoryCard({
+  conversations,
+  messages,
+  hours,
+  reading,
+}: {
+  conversations: number;
+  messages: number;
+  hours: number;
+  reading: number;
+}) {
+  const figures: [string, string][] = [
+    [conversations.toLocaleString(), "conversations remembered"],
+    [reading.toLocaleString(), reading === 1 ? "AI on the same page" : "AIs on the same page"],
+    [`${hours.toLocaleString()}h`, "of your work, kept"],
+    [messages.toLocaleString(), "messages read"],
+  ];
+  return (
+    <section
+      aria-label="What Sidq remembers"
+      className={cn(
+        "relative mt-7 overflow-hidden rounded-[22px] px-7 py-6",
+        "bg-[linear-gradient(135deg,var(--w-card-from)_0%,var(--w-surface)_45%,var(--w-tint)_100%)]",
+        "ring-1 ring-[var(--w-line)]",
+        "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(28,24,18,0.05),0_18px_40px_-22px_rgba(90,60,30,0.28)]",
+      )}
+    >
+      <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-4 text-[var(--w-mark)] opacity-[0.07]">
+        <SidqMark width={210} height={112} />
+      </span>
+      <div className="relative grid grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
+        {figures.map(([value, label]) => (
+          <div key={label}>
+            <p className="font-serif text-[2.4rem] leading-none tabular-nums tracking-[-0.02em] text-[var(--w-text)]">
+              {value}
+            </p>
+            <p className="mt-2 text-[0.8125rem] text-[var(--w-text-3)]">{label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/*
+ * ── Lately, across your AIs ──────────────────────────────────────────────────
+ *
+ * The last six things you worked on, from whichever assistant they were in,
+ * newest first. This is the product's whole idea in one list: the rows come
+ * from different apps and sit together as one history. Read from the same
+ * index the picker uses; nothing here is sample data.
+ */
+const SOURCE_LOGO: Record<string, string> = {
+  chatgpt: "/openai-logo.svg",
+  "claude-code": "/claude-logo.svg",
+  "claude.ai": "/claude-logo.svg",
+  cowork: "/claude-logo.svg",
+  gemini: "/gemini-logo.svg",
+  grok: "/grok-logo.svg",
+};
+
+function Across({ sessions }: { sessions: WorkSession[] }) {
+  if (sessions.length === 0) return null;
+  return (
+    <section aria-labelledby="across" className="mt-8">
+      <h2 id="across" className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
+        LATELY, ACROSS YOUR AIS
+      </h2>
+      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+        {sessions.map((s) => {
+          const source = s.source ?? "claude-code";
+          const logo = SOURCE_LOGO[source];
+          return (
+            <li
+              key={`${s.sessionId ?? s.title}-${s.endedAt}`}
+              className={cn(
+                "flex items-center gap-3 rounded-[14px] px-3.5 py-3",
+                "bg-[var(--w-surface)] ring-1 ring-[var(--w-line)]",
+                "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(28,24,18,0.04)]",
+                "transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_8px_20px_-12px_rgba(90,60,30,0.35)]",
+              )}
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-[var(--w-raised)] ring-1 ring-[var(--w-line)]">
+                {logo ? (
+                  <img src={logo} alt="" width={16} height={16} className="size-4" />
+                ) : (
+                  <span className="text-[0.75rem] font-semibold text-[var(--w-text-2)]">
+                    {sourceLabel(source).slice(0, 1)}
+                  </span>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
+                  {s.title || "Untitled conversation"}
+                </span>
+                <span className="block truncate text-[0.75rem] text-[var(--w-text-3)]">
+                  {sourceLabel(source)}
+                  {s.projectName && ` · ${s.projectName}`}
+                </span>
+              </span>
+              <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-3)]">
+                {whenLabel(s.endedAt)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 const SESSION_REFRESH_MS = 30 * 60 * 1000;
 
 /**
@@ -924,6 +1016,7 @@ function Overview({
    * it could.
    */
   const [reading, setReading] = useState(0);
+  const [recent, setRecent] = useState<WorkSession[]>([]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -952,6 +1045,12 @@ function Overview({
         .filter((n): n is number => typeof n === "number");
       setReach(ends.length > 0 ? [Math.min(...ends), Math.max(...ends)] : null);
       setReading(new Set(sessions.map((s) => s.source ?? "claude-code")).size);
+      setRecent(
+        [...sessions]
+          .filter((s) => typeof s.endedAt === "number")
+          .sort((x, y) => y.endedAt - x.endedAt)
+          .slice(0, 6),
+      );
     });
   }, [bridge]);
 
@@ -968,25 +1067,39 @@ function Overview({
       <p className="text-[0.75rem] tracking-[0.08em] text-[var(--w-text-3)]">
         {today().toUpperCase()}
       </p>
-      <h1 className="mt-1.5 font-display text-[2rem] leading-[1.1] tracking-[-0.04em]">
-        {greeting()}
+      {/*
+       * Serif, and large, because this is the one line in the app that is
+       * spoken to the person rather than about their data. Wispr opens the
+       * same way and it is the thing that makes a utility feel like a place.
+       */}
+      <h1 className="mt-2 font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-[var(--w-text)]">
+        {salutation()}
       </h1>
-      <p className="mt-2 max-w-[52ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
+      <p className="mt-3 max-w-[56ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
         {reading > 0 ? (
           <>
-            Sidq is reading{" "}
+            Your AIs are on the same page. Sidq is reading{" "}
             <span className="text-[var(--w-text)]">{reading}</span>{" "}
-            {reading === 1 ? "AI" : "AIs"} on this Mac. Press{" "}
-            <Keys>&#8984;&#8679;K</Keys> to carry any conversation into another
-            one.
+            of them on this Mac, and nothing here has left it. Press{" "}
+            <Keys>&#8984;&#8679;K</Keys> to carry any conversation anywhere.
           </>
         ) : (
           <>
-            Press <Keys>&#8984;&#8679;K</Keys> to carry a conversation into
-            another AI.
+            Open any AI you use and Sidq starts remembering. Press{" "}
+            <Keys>&#8984;&#8679;K</Keys> to carry a conversation into another
+            one.
           </>
         )}
       </p>
+
+      <MemoryCard
+        conversations={stats[0]}
+        messages={stats[1]}
+        hours={hoursRead}
+        reading={reading}
+      />
+
+      <Across sessions={recent} />
 
       <div className="mt-8 grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
@@ -1147,9 +1260,6 @@ function Overview({
             "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(20,18,28,0.05),0_10px_28px_-14px_rgba(70,50,140,0.22)]",
           )}
         >
-          <Stat value={stats[0].toLocaleString()} label="conversations" />
-          <Stat value={stats[1].toLocaleString()} label="messages read" />
-          <Stat value={`${hoursRead}h`} label="of work indexed" />
           <Stat
             value={(plan?.handoversUsed ?? 0).toLocaleString()}
             label="handovers, 7 days"

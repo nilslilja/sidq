@@ -829,15 +829,15 @@ fn raise_now(w: &WebviewWindow, level: i64, take_key: bool, bar: bool) {
         /*
          * ── No glass on either size now ─────────────────────────────────────
          *
-         * The bar used to be a bead of native glass. It is a tomato now
-         * (Tomato.tsx), drawn by the webview on a transparent window, and glass
-         * behind it would put the old capsule back around the new face. The
+         * The bar used to be a bead of native glass. It is one dot now
+         * (SidqDot.tsx), drawn by the webview on a transparent window, and glass
+         * behind it would put the old capsule back around the point. The
          * picker never had glass: it needs `backdrop-filter`, which glass
          * behind the webview stops working. `glass::remove` says why.
          *
          * The bar also drops its window shadow. macOS derives a transparent
-         * window's shadow from the pixels it draws and caches it, so a tomato
-         * that bobs would trail a shadow of where it was a moment ago. The
+         * window's shadow from the pixels it draws and caches it, so a dot
+         * that breathes would trail a shadow of where it was a moment ago. The
          * picker keeps its shadow; it is what lifts the card off the desktop.
          */
         if objc2::MainThreadMarker::new().is_some() {

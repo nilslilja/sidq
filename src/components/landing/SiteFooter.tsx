@@ -108,8 +108,16 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="grid gap-10 border-t border-ink/10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
-          <div>
+        {/*
+         * Two columns on a phone, not one.
+         *
+         * Single file, the four short link groups ran to about a screen and a
+         * half of scrolling after the page had already said everything, with
+         * each 44-point row stacked under the last. Side by side they fit in
+         * half that, and nothing loses its tap height.
+         */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 border-t border-ink/10 py-14 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
+          <div className="col-span-2 lg:col-span-1">
             <div className="font-display text-[1.5rem] leading-none tracking-[-0.05em]">
               Sidq
             </div>

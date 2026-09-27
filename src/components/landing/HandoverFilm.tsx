@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PillPreview } from "./PillPreview";
+import { SidqDot } from "@/components/SidqDot";
 import { MacDock } from "./MacDock";
-import { SidqMark } from "@/components/SidqMark";
 import { cn } from "@/lib/cn";
 
 /*
@@ -432,6 +432,7 @@ export function HandoverFilm({ className }: { className?: string }) {
   }, [beat, playing]);
 
   const scene = BEATS[beat];
+  const streamed = useStreamedReply(beat >= 9, REPLY);
   // 5 is the confirmation and 6 is the pull-back that still has the panel in it.
   const showPicker = beat >= 2 && beat <= 6;
   const showChat = beat >= 7;
@@ -474,8 +475,17 @@ export function HandoverFilm({ className }: { className?: string }) {
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>
-      {/* Reserves exactly the scaled height, so nothing below it shifts. */}
-      <div style={{ height: STAGE_H * fit }} className="relative w-full">
+      <PhoneFilm beat={beat} pick={pick} streamed={streamed} />
+
+      {/*
+       * Reserves exactly the scaled height, so nothing below it shifts.
+       *
+       * Not drawn on a phone. The stage is a 1040 pixel desktop, and scaled to a
+       * phone it is about a third of that: the picker's text lands near four
+       * pixels, which is the one part of the page that shows what the product
+       * does. PhoneFilm plays the same beats at a size somebody can read.
+       */}
+      <div style={{ height: STAGE_H * fit }} className="relative hidden w-full sm:block">
       <div
         style={{
           width: STAGE_W,
@@ -532,7 +542,7 @@ export function HandoverFilm({ className }: { className?: string }) {
             </div>
           )}
 
-          {showChat && <ChatWindow revealed={beat >= 9} />}
+          {showChat && <ChatWindow revealed={beat >= 9} streamed={streamed} />}
           <Cursor at={scene.at} />
         </div>
       </div>
@@ -575,6 +585,103 @@ export function HandoverFilm({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The same film, at a size a phone can read.
+ *
+ * ── Why a second view and not a smaller first one ───────────────────────────
+ * The desktop shot is a Mac: a menu bar, a dock, a window with the picker in
+ * it, a camera that pushes in on the cursor. All of that is built in stage
+ * pixels, and a phone shows it at about a third of its size. No zoom rescues
+ * it, because the stage is the wrong shape: pushing in far enough to read the
+ * picker crops it.
+ *
+ * So below `sm` the Mac is dropped and the two things that carry the argument
+ * are drawn directly in the page: the real picker, which is `PillPreview` and
+ * already sizes itself in rem, and the reply on the other side. Same beats,
+ * same hover, same click, same saved state, same streamed text.
+ *
+ * ── Fixed height ────────────────────────────────────────────────────────────
+ * The picker and the reply are different heights, and the loop swaps between
+ * them every few seconds. A box that followed its content would push the rest
+ * of the page up and down on every loop, which is layout shift on a page that
+ * measures at none. So the box is one height and the content sits in it.
+ */
+function PhoneFilm({
+  beat,
+  pick,
+  streamed,
+}: {
+  beat: number;
+  pick: { hover: number | null; press: boolean };
+  streamed: Streamed;
+}) {
+  const inChat = beat >= 7;
+  const revealed = beat >= 9;
+
+  return (
+    <div
+      className={cn(
+        "relative h-[27rem] overflow-hidden rounded-[18px] p-2 sm:hidden",
+        "bg-[linear-gradient(165deg,#2A2A5C_0%,#4C4A8A_28%,#8E7BB0_52%,#D8A08C_74%,#F0C9A0_100%)]",
+        "shadow-[0_30px_80px_-30px_rgba(30,27,75,0.55)]",
+      )}
+    >
+      {!inChat ? (
+        <div key="pick" className="animate-pane">
+          <PillPreview
+            rows={ROWS}
+            selected={pick.hover}
+            pressed={pick.press}
+            saved={beat >= 5 ? SAVED : undefined}
+            footer={beat >= 5 ? "Ready to attach" : "The conversation itself, not a summary"}
+          />
+        </div>
+      ) : (
+        <div
+          key="chat"
+          className="animate-pane flex h-full flex-col overflow-hidden rounded-[12px] bg-[#141319] ring-1 ring-white/10"
+        >
+          <div className="flex h-7 shrink-0 items-center gap-1.5 bg-white/[0.04] px-3">
+            {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
+              <span key={c} className="size-2 rounded-full" style={{ background: c }} />
+            ))}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pt-3 [mask-image:linear-gradient(to_bottom,black_82%,transparent)]">
+            {revealed ? (
+              <>
+                <div className="flex justify-end">
+                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-[8px] bg-white/[0.08] px-2.5 py-1.5 text-[0.75rem] text-white/70 ring-1 ring-white/10">
+                    {ATTACHMENT}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2 text-left text-[0.8125rem] leading-[1.45] text-white/85">
+                  {streamed.map((line, i) => (
+                    <p
+                      key={i}
+                      className={[
+                        line.text ? "" : "hidden",
+                        line.code
+                          ? "overflow-hidden text-ellipsis whitespace-pre rounded-[4px] bg-white/[0.06] px-2 py-1 font-mono text-[0.6875rem] text-[#B8E6C8]"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {line.text}
+                      {!line.done && line.text && <span className="film-caret" />}
+                    </p>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="pt-16 text-center text-[0.875rem] text-white/30">Ask anything</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The menu bar, so the pill is somewhere rather than floating in a void. */
 function MenuBar() {
   return (
@@ -605,47 +712,25 @@ function MenuBar() {
  * are BAR and FLOAT_GAP in pill_window.rs, and if they change here without
  * changing there the page is showing something that does not exist.
  *
- * ── What was stale, and what was not ────────────────────────────────────────
- *
- * The position was right and stays exactly as it was: FLOAT_GAP is 28 points
- * and the bar floats clear of the menu bar rather than sitting in it. Prose
- * elsewhere still describes an in-the-menu-bar version that was tried and
- * reverted, and following that prose would have moved the bar out from under
- * the shot that zooms to it.
- *
- * The surface was stale. The real bar is `.bar-float`: a gradient over
- * translucent black, a 26px backdrop blur, a hairline rim, and the wide lilac
- * glow that is the only thing on screen saying the app is alive while nothing
- * is happening. This drew a flat fill and a plain ring instead, so the page
- * showed a duller object than the one people install.
- *
- * And the mark was a second hand-copied inline SVG of the app icon, which is
- * the exact drift `SidqMark` exists to prevent: two copies nobody ever sees
- * side by side, so nobody notices when one stops matching the icon.
+ * The surface is the app's own dot now, not the glass capsule: the bar in the
+ * app is one point with light around it, so the page draws exactly that.
  */
 function Pill({ expanded }: { expanded: boolean }) {
   return (
     <div
       className={cn(
         "absolute left-1/2 top-[7.5%] z-30 -translate-x-1/2",
-        "flex h-[3.4%] w-[11%] items-center justify-center gap-[4%] rounded-full",
-        // The whole surface, exactly as the app paints it. Nothing here may set
-        // a background, ring or shadow of its own: bar-float carries all three
-        // and a second one doubles the rim.
-        "bar-float bar-breathe",
+        "flex h-[3.4%] w-[11%] items-center justify-center",
         "transition-opacity duration-300",
         expanded ? "opacity-0" : "opacity-100",
       )}
     >
       {/*
-       * Sized in CSS rather than by the width and height props, because the
-       * stage is scaled to whatever width the section gets and those props are
-       * points. The real mark is 22 by 12 in a 112 by 24 bar, so half the bar's
-       * height with the aspect left alone holds the proportion at every zoom
-       * the film uses.
+       * The same dot the app draws, at the same place. It is the whole bar at
+       * rest in the app too; the capsule that used to be drawn here is gone
+       * from both.
        */}
-      <SidqMark className="h-[50%] w-auto text-white/75" />
-      <span className="text-[0.4rem] leading-none tabular-nums text-white/70">128</span>
+      <SidqDot mood="idle" className="scale-[0.8]" />
     </div>
   );
 }
@@ -654,8 +739,17 @@ function Pill({ expanded }: { expanded: boolean }) {
  * A generic assistant window. Deliberately nobody's: no logo, no product name,
  * the empty state every chat box on the internet has.
  */
-function ChatWindow({ revealed }: { revealed: boolean }) {
-  const streamed = useStreamedReply(revealed, REPLY);
+type Streamed = ReturnType<typeof sliceIntoLines>;
+
+/*
+ * The reply's lines are passed in rather than streamed here.
+ *
+ * The film now draws two versions of this shot, one for a desktop and one for a
+ * phone, and only one is ever visible. Each owning its own timer meant two
+ * intervals re-rendering at 34ms for a single visible block of text. One timer
+ * lives in HandoverFilm and both read it.
+ */
+function ChatWindow({ revealed, streamed }: { revealed: boolean; streamed: Streamed }) {
 
   return (
     /*

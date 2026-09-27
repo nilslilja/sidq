@@ -1,6 +1,11 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/cn";
+import { SidqMark } from "@/components/SidqMark";
 import { Hero } from "@/components/landing/Hero";
+import { LaunchFilm } from "@/components/landing/LaunchFilm";
+import { QuestionSpread } from "@/components/landing/QuestionSpread";
+import { TellOne } from "@/components/landing/TellOne";
+import { Compare } from "@/components/landing/Compare";
 import { Reveal } from "@/components/landing/Reveal";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { HandoverFilm } from "@/components/landing/HandoverFilm";
@@ -8,24 +13,30 @@ import { HeroStats } from "@/components/landing/HeroStats";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
+import { usePauseOffscreen } from "@/components/landing/usePauseOffscreen";
 
 /*
  * Landing.
  *
- * One job, and now only that job: get the app onto the machine.
+ * The page the launch film points at, in the film's order: the promise, the
+ * film itself, the questions every AI keeps asking, what it looks like when
+ * they stop, how that compares with every other way of getting there, and
+ * then the real thing working today, the price and the questions.
  *
- * There were eight sections here — the argument, the product, the two moments,
- * the cost of carrying on, the offer, the pricing table, the questions. All of
- * it true and most of it unread, because nobody reads a marketing page to
- * decide whether to install a free Mac app.
- *
- * The reference is goldfish.sh: a headline, a line, a button, a footer, about a
- * hundred and thirty words. Pricing and the questions did not get deleted, they
- * got their own routes, so the landing page is a door rather than a pitch and
- * anybody who wants the detail is one click from it.
+ * It used to be a door: a headline, a line, a button. That was right while the
+ * only visitors were people who already wanted the app. People arriving from a
+ * thirty second film want the argument finished before they download, and the
+ * argument is short enough to make in five screens.
  */
 
 export function Landing() {
+  /*
+   * The two animated bands below the hero pause while off screen. The Duo
+   * card's rim was measured as most of this page's idle work, because it
+   * repainted every frame from anywhere on the page. See usePauseOffscreen.
+   */
+  const marquee = usePauseOffscreen<HTMLDivElement>();
+  const pricing = usePauseOffscreen<HTMLElement>();
   return (
     <div className="bg-paper">
       <header className="absolute inset-x-0 top-0 z-20">
@@ -34,9 +45,12 @@ export function Landing() {
             to="/"
             className={cn(
               "inline-flex min-h-11 items-center sm:min-h-0",
-              "font-display text-[1.375rem] leading-none tracking-[-0.05em] text-white",
+              "gap-2 font-display text-[1.375rem] leading-none tracking-[-0.05em] text-ink",
             )}
           >
+            <span className="text-[#4F46E5]" aria-hidden="true">
+              <SidqMark width={30} height={16} />
+            </span>
             Sidq
           </Link>
 
@@ -50,19 +64,19 @@ export function Landing() {
                 routes stay for anybody sent a direct link. */}
             <a
               href="#pricing"
-              className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
+              className="inline-flex min-h-11 items-center text-[0.875rem] text-ink/70 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
             >
               Pricing
             </a>
             <a
               href="#faq"
-              className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
+              className="inline-flex min-h-11 items-center text-[0.875rem] text-ink/70 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
             >
               Questions
             </a>
             <Link
               to="/signin"
-              className="inline-flex min-h-11 items-center text-[0.875rem] text-white/75 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
+              className="inline-flex min-h-11 items-center text-[0.875rem] text-ink/70 transition-opacity duration-150 hover:opacity-70 sm:min-h-0"
             >
               Sign in
             </Link>
@@ -71,100 +85,51 @@ export function Landing() {
       </header>
 
       <Hero />
+      <LaunchFilm />
+      <QuestionSpread />
+      <TellOne />
+      <Compare />
+
+      <div ref={marquee}>
+        <Reveal repeat>
+          <WorksWith />
+        </Reveal>
+      </div>
 
       {/*
-       * The names, directly under the number that counts them. Anyone who read
-       * "10 assistants" in the hero and wondered whether theirs is one of them
-       * gets the answer in the next screenful rather than having to install to
-       * find out.
-       */}
-      {/*
-       * ── The demonstration, straddling the fold ────────────────────────────
+       * The real thing, after the promise.
        *
-       * It used to live between the roster and the price, which meant somebody
-       * had to already be persuaded enough to scroll past two sections before
-       * they saw the product do anything.
-       *
-       * Now it starts inside the hero. The top quarter of the film sits over
-       * the bottom of the sky and is already running when the page loads, so
-       * the first screen contains a moving product rather than a promise about
-       * one, and the frame is visibly cut off — which is the part that makes
-       * somebody scroll. The rest arrives as they do.
-       *
-       * The negative margin is what pulls it up over the hero, and it is tuned
-       * against one hard constraint: it may never touch the download button.
-       * At 16vh it covered the button by seventy pixels, which trades the only
-       * conversion on the page for an effect. Four leaves the button clear and
-       * still puts roughly a third of the film in the first screen.
-       *
-       * It is on this wrapper rather than in the hero's own padding so the hero
-       * stays a self-contained section that reads without knowing this exists.
+       * Everything above is the argument, and two of its four moments are
+       * marked as coming next. This is the part that works on a Mac today,
+       * recorded from the real interface, so the page ends on proof rather
+       * than on a picture of the future.
        */}
       <section
         aria-labelledby="see-it"
-        className="relative z-10 -mt-[4vh] px-5 pb-16 sm:px-6 sm:pb-20 lg:-mt-[6vh] lg:pb-28"
+        className="relative px-5 pb-16 pt-16 sm:px-6 sm:pb-20 lg:pb-28"
       >
         <div className="mx-auto max-w-[68rem]">
-          <HandoverFilm />
-
-          {/*
-           * The heading comes after the film, not before it.
-           *
-           * Above, it would be a label on something already visible and would
-           * push the film out of the first screen, which is the one thing this
-           * placement exists to avoid. Underneath it reads as the caption to
-           * what somebody has just watched.
-           */}
           <h2
             id="see-it"
-            className="mx-auto mt-12 max-w-[20ch] text-balance text-center font-serif text-[clamp(1.75rem,3.6vw,2.75rem)] leading-[1.0]"
+            className="mx-auto mb-10 max-w-[20ch] text-balance text-center font-display text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.045em] text-ink"
           >
-            Watch a conversation change hands
+            The real thing, working today
           </h2>
-          <p className="ink-muted mx-auto mt-4 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
+          <HandoverFilm />
+          <p className="ink-muted mx-auto mt-6 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
             The real interface, and the real document it writes. Nothing here is
-            a mock-up of something that works differently.
+            a mock up of something that works differently.
           </p>
-
-          {/*
-           * The measurements, after the demonstration rather than before it.
-           * Four numbers about a product somebody has just watched work read as
-           * evidence; the same four ahead of it are claims.
-           */}
           <div className="mt-14">
             <HeroStats />
           </div>
         </div>
       </section>
 
-      {/*
-       * `repeat` on the bands below the hero, and not on the hero itself.
-       *
-       * The hero already arrives: it has a measured 0/80/150/230ms stagger in
-       * CSS and its own reasons for every number. What it cannot do is happen
-       * again, and that is the half worth adding, because scrolling back up a
-       * page where everything below the fold is frozen is what makes a site
-       * feel like a screenshot.
-       */}
-      <Reveal repeat>
-        <WorksWith />
-      </Reveal>
-
-      {/*
-       * Pricing and the questions are on the page again.
-       *
-       * They were moved to their own routes when this became a download page,
-       * and a header link that navigates somewhere else is a worse answer than
-       * one that scrolls: somebody wondering what it costs wants the number in
-       * the same breath, not a page load. The routes still exist, so each is
-       * something you can send to a person on its own, but nobody has to leave
-       * to read either one.
-       *
-       * That is still two sections against the original eight. What did not
-       * come back is the argument: the three feature bands, the stats, the
-       * second download panel. Nobody reads a case for a free Mac app.
-       */}
-      <section className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28">
+      <section
+        ref={pricing}
+        className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28"
+      >
         <Reveal repeat>
           <Pricing />
         </Reveal>

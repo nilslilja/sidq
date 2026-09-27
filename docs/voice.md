@@ -50,12 +50,12 @@ other. Everything else is a restatement of one of them.
 
 **The headline.** What goes on the site, the page title, the poster.
 
-> The models remember everything except you.
+> Your AIs, finally on the same page.
 
 **The pitch.** What you say to a person, what goes on the social card, what
 sits over the download button.
 
-> Stop introducing yourself to robots.
+> Tell one AI. The rest already know.
 
 A headline is read on a page that is already explaining itself. A pitch is
 repeated, out loud, by somebody who is not being paid to. They needed different
@@ -87,7 +87,15 @@ judge the product against its excuses instead of against the alternatives.
 
 ### The headline is closed
 
-It is the fourth. The first three went in three days — "Start where you
+It is the fifth, changed on 27 Sep 2026 by Nils for the launch film. The film
+ends on "Your AIs, finally on the same page", and somebody who clicks through
+from it has to land on the same sentence; a site that says something different
+from its own launch film is two products. The fourth, "The models remember
+everything except you", and its pitch "Stop introducing yourself to robots"
+go into posts. The reasoning below was written about the fourth and still
+holds for this one.
+
+The fourth replaced three that went in three days — "Start where you
 actually stopped", "Your AI is hiding half of what it thinks", "Every AI you
 open starts from zero" — each true, each about a symptom, and each meaning the
 site said something different from the site a week earlier. That is how a

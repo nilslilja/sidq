@@ -93,7 +93,7 @@ export const STEPS: Step[] = [
      */
     id: "signin",
     phase: "Get started",
-    title: "Stop introducing yourself to robots",
+    title: "Your AIs, finally on the same page",
     subtitle:
       "Sign in to keep your history. Opens in your browser and comes straight back.",
     gate: { kind: "condition", waiting: "Waiting for the browser" },

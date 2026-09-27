@@ -524,7 +524,7 @@ describe("what setup asked for", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /^Nils, nothing here has left this Mac\.$/,
+        name: /^Good (morning|afternoon|evening), Nils\.$/,
       }),
     ).toBeInTheDocument();
     localStorage.removeItem("sidq.name");
@@ -537,9 +537,20 @@ describe("what setup asked for", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /^Nothing here has left this Mac\.$/,
+        name: /^Good (morning|afternoon|evening)\.$/,
       }),
     ).toBeInTheDocument();
+  });
+
+  /*
+   * The privacy line moved out of the heading and into the sentence under it,
+   * where it is a fact about the memory rather than a greeting. It must still
+   * be said on the first screen.
+   */
+  test("says that nothing has left this Mac, under the greeting", async () => {
+    render(<Home />);
+    await settle();
+    expect(screen.getByText(/nothing here has left it/i)).toBeInTheDocument();
   });
 
   /*

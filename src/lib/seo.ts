@@ -55,11 +55,11 @@ const HAND_WRITTEN: Record<string, PageMeta> = {
      * fetches it over MCP with nobody pressing anything. A title that still
      * promises a carry is selling the smaller half of the product.
      */
-    title: "One AI conversation. Every model. Mac app.",
+    title: "One memory for every AI you use. Mac app.",
     description:
-      "Sidq reads every AI conversation already on your Mac and keeps them as one, so whichever assistant you open next already knows what you decided. Nothing is uploaded.",
+      "Every AI you use starts from zero. Sidq is one memory for all of them, read from your Mac. Tell one AI, the rest already know. Nothing is uploaded.",
     canonical: `${SITE}/`,
-    ogTitle: "Stop introducing yourself to robots.",
+    ogTitle: "Your AIs, finally on the same page.",
   },
   "/pricing": {
     /*
