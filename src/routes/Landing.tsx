@@ -6,14 +6,12 @@ import { LaunchFilm } from "@/components/landing/LaunchFilm";
 import { QuestionSpread } from "@/components/landing/QuestionSpread";
 import { TellOne } from "@/components/landing/TellOne";
 import { Compare } from "@/components/landing/Compare";
-import { Reveal } from "@/components/landing/Reveal";
 import { WorksWith } from "@/components/landing/WorksWith";
 import { HandoverFilm } from "@/components/landing/HandoverFilm";
 import { HeroStats } from "@/components/landing/HeroStats";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { SiteFooter } from "@/components/landing/SiteFooter";
-import { usePauseOffscreen } from "@/components/landing/usePauseOffscreen";
 
 /*
  * Landing.
@@ -30,13 +28,6 @@ import { usePauseOffscreen } from "@/components/landing/usePauseOffscreen";
  */
 
 export function Landing() {
-  /*
-   * The two animated bands below the hero pause while off screen. The Duo
-   * card's rim was measured as most of this page's idle work, because it
-   * repainted every frame from anywhere on the page. See usePauseOffscreen.
-   */
-  const marquee = usePauseOffscreen<HTMLDivElement>();
-  const pricing = usePauseOffscreen<HTMLElement>();
   return (
     <div className="bg-paper">
       <header className="absolute inset-x-0 top-0 z-20">
@@ -90,11 +81,7 @@ export function Landing() {
       <TellOne />
       <Compare />
 
-      <div ref={marquee}>
-        <Reveal repeat>
-          <WorksWith />
-        </Reveal>
-      </div>
+      <WorksWith />
 
       {/*
        * The real thing, after the promise.
@@ -108,15 +95,15 @@ export function Landing() {
         aria-labelledby="see-it"
         className="relative px-5 pb-16 pt-16 sm:px-6 sm:pb-20 lg:pb-28"
       >
-        <div className="mx-auto max-w-[68rem]">
+        <div className="mx-auto max-w-[64rem]">
           <h2
             id="see-it"
-            className="mx-auto mb-10 max-w-[20ch] text-balance text-center font-display text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.045em] text-ink"
+            className="mb-10 max-w-[20ch] font-display text-[clamp(2rem,4.2vw,3.25rem)] font-semibold leading-[1.04] tracking-[-0.045em] text-ink"
           >
             The real thing, working today
           </h2>
           <HandoverFilm />
-          <p className="ink-muted mx-auto mt-6 max-w-[46ch] text-balance text-center text-[1rem] leading-relaxed">
+          <p className="ink-muted mt-6 max-w-[46ch] text-[1rem] leading-relaxed">
             The real interface, and the real document it writes. Nothing here is
             a mock up of something that works differently.
           </p>
@@ -127,18 +114,13 @@ export function Landing() {
       </section>
 
       <section
-        ref={pricing}
         className="mx-auto max-w-[76rem] px-5 py-16 sm:px-6 sm:py-20 lg:py-28"
       >
-        <Reveal repeat>
-          <Pricing />
-        </Reveal>
+        <Pricing />
       </section>
 
       <section className="mx-auto max-w-[76rem] px-5 pb-16 sm:px-6 sm:pb-20 lg:pb-28">
-        <Reveal repeat>
-          <Faq limit={4} />
-        </Reveal>
+        <Faq limit={4} />
       </section>
 
       <SiteFooter />

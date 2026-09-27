@@ -10,8 +10,9 @@
  * like a person did it, which is the point of the product: the memory is in
  * your own words. See HandwritingText for how the pen works.
  *
- * Nothing here moves after the first second. The headline rises, the word is
- * written, and then the page is still, because this is a door and not a show.
+ * The only thing that moves is the pen. No badge above the headline, no glow
+ * behind it, no staggered entrance: those are what every generated landing
+ * page has, and this one should look written by somebody.
  */
 import { DownloadButton, usePlatform } from "./DownloadButton";
 import { HandwritingText } from "./HandwritingText";
@@ -22,40 +23,13 @@ export function Hero() {
 
   return (
     <section
-      className="relative overflow-hidden bg-paper"
+      className="relative bg-paper"
       aria-labelledby="hero"
     >
-      {/*
-       * The light in the room. Two washes painted into the ground, warm on one
-       * side and the brand's lilac on the other, fixed rather than animated:
-       * decoration that moves costs a frame budget on a page people read.
-       */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[radial-gradient(70%_60%_at_85%_0%,rgba(255,196,150,0.28),transparent_60%),radial-gradient(60%_55%_at_8%_10%,rgba(140,120,255,0.16),transparent_60%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-multiply"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-      />
-
-      <div className="relative mx-auto flex max-w-[64rem] flex-col items-center px-6 pb-16 pt-28 sm:pb-20 [@media(min-height:820px)]:pt-36">
-        <p
-          className="animate-rise inline-flex items-center gap-2 rounded-full bg-white/80 px-3.5 py-1.5 text-[0.75rem] font-medium tracking-[0.02em] text-ink/70 shadow-[0_1px_2px_rgba(20,18,28,0.06),0_8px_24px_-12px_rgba(70,50,140,0.35)] ring-1 ring-black/[0.05]"
-          style={{ animationDelay: "0ms" }}
-        >
-          <span className="size-1.5 rounded-full bg-[#4F46E5]" aria-hidden="true" />
-          The memory layer for AI. Early access for Mac.
-        </p>
-
+      <div className="relative mx-auto flex max-w-[64rem] flex-col items-center px-6 pb-16 pt-32 sm:pb-20 [@media(min-height:820px)]:pt-40">
         <h1
           id="hero"
-          className="animate-rise mt-8 w-full text-center font-display text-[clamp(2.75rem,7.2vw,6.25rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-ink [text-shadow:0_1px_0_rgba(255,255,255,0.6),0_18px_40px_rgba(70,50,140,0.12)]"
-          style={{ animationDelay: "80ms" }}
+          className="w-full text-center font-display text-[clamp(2.75rem,7.2vw,6.25rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-ink"
         >
           Your AIs, finally
           <br className="hidden sm:block" /> on the same{" "}
@@ -63,35 +37,25 @@ export function Hero() {
         </h1>
 
         <p
-          className="animate-rise mt-7 max-w-[40rem] text-balance text-center text-[clamp(1.0625rem,1.6vw,1.3125rem)] leading-relaxed text-ink/70"
-          style={{ animationDelay: "150ms" }}
+          className="mt-7 max-w-[40rem] text-balance text-center text-[clamp(1.0625rem,1.6vw,1.3125rem)] leading-relaxed text-ink/70"
         >
           Every AI you use starts from zero, so you explain your work again in
           every one of them. Sidq is one memory for all of them.{" "}
           <span className="text-ink">Tell one AI. The rest already know.</span>
         </p>
 
-        <div
-          className="animate-rise mt-9 flex flex-wrap items-center justify-center gap-3"
-          style={{ animationDelay: "230ms" }}
-        >
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-6">
           <DownloadButton size="lg" />
           <a
             href="#film"
-            className="group inline-flex min-h-11 items-center gap-2 rounded-full px-5 py-3 text-[0.9375rem] font-medium text-ink ring-1 ring-black/10 transition-[background-color,box-shadow] duration-150 hover:bg-white hover:shadow-[0_6px_20px_-10px_rgba(70,50,140,0.45)]"
+            className="text-[0.9375rem] font-medium text-ink underline decoration-ink/25 underline-offset-4 transition-colors duration-150 hover:decoration-ink"
           >
-            <span
-              aria-hidden="true"
-              className="grid size-6 place-items-center rounded-full bg-ink text-[0.625rem] text-paper transition-transform duration-150 group-hover:scale-110"
-            >
-              ▶
-            </span>
             Watch the film
           </a>
         </div>
 
         <p className="mt-5 text-center text-[0.8125rem] text-ink/60">
-          Free for Mac. Private by design: your memory stays on your Mac.
+          Free for Mac, in early access. Your memory stays on your Mac.
         </p>
 
         {/* Has to stay on the page the button is on: the button points a phone

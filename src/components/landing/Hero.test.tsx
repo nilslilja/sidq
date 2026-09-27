@@ -44,14 +44,21 @@ describe("the headline", () => {
 });
 
 describe("what the hero promises, and what it does not", () => {
-  test("names the category and says it is early access", () => {
+  test("says it is early access, and where the memory lives", () => {
     render(<Hero />);
-    expect(screen.getByText(/The memory layer for AI\. Early access for Mac\./)).toBeInTheDocument();
+    expect(screen.getByText(/in early access\. Your memory stays on your Mac\./)).toBeInTheDocument();
   });
 
-  test("says where the memory lives", () => {
-    render(<Hero />);
-    expect(screen.getByText(/your memory stays on your Mac/i)).toBeInTheDocument();
+  /*
+   * No badge above the headline. A pill with a dot and a line of small text
+   * sitting over an h1 is the most recognisable mark of a generated landing
+   * page, and it was on this one.
+   */
+  test("has nothing above the headline", () => {
+    const { container } = render(<Hero />);
+    const column = container.querySelector("h1")?.parentElement;
+    expect(column?.firstElementChild?.tagName.toLowerCase()).toBe("h1");
+    expect(container.querySelector(".rounded-full")).toBeNull();
   });
 
   test("offers the film beside the download", () => {

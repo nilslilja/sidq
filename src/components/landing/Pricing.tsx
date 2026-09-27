@@ -36,7 +36,7 @@ export function Pricing({ top = false }: { top?: boolean } = {}) {
     >
       <Heading
         id="pricing"
-        className="scroll-mt-24 max-w-[18ch] font-serif text-[clamp(2rem,4.2vw,3.25rem)] leading-[1.0]"
+        className="scroll-mt-24 max-w-[18ch] font-display font-semibold tracking-[-0.045em] text-[clamp(2rem,4.2vw,3.25rem)] leading-[1.02]"
       >
         Free until it works.
         <br />
@@ -55,7 +55,7 @@ export function Pricing({ top = false }: { top?: boolean } = {}) {
        * `overflow-hidden` also clips the Duo card's travelling light to the
        * rounded corner instead of letting it square one off.
        */}
-      <div className="mt-14 overflow-hidden rounded-[22px] bg-ink/10 shadow-[0_1px_2px_rgba(18,18,26,0.04),0_18px_44px_-28px_rgba(18,18,26,0.28)] ring-1 ring-ink/10 lg:grid lg:grid-cols-4 lg:gap-px">
+      <div className="mt-14 overflow-hidden rounded-[12px] bg-ink/10 ring-1 ring-ink/10 lg:grid lg:grid-cols-4 lg:gap-px">
         <div className="grid gap-px lg:contents">
           {PLANS.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
@@ -89,8 +89,8 @@ function PlanCta({ plan }: { plan: Plan }) {
     // The featured card already sits on ink, so the lit button is the one that
     // carries it. The others stay flat, or all three compete.
     plan.featured
-      ? "btn-soft"
-      : "bg-ink text-paper transition-colors duration-150 hover:bg-accent",
+      ? "bg-paper text-ink transition-colors duration-150 hover:bg-paper/85"
+      : "bg-ink text-paper transition-colors duration-150 hover:bg-ink/85",
   );
 
   if (plan.id === "free") {
@@ -164,20 +164,14 @@ function PlanCard({ plan }: { plan: Plan }) {
          * rendering at all. The sheen was Pro's when Pro was the dark card;
          * Pro is paper now and it has nowhere left to live.
          */
-        plan.featured && "edge-lit",
       )}
       // What the rim's inner fill is painted with. The card is opaque, so this
       // has to match its own background or the hairline swallows the corner —
       // and the lit card is the dark one now.
-      style={
-        plan.featured
-          ? { ["--edge-fill" as string]: "var(--color-ink)" }
-          : undefined
-      }
     >
       <h3
         className={cn(
-          "text-[0.625rem] uppercase tracking-[0.22em]",
+          "text-[0.9375rem] font-semibold",
           plan.featured ? "text-paper/55" : "ink-muted",
         )}
       >
@@ -185,7 +179,7 @@ function PlanCard({ plan }: { plan: Plan }) {
       </h3>
 
       <p className="mt-5 flex items-baseline gap-1.5">
-        <span className="tabular font-display text-[clamp(2.5rem,5vw,3.5rem)] leading-none tracking-[-0.05em]">
+        <span className="font-display text-[clamp(2.5rem,5vw,3.5rem)] font-semibold leading-none tabular-nums tracking-[-0.05em]">
           {plan.price}
         </span>
         {plan.cadence && (

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
 
 /*
  * The launch film, on the page it points at.
@@ -11,9 +10,9 @@ import { cn } from "@/lib/cn";
  * starts it from the top, since the score is timed to the picture and joining
  * it halfway through loses the beat it was written for.
  *
- * The frame is a sheet on the paper with a soft shadow under it, not a player:
- * native controls would put a scrubber and a volume slider on the one object
- * on this page that should look finished.
+ * The frame is a hairline, not a floating card with a glow under it, and not a
+ * player: native controls would put a scrubber and a volume slider on the one
+ * object on this page that should look finished.
  */
 export function LaunchFilm() {
   const video = useRef<HTMLVideoElement>(null);
@@ -63,11 +62,7 @@ export function LaunchFilm() {
     >
       <div className="mx-auto max-w-[68rem]">
         <div
-          className={cn(
-            "group relative overflow-hidden rounded-[28px] bg-white",
-            "ring-1 ring-black/[0.06]",
-            "shadow-[0_1px_2px_rgba(20,18,28,0.06),0_30px_80px_-30px_rgba(60,40,120,0.45),0_12px_28px_-18px_rgba(20,18,28,0.35)]",
-          )}
+          className="relative overflow-hidden rounded-[12px] border border-ink/10 bg-white"
         >
           <video
             ref={video}
@@ -85,14 +80,9 @@ export function LaunchFilm() {
             type="button"
             onClick={toggleSound}
             aria-pressed={sound}
-            className={cn(
-              "absolute bottom-4 right-4 inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2",
-              "bg-ink/80 text-[0.8125rem] font-medium text-paper backdrop-blur-md",
-              "shadow-[0_8px_24px_-10px_rgba(20,18,28,0.6)] transition-transform duration-150",
-              "cursor-pointer hover:scale-[1.03] active:scale-[0.97]",
-            )}
+            className="absolute bottom-3 right-3 min-h-9 cursor-pointer rounded-[6px] bg-ink px-3 text-[0.75rem] font-medium text-paper transition-colors duration-150 hover:bg-ink/85"
           >
-            {sound ? "Sound off" : "Play with sound"}
+            {sound ? "Sound off" : "Sound on"}
           </button>
         </div>
       </div>

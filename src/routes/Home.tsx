@@ -473,12 +473,9 @@ export function Home() {
                   <button
                     onClick={() => void bridge?.openUpgrade()}
                     className={cn(
-                      "mt-3 w-full rounded-[10px] px-3 py-2",
-                      "bg-gradient-to-b from-[var(--w-accent)] to-[var(--w-accent-deep)]",
-                      "text-[0.8125rem] font-medium text-[var(--w-on-accent)]",
-                      "shadow-[0_1px_2px_rgba(20,18,28,0.18),0_6px_16px_-8px_rgba(106,75,234,0.6)]",
-                      "cursor-pointer transition-[transform,box-shadow] duration-150",
-                      "hover:-translate-y-px hover:shadow-[0_2px_4px_rgba(20,18,28,0.2),0_10px_22px_-10px_rgba(106,75,234,0.7)]",
+                      "mt-3 w-full rounded-[8px] px-3 py-2",
+                      "bg-[var(--w-invert)] text-[0.8125rem] font-medium text-[var(--w-on-invert)]",
+                      "cursor-pointer transition-opacity duration-150 hover:opacity-85",
                     )}
                   >
                     Upgrade to Pro
@@ -762,9 +759,8 @@ function salutation(): string {
  *
  * The first thing on the screen that is not a sentence, and it is what Sidq
  * has actually done: every figure is read from the index, none is estimated.
- * Serif and large, on a card with light in it, because a number somebody is
- * proud of should look like one. The mark sits faded in the corner as the
- * card's watermark, which is the only decoration the window allows itself.
+ * Serif and large, between two hairlines and nothing else: no gradient card,
+ * no watermark, no glow. The figures are the decoration.
  */
 function MemoryCard({
   conversations,
@@ -786,17 +782,9 @@ function MemoryCard({
   return (
     <section
       aria-label="What Sidq remembers"
-      className={cn(
-        "relative mt-7 overflow-hidden rounded-[22px] px-7 py-6",
-        "bg-[linear-gradient(135deg,var(--w-card-from)_0%,var(--w-surface)_45%,var(--w-tint)_100%)]",
-        "ring-1 ring-[var(--w-line)]",
-        "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(28,24,18,0.05),0_18px_40px_-22px_rgba(90,60,30,0.28)]",
-      )}
+      className="mt-7 border-y border-[var(--w-line)] py-6"
     >
-      <span aria-hidden="true" className="pointer-events-none absolute -right-6 -top-4 text-[var(--w-mark)] opacity-[0.07]">
-        <SidqMark width={210} height={112} />
-      </span>
-      <div className="relative grid grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
         {figures.map(([value, label]) => (
           <div key={label}>
             <p className="font-serif text-[2.4rem] leading-none tabular-nums tracking-[-0.02em] text-[var(--w-text)]">
@@ -834,21 +822,16 @@ function Across({ sessions }: { sessions: WorkSession[] }) {
       <h2 id="across" className="text-[0.6875rem] tracking-[0.08em] text-[var(--w-text-3)]">
         LATELY, ACROSS YOUR AIS
       </h2>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-3 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
         {sessions.map((s) => {
           const source = s.source ?? "claude-code";
           const logo = SOURCE_LOGO[source];
           return (
             <li
               key={`${s.sessionId ?? s.title}-${s.endedAt}`}
-              className={cn(
-                "flex items-center gap-3 rounded-[14px] px-3.5 py-3",
-                "bg-[var(--w-surface)] ring-1 ring-[var(--w-line)]",
-                "shadow-[inset_0_1px_0_var(--w-sheen),0_1px_2px_rgba(28,24,18,0.04)]",
-                "transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_8px_20px_-12px_rgba(90,60,30,0.35)]",
-              )}
+              className="flex items-center gap-3 py-3"
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-[var(--w-raised)] ring-1 ring-[var(--w-line)]">
+              <span className="grid size-6 shrink-0 place-items-center">
                 {logo ? (
                   <img src={logo} alt="" width={16} height={16} className="size-4" />
                 ) : (
@@ -1127,9 +1110,8 @@ function Overview({
                 <li
                   key={`${row.sessionId}-${row.madeAt}`}
                   className={cn(
-                    "flex items-baseline gap-4 rounded-[10px] px-3 py-3",
-                    "transition-[transform,background-color,box-shadow] duration-150",
-                    "hover:-translate-y-px hover:bg-[var(--w-raised)] hover:shadow-[0_2px_10px_-6px_rgba(70,50,140,0.35)]",
+                    "flex items-baseline gap-4 rounded-[8px] px-3 py-3",
+                    "transition-colors duration-150 hover:bg-[var(--w-raised)]",
                   )}
                 >
                   <span className="min-w-0 flex-1">

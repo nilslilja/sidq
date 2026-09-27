@@ -20,7 +20,7 @@ describe("tell one AI", () => {
   test("the moments that work today are the ones 0.9.11 ships: Claude Code and Cursor", () => {
     render(<TellOne />);
     for (const app of ["Claude Code", "Cursor"]) {
-      const card = screen.getByText(app).closest("article");
+      const card = screen.getByText(app).closest("li");
       expect(card).not.toBeNull();
       expect(within(card as HTMLElement).getByText("Works today")).toBeInTheDocument();
     }

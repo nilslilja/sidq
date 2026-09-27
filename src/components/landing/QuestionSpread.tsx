@@ -116,7 +116,7 @@ function Card({
       className="absolute left-1/2 top-1/2 w-[min(22rem,40vw)] will-change-transform"
       style={{ zIndex: q.z, translate, rotate, scale }}
     >
-      <div className="rounded-[22px] bg-white px-5 py-4 ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(20,18,28,0.05),0_22px_50px_-24px_rgba(60,40,120,0.4)]">
+      <div className="rounded-[14px] border border-ink/10 bg-white px-5 py-4">
         <div className="flex items-center gap-2 text-[0.8125rem] font-medium text-ink/60">
           {q.logo ? (
             <img src={q.logo} alt="" width={18} height={18} className="size-[18px]" />
@@ -149,7 +149,6 @@ export function QuestionSpread() {
 
   const copyOpacity = useTransform(progress, [0.3, 0.65], [0, 1]);
   const copyScale = useTransform(progress, [0.3, 0.9], [0.88, 1]);
-  const hint = useTransform(progress, [0, SCATTER_START], [1, 0]);
 
   return (
     <section ref={wrap} aria-labelledby="questions" className="relative h-[320vh] w-full bg-paper">
@@ -186,14 +185,6 @@ export function QuestionSpread() {
           ))}
         </div>
 
-        <motion.div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-1 text-[0.6875rem] font-medium uppercase tracking-[0.2em] text-ink/50"
-          style={{ opacity: hint }}
-        >
-          <span>Scroll</span>
-          <span className="animate-bounce">↓</span>
-        </motion.div>
       </div>
     </section>
   );

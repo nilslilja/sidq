@@ -86,17 +86,17 @@ function Head({ col }: { col: Column }) {
   return (
     <span className="flex flex-col items-center gap-2 text-center">
       {col.mark ? (
-        <span className="grid h-8 place-items-center text-[#4F46E5]">
-          <SidqMark width={44} height={22} />
+        <span className="grid h-7 place-items-center text-[#4F46E5]">
+          <SidqMark width={40} height={20} />
         </span>
       ) : col.logo ? (
-        <img src={col.logo} alt="" width={26} height={26} className="size-[26px]" />
+        <img src={col.logo} alt="" width={22} height={22} className="size-[22px]" />
       ) : (
-        <span aria-hidden="true" className="grid size-[26px] place-items-center rounded-[7px] bg-[#FFE9A8] text-[0.8125rem]">
+        <span aria-hidden="true" className="grid size-[22px] place-items-center text-[0.9375rem] text-ink/60">
           ✎
         </span>
       )}
-      <span className={cn("text-[0.875rem] font-semibold", col.mark ? "text-ink" : "text-ink/70")}>
+      <span className={cn("text-[0.875rem]", col.mark ? "font-semibold text-ink" : "font-medium text-ink/60")}>
         {col.name}
       </span>
     </span>
@@ -105,30 +105,30 @@ function Head({ col }: { col: Column }) {
 
 export function Compare() {
   return (
-    <section aria-labelledby="compare" className="mx-auto max-w-[76rem] px-5 py-20 sm:px-6 sm:py-28">
+    <section aria-labelledby="compare" className="mx-auto max-w-[64rem] px-5 py-20 sm:px-6 sm:py-28">
       <h2
         id="compare"
-        className="mx-auto max-w-[20ch] text-center font-display text-[clamp(2.125rem,4.6vw,3.75rem)] font-semibold leading-[1.04] tracking-[-0.05em] text-ink"
+        className="max-w-[20ch] font-display text-[clamp(2.125rem,4.6vw,3.75rem)] font-semibold leading-[1.04] tracking-[-0.05em] text-ink"
       >
         Every AI remembers. <span className="text-ink/45">Only inside itself.</span>
       </h2>
-      <p className="mx-auto mt-5 max-w-[48ch] text-center text-[1.0625rem] leading-relaxed text-ink/65">
+      <p className="mt-5 max-w-[48ch] text-[1.0625rem] leading-relaxed text-ink/65">
         Built in memory is good. It just stays in one app, and you use five.
         Sidq is the one memory that sits across all of them.
       </p>
 
-      <div className="mt-14 overflow-x-auto rounded-[28px] bg-white ring-1 ring-black/[0.06] shadow-[0_1px_2px_rgba(20,18,28,0.05),0_30px_70px_-34px_rgba(60,40,120,0.35)]">
+      <div className="mt-14 overflow-x-auto">
         <table className="w-full min-w-[46rem] border-collapse text-left">
           <thead>
             <tr>
-              <th scope="col" className="w-[26%] px-6 pb-5 pt-7">
+              <th scope="col" className="w-[26%] pb-5 pr-6">
                 <span className="sr-only">What it does</span>
               </th>
-              {COLUMNS.map((c, i) => (
+              {COLUMNS.map((c) => (
                 <th
                   key={c.name}
                   scope="col"
-                  className={cn("px-3 pb-5 pt-7 align-bottom", i === 0 && "rounded-t-[20px] bg-[#F3F2FE]")}
+                  className="px-3 pb-5 align-bottom"
                 >
                   <Head col={c} />
                 </th>
@@ -136,9 +136,9 @@ export function Compare() {
             </tr>
           </thead>
           <tbody>
-            {ROWS.map((row, r) => (
-              <tr key={row.label} className="border-t border-black/[0.06]">
-                <th scope="row" className="px-6 py-5 text-[0.9375rem] font-medium leading-snug text-ink">
+            {ROWS.map((row) => (
+              <tr key={row.label} className="border-t border-ink/10">
+                <th scope="row" className="py-5 pr-6 text-[0.9375rem] font-medium leading-snug text-ink">
                   {row.label}
                 </th>
                 {row.cells.map((cell, i) => (
@@ -146,16 +146,9 @@ export function Compare() {
                     key={i}
                     className={cn(
                       "px-3 py-5 text-center text-[0.875rem] leading-snug",
-                      i === 0 && "bg-[#F3F2FE]",
-                      i === 0 && r === ROWS.length - 1 && "rounded-b-[20px]",
-                      cell.good ? "font-semibold text-[#3730A3]" : "text-ink/55",
+                      cell.good ? "font-semibold text-ink" : "text-ink/50",
                     )}
                   >
-                    {cell.good && (
-                      <span aria-hidden="true" className="mr-1.5 inline-grid size-4 place-items-center rounded-full bg-[#4F46E5] align-[-2px] text-[0.625rem] text-white">
-                        ✓
-                      </span>
-                    )}
                     {cell.text}
                   </td>
                 ))}

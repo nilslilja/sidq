@@ -139,7 +139,7 @@ export function Faq({
     <section className="mx-auto max-w-[64rem] px-6 py-24" aria-labelledby="faq">
       <Heading
         id="faq"
-        className="scroll-mt-24 font-serif text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.0]"
+        className="scroll-mt-24 font-display font-semibold tracking-[-0.045em] text-[clamp(2rem,4.6vw,3.5rem)] leading-[1.02]"
       >
         The questions people actually ask
       </Heading>

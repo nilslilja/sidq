@@ -76,11 +76,11 @@ export function DownloadButton({
       <a
         href="#waitlist-email"
         className={cn(
-          "inline-flex items-center justify-center gap-2.5 rounded-full",
-          "bg-[#4F46E5] font-medium text-white",
+          "inline-flex items-center justify-center gap-2.5 rounded-[10px]",
+          "bg-ink font-medium text-paper",
           "transition-transform duration-150 active:scale-[0.98]",
           size === "lg"
-            ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+            ? "min-h-[3.25rem] px-7 text-[1rem]"
             : "min-h-11 px-5 text-[0.875rem]",
           className,
         )}
@@ -95,10 +95,10 @@ export function DownloadButton({
     return (
       <span
         className={cn(
-          "inline-flex items-center justify-center gap-2.5 rounded-full",
-          "border border-white/15 font-medium text-white/50",
+          "inline-flex items-center justify-center gap-2.5 rounded-[10px]",
+          "border border-ink/15 font-medium text-ink/50",
           size === "lg"
-            ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+            ? "min-h-[3.25rem] px-7 text-[1rem]"
             : "min-h-11 px-5 text-[0.875rem]",
           className,
         )}
@@ -115,23 +115,20 @@ export function DownloadButton({
       // No download attribute: this is a page now, not the file. The file is
       // fetched from that page, which is what keeps the instructions on screen.
       /*
-       * Glass rather than a flat fill. `.btn-glass` in global.css carries the
-       * whole surface: two blended radial gradients, a hairline that fades out
-       * by the bottom edge, two inset shadows, and a band of light that crosses
-       * once on hover. Nothing here may set its own background or ring, or the
-       * rim is drawn twice.
+       * A flat ink fill. It was glass: two gradients, an inset rim and a band
+       * of light crossing on hover, which is the button every generated
+       * landing page has. Ink on paper is the one nobody mistakes for that.
        */
       className={cn(
-        "btn-glass group inline-flex items-center justify-center gap-2.5 rounded-full font-medium text-white",
-        "transition-transform duration-150 ease-out active:scale-[0.97]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+        "group inline-flex items-center justify-center gap-2.5 rounded-[10px] bg-ink font-medium text-paper",
+        "transition-colors duration-150 hover:bg-ink/85 active:bg-ink",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
         size === "lg"
-          ? "min-h-[3.75rem] px-9 text-[1.0625rem]"
+          ? "min-h-[3.25rem] px-7 text-[1rem]"
           : "min-h-11 px-5 text-[0.875rem]",
         className,
       )}
     >
-      <span aria-hidden className="btn-glass-sheen" />
       {info.platform.startsWith("macos") ? (
         <Apple className={size === "lg" ? "size-5" : "size-4"} />
       ) : (

@@ -65,13 +65,6 @@ export function SiteFooter() {
   const onAPhone = usePlatform().platform === "phone";
   return (
     <footer className="relative overflow-hidden border-t border-ink/10">
-      {/* The same dawn light as the hero, inverted and faint, so the page closes
-          where it opened. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[24rem] bg-[radial-gradient(80%_100%_at_70%_0%,rgba(243,211,176,0.35)_0%,rgba(243,211,176,0)_60%),radial-gradient(70%_90%_at_20%_10%,rgba(99,102,241,0.13)_0%,rgba(99,102,241,0)_65%)]"
-      />
-
       <div className="relative mx-auto max-w-[76rem] px-6">
         <div className="py-20 text-center">
           {/*
@@ -96,8 +89,8 @@ export function SiteFooter() {
            * below the hero. The page is one screen now, so the two of them
            * were inches apart and it read as a stammer rather than a refrain.
            */}
-          <h2 className="mx-auto max-w-[18ch] font-serif text-[clamp(2rem,5vw,3.75rem)] leading-[1.0]">
-            One keystroke. It is already there.
+          <h2 className="mx-auto max-w-[18ch] font-display font-semibold tracking-[-0.045em] text-[clamp(2rem,5vw,3.75rem)] leading-[1.02]">
+            Tell one AI. The rest already know.
           </h2>
           <p className="mx-auto mt-6 max-w-[42ch] text-[1rem] leading-relaxed ink-muted">
             If it has not earned its place on your screen within a week, delete
