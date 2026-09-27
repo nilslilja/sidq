@@ -2144,7 +2144,8 @@ async fn project_memory(path: String) -> Option<memory::Memory> {
 }
 
 /**
- * Which assistants on this Mac can be connected to Sidq's MCP server.
+ * Which assistants on this Mac can be connected to Sidq's MCP server, and
+ * whether each already is.
  *
  * Only ones actually installed. Offering Cursor to somebody who does not have
  * it produces a button that writes a config file for an app that will never
@@ -2156,7 +2157,7 @@ async fn mcp_clients() -> Vec<(String, String, bool)> {
         mcp_setup::CLIENTS
             .iter()
             .filter(|c| mcp_setup::installed(c))
-            .map(|c| (c.id.to_string(), c.label.to_string(), true))
+            .map(|c| (c.id.to_string(), c.label.to_string(), mcp_setup::is_connected(c)))
             .collect()
     })
     .await
@@ -2242,6 +2243,23 @@ async fn set_brief(on: bool) -> bool {
     })
     .await
     .unwrap_or(false)
+}
+
+/// Whether Sidq opens at login. The same switch the tray menu has.
+#[tauri::command]
+fn open_at_login() -> bool {
+    login_item::is_enabled()
+}
+
+/// Turn opening at login on or off. Answers with the state it ended up in.
+#[tauri::command]
+fn set_open_at_login(on: bool) -> bool {
+    if on {
+        login_item::enable();
+    } else {
+        login_item::disable();
+    }
+    login_item::is_enabled()
 }
 
 #[derive(serde::Serialize)]
@@ -3399,6 +3417,8 @@ fn main() {
             set_recall,
             brief_status,
             set_brief,
+            open_at_login,
+            set_open_at_login,
             relay_status,
             set_relay,
             mcp_config_block,

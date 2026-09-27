@@ -715,7 +715,12 @@ export interface OnboardingBridge {
    * moves.
    */
   redeemTeamSeat: (code: string) => Promise<string | null>;
+  /** Installed MCP clients as [id, label, already connected to Sidq]. */
   mcpClients: () => Promise<[string, string, boolean][]>;
+  /** Whether Sidq opens at login, and the switch for it (the tray has the same). */
+  openAtLogin: () => Promise<boolean>;
+  /** Resolves to the state it ended up in, which may not be the one asked for. */
+  setOpenAtLogin: (on: boolean) => Promise<boolean>;
   connectMcp: (client: string) => Promise<string | null>;
   mcpConfigBlock: () => Promise<string | null>;
   /** Every project anybody on the team has shared. */
@@ -1041,6 +1046,9 @@ export function desktopBridge(): OnboardingBridge | null {
       [],
     redeemTeamSeat: async (code: string) =>
       ((await invoke("redeem_team_seat", { code })) as string | null) ?? null,
+    openAtLogin: async () => ((await invoke("open_at_login")) as boolean) ?? false,
+    setOpenAtLogin: async (on: boolean) =>
+      ((await invoke("set_open_at_login", { on })) as boolean) ?? false,
     mcpClients: async () =>
       ((await invoke("mcp_clients")) as [string, string, boolean][]) ?? [],
     connectMcp: async (client: string) =>

@@ -67,12 +67,13 @@ export const FEATURES = {
   sharing: false,
 
   /**
-   * Project memory as a *product surface*: the tab, and the MCP resource.
+   * Project memory as a *product surface*: the "What you're on" tab.
    *
-   * Not the feature. `memory.rs` still compiles, the pill still puts what you
-   * are working on on the clipboard as its first row, and every test still
-   * runs. What goes is the part that reads as "AI memory", which is a category
-   * with $24M-funded incumbents in it and is not the fight being picked.
+   * It went dark when the pitch was handovers and "AI memory" was a category
+   * with funded incumbents in it that Sidq was not picking a fight with. The
+   * pitch is now "one memory for every AI you use", on the front page, so a
+   * window that hides the memory is the product disagreeing with its own
+   * website. It is back on, as the page that shows what the memory holds.
    */
-  projectMemory: false,
+  projectMemory: true,
 } as const;

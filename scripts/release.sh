@@ -192,6 +192,13 @@ verify_is_the_app() {
   echo "   verified: $(basename "$1") is the application (${SIZE} bytes)"
 }
 
+# The installer window's layout tool, pinned, in a venv of its own.
+DMGBUILD=".venv-dmg/bin/dmgbuild"
+if [ ! -x "$DMGBUILD" ]; then
+  python3 -m venv .venv-dmg
+  .venv-dmg/bin/pip install -q --disable-pip-version-check "dmgbuild==1.6.5"
+fi
+
 build_one() {
   local APP="$1" ARCH="$2"
 
@@ -237,10 +244,17 @@ build_one() {
   esac
 
   echo "── packaging $ARCH"
-  mkdir -p "$WORK/vol"
-  cp -R "$APP" "$WORK/vol/"
-  ln -s /Applications "$WORK/vol/Applications"
-  hdiutil create -quiet -volname "Sidq" -srcfolder "$WORK/vol" -ov -format UDZO "$DMG"
+  #
+  # ── The window people see when they open it ──────────────────────────────
+  #
+  # This was a folder handed to hdiutil, which gives Finder's default window:
+  # two icons on grey. dmgbuild writes the layout itself (the white background
+  # from scripts/dmg, the icons placed either side of the arrow) without asking
+  # Finder to arrange a mounted image, so a release never waits on a prompt.
+  #
+  "$DMGBUILD" -s scripts/dmg/settings.py \
+    -D app="$APP" -D background=scripts/dmg/background.tiff \
+    "Sidq" "$DMG" >/dev/null
   codesign --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG"
 
   echo "── notarising $ARCH disk image"

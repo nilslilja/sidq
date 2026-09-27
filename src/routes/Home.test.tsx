@@ -160,6 +160,18 @@ const bridge: Partial<OnboardingBridge> = {
   setTeamFolder: vi.fn(async () => true),
   setTeamName: vi.fn(async () => true),
   redeemInvite: vi.fn((code: string) => redeem(code)),
+  // The panels the sidebar grew on 27 Sep. Their behaviour is tested in
+  // home/panels.test.tsx; here they only have to open.
+  mcpClients: vi.fn(async () => [] as [string, string, boolean][]),
+  connectMcp: vi.fn(async () => null),
+  mcpConfigBlock: vi.fn(async () => null),
+  pickerShortcut: vi.fn(async () => "⌘⇧K"),
+  openAtLogin: vi.fn(async () => false),
+  setOpenAtLogin: vi.fn(async (on: boolean) => on),
+  projects: vi.fn(async () => []),
+  projectMemory: vi.fn(async () => null),
+  teamProjects: vi.fn(async () => []),
+  memoryLink: vi.fn(async () => null),
 };
 
 /*
@@ -414,10 +426,16 @@ describe("the sidebar", () => {
     for (const tab of [
       "Overview",
       "Search",
-      "Sources",
+      "Conversations",
+      "Handovers",
+      "What you're on",
       "How you work",
+      "Connections",
+      "Shortcuts",
+      "Sources",
       "Plan",
       "Invite a friend",
+      "Settings",
     ]) {
       await act(async () => {
         fireEvent.click(screen.getByRole("button", { name: tab }));
@@ -954,7 +972,7 @@ describe("your team", () => {
    * to share into, so it never advertises a plan on a row about finished work.
    */
   test("no folder means no share button on a handover", async () => {
-    await open("Overview");
+    await open("Handovers");
 
     expect(
       screen.queryByRole("button", { name: /Share with team/ }),

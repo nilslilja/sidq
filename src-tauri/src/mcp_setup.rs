@@ -113,6 +113,23 @@ pub fn installed(client: &Client) -> bool {
     config_path(client).is_some_and(|p| p.exists())
 }
 
+/// Whether a config's text already has Sidq among its MCP servers.
+fn names_sidq(config: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(config)
+        .ok()
+        .is_some_and(|root| root["mcpServers"].get(SERVER_KEY).is_some())
+}
+
+/**
+ * Whether this client already has Sidq, so the window can say "connected"
+ * instead of offering a button that would write the same thing again.
+ */
+pub fn is_connected(client: &Client) -> bool {
+    config_path(client)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .is_some_and(|text| names_sidq(&text))
+}
+
 /**
  * Add Sidq to one client's config, keeping everything already in it.
  *
@@ -172,6 +189,16 @@ mod tests {
                 config_block(std::path::Path::new("/x/sidq-mcp")),
             );
         root
+    }
+
+    #[test]
+    fn a_config_with_sidq_in_it_counts_as_connected_and_nothing_else_does() {
+        assert!(names_sidq(r#"{"mcpServers":{"sidq":{"command":"/x/sidq-mcp"}}}"#));
+        assert!(!names_sidq(r#"{"mcpServers":{"github":{"command":"gh"}}}"#));
+        assert!(!names_sidq(r#"{"theme":"dark"}"#));
+        // Somebody's half-edited file is not a connection, and not a crash.
+        assert!(!names_sidq(r#"{"mcpServers": {"sidq": "#));
+        assert!(!names_sidq(""));
     }
 
     #[test]

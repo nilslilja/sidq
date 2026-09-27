@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   desktopBridge,
-  type HandoverRecord,
   type PlanStatus,
   type InviteSummary,
   type ProfileFact,
@@ -22,6 +21,21 @@ import { FEATURES } from "@/lib/features";
 import { SOURCES, sourceLabel, type Source } from "@/lib/companion/sources";
 import { cn } from "@/lib/cn";
 import { SidqMark } from "@/components/SidqMark";
+import {
+  AutoRow,
+  Chip,
+  Keys,
+  PanelHead,
+  SectionHead,
+  SourceGlyph,
+  Toggle,
+  whenLabel,
+} from "@/routes/home/ui";
+import { Conversations } from "@/routes/home/Conversations";
+import { Handovers } from "@/routes/home/Handovers";
+import { Connections } from "@/routes/home/Connections";
+import { Shortcuts } from "@/routes/home/Shortcuts";
+import { Settings } from "@/routes/home/Settings";
 
 /*
  * The window behind the pill.
@@ -49,27 +63,41 @@ import { SidqMark } from "@/components/SidqMark";
 type Tab =
   | "overview"
   | "search"
+  | "conversations"
+  | "handovers"
   | "sources"
   | "projects"
   | "profile"
+  | "connections"
+  | "shortcuts"
   | "team"
   | "plan"
-  | "invite";
+  | "invite"
+  | "settings";
 
 type IconName = Tab;
 
 /**
- * The sidebar, in two groups.
+ * The sidebar, in three groups.
  *
- * Above the allowance card: the things Sidq does. Below it: the things your
- * account is. They are the same list of buttons and the rule for both is the
- * same — every one of them opens a panel that renders something real.
+ * Your things first: the overview, search, every conversation, every handover,
+ * and what Sidq knows about your work and how you work. Then how Sidq is wired
+ * in: which tools ask it directly, the keys, what it reads, the team. At the
+ * bottom, the account and the settings. The rule for every row is the same as
+ * it always was: each opens a panel that renders something real, read from
+ * this Mac, and none is a placeholder for something coming.
  */
-const ALL_TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] =
-  [
+const ALL_TABS: {
+  id: Tab;
+  label: string;
+  icon: IconName;
+  group?: "wiring" | "account";
+  secondary?: true;
+}[] = [
     { id: "overview", label: "Overview", icon: "overview" },
     { id: "search", label: "Search", icon: "search" },
-    { id: "sources", label: "Sources", icon: "sources" },
+    { id: "conversations", label: "Conversations", icon: "conversations" },
+    { id: "handovers", label: "Handovers", icon: "handovers" },
     /*
      * Beside "How you work", and the pair is the point.
      *
@@ -79,9 +107,13 @@ const ALL_TABS: { id: Tab; label: string; icon: IconName; secondary?: true }[] =
      */
     { id: "projects", label: "What you're on", icon: "projects" },
     { id: "profile", label: "How you work", icon: "profile" },
-    { id: "team", label: "Your team", icon: "team" },
+    { id: "connections", label: "Connections", icon: "connections", group: "wiring" },
+    { id: "shortcuts", label: "Shortcuts", icon: "shortcuts", group: "wiring" },
+    { id: "sources", label: "Sources", icon: "sources", group: "wiring" },
+    { id: "team", label: "Your team", icon: "team", group: "wiring" },
     { id: "plan", label: "Plan", icon: "plan", secondary: true },
     { id: "invite", label: "Invite a friend", icon: "invite", secondary: true },
+    { id: "settings", label: "Settings", icon: "settings", secondary: true },
   ];
 
 /**
@@ -417,8 +449,18 @@ export function Home() {
           </button>
         </div>
 
-        <nav className="mt-6 flex flex-col gap-0.5">
-          {TABS.filter((t) => !t.secondary).map((t) => (
+        <nav className="mt-6 flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+          {TABS.filter((t) => !t.secondary && !t.group).map((t) => (
+            <NavRow
+              key={t.id}
+              tab={t}
+              active={tab === t.id}
+              onClick={() => setTab(t.id)}
+            />
+          ))}
+          {/* How Sidq is wired in, a step apart from your own things. */}
+          <div className="mx-3 my-2.5 h-px bg-[var(--w-line)]" aria-hidden="true" />
+          {TABS.filter((t) => t.group === "wiring").map((t) => (
             <NavRow
               key={t.id}
               tab={t}
@@ -533,6 +575,13 @@ export function Home() {
             )}
             {tab === "search" && (
               <Search bridge={bridge} historyDays={plan?.historyDays ?? null} />
+            )}
+            {tab === "conversations" && <Conversations bridge={bridge} />}
+            {tab === "handovers" && <Handovers bridge={bridge} plan={plan} />}
+            {tab === "connections" && <Connections bridge={bridge} />}
+            {tab === "shortcuts" && <Shortcuts bridge={bridge} />}
+            {tab === "settings" && (
+              <Settings bridge={bridge} theme={theme} onTheme={setTheme} />
             )}
             {tab === "sources" && (
               <Sources sessions={sessions} bridge={bridge} />
@@ -676,6 +725,37 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
         <path d="M13 10.9c1.9.4 3 1.9 3 4.1" />
       </>
     ),
+    conversations: (
+      <>
+        <path d="M3 4.5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 13 4.5v4A1.5 1.5 0 0 1 11.5 10H7l-2.5 2V10h0A1.5 1.5 0 0 1 3 8.5Z" />
+        <path d="M15 7v4.5a1.5 1.5 0 0 1-1.5 1.5H13v2l-2.5-2H8" />
+      </>
+    ),
+    handovers: (
+      <>
+        <path d="M9.5 3H4.5A1.5 1.5 0 0 0 3 4.5v9A1.5 1.5 0 0 0 4.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.5" />
+        <path d="M11 3h4v4M15 3 8.5 9.5" />
+      </>
+    ),
+    connections: (
+      <>
+        <path d="M7 11 11 7" />
+        <path d="M8.5 5.5 10 4a2.8 2.8 0 0 1 4 4l-1.5 1.5" />
+        <path d="M9.5 12.5 8 14a2.8 2.8 0 0 1-4-4l1.5-1.5" />
+      </>
+    ),
+    shortcuts: (
+      <>
+        <path d="M6.5 6.5h5v5h-5Z" />
+        <path d="M6.5 6.5H5A1.5 1.5 0 1 1 6.5 5v1.5ZM11.5 6.5H13A1.5 1.5 0 1 0 11.5 5v1.5ZM6.5 11.5H5A1.5 1.5 0 1 0 6.5 13v-1.5ZM11.5 11.5H13a1.5 1.5 0 1 1-1.5 1.5v-1.5Z" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="9" cy="9" r="2.2" />
+        <path d="M9 2.5v1.8M9 13.7v1.8M2.5 9h1.8M13.7 9h1.8M4.4 4.4l1.3 1.3M12.3 12.3l1.3 1.3M4.4 13.6l1.3-1.3M12.3 5.7l1.3-1.3" />
+      </>
+    ),
     plan: (
       <>
         <rect x="2.5" y="4.5" width="13" height="9" rx="1.6" />
@@ -787,25 +867,6 @@ function MemoryCard({
   );
 }
 
-/*
- * ── Lately, across your AIs ──────────────────────────────────────────────────
- *
- * The last six things you worked on, from whichever assistant they were in,
- * newest first. This is the product's whole idea in one list: the rows come
- * from different apps and sit together as one history. Read from the same
- * index the picker uses; nothing here is sample data.
- */
-const SOURCE_LOGO: Record<string, string> = {
-  chatgpt: "/openai-logo.svg",
-  // Codex is OpenAI's, and its mark is theirs.
-  codex: "/openai-logo.svg",
-  "claude-code": "/claude-logo.svg",
-  "claude.ai": "/claude-logo.svg",
-  cowork: "/claude-logo.svg",
-  gemini: "/gemini-logo.svg",
-  grok: "/grok-logo.svg",
-};
-
 function Across({ sessions }: { sessions: WorkSession[] }) {
   if (sessions.length === 0) return null;
   return (
@@ -856,61 +917,6 @@ function isAStaleSession(problem: string): boolean {
 
 /* ── Panel headings ───────────────────────────────────────────────────────── */
 
-/**
- * The top of every panel that is not Overview.
- *
- * ── What this is fixing ──────────────────────────────────────────────────────
- * Overview opens on today's date, then a greeting, then a line saying what Sidq
- * is doing right now. Every other panel opened on a single bare word in 1.75rem
- * on white — "Plan", "Search", "Sources" — which is a browser tab, not a screen
- * somebody chose to look at. The window read warm for one route and sterile for
- * the other five.
- *
- * ── Why the eyebrow carries a number ─────────────────────────────────────────
- * The greeting works because the date is checkable: a person can look at it and
- * confirm the app is awake rather than showing them a cached yesterday. An
- * eyebrow reading "YOUR PLAN" above a heading reading "Plan" is decoration and
- * would have been worse than the bare heading it replaced.
- *
- * So every eyebrow states something measured and live, and any panel that has
- * no such number omits the eyebrow entirely rather than inventing one.
- */
-function PanelHead({
-  eyebrow,
-  title,
-  lead,
-}: {
-  /** Something measured and true, or nothing. Rendered uppercase. */
-  eyebrow?: string;
-  title: React.ReactNode;
-  /** One line under the heading. Optional, and never two. */
-  lead?: React.ReactNode;
-}) {
-  return (
-    <header>
-      {eyebrow && (
-        <p className="text-[0.6875rem] font-medium tracking-[0.08em] text-[var(--w-text-3)]">
-          {eyebrow.toUpperCase()}
-        </p>
-      )}
-      <h1
-        className={cn(
-          "font-display text-[2rem] font-semibold leading-[1.05] tracking-[-0.045em]",
-          // Only pulled down when there is an eyebrow to be pulled down from.
-          eyebrow && "mt-1.5",
-        )}
-      >
-        {title}
-      </h1>
-      {lead && (
-        <p className="mt-2.5 max-w-[54ch] text-[0.9375rem] leading-relaxed text-[var(--w-text-3)]">
-          {lead}
-        </p>
-      )}
-    </header>
-  );
-}
-
 /* ── Overview ─────────────────────────────────────────────────────────────── */
 
 /**
@@ -935,30 +941,9 @@ function Overview({
   stats: [number, number];
   hoursRead: number;
 }) {
-  const [rows, setRows] = useState<HandoverRecord[] | null>(null);
   const [reach, setReach] = useState<[number, number] | null>(null);
 
-  /*
-   * Whether there is a team folder to share into at all.
-   *
-   * Asked once here rather than per row, and used only to decide whether the
-   * button is worth drawing. Rust refuses the call regardless of what this
-   * says, so a wrong answer costs a button that does nothing rather than a
-   * conversation somewhere it should not be.
-   */
-  const [sharesWithTeam, setSharesWithTeam] = useState(false);
-  /*
-   * The assistants a handover can be sent straight into.
-   *
-   * Fetched once rather than per row: it is the same six every time, it never
-   * changes while the window is open, and a request per row on a list of fifty
-   * would be fifty requests to answer one question.
-   */
-  const [assistants, setAssistants] = useState<{ id: string; label: string }[]>(
-    [],
-  );
   const [taps, setTaps] = useState<[string, string] | null>(null);
-  const [shared, setShared] = useState<string | null>(null);
   /**
    * What stopped you this week, worst first.
    *
@@ -983,8 +968,6 @@ function Overview({
 
   useEffect(() => {
     if (!bridge) return;
-    void bridge.recentHandovers().then(setRows);
-    void bridge.assistantList().then(setAssistants);
     void bridge.tapKeys().then(setTaps);
     /*
      * Wrapped, because a bridge method that is absent throws synchronously,
@@ -998,9 +981,6 @@ function Overview({
     } catch {
       setBurn([]);
     }
-    void bridge
-      .teamSettings()
-      .then((t) => setSharesWithTeam(t.allowed && t.folder !== null));
     void bridge.recentWork(500).then((found) => {
       const sessions = found as WorkSession[];
       const ends = sessions
@@ -1071,120 +1051,17 @@ function Overview({
 
       <Across sessions={recent} />
 
-      <section aria-labelledby="handovers" className="mt-12">
+      {/*
+       * The week, in one line and whatever stopped you. The handovers
+       * themselves have a tab of their own now; this is the count and the
+       * argument, not the list.
+       */}
+      <section aria-labelledby="week" className="mt-12">
         <SectionHead
-          id="handovers"
-          title="Handovers"
-          note={`${(plan?.handoversUsed ?? 0).toLocaleString()} in the last 7 days`}
+          id="week"
+          title="This week"
+          note={`${(plan?.handoversUsed ?? 0).toLocaleString()} handovers in the last 7 days`}
         />
-
-        {rows !== null && rows.length === 0 && (
-          <div className="mt-4 border-y border-[var(--w-line)] py-5">
-            <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
-              Nothing handed over yet. Press <Keys>&#8984;&#8679;K</Keys>, pick a
-              conversation, press Enter. Each one is also written to your
-              Downloads folder as a Markdown file, so nothing is lost to a
-              misclick the way a clipboard is.
-            </p>
-          </div>
-        )}
-
-        {rows !== null && rows.length > 0 && (
-          <ul className="mt-4 divide-y divide-[var(--w-line)] border-y border-[var(--w-line)]">
-            {rows.map((row) => (
-              <li
-                key={`${row.sessionId}-${row.madeAt}`}
-                className="group flex items-center gap-3 py-3"
-              >
-                <SourceGlyph source={row.source} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[0.875rem] text-[var(--w-text)]">
-                    {row.title || "Untitled conversation"}
-                  </span>
-                  <span className="block truncate text-[0.75rem] text-[var(--w-text-3)]">
-                    {sourceLabel(row.source)}
-                    {projectLabel(row.project) && ` · ${projectLabel(row.project)}`}
-                  </span>
-                </span>
-                <span className="shrink-0 text-[0.75rem] tabular-nums text-[var(--w-text-3)]">
-                  {whenHandedOver(row.madeAt)}
-                </span>
-                {/*
-                 * Send it straight into an assistant's box.
-                 *
-                 * The promise was one keystroke and it stopped at the
-                 * clipboard: switch application, find the composer, click it,
-                 * paste. Sidq already opens these assistants in its own
-                 * window, so it puts the conversation where it was going.
-                 *
-                 * It does not press send. That message costs the person a
-                 * turn on their own plan, and they may want a line in front
-                 * of it.
-                 */}
-                {assistants.length > 0 && (
-                  <select
-                    aria-label={`Send ${row.title || "this conversation"} into an assistant`}
-                    value=""
-                    onChange={(e) => {
-                      const assistant = e.target.value;
-                      if (!assistant) return;
-                      e.target.value = "";
-                      void bridge?.handOverInto({
-                        sessionId: row.sessionId,
-                        source: row.source,
-                        resumePoint: "",
-                        when: whenHandedOver(row.madeAt),
-                        project: row.project,
-                        assistant,
-                      });
-                    }}
-                    className={cn(
-                      "shrink-0 cursor-pointer rounded-[8px] bg-transparent px-2 py-1",
-                      "text-[0.75rem] text-[var(--w-text-3)] ring-1 ring-inset ring-transparent",
-                      "transition-colors duration-150 hover:text-[var(--w-text)] hover:ring-[var(--w-line)]",
-                    )}
-                  >
-                    <option value="">Send to…</option>
-                    {assistants.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {/*
-                 * Sharing is dark. It is the only feature where a
-                 * conversation leaves this Mac, and the pitch is now that
-                 * none of them do. One exception in a settings panel is the
-                 * exception somebody screenshots. See `FEATURES`.
-                 */}
-                {FEATURES.sharing && sharesWithTeam && (
-                  <button
-                    onClick={() => {
-                      void bridge
-                        ?.shareHandover({
-                          sessionId: row.sessionId,
-                          title: row.title || "Untitled conversation",
-                          source: row.source,
-                          resumePoint: "",
-                          when: whenHandedOver(row.madeAt),
-                          project: row.project,
-                        })
-                        .then((ok) => ok && setShared(row.sessionId));
-                    }}
-                    className={cn(
-                      "shrink-0 rounded-[8px] px-2 py-1 text-[0.75rem] font-medium",
-                      "cursor-pointer text-[var(--w-text-3)] transition-colors duration-150",
-                      "hover:bg-[var(--w-invert)] hover:text-[var(--w-on-invert)]",
-                    )}
-                  >
-                    {shared === row.sessionId ? "Shared" : "Share with team"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
 
         {/*
          * ── What stopped you this week, and how far back it reads ─────────
@@ -1241,7 +1118,6 @@ function Overview({
         />
       </div>
 
-      <Counting bridge={bridge} />
     </>
   );
 }
@@ -1403,201 +1279,6 @@ function Autopilot({
   );
 }
 
-/**
- * One thing Sidq does, as a row: what it is, what it is doing right now, and
- * on the right the one control that changes it.
- *
- * The text sits in its own element so a switch can find the row it belongs to
- * from its title, the way a person reads it.
- */
-function AutoRow({
-  title,
-  body,
-  children,
-}: {
-  title: string;
-  body: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex items-start gap-6 py-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-[0.9375rem] font-medium tracking-[-0.01em] text-[var(--w-text)]">
-          {title}
-        </p>
-        <p className="mt-1 max-w-[60ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-          {body}
-        </p>
-      </div>
-      <div className="flex min-w-[4.5rem] shrink-0 justify-end pt-0.5">{children}</div>
-    </li>
-  );
-}
-
-/**
- * On or off, as a switch rather than a button that says what it will do.
- *
- * Named for the action it takes, so a screen reader hears "Turn it on" on a
- * switch that is off, and pressed state says which it is. The look is in
- * `.w-switch`: a track that goes blue and a knob that moves on transform only.
- */
-function Toggle({
-  on,
-  disabled = false,
-  onChange,
-}: {
-  on: boolean;
-  disabled?: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!on)}
-      disabled={disabled}
-      aria-pressed={on}
-      aria-label={on ? "Turn it off" : "Turn it on"}
-      className="w-switch shrink-0 cursor-pointer"
-    />
-  );
-}
-
-/**
- * A section's title, set small and in sentence case, with an optional note in
- * the same line. Replaces the letter-spaced capitals that labelled these, which
- * is the one typographic habit the website does not have.
- */
-function SectionHead({
-  id,
-  title,
-  note,
-}: {
-  id: string;
-  title: string;
-  note?: string;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-4">
-      <h2
-        id={id}
-        className="font-display text-[1.125rem] font-semibold tracking-[-0.03em] text-[var(--w-text)]"
-      >
-        {title}
-      </h2>
-      {note && (
-        <p className="text-[0.75rem] text-[var(--w-text-3)]">{note}</p>
-      )}
-    </div>
-  );
-}
-
-/** The assistant a row came from, as its real logo, or its initial. */
-function SourceGlyph({ source }: { source: string }) {
-  const logo = SOURCE_LOGO[source];
-  return (
-    <span className="grid size-6 shrink-0 place-items-center">
-      {logo ? (
-        <img src={logo} alt="" width={16} height={16} className="size-4" />
-      ) : (
-        <span className="grid size-4 place-items-center rounded-[4px] bg-[var(--w-invert)] text-[0.5625rem] font-semibold text-[var(--w-on-invert)]">
-          {sourceLabel(source).slice(0, 1)}
-        </span>
-      )}
-    </span>
-  );
-}
-
-/**
- * What Sidq counts, and the switch that stops it.
- *
- * ── Why the list is printed rather than summarised ───────────────────────────
- *
- * Every app with a privacy toggle says "usage data" and expects to be believed.
- * This product's entire argument is that you do not have to believe it, so the
- * events are named, in full, in the window, and the list comes from Rust rather
- * than being typed here — a hand-written copy would start lying the moment an
- * event was added, and it would lie in the one place somebody went to check.
- *
- * The section is absent until the first read returns, rather than rendering an
- * off switch that might be wrong. Showing "off" to somebody who turned it on is
- * a privacy control giving the wrong answer, which is worse than none.
- */
-function Counting({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
-  const [on, setOn] = useState<boolean | null>(null);
-  const [events, setEvents] = useState<[string, string][]>([]);
-  const [showing, setShowing] = useState(false);
-
-  useEffect(() => {
-    if (!bridge) return;
-    void bridge.counting().then(setOn);
-    void bridge.countedEvents().then(setEvents);
-  }, [bridge]);
-
-  if (on === null) return null;
-
-  return (
-    <section aria-labelledby="privacy" className="mt-12">
-      <SectionHead id="privacy" title="Privacy" />
-      <ul className="mt-4 border-y border-[var(--w-line)]">
-        <AutoRow
-          title="Counting how you use Sidq"
-          body={
-            on
-              ? "On. Numbers only, with no text of any kind in them: never a conversation, a title, a prompt or a filename. Turning it off also deletes anything not yet sent."
-              : "Off. Nothing about how you use Sidq leaves this Mac."
-          }
-        >
-          <Toggle
-            on={on}
-            onChange={(next) => {
-              setOn(next);
-              void bridge?.setCounting(next);
-            }}
-          />
-        </AutoRow>
-      </ul>
-
-      {events.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowing((was) => !was)}
-            className="mt-3 cursor-pointer text-[0.8125rem] text-[var(--w-text-3)] underline underline-offset-4 hover:text-[var(--w-text)]"
-          >
-            {showing
-              ? "Hide the list"
-              : `Everything it can count (${events.length})`}
-          </button>
-          {showing && (
-            <ul className="mt-3 space-y-2">
-              {events.map(([name, what]) => (
-                <li
-                  key={name}
-                  className="flex flex-wrap items-baseline gap-x-3"
-                >
-                  <span className="font-mono text-[0.75rem] text-[var(--w-text-4)]">
-                    {name}
-                  </span>
-                  <span className="min-w-0 flex-1 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-                    {what}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
-
-/** A keystroke, set in the mono face so it reads as something you press. */
-function Keys({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded-[5px] border border-[var(--w-line)] bg-[var(--w-surface)] px-1.5 py-0.5 font-mono text-[0.75rem] text-[var(--w-text-2)]">
-      {children}
-    </kbd>
-  );
-}
 
 /* ── Plan ─────────────────────────────────────────────────────────────────── */
 
@@ -2065,15 +1746,6 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   const [sharedWith, setSharedWith] = useState<string | null>(null);
   const [team, setTeam] = useState<SharedProject[]>([]);
   /*
-   * The assistants that can be wired to Sidq's MCP server, and the one just
-   * wired. Only clients actually installed come back, so this is empty on a
-   * machine with none and the whole block stays off the screen rather than
-   * offering to configure software nobody has.
-   */
-  const [clients, setClients] = useState<[string, string, boolean][]>([]);
-  const [connected, setConnected] = useState<string | null>(null);
-
-  /*
    * The public link for the chosen project, when it has one.
    *
    * `undefined` while unknown and `null` for "not published", because those are
@@ -2091,7 +1763,6 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       setChosen((was) => was ?? found[0]?.path ?? null);
     });
     void bridge.assistantList().then(setAssistants);
-    void bridge.mcpClients().then(setClients);
   }, [bridge]);
 
   useEffect(() => {
@@ -2139,65 +1810,6 @@ function Projects({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
   return (
     <>
       {heading}
-
-      {/*
-       * ── Connecting an assistant, above the projects rather than inside one ──
-       *
-       * Everything below this is per project and ends in a person pressing a
-       * key. This is the one control that changes how all of it is reached: a
-       * connected client asks Sidq for the memory itself, so nobody carries
-       * anything. It is set up once and then never touched, which is exactly
-       * why it cannot live behind a project picker.
-       *
-       * Hidden entirely when no supported client is installed. A button that
-       * writes a config file for software somebody does not have is a button
-       * that appears to work and does nothing.
-       */}
-      {clients.length > 0 && (
-        <div className="mt-5 rounded-[12px] border border-[var(--w-line)] bg-[var(--w-raised)] p-4">
-          <p className="text-[0.875rem] font-medium text-[var(--w-text)]">
-            Let an AI ask for this itself
-          </p>
-          <p className="mt-1.5 max-w-[58ch] text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-            Connect an assistant and it can read the memory below on its own,
-            with nothing pressed and nothing pasted. It runs on this Mac and
-            talks to Sidq directly, so nothing is uploaded and it still works
-            with the wifi off.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {clients.map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => {
-                  void bridge?.connectMcp(id).then((where) => {
-                    if (where) setConnected(label);
-                  });
-                }}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
-                  "bg-[var(--w-bg)] text-[var(--w-text)] ring-1 ring-inset ring-[var(--w-line)]",
-                  "cursor-pointer transition-colors duration-150 hover:bg-[var(--w-line)]",
-                )}
-              >
-                Connect {label}
-              </button>
-            ))}
-          </div>
-          {/*
-           * The restart line is the whole reason this says anything at all.
-           * Every MCP client reads its config once at launch, so a successful
-           * connection looks identical to a failed one until the app is
-           * restarted — and somebody who does not know that concludes it
-           * did not work.
-           */}
-          {connected && (
-            <p className="mt-3 text-[0.8125rem] leading-relaxed text-[var(--w-text-3)]">
-              Added to {connected}. Quit and reopen it, then ask it what you are
-              working on.
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {rows.map((row) => (
@@ -2635,15 +2247,6 @@ function MoonIcon() {
     >
       <path d="M15 10.6A6.4 6.4 0 0 1 7.4 3a6.6 6.6 0 1 0 7.6 7.6Z" />
     </svg>
-  );
-}
-
-/** A key, inline in a sentence. Small enough not to shout in a stats column. */
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded-[5px] border border-[var(--w-line)] bg-[var(--w-surface)] px-1.5 py-0.5 font-mono text-[0.6875rem] text-[var(--w-text)]">
-      {children}
-    </kbd>
   );
 }
 
@@ -3536,15 +3139,6 @@ function Hit({ hit }: { hit: SearchHit }) {
   );
 }
 
-/** Rust stores seconds; everything in the browser is milliseconds. */
-function whenHandedOver(seconds: number): string {
-  const days = Math.floor((Date.now() - seconds * 1000) / DAY_MS);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days} days ago`;
-  return new Date(seconds * 1000).toLocaleDateString();
-}
-
 /* ── Sources ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -3920,12 +3514,4 @@ function Sources({
       <ImportHistory bridge={bridge} />
     </>
   );
-}
-
-function whenLabel(endedAt: number): string {
-  const days = Math.floor((Date.now() - endedAt) / DAY_MS);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days}d ago`;
-  return `${Math.round(days / 30)}mo ago`;
 }

@@ -68,3 +68,6 @@ release/*.dmg
 # The on-device embedding model. A 23MB build input fetched and checksum-verified
 # by scripts/fetch-embed-model.sh, not source.
 src-tauri/resources/embed/*.onnx
+
+# dmgbuild, for the installer window (scripts/release.sh)
+.venv-dmg/

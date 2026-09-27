@@ -33,7 +33,8 @@ describe("what the app actually ships", () => {
     expect(FEATURES.team).toBe(true);
     expect(FEATURES.invites).toBe(false);
     expect(FEATURES.sharing).toBe(false);
-    expect(FEATURES.projectMemory).toBe(false);
+    // On since the front page became "one memory for every AI you use".
+    expect(FEATURES.projectMemory).toBe(true);
   });
 
   it("offers exactly the tiers it can actually fulfil", () => {
