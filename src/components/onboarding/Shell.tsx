@@ -1,155 +1,93 @@
 import { cn } from '@/lib/cn';
-import { PHASES, type Phase } from '@/lib/onboarding/steps';
+import { STEPS, type StepId } from '@/lib/onboarding/steps';
 
 /*
- * The first-run window.
+ * The frame every setup screen sits in.
  *
- * Two panes. Left is instruction and never holds more than a title, a line and
- * one control. Right is the product actually running, at the size it will really
- * be, because a screenshot of a card is a promise and a live card is proof.
+ * The website's page, split in two: paper on the left with one instruction and
+ * one action, and on the right a raised panel where a short film of that
+ * instruction plays on a loop. It was a black window with a violet bloom and a
+ * grid, which made setup the one part of Sidq that looked like a different
+ * product from the page it was downloaded from.
  *
- * The right pane carries a faint grid. It reads as a workspace rather than as a
- * void, and it gives the floating previews something to sit against so their
- * shadows have a surface to fall on.
+ * The progress line names the four screens rather than numbering them. Four
+ * words with the current one in ink reads as something short with a visible end.
  */
-
 export function Shell({
   left,
   right,
-  progress,
-  phase,
+  step,
   onBack,
 }: {
   left: React.ReactNode;
   right: React.ReactNode;
-  /** 0..1. Fills the rail under the current phase. */
-  progress: number;
-  /** Which named phase is active. */
-  phase?: Phase;
+  step: StepId;
   onBack?: () => void;
 }) {
   return (
-    <div className="grid h-[100dvh] grid-cols-1 grid-rows-[auto_1fr] overflow-hidden bg-[#0B0B10] text-white">
-      {/*
-       * The rail.
-       *
-       * Twelve steps as twelve dots reads as a chore. Five named phases reads as
-       * a short process with a visible end, and naming them means someone three
-       * screens in knows both where they are and what is left.
-       */}
-      {phase && <PhaseRail current={phase} progress={progress} />}
+    <div className="grid h-[100dvh] grid-rows-[auto_1fr] overflow-hidden bg-paper text-ink">
+      <Progress current={step} />
 
-      <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,42%)_1fr]">
-      {/* ── Instruction ─────────────────────────────────────────────────── */}
-      {/*
-       * Back sits in the layout, not on top of it.
-       *
-       * It was absolutely positioned at top-10 while the content was vertically
-       * centred, so how close they landed depended entirely on how tall the
-       * step happened to be. On the taller ones it ended up directly against
-       * the heading. A row of its own cannot collide with anything.
-       */}
-      {/*
-        * ── The instruction column scrolls, the window does not ──────────────
-        *
-        * The whole thing was min-height, so a step with more to say simply made
-        * the document taller and pushed its own action off the bottom. The
-        * onboarding window is a fixed 1040 by 720, so on the reading step the
-        * Continue button sat at 828 in a 720 window with nothing on screen
-        * suggesting there was anywhere to scroll to.
-        *
-        * That was true before anything was added to that step. It is the kind
-        * of fault that is invisible on a large display and total on a small
-        * one, which is the wrong way round for a first run.
-        *
-        * `min-h-0` is what lets a grid child be shorter than its content and
-        * therefore scroll at all. Without it the row keeps sizing to the
-        * content and the overflow never engages.
-        */}
-      <div className="grid min-h-0 grid-rows-[auto_1fr] overflow-y-auto px-10 py-10 lg:px-14">
-        <div className="mx-auto flex h-9 w-full max-w-[24rem] items-center">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="-ml-2 rounded-md px-2 py-1 text-[0.8125rem] text-white/35 transition-colors duration-150 hover:text-white/80"
-            >
-              ‹ Back
-            </button>
-          )}
+      <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,44%)_1fr]">
+        <div className="grid min-h-0 grid-rows-[auto_1fr] overflow-y-auto px-10 pb-10 lg:px-14">
+          <div className="mx-auto flex h-9 w-full max-w-[25rem] items-center">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="-ml-2 cursor-pointer rounded-md px-2 py-1 text-[0.8125rem] text-ink/45 transition-colors duration-150 hover:text-ink"
+              >
+                ‹ Back
+              </button>
+            )}
+          </div>
+
+          {/* Keyed on the step so each screen arrives rather than swapping. */}
+          <div key={step} className="animate-rise mx-auto flex w-full max-w-[25rem] flex-col justify-center py-6">
+            {left}
+          </div>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[24rem] flex-col justify-center py-6">
-          {left}
-        </div>
-      </div>
-
-      {/* ── Live preview ────────────────────────────────────────────────── */}
-      <div className="relative hidden overflow-hidden border-l border-white/[0.06] bg-[#08080C] lg:block">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-[0.55]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)',
-            backgroundSize: '38px 38px',
-          }}
-        />
-        {/* A single indigo bloom so the pane is lit rather than merely dark. */}
-        <div
-          aria-hidden="true"
-          className="bloom-breathe pointer-events-none absolute left-1/2 top-1/3 size-[34rem] -translate-x-1/2 rounded-full bg-[#7C6BC4] opacity-[0.12] blur-[110px]"
-        />
-        <div className="relative grid h-full place-items-center p-12">{right}</div>
+        <div className="relative m-3 ml-0 hidden overflow-hidden rounded-[20px] bg-[#EFEDE8] ring-1 ring-inset ring-ink/[0.06] lg:block">
+          <div key={step} className="animate-rise grid h-full place-items-center p-10">
+            {right}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * The named phases across the top, with a fill under the active one.
- *
- * Completed phases stay lit rather than reverting to grey: the point of a rail
- * is showing ground covered, and dimming it the moment you leave undoes that.
- */
-function PhaseRail({ current, progress }: { current: Phase; progress: number }) {
-  const index = PHASES.indexOf(current);
+function Progress({ current }: { current: StepId }) {
+  const index = STEPS.findIndex((s) => s.id === current);
 
   return (
-    <nav
-      aria-label="Setup progress"
-      className="flex items-center gap-1 border-b border-white/[0.07] px-6 py-4 lg:px-10"
-    >
-      {PHASES.map((name, i) => {
-        const done = i < index;
-        const active = i === index;
-
-        return (
-          <div key={name} className="flex min-w-0 flex-1 flex-col gap-2">
+    <nav aria-label="Setup progress" className="flex items-center gap-6 px-10 pb-2 pt-5 lg:px-14">
+      <span className="font-display text-[1.0625rem] font-semibold tracking-[-0.05em]">Sidq</span>
+      <ol className="ml-auto flex items-center gap-5">
+        {STEPS.map((s, i) => (
+          <li
+            key={s.id}
+            aria-current={i === index ? 'step' : undefined}
+            className={cn(
+              'flex items-center gap-2 text-[0.8125rem] transition-colors duration-300',
+              i === index ? 'text-ink' : i < index ? 'text-ink/45' : 'text-ink/30',
+            )}
+          >
             <span
+              aria-hidden="true"
               className={cn(
-                'truncate text-center text-[0.625rem] uppercase tracking-[0.16em] transition-colors duration-300',
-                active ? 'text-white' : done ? 'text-white/50' : 'text-white/25',
+                'size-1.5 rounded-full transition-colors duration-300',
+                i === index ? 'bg-[#2448E8]' : i < index ? 'bg-ink/35' : 'bg-ink/15',
               )}
-            >
-              {name}
-            </span>
-            <span className="h-[2px] w-full overflow-hidden rounded-full bg-white/[0.08]">
-              <span
-                className="block h-full rounded-full bg-lilac transition-[width] duration-500 ease-out"
-                // Completed phases are full; the active one fills with overall
-                // progress so the bar always moves on every single step.
-                style={{ width: done ? '100%' : active ? `${Math.max(12, progress * 100)}%` : '0%' }}
-              />
-            </span>
-          </div>
-        );
-      })}
+            />
+            {s.label}
+          </li>
+        ))}
+      </ol>
     </nav>
   );
 }
 
-/** Title, one line, one control. The left pane never gets more than this. */
 export function Instruction({
   title,
   subtitle,
@@ -157,30 +95,30 @@ export function Instruction({
   footer,
 }: {
   title: React.ReactNode;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   children?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
   return (
     <>
-      <h1 className="font-display text-[clamp(2rem,3.2vw,2.75rem)] leading-[1.02] tracking-[-0.035em]">
+      <h1 className="font-display text-[clamp(2.25rem,3.6vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.05em] text-ink">
         {title}
       </h1>
       {subtitle && (
-        <p className="mt-4 text-[1rem] leading-relaxed text-white/50">{subtitle}</p>
+        <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink/60">{subtitle}</p>
       )}
       {children && <div className="mt-9">{children}</div>}
-      {footer && <div className="mt-6">{footer}</div>}
+      {footer && <div className="mt-8">{footer}</div>}
     </>
   );
 }
 
 /**
- * The primary control.
+ * The one button on a screen. The website's download button: flat ink.
  *
- * When a step is gated on a real keypress this renders as an inert, outlined
- * waiting state rather than a disabled button. A greyed-out button reads as
- * broken; an outline that says what it is waiting for reads as an instruction.
+ * `waiting` is for a screen that moves on by itself once something happens
+ * elsewhere, such as the browser coming back from sign-in. It says what it is
+ * waiting for, with a slow blue pulse so it reads as listening, not broken.
  */
 export function PrimaryAction({
   label,
@@ -193,7 +131,8 @@ export function PrimaryAction({
 }) {
   if (waiting) {
     return (
-      <div className="grid min-h-[3.5rem] w-full place-items-center rounded-[14px] border border-white/10 px-6 text-[0.9375rem] text-white/40">
+      <div className="flex h-12 w-full items-center justify-center gap-2.5 rounded-[10px] border border-ink/12 px-6 text-[0.9375rem] text-ink/55">
+        <span aria-hidden="true" className="listening-dot size-1.5 rounded-full bg-[#2448E8]" />
         {label}
       </div>
     );
@@ -202,24 +141,27 @@ export function PrimaryAction({
   return (
     <button
       onClick={onClick}
-      className="btn-soft flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-[14px] px-6 text-[0.9375rem] font-medium"
+      className={cn(
+        'flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] px-6',
+        'bg-ink text-[0.9375rem] font-medium text-paper',
+        'transition-[background-color,transform] duration-150 hover:bg-ink/85 active:scale-[0.985]',
+      )}
     >
       {label}
-      <span aria-hidden="true">›</span>
     </button>
   );
 }
 
-/** A physical key, used in the shortcut steps. Lit when the key is held down. */
+/** A key, drawn as a keycap. Lit when it is held, so pressing it answers. */
 export function Key({ children, lit }: { children: React.ReactNode; lit?: boolean }) {
   return (
     <span
       className={cn(
-        'grid min-w-[2.75rem] place-items-center rounded-[10px] px-3 py-2.5',
-        'text-[0.8125rem] transition-all duration-150',
+        'grid h-11 min-w-11 place-items-center rounded-[10px] px-3',
+        'font-mono text-[0.8125rem] transition-[background-color,color,transform,box-shadow] duration-150',
         lit
-          ? 'bg-lilac text-white shadow-[0_0_0_1px_rgba(99,102,241,0.6),0_6px_20px_-4px_rgba(99,102,241,0.75)]'
-          : 'bg-white/[0.07] text-white/70 shadow-[0_1px_0_0_rgba(255,255,255,0.09)_inset]',
+          ? 'translate-y-px bg-[#2448E8] text-white shadow-[0_0_0_4px_rgba(36,72,232,0.15)]'
+          : 'bg-white text-ink shadow-[0_0_0_1px_rgba(18,18,26,0.1),0_2px_0_rgba(18,18,26,0.08)]',
       )}
     >
       {children}

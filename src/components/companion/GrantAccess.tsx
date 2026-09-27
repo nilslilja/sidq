@@ -78,25 +78,25 @@ export function GrantAccess({
         className={cn(
           'rounded-[12px] border p-4',
           compact && 'p-3',
-          dark ? 'border-lilac/25 bg-lilac/[0.08]' : 'border-lilac/45 bg-[#F5F1FF]',
+          dark ? 'border-lilac/25 bg-lilac/[0.08]' : 'border-[#2448E8]/25 bg-[#EEF1FD]',
         )}
       >
         <p
           className={cn(
             'flex items-center gap-2 text-[0.875rem] font-medium',
-            dark ? 'text-white' : 'text-[#16141C]',
+            dark ? 'text-white' : 'text-[#12121A]',
           )}
         >
           <span
             aria-hidden="true"
-            className={cn('size-1.5 rounded-full', dark ? 'bg-lilac' : 'bg-[#6A4BEA]')}
+            className={cn('size-1.5 rounded-full', dark ? 'bg-lilac' : 'bg-[#2448E8]')}
           />
           Reading your AIs
         </p>
         <p
           className={cn(
             'mt-1.5 max-w-[52ch] text-[0.8125rem] leading-relaxed',
-            dark ? 'text-white/55' : 'text-[#57516A]',
+            dark ? 'text-white/55' : 'text-[#5C5C66]',
           )}
         >
           ChatGPT, Claude, Gemini and the rest, in whichever browser you already use. Nothing
@@ -111,13 +111,13 @@ export function GrantAccess({
       className={cn(
         'rounded-[12px] border p-4',
         compact && 'p-3',
-        dark ? 'border-white/[0.10] bg-white/[0.03]' : 'border-black/[0.11] bg-[#FAF9FD]',
+        dark ? 'border-white/[0.10] bg-white/[0.03]' : 'border-black/[0.1] bg-white',
       )}
     >
       <p
         className={cn(
           'flex items-center gap-2 text-[0.875rem] font-medium',
-          dark ? 'text-white' : 'text-[#16141C]',
+          dark ? 'text-white' : 'text-[#12121A]',
         )}
       >
         <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-400/80" />
@@ -126,12 +126,12 @@ export function GrantAccess({
       <p
         className={cn(
           'mt-1.5 max-w-[54ch] text-[0.8125rem] leading-relaxed',
-          dark ? 'text-white/55' : 'text-[#57516A]',
+          dark ? 'text-white/55' : 'text-[#5C5C66]',
         )}
       >
-        ChatGPT, Gemini, Claude.ai, Grok and DeepSeek keep nothing readable on this Mac, so
-        Sidq reads them from the window instead. One switch, and every one of them works at
-        once. Without it, Sidq only sees the AIs that write to disk.
+        {compact
+          ? 'ChatGPT, Gemini, Claude.ai, Grok and DeepSeek, read from the window. Only AI tabs, enforced in code, and nothing leaves this Mac.'
+          : 'ChatGPT, Gemini, Claude.ai, Grok and DeepSeek keep nothing readable on this Mac, so Sidq reads them from the window instead. One switch, and every one of them works at once. Without it, Sidq only sees the AIs that write to disk.'}
       </p>
 
       {/*
@@ -140,25 +140,27 @@ export function GrantAccess({
         * macOS is about to warn that this permission is powerful, and it is
         * right. Answering that with specifics is the only thing that earns it.
         */}
-      <ul
-        className={cn(
-          'mt-3 space-y-1.5 text-[0.8125rem]',
-          dark ? 'text-white/55' : 'text-[#57516A]',
-        )}
-      >
-        <li>
-          <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Only AIs.</span> Eight
-          applications, and only tabs that are ChatGPT, Claude, Gemini, Grok or DeepSeek
-        </li>
-        <li>
-          <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Nothing else, ever.</span>{' '}
-          Any other window is never looked at, which is enforced in code rather than promised
-        </li>
-        <li>
-          <span className={dark ? 'text-white/85' : 'text-[#16141C]/70'}>Nothing leaves.</span> It
-          is read into an index on this Mac and never uploaded
-        </li>
-      </ul>
+      {!compact && (
+        <ul
+          className={cn(
+            'mt-3 space-y-1.5 text-[0.8125rem]',
+            dark ? 'text-white/55' : 'text-[#5C5C66]',
+          )}
+        >
+          <li>
+            <span className={dark ? 'text-white/85' : 'text-[#12121A]'}>Only AIs.</span> Eight
+            applications, and only tabs that are ChatGPT, Claude, Gemini, Grok or DeepSeek
+          </li>
+          <li>
+            <span className={dark ? 'text-white/85' : 'text-[#12121A]'}>Nothing else, ever.</span>{' '}
+            Any other window is never looked at, which is enforced in code rather than promised
+          </li>
+          <li>
+            <span className={dark ? 'text-white/85' : 'text-[#12121A]'}>Nothing leaves.</span> It
+            is read into an index on this Mac and never uploaded
+          </li>
+        </ul>
+      )}
 
       <div className="mt-3.5 flex flex-wrap items-center gap-2">
         <button
@@ -167,9 +169,9 @@ export function GrantAccess({
             setAsked(true);
           }}
           className={cn(
-            'rounded-lg px-3.5 py-2 text-[0.8125rem] font-medium',
+            'rounded-[10px] px-3.5 py-2 text-[0.8125rem] font-medium',
             'cursor-pointer transition-opacity duration-150 hover:opacity-90',
-            dark ? 'bg-lilac text-[#141319]' : 'bg-[#16141C] text-white',
+            dark ? 'bg-lilac text-[#141319]' : 'bg-[#12121A] text-white active:scale-[0.98]',
           )}
         >
           Turn it on
@@ -181,13 +183,13 @@ export function GrantAccess({
             onClick={() => void bridge?.openAccessibilitySettings()}
             className={cn(
               'text-[0.8125rem] underline-offset-4 transition-colors duration-150 hover:underline',
-              dark ? 'text-white/45 hover:text-white/75' : 'text-[#7A7489] hover:text-[#16141C]/75',
+              dark ? 'text-white/45 hover:text-white/75' : 'text-[#5C5C66] hover:text-[#12121A]',
             )}
           >
             Open System Settings
           </button>
         )}
-        <span className={cn('text-[0.75rem]', dark ? 'text-white/35' : 'text-[#8E8899]')}>
+        <span className={cn('text-[0.75rem]', dark ? 'text-white/35' : 'text-[#7A7A84]')}>
           {granted === null ? 'Checking' : 'This turns green on its own.'}
         </span>
       </div>

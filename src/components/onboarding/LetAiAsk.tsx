@@ -67,9 +67,9 @@ export function LetAiAsk({ bridge }: Props) {
   };
 
   return (
-    <section className="mt-8 rounded-[12px] border border-lilac/35 bg-lilac/[0.09] p-4">
-      <h3 className="text-[1rem] text-white">Let them ask Sidq back</h3>
-      <p className="mt-2 max-w-[46ch] text-[0.9375rem] leading-relaxed text-white/65">
+    <section className="mt-8 border-t border-ink/10 pt-6">
+      <h3 className="text-[0.9375rem] font-medium text-ink">Let them ask Sidq back</h3>
+      <p className="mt-1.5 max-w-[46ch] text-[0.875rem] leading-relaxed text-ink/60">
         Everything else here is you carrying something across. This is the other
         direction: the assistant asks Sidq what it needs, before it answers, with
         nothing for you to press.
@@ -84,11 +84,11 @@ export function LetAiAsk({ bridge }: Props) {
               disabled={done || working === id}
               onClick={() => connect(id, label)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+                "rounded-[10px] px-3 py-1.5 text-[0.8125rem] font-medium",
                 "cursor-pointer transition-colors duration-150",
                 done
-                  ? "bg-transparent text-white/45 ring-1 ring-inset ring-white/15"
-                  : "bg-white text-black hover:opacity-90",
+                  ? "bg-transparent text-ink/45 ring-1 ring-inset ring-ink/15"
+                  : "bg-ink text-paper hover:bg-ink/85 active:scale-[0.98]",
                 working === id && "opacity-60",
               )}
             >
@@ -106,14 +106,14 @@ export function LetAiAsk({ bridge }: Props) {
         * did not work, on the screen where they are deciding whether Sidq does.
         */}
       {connected.length > 0 && (
-        <p className="mt-3 max-w-[46ch] text-[0.875rem] leading-relaxed text-white/45">
+        <p className="mt-3 max-w-[46ch] text-[0.875rem] leading-relaxed text-ink/55">
           Restart {connected.length === 1 ? connected[0] : "them"} and it will
           have Sidq. Nothing is sent anywhere: it reads the same index on this
           Mac that the picker does.
         </p>
       )}
 
-      <p className="mt-3 text-[0.8125rem] leading-relaxed text-white/30">
+      <p className="mt-3 text-[0.8125rem] leading-relaxed text-ink/40">
         You can change this later under What you&rsquo;re on.
       </p>
     </section>
