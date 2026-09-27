@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Wordmark } from "@/components/landing/Wordmark";
 import { SiteFooter } from '@/components/landing/SiteFooter';
 
 /*
@@ -256,12 +256,7 @@ function Page({
   return (
     <div className="bg-paper">
       <header className="mx-auto max-w-[46rem] px-6 pt-10">
-        <Link
-          to="/"
-          className="font-display font-semibold text-[1.5rem] leading-none tracking-[-0.05em] transition-opacity duration-150 hover:opacity-70"
-        >
-          Sidq
-        </Link>
+        <Wordmark />
       </header>
 
       <main className="mx-auto max-w-[46rem] px-6 py-16">

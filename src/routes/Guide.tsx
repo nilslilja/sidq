@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { Wordmark } from "@/components/landing/Wordmark";
 import { cn } from "@/lib/cn";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { DownloadButton } from "@/components/landing/DownloadButton";
@@ -59,12 +60,7 @@ export function ChatgptToClaude() {
     <div className="bg-paper">
       <header className="border-b border-ink/10">
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
-          <Link
-            to="/"
-            className="inline-flex min-h-11 items-center font-display font-semibold text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
-          >
-            Sidq
-          </Link>
+          <Wordmark />
           <nav className="flex items-center gap-6 sm:gap-7">
             <Link
               to="/pricing"
@@ -308,12 +304,7 @@ function GuidePage({ guide }: { guide: Guide }) {
     <div className="bg-paper">
       <header className="border-b border-ink/10">
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
-          <Link
-            to="/"
-            className="inline-flex min-h-11 items-center font-display font-semibold text-[1.375rem] leading-none tracking-[-0.05em] sm:min-h-0"
-          >
-            Sidq
-          </Link>
+          <Wordmark />
           <nav className="flex items-center gap-6 sm:gap-7">
             <Link
               to="/pricing"

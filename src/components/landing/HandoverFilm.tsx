@@ -1,378 +1,295 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { PillPreview } from "./PillPreview";
+import {
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+} from "motion/react";
+import { PillPreview, type PillRow, type PillSaved } from "./PillPreview";
 import { SidqDot } from "@/components/SidqDot";
-import { MacDock } from "./MacDock";
 import { cn } from "@/lib/cn";
 
 /*
- * The whole product, in twenty two seconds, drawn rather than filmed.
+ * The whole product on a desktop, drawn rather than filmed.
  *
  * ── Why not a screen recording ───────────────────────────────────────────────
+ * A recording puts somebody's wallpaper, windows and conversation titles on the
+ * front page, for a product whose whole claim is that your conversations stay
+ * yours, and it goes stale the moment the interface moves. This is built from
+ * the components the app ships: the picker is `PillPreview` and the dot is
+ * `SidqDot`, so it cannot drift from the product and it is sharp on any screen.
  *
- * A recording taken off a real machine puts somebody's wallpaper, their dock,
- * their open windows and the names of their actual conversations on the front
- * page. That is a privacy problem for a product whose entire claim is that your
- * conversations stay yours, and it is also unfixable: the file goes stale the
- * moment the interface moves and nobody re-records it.
+ * ── Why it is one clock, not a list of beats ─────────────────────────────────
+ * The previous version stepped through beats with timers and let CSS
+ * transitions animate between them. Every beat changed the camera's zoom and
+ * its pivot at once, so the frame jumped when the pivot moved and stuttered
+ * while the browser re-rasterised a changing scale. It read as choppy because
+ * it was.
  *
- * This is built from the same components the app ships, so it cannot drift, it
- * stays sharp on every display, and there is nothing in it that belongs to
- * anybody. The picker is `PillPreview`, which is the real thing.
+ * Now a single clock runs from 0 to the end of the loop on the display's own
+ * frame callback, and everything that moves (camera, pointer, the picker
+ * opening out of the dot, the second window arriving) is a pure function of
+ * that clock. Nothing is triggered, so nothing can land late; the camera is a
+ * translate and a scale about a fixed origin, so nothing jumps. React renders
+ * only when something discrete changes: a caption, a highlighted row, the next
+ * word of the reply.
  *
- * ── Why the handover text is generated, not written ──────────────────────────
- *
- * The output shown in the last scene is not marketing copy that resembles a
- * handover. It is the literal output of `compiler.rs`, produced by
- * `demo_sample::print_a_handover_for_the_website` and pasted here. Anybody who
- * installs Sidq and makes a handover gets a document in exactly this shape.
- * Writing a prettier version would be the one lie the page cannot afford.
- *
- * ── Why it zooms ─────────────────────────────────────────────────────────────
- *
- * The interesting parts are small: a bar 112 points wide, a row in a list, a
- * paperclip. Shown at desktop scale they are specks, and shown at full size
- * they lose the context that makes them mean anything. Moving between the two
- * is the only way to say "this lives on your desktop" and "this is what it
- * does" in the same shot.
- *
- * Zoom is one transform on one wrapper, so the whole thing stays on the
- * compositor. Everything inside is laid out once and never reflows.
+ * ── The curve ────────────────────────────────────────────────────────────────
+ * Moves use a critically damped spring's response rather than an ease-in-out:
+ * they leave at speed and settle without overshoot, the way Apple animates
+ * anything that is not thrown. The one thing that is dropped into place, the
+ * attached file, gets a little bounce, because it was.
  */
 
-/*
- * One beat of the film.
- *
- * `at` is where the cursor goes, in percentages of the stage. The camera is
- * derived from it rather than authored separately: the shot is always centred
- * on the pointer, so wherever the cursor moves the frame follows and the viewer
- * never has to hunt for what changed. Authoring the two independently is what
- * made the first version feel like a slideshow with a mouse drawn on it.
- */
-interface Beat {
-  /** Milliseconds this beat holds before the next. */
-  hold: number;
-  /** Zoom for this beat. */
-  scale: number;
-  /** Where the pointer is, and therefore what the camera centres on. */
-  at: { x: number; y: number };
-  caption: string;
-}
+/* ── Timeline, in milliseconds ─────────────────────────────────────────────── */
 
-/*
- * The script.
- *
- * ── One length for every beat ────────────────────────────────────────────────
- *
- * The first version gave each beat whatever felt right — half a second here,
- * two and a bit there — and the result read as broken rather than as paced.
- * A viewer works out the rhythm of a loop in the first two beats and then
- * predicts it; when the third arrives early they read it as a stutter, not as
- * emphasis. So every beat is the same length. It is slower than the fastest
- * version and far calmer, and calm is what makes it look deliberate.
- *
- * The last beat is the exception, and it is not pacing: there is a reply to
- * read, and the loop restarting before somebody finishes reading it wastes the
- * only beat that closes the argument.
- *
- * ── Why it is this slow ──────────────────────────────────────────────────────
- *
- * Nearly three seconds a beat, with the camera taking two of them to move. That
- * is much slower than feels right while building it, and it is the difference
- * between a demo that looks eager and one that looks certain. Fast cuts read as
- * a product trying to hold your attention; a slow move reads as one that
- * assumes it already has it. The move is also almost always still going when
- * the beat ends, which is deliberate — there is never a moment of dead air
- * where the frame has arrived and nothing is happening yet.
- *
- * ── The pill opens on its own beat ───────────────────────────────────────────
- *
- * The camera used to push into the pill on the same beat the picker replaced
- * it, so it zoomed toward a bar that had already become a panel — which is what
- * made the move feel like it had missed. Beat 1 is the closed bar and nothing
- * else; the panel arrives on beat 2, after the camera has settled.
- */
-const BEAT = 1200;
+const T = {
+  keysIn: 900,
+  keysDown: 1150,
+  pickerOpen: 1300,
+  pointToRow: 2300,
+  rowReached: 3050,
+  press: 3650,
+  saved: 3800,
+  pickerClose: 5300,
+  claudeIn: 5450,
+  pointToClip: 6300,
+  clipClick: 7000,
+  attached: 7100,
+  pointToSend: 7700,
+  send: 8250,
+  reply: 8450,
+  fadeOut: 15600,
+  loop: 16200,
+} as const;
 
-/*
- * Measured, not guessed: the three rows sit at 21.1%, 28.4% and 35.7% of the
- * stage, and the collapsed bar at 9.2%.
- */
-const ROW_Y = [21.1, 28.4, 35.7];
-const PICKED = 0;
+/** How fast the reply streams, in words a second: about what a fast model does. */
+const WORDS_PER_SECOND = 32;
 
-/*
- * ── Two scales, and they are close together ──────────────────────────────────
- *
- * The camera used to run 1 → 1.7 → 1.34 → 1 → 1.7 → 1.06: six different scales
- * and some big jumps between them. What a scale animation costs is not the
- * scale, it is the *change* — the browser re-rasterises the scaled subtree as
- * it goes, and the further it travels the more of that it does. That was the
- * scrolling and the stutter.
- *
- * So there are two now, near each other. WIDE is the desktop, CLOSE is near
- * enough to read the picker, and every beat is one or the other. The moves are
- * short enough to be cheap and still read as a camera settling rather than a
- * cut.
- */
-const WIDE = 1;
-const CLOSE = 1.22;
+const STAGE_W = 1040;
+const STAGE_H = 650;
 
-/*
- * ── One camera position for the whole pick ───────────────────────────────────
- *
- * This is the fix for the film looking like it could not make up its mind. The
- * camera used to move on every beat — in to the bar, out to the list, in again
- * to the row, and back out — so the frame was still travelling while the thing
- * it was travelling toward also moved. Three consecutive moves in different
- * directions read as indecision, because that is what indecision looks like.
- *
- * Now the camera settles once when the panel opens and does not move again
- * until the panel is gone. Everything that happens during the pick is the
- * cursor, which is the only thing that should be moving while somebody is
- * choosing. Identical scale and origin across those beats means the transition
- * has nothing to do and the frame is genuinely still.
- */
-const LIST_SHOT = { scale: CLOSE, at: { x: 46, y: 26 } };
+/* ── Content ──────────────────────────────────────────────────────────────── */
 
-/*
- * How long the pointer takes to cross the panel. Must match `.film-cursor` in
- * global.css: the row highlight is timed off this, and if the two drift the
- * highlight lands before the cursor again.
- */
-const CURSOR_TRAVEL_MS = 620;
-
-
-/*
- * ── The pick, as a sequence of states rather than a slideshow ────────────────
- *
- * Three things were wrong and they compounded. The panel opened with a row
- * already highlighted, so the choosing had happened before the viewer arrived.
- * The cursor then moved to a row that was already lit, so nothing changed when
- * it got there. And there was no click, so the file appeared for no visible
- * reason.
- *
- * It reads as a person now: the list opens with nothing selected, the pointer
- * travels down into it, the row lights when the pointer reaches it — which is
- * the real picker's hover behaviour, not an invention — and then it is clicked.
- */
-interface PickState {
-  /** Which row is hovered, or null for none. */
-  hover: number | null;
-  /** Mid-click on this beat. */
-  press: boolean;
-}
-
-const BEATS: Beat[] = [
-  { hold: BEAT, scale: WIDE, at: { x: 50, y: 55 }, caption: "It sits above everything, out of the way." },
-  { hold: 1300, scale: CLOSE, at: { x: 50, y: 9.2 }, caption: "One shortcut, from wherever you are." },
-  // The list opens, nothing hovered, and the pointer is still up at the bar.
-  /*
-   * 1200, not 800. The camera transition is 900ms (`.film-camera`), so this
-   * beat used to end before the move it started had finished, and the frame was
-   * redirected mid-flight to the next shot. Across the film that is what read
-   * as drift: the camera was almost never actually at rest. Any beat that moves
-   * the camera now holds long enough to arrive and then be still for a moment.
-   */
-  { hold: 1200, ...LIST_SHOT, at: { x: 50, y: 12 }, caption: "Everything you have said, to every assistant." },
-  // The pointer travels down. Same shot, so only it is moving.
-  /*
-   * Long enough for three things in order: the pointer travels (620ms, see
-   * CURSOR_TRAVEL_MS), the row lights when it lands, and the highlight is
-   * legible for a beat before the click lands on top of it. At 950 the hover
-   * existed for barely a third of a second and the pick still read as instant.
-   */
-  { hold: 1300, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Pick the one you want to carry." },
-  // Clicked.
-  { hold: 900, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "It writes the whole conversation to a file." },
-  /*
-   * ── The moment the product proves it did something ────────────────────────
-   *
-   * The click used to produce nothing visible and the film cut straight to the
-   * desktop, so the one thing the app does was the one thing the film skipped.
-   * This is the real panel: the list is replaced by a tick that lands, the
-   * filename, and the word count — which is the whole claim as a number.
-   *
-   * Same shot as the pick, so the camera is still while the panel changes
-   * under it. Long enough to read a five digit number and the line under it.
-   */
-  { hold: 2200, ...LIST_SHOT, at: { x: 42, y: ROW_Y[PICKED] }, caption: "Saved to Downloads, word for word." },
-  /*
-   * ── The camera leaves before the window does ──────────────────────────────
-   *
-   * The panel used to vanish in the same frame as the camera pulled out, which
-   * is two cuts at once and reads as a jump. Now the shot widens with the
-   * panel still in it, so you see it sitting on the desktop at its real size,
-   * and only then does it go.
-   */
-  { hold: 1300, scale: WIDE, at: { x: 50, y: 40 }, caption: "Saved to Downloads, word for word." },
-  { hold: BEAT, scale: WIDE, at: { x: 50, y: 55 }, caption: "Open anything else. A different company's model is fine." },
-  { hold: 1300, scale: CLOSE, at: { x: 13, y: 87 }, caption: "Attach it." },
-  { hold: 6000, scale: WIDE, at: { x: 50, y: 46 }, caption: "It picks up mid-thought, knowing what was decided and why." },
+const ROWS: PillRow[] = [
+  { title: "Why checkout silently loses payments", meta: "ChatGPT · yesterday · checkout" },
+  { title: "Rewriting the onboarding emails", meta: "Claude · 2 days ago · marketing" },
+  { title: "The Postgres index that never gets used", meta: "Codex · last week · api" },
 ];
 
-/*
- * Hover and press per beat, kept beside the script rather than derived from a
- * beat number in the render, so the whole choreography is readable in one
- * place. Beat 2 opens the list with nothing hovered; 3 is the hover; 4 is the
- * click and everything after it.
- */
-const PICK: Record<number, PickState> = {
-  2: { hover: null, press: false },
-  3: { hover: PICKED, press: false },
-  4: { hover: PICKED, press: true },
-};
-
-/*
- * Nothing here belongs to anybody.
- *
- * Three invented conversations, in the shape of work anybody visiting the page
- * will recognise. The titles are deliberately ordinary problems rather than
- * anything clever: the demo has to be legible to somebody who has never seen
- * the product, and a title they have to decode spends the attention the rest of
- * the shot needs.
- */
-/*
- * What the confirmation reports. Invented, like the rows, and in the shape a
- * real one takes: the filename the app builds, and a conversation big enough
- * that nobody would have retyped it.
- */
-const SAVED = {
+const SAVED: PillSaved = {
   file: "checkout-payments-chatgpt.md",
   words: 18742,
   turns: 214,
   hours: 6,
 };
 
-const ROWS = [
-  { title: "Why checkout silently loses payments", meta: "ChatGPT · yesterday · checkout" },
-  { title: "Rewriting the onboarding emails", meta: "Claude · 2 days ago · marketing" },
-  { title: "The Postgres index that never gets used", meta: "Codex · last week · api" },
-];
-
-/*
- * ── What the last shot shows, and why it changed ─────────────────────────────
- *
- * It used to print the handover file itself, in monospace. That was accurate
- * and it was the wrong thing to show: a wall of grey fixed-width text reads as
- * source code, and the point being made is not "Sidq produces a file" — anybody
- * can produce a file. The point is that the assistant on the other side picks
- * the work up without being briefed.
- *
- * So the shot is the reply. The file is a chip above it, the way an attachment
- * actually appears, and underneath is the answer that came back. Every specific
- * in it — the eight per cent, the retries, the idempotency key, the em dash
- * rule — is something the handover carried and nothing the assistant could have
- * known otherwise, which is the entire argument made in six lines.
- */
-const ATTACHMENT = "Continue-this-conversation.md";
-
-/*
- * ── The reply ────────────────────────────────────────────────────────────────
- *
- * Every specific here came across in the handover and nothing in it could have
- * been guessed: the eight per cent, the retry behaviour, the decision to key on
- * the event id, the fact that a backfill is still outstanding, and the standing
- * instruction about em dashes. That is the argument — not that Sidq writes a
- * file, but that the model on the other side resumes mid-thought.
- *
- * The snippet is here because the audience is people who write code, and a
- * three line diff is the fastest way to say "it understood the actual problem"
- * to that reader. It is kept to three lines for the same reason the earlier
- * version of this whole shot was thrown out: a wall of monospace reads as a
- * dump, and one small block reads as an answer.
- */
 export type ReplyLine = { text: string; code?: boolean };
 
 const REPLY: ReplyLine[] = [
   { text: "Picking up from the idempotency work rather than starting over." },
   {
-    text: "You were losing about 8% of payments because Stripe retries the webhook and the handler was not idempotent, so the second delivery overwrote the first with a stale status. Keying on the event id fixes new traffic but leaves everything already dropped.",
+    text: "You were losing about 8% of payments because Stripe retries the webhook and the handler was not idempotent, so the second delivery overwrote the first with a stale status.",
   },
-  { text: "The guard is small. Take the event id and refuse anything you have already seen:" },
+  { text: "The guard is small. Refuse any event you have already seen:" },
   { text: "const seen = await db.events.find(evt.id);", code: true },
-  { text: "if (seen) return ok();          // retry, not a new payment", code: true },
+  { text: "if (seen) return ok(); // a retry, not a new payment", code: true },
   { text: "await db.events.insert({ id: evt.id, status: evt.type });", code: true },
   {
-    text: "That closes the leak going forward. The backfill is the other half, and it only wants the events from before the fix shipped rather than the whole table.",
+    text: "That closes the leak going forward. The backfill only wants the events from before the fix shipped, not the whole table.",
   },
-  { text: "I can write the backfill query next, or we can check the retry counts first to see how many were actually lost." },
+  { text: "Want the backfill query next, or the retry counts first?" },
 ];
 
-/*
- * ── One design size, scaled ──────────────────────────────────────────────────
- *
- * The scene is laid out once at 1040 by 650 and the whole thing is scaled to
- * whatever width it is handed. Everything inside can then be sized in absolute
- * units and it stays in proportion at every screen, which is what fixes the
- * phone: the film was 335 wide there with fifteen pixel type inside it, so the
- * picker was half the width of the Mac it was supposed to be sitting on.
- *
- * A percentage layout cannot do this. Percentages keep boxes proportional and
- * leave type at whatever the root says, so the smaller the frame the more the
- * text dominates it — and the frame is a scale model of a desktop, where type
- * being the wrong size relative to the window is the one thing that reads as
- * fake.
+const CAPTIONS: { at: number; text: string }[] = [
+  { at: 0, text: "Sidq sits above every app, out of the way." },
+  { at: T.pickerOpen, text: "One shortcut, from wherever you are." },
+  { at: T.pointToRow + 300, text: "Every conversation, with every AI you use." },
+  { at: T.press, text: "Pick one. The whole conversation is written to a file." },
+  { at: T.claudeIn, text: "Open any other AI. A different company is fine." },
+  { at: T.clipClick, text: "Attach it. Word for word, not a summary." },
+  { at: T.reply, text: "It picks up mid-thought, knowing what was decided and why." },
+];
+
+/* ── Curves ───────────────────────────────────────────────────────────────── */
+
+/** Progress through [from, to], clamped to 0..1. */
+function span(t: number, from: number, to: number): number {
+  if (t <= from) return 0;
+  if (t >= to) return 1;
+  return (t - from) / (to - from);
+}
+
+/**
+ * A critically damped spring's step response, normalised to land exactly on 1.
+ * Damping ratio 1: fast away, no overshoot, a long soft settle.
  */
-const STAGE_W = 1040;
-const STAGE_H = 650;
+function settle(p: number): number {
+  const k = 7;
+  const f = (x: number) => 1 - (1 + k * x) * Math.exp(-k * x);
+  return f(p) / f(1);
+}
+
+/** An underdamped spring (damping ratio about 0.7), for something dropped in. */
+function drop(p: number): number {
+  if (p >= 1) return 1;
+  const zeta = 0.7;
+  const w = 11;
+  const wd = w * Math.sqrt(1 - zeta * zeta);
+  return 1 - Math.exp(-zeta * w * p) * (Math.cos(wd * p) + ((zeta * w) / wd) * Math.sin(wd * p));
+}
+
+const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
 
 /*
- * ── Streaming the reply ──────────────────────────────────────────────────────
- *
- * The reply used to appear as a finished block behind a clip-path wipe, top to
- * bottom. That reads as a document being uncovered, not as an answer being
- * written, and it was the reason the last shot felt slow and unlike anything a
- * model actually does.
- *
- * This emits it in chunks, left to right, the way a model streams tokens. Words
- * rather than characters, because that is closer to what a token is and because
- * per-character typing at a readable speed takes far too long for a loop.
- *
- * The cadence is deliberately uneven. A fixed interval reads as a teleprinter;
- * real output arrives in bursts with small stalls, so the delay per word is
- * modulated by a cheap deterministic wobble. Deterministic and not random so
- * every viewer sees the same take, and so it cannot desynchronise from the
- * beat that owns it.
+ * Where the camera looks, in stage pixels, and how close. Keyed on time; the
+ * camera eases between consecutive shots with `settle`. The wide shot is the
+ * whole desktop; the close ones centre the picker, then the reply.
  */
-const WORDS_PER_TICK = 2;
-const TICK_MS = 34;
+type Shot = { at: number; until: number; x: number; y: number; s: number };
+const SHOTS: Shot[] = [
+  { at: 0, until: 0, x: STAGE_W / 2, y: STAGE_H / 2, s: 1 },
+  { at: T.pickerOpen, until: T.pickerOpen + 900, x: 520, y: 170, s: 1.16 },
+  { at: T.pickerClose, until: T.pickerClose + 900, x: STAGE_W / 2, y: STAGE_H / 2, s: 1 },
+  { at: T.reply, until: T.reply + 1200, x: 600, y: 360, s: 1.1 },
+];
 
-function useStreamedReply(active: boolean, lines: ReplyLine[]) {
-  const [shown, setShown] = useState(0);
-  const total = useMemo(
-    () => lines.reduce((n, l) => n + l.text.split(" ").length, 0),
-    [lines],
-  );
-
-  useEffect(() => {
-    if (!active) {
-      setShown(0);
-      return;
+function camera(t: number, boost: number) {
+  let from = SHOTS[0];
+  let to = SHOTS[0];
+  for (let i = 1; i < SHOTS.length; i += 1) {
+    if (t >= SHOTS[i].at) {
+      from = SHOTS[i - 1];
+      to = SHOTS[i];
     }
-    let n = 0;
-    const id = window.setInterval(() => {
-      // The wobble: some ticks emit one word, some three. Averages to two.
-      const step = WORDS_PER_TICK + ((n * 7) % 3) - 1;
-      n = Math.min(total, n + Math.max(1, step));
-      setShown(n);
-      if (n >= total) window.clearInterval(id);
-    }, TICK_MS);
-    return () => window.clearInterval(id);
-  }, [active, total]);
-
-  return useMemo(() => sliceIntoLines(lines, shown), [lines, shown]);
+  }
+  const p = to === from ? 1 : settle(span(t, to.at, to.until));
+  const s = lerp(from.s, to.s, p) * boost;
+  const cx = lerp(from.x, to.x, p);
+  const cy = lerp(from.y, to.y, p);
+  // Centre the shot, but never past the edge of the desktop.
+  const x = Math.min(0, Math.max(STAGE_W - STAGE_W * s, STAGE_W / 2 - cx * s));
+  const y = Math.min(0, Math.max(STAGE_H - STAGE_H * s, STAGE_H / 2 - cy * s));
+  return { x, y, s };
 }
 
 /*
- * Turn "n words have been emitted" back into per-line text.
- *
- * Exported so it can be tested. The stream is a single running count across the
- * whole reply, because that is how a model emits — it does not know about the
- * paragraph breaks, it just keeps going. Rendering needs the opposite view, so
- * this walks the lines spending the budget as it goes: a line that fits
- * entirely is complete, the one the budget runs out inside is the one carrying
- * the caret, and every line after it is empty.
+ * The pointer's stops. Between two stops it travels on a shallow arc, because a
+ * hand on a trackpad never moves in a ruled line.
  */
+type Stop = { at: number; until: number; x: number; y: number };
+const POINTER: Stop[] = [
+  { at: 0, until: 0, x: 640, y: 470 },
+  { at: T.pointToRow, until: T.rowReached, x: 446, y: 100 },
+  { at: T.pickerClose + 200, until: T.pickerClose + 900, x: 560, y: 380 },
+  // Measured off the rendered windows: the paperclip, then send.
+  { at: T.pointToClip, until: T.clipClick - 40, x: 214, y: 555 },
+  { at: T.pointToSend, until: T.send - 60, x: 822, y: 555 },
+];
+
+function pointer(t: number) {
+  let from = POINTER[0];
+  let to = POINTER[0];
+  for (let i = 1; i < POINTER.length; i += 1) {
+    if (t >= POINTER[i].at) {
+      from = POINTER[i - 1];
+      to = POINTER[i];
+    }
+  }
+  const p = to === from ? 1 : settle(span(t, to.at, to.until));
+  const arc = Math.sin(Math.PI * p) * Math.min(40, Math.hypot(to.x - from.x, to.y - from.y) * 0.08);
+  return { x: lerp(from.x, to.x, p), y: lerp(from.y, to.y, p) - arc };
+}
+
+/* ── The clock ────────────────────────────────────────────────────────────── */
+
+/**
+ * Milliseconds into the loop, advanced on the display's frame callback while
+ * the film is on screen, and parked while it is not. Under reduced motion it
+ * holds the last frame, which is the whole story in one picture.
+ */
+function useFilmClock(running: boolean, still: boolean): MotionValue<number> {
+  const clock = useMotionValue(still ? T.fadeOut - 1 : 0);
+
+  useEffect(() => {
+    /*
+     * Development only: `?film=4000` freezes the film at 4 seconds, so any frame
+     * can be looked at on its own. Stripped from the production build.
+     */
+    if (import.meta.env.DEV) {
+      const frozen = new URLSearchParams(window.location.search).get("film");
+      if (frozen !== null) {
+        clock.set(Number(frozen));
+        return;
+      }
+    }
+    if (still) {
+      clock.set(T.fadeOut - 1);
+      return;
+    }
+    if (!running) return;
+    let frame = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      // A dropped frame or a background tab should not skip a scene.
+      const dt = Math.min(64, now - last);
+      last = now;
+      clock.set((clock.get() + dt) % T.loop);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [clock, running, still]);
+
+  return clock;
+}
+
+/** What the discrete parts of the frame are showing at time `t`. */
+function snapshot(t: number) {
+  const words = t < T.reply ? 0 : Math.floor(((t - T.reply) / 1000) * WORDS_PER_SECOND);
+  let caption = 0;
+  for (let i = 0; i < CAPTIONS.length; i += 1) if (t >= CAPTIONS[i].at) caption = i;
+  return {
+    caption,
+    keysDown: t >= T.keysDown && t < T.keysDown + 260,
+    splash: t >= T.keysDown ? 1 : 0,
+    hover: t >= T.rowReached && t < T.pickerClose ? 0 : null,
+    press: t >= T.press && t < T.press + 160,
+    // The pointer's own press: on the row, the paperclip and send.
+    click:
+      (t >= T.press && t < T.press + 160) ||
+      (t >= T.clipClick && t < T.clipClick + 140) ||
+      (t >= T.send && t < T.send + 140),
+    claude: t >= T.claudeIn + 300,
+    saved: t >= T.saved,
+    attached: t >= T.attached,
+    sent: t >= T.send,
+    words,
+  };
+}
+
+type Snapshot = ReturnType<typeof snapshot>;
+
+function same(a: Snapshot, b: Snapshot): boolean {
+  return (
+    a.caption === b.caption &&
+    a.keysDown === b.keysDown &&
+    a.splash === b.splash &&
+    a.hover === b.hover &&
+    a.press === b.press &&
+    a.click === b.click &&
+    a.claude === b.claude &&
+    a.saved === b.saved &&
+    a.attached === b.attached &&
+    a.sent === b.sent &&
+    a.words === b.words
+  );
+}
+
+/* ── Streaming ────────────────────────────────────────────────────────────── */
+
 export function sliceIntoLines(lines: ReplyLine[], shown: number) {
   let left = shown;
   return lines.map((line) => {
@@ -387,14 +304,16 @@ export function sliceIntoLines(lines: ReplyLine[], shown: number) {
   });
 }
 
+type Streamed = ReturnType<typeof sliceIntoLines>;
+
+/* ── The film ─────────────────────────────────────────────────────────────── */
+
 export function HandoverFilm({ className }: { className?: string }) {
-  const [beat, setBeat] = useState(0);
-  const [playing, setPlaying] = useState(true);
   const wrap = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(1);
+  const [visible, setVisible] = useState(false);
+  const reduce = useReducedMotion() === true;
 
-  // Layout effect, so the first paint is already at the right size rather than
-  // flashing full size and snapping down.
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
@@ -405,454 +324,392 @@ export function HandoverFilm({ className }: { className?: string }) {
     return () => ro.disconnect();
   }, []);
 
-  /*
-   * Only runs while it is on screen.
-   *
-   * A timer driving transforms in a section three viewports down is work
-   * nobody asked for, on a page whose whole pitch includes being fast.
-   */
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setPlaying(entry.isIntersecting),
-      { threshold: 0.25 },
-    );
+    const io = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {
+      threshold: 0.2,
+    });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!playing) return;
-    const id = window.setTimeout(
-      () => setBeat((b) => (b + 1) % BEATS.length),
-      BEATS[beat].hold,
-    );
-    return () => window.clearTimeout(id);
-  }, [beat, playing]);
+  const clock = useFilmClock(visible, reduce);
 
-  const scene = BEATS[beat];
-  const streamed = useStreamedReply(beat >= 9, REPLY);
-  // 5 is the confirmation and 6 is the pull-back that still has the panel in it.
-  const showPicker = beat >= 2 && beat <= 6;
-  const showChat = beat >= 7;
   /*
-   * ── The row lights when the pointer lands, not when the beat starts ─────────
-   *
-   * The remaining half of the "it picks before the cursor gets there" problem.
-   * The hover state was applied the instant the beat began, while the cursor
-   * was still 620ms into its travel, so the row lit up under an empty patch of
-   * panel and the pointer arrived at something already selected — which is
-   * exactly what it looked like.
-   *
-   * The delay matches the cursor's transition in global.css. It is only paid on
-   * arrival: once the pointer is on the row, later beats that keep it there
-   * apply immediately, or the highlight would drop out and flash back on at
-   * the moment of the click.
+   * On a phone the desktop is a third of its size and nothing in it can be
+   * read, so the camera works twice as close and follows the action instead of
+   * showing the room.
    */
-  const wanted = PICK[beat] ?? { hover: null, press: false };
-  const [landed, setLanded] = useState(false);
-  const wasHovering = useRef(false);
+  const boost = fit < 0.6 ? 2 : 1;
 
-  useEffect(() => {
-    if (wanted.hover === null) {
-      setLanded(false);
-      wasHovering.current = false;
-      return;
-    }
-    if (wasHovering.current) {
-      setLanded(true);
-      return;
-    }
-    const id = window.setTimeout(() => {
-      setLanded(true);
-      wasHovering.current = true;
-    }, CURSOR_TRAVEL_MS);
-    return () => window.clearTimeout(id);
-  }, [wanted.hover]);
+  const camX = useTransform(clock, (t) => camera(t, boost).x);
+  const camY = useTransform(clock, (t) => camera(t, boost).y);
+  const camS = useTransform(clock, (t) => camera(t, boost).s);
+  const ptrX = useTransform(clock, (t) => pointer(t).x);
+  const ptrY = useTransform(clock, (t) => pointer(t).y);
 
-  const pick = { hover: landed ? wanted.hover : null, press: wanted.press && landed };
+  // The picker grows out of the dot and goes back into it: same anchor both ways.
+  const pickerOpen = useTransform(clock, (t) =>
+    t < T.pickerClose
+      ? settle(span(t, T.pickerOpen, T.pickerOpen + 520))
+      : 1 - settle(span(t, T.pickerClose, T.pickerClose + 380)),
+  );
+  const pickerScale = useTransform(pickerOpen, (p) => lerp(0.18, 1, p));
+  const pickerOpacity = useTransform(pickerOpen, (p) => Math.min(1, p * 2.2));
+  const pickerBlur = useTransform(pickerOpen, (p) => `blur(${((1 - p) * 8).toFixed(2)}px)`);
+  // The bar becomes the picker, as the real window does: the dot gives way to it.
+  const dotOpacity = useTransform(pickerOpen, (p) => 1 - Math.min(1, p * 3));
+
+  const claudeIn = useTransform(clock, (t) => settle(span(t, T.claudeIn, T.claudeIn + 800)));
+  const claudeX = useTransform(claudeIn, (p) => lerp(90, 0, p));
+  const claudeOpacity = useTransform(claudeIn, (p) => Math.min(1, p * 1.8));
+
+  const keysOpacity = useTransform(clock, (t) =>
+    t < T.keysIn || t > T.keysDown + 900
+      ? 0
+      : Math.min(settle(span(t, T.keysIn, T.keysIn + 250)), 1 - span(t, T.keysDown + 600, T.keysDown + 900)),
+  );
+  const keysY = useTransform(keysOpacity, (o) => lerp(10, 0, o));
+
+  const chip = useTransform(clock, (t) => drop(span(t, T.attached, T.attached + 700)));
+  const chipScale = useTransform(chip, (p) => lerp(0.6, 1, p));
+  const chipOpacity = useTransform(chip, (p) => Math.min(1, p * 3));
+
+  const frameOpacity = useTransform(clock, (t) =>
+    t < 400 ? span(t, 0, 400) : 1 - span(t, T.fadeOut, T.loop - 80),
+  );
+  const progress = useTransform(clock, (t) => t / T.loop);
+
+  const [shot, setShot] = useState<Snapshot>(() => snapshot(clock.get()));
+  useMotionValueEvent(clock, "change", (t) => {
+    const next = snapshot(t);
+    setShot((was) => (same(was, next) ? was : next));
+  });
+
+  const streamed = useMemo(() => sliceIntoLines(REPLY, shot.words), [shot.words]);
 
   return (
     <div ref={wrap} className={cn("w-full", className)}>
-      <PhoneFilm beat={beat} pick={pick} streamed={streamed} />
-
-      {/*
-       * Reserves exactly the scaled height, so nothing below it shifts.
-       *
-       * Not drawn on a phone. The stage is a 1040 pixel desktop, and scaled to a
-       * phone it is about a third of that: the picker's text lands near four
-       * pixels, which is the one part of the page that shows what the product
-       * does. PhoneFilm plays the same beats at a size somebody can read.
-       */}
-      <div style={{ height: STAGE_H * fit }} className="relative hidden w-full sm:block">
-      <div
-        style={{
-          width: STAGE_W,
-          height: STAGE_H,
-          transform: `scale(${fit})`,
-          transformOrigin: "top left",
-        }}
-        className={cn(
-          "relative overflow-hidden rounded-[18px]",
-          // Sidq's own dawn rather than a licensed desktop photograph.
-          "bg-[linear-gradient(165deg,#2A2A5C_0%,#4C4A8A_28%,#8E7BB0_52%,#D8A08C_74%,#F0C9A0_100%)]",
-          "shadow-[0_40px_100px_-30px_rgba(30,27,75,0.55)]",
-        )}
-      >
-        {/*
-         * The camera. One transform on one element: the scene inside is laid
-         * out once and only ever moved, so no beat costs a reflow.
-         */}
+      <div style={{ height: STAGE_H * fit }} className="relative w-full">
         <div
-          className="film-camera absolute inset-0"
-          style={{
-            // Origin is the cursor, so the camera is always centred on
-            // whatever is being pointed at.
-            transform: `scale(${scene.scale})`,
-            transformOrigin: `${scene.at.x}% ${scene.at.y}%`,
-          }}
+          style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${fit})`, transformOrigin: "top left" }}
+          className="absolute left-0 top-0 overflow-hidden rounded-[18px] shadow-[0_0_0_1px_rgba(18,18,26,0.08),0_40px_90px_-40px_rgba(18,18,26,0.45)]"
+          aria-hidden="true"
         >
-          <MenuBar />
+          <motion.div
+            className="absolute left-0 top-0 will-change-transform"
+            style={{ width: STAGE_W, height: STAGE_H, x: camX, y: camY, scale: camS, originX: 0, originY: 0 }}
+          >
+            <motion.div className="absolute inset-0" style={{ opacity: frameOpacity }}>
+              <Wallpaper />
+              <MenuBar />
 
-          {/*
-           * The shelf, so the shot is a Mac rather than a rectangle with a
-           * gradient. Sidq sits among the applications somebody already has,
-           * which is the only thing in the frame that gives it scale.
-           */}
-          <div className="absolute inset-x-0 bottom-[2.5%] z-10 flex justify-center">
-            <MacDock />
-          </div>
-          <Pill expanded={showPicker} />
+              <ChatGPTWindow dimmed={shot.claude} />
 
-          {showPicker && (
-            <div className="absolute inset-x-[22%] top-[11%] z-30">
-              <PillPreview
-                rows={ROWS}
-                selected={pick.hover}
-                pressed={pick.press}
-                saved={beat >= 5 ? SAVED : undefined}
-                /* Pill.tsx:1158 changes the footer with the phase. */
-                footer={
-                  beat >= 5
-                    ? "Ready to attach"
-                    : "The conversation itself, not a summary"
-                }
-              />
-            </div>
-          )}
+              <motion.div
+                className="absolute left-[150px] top-[118px] z-20 w-[740px]"
+                style={{ x: claudeX, opacity: claudeOpacity }}
+              >
+                <ClaudeWindow attached={shot.attached} sent={shot.sent} streamed={streamed} chipScale={chipScale} chipOpacity={chipOpacity} />
+              </motion.div>
 
-          {showChat && <ChatWindow revealed={beat >= 9} streamed={streamed} />}
-          <Cursor at={scene.at} />
+              {/* The dot, where the real one floats: centred, under the menu bar. */}
+              <motion.div
+                className="absolute left-1/2 top-[34px] z-40 grid size-6 -translate-x-1/2 place-items-center"
+                style={{ opacity: dotOpacity }}
+              >
+                <SidqDot mood={shot.splash && !shot.saved ? "hop" : "idle"} splash={shot.splash} />
+              </motion.div>
+
+              <motion.div
+                className="absolute left-1/2 top-[32px] z-30 w-[440px] -translate-x-1/2"
+                style={{
+                  scale: pickerScale,
+                  opacity: pickerOpacity,
+                  filter: pickerBlur,
+                  originX: 0.5,
+                  originY: 0,
+                }}
+              >
+                <PillPreview
+                  rows={ROWS}
+                  selected={shot.hover}
+                  pressed={shot.press}
+                  saved={shot.saved ? SAVED : undefined}
+                  footer={shot.saved ? "Ready to attach" : "The conversation itself, not a summary"}
+                />
+              </motion.div>
+
+              <motion.div
+                className="absolute bottom-[34px] left-1/2 z-50 flex -translate-x-1/2 gap-1.5 rounded-[14px] bg-white/80 p-1.5 shadow-[0_0_0_1px_rgba(18,18,26,0.08),0_18px_40px_-18px_rgba(18,18,26,0.45)] backdrop-blur-xl"
+                style={{ opacity: keysOpacity, y: keysY }}
+              >
+                {["⌘", "⇧", "K"].map((k) => (
+                  <span
+                    key={k}
+                    className={cn(
+                      "grid h-10 min-w-10 place-items-center rounded-[9px] px-2 font-sans text-[1rem] font-medium transition-[background-color,color,translate] duration-100",
+                      shot.keysDown ? "translate-y-px bg-[#2448E8] text-white" : "bg-[#F4F3EF] text-ink",
+                    )}
+                  >
+                    {k}
+                  </span>
+                ))}
+              </motion.div>
+
+              <motion.div className="absolute left-0 top-0 z-[60]" style={{ x: ptrX, y: ptrY }}>
+                <Pointer pressed={shot.click} />
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
-      </div>
 
-      {/*
-       * The caption is outside the camera, so it never scales with the shot.
-       * Fixed height, because a line that changes length must not shunt the
-       * section below it up and down every few seconds.
-       */}
       <p
-        /*
-         * Keyed by the words, not the beat.
-         *
-         * `key={beat}` remounted this on every beat and re-ran the fade, so two
-         * consecutive beats that share a caption made it blink out and back in
-         * with the same sentence — which is the opposite of the camera holding
-         * still. Keyed by its own text it animates when the words change and
-         * stays put when they do not, so the confirmation and the pull-back
-         * read as one held moment.
-         */
-        key={scene.caption}
-        className="film-caption mx-auto mt-6 flex min-h-[3.25rem] max-w-[44ch] items-start justify-center text-center text-[0.9375rem] leading-relaxed ink-muted"
+        key={shot.caption}
+        className="film-caption mx-auto mt-6 flex min-h-[3.25rem] max-w-[44ch] items-start justify-center text-center text-[0.9375rem] leading-relaxed text-ink/60"
       >
-        {scene.caption}
+        {CAPTIONS[shot.caption].text}
       </p>
-
-      <ol className="mt-1 flex items-center justify-center gap-1.5" aria-hidden="true">
-        {BEATS.map((_, i) => (
-          <li
-            key={i}
-            className={cn(
-              "h-1 rounded-full transition-all duration-500",
-              i === beat ? "w-5 bg-ink/45" : "w-1 bg-ink/15",
-            )}
-          />
-        ))}
-      </ol>
+      <div className="mx-auto mt-1 h-px w-24 overflow-hidden bg-ink/10" aria-hidden="true">
+        <motion.div className="h-full origin-left bg-ink/45" style={{ scaleX: progress }} />
+      </div>
     </div>
   );
 }
 
-/**
- * The same film, at a size a phone can read.
- *
- * ── Why a second view and not a smaller first one ───────────────────────────
- * The desktop shot is a Mac: a menu bar, a dock, a window with the picker in
- * it, a camera that pushes in on the cursor. All of that is built in stage
- * pixels, and a phone shows it at about a third of its size. No zoom rescues
- * it, because the stage is the wrong shape: pushing in far enough to read the
- * picker crops it.
- *
- * So below `sm` the Mac is dropped and the two things that carry the argument
- * are drawn directly in the page: the real picker, which is `PillPreview` and
- * already sizes itself in rem, and the reply on the other side. Same beats,
- * same hover, same click, same saved state, same streamed text.
- *
- * ── Fixed height ────────────────────────────────────────────────────────────
- * The picker and the reply are different heights, and the loop swaps between
- * them every few seconds. A box that followed its content would push the rest
- * of the page up and down on every loop, which is layout shift on a page that
- * measures at none. So the box is one height and the content sits in it.
- */
-function PhoneFilm({
-  beat,
-  pick,
-  streamed,
-}: {
-  beat: number;
-  pick: { hover: number | null; press: boolean };
-  streamed: Streamed;
-}) {
-  const inChat = beat >= 7;
-  const revealed = beat >= 9;
+/* ── The desktop ──────────────────────────────────────────────────────────── */
 
+/** The site's paper, lit from the top left like a desk by a window. */
+function Wallpaper() {
   return (
     <div
-      className={cn(
-        "relative h-[27rem] overflow-hidden rounded-[18px] p-2 sm:hidden",
-        "bg-[linear-gradient(165deg,#2A2A5C_0%,#4C4A8A_28%,#8E7BB0_52%,#D8A08C_74%,#F0C9A0_100%)]",
-        "shadow-[0_30px_80px_-30px_rgba(30,27,75,0.55)]",
-      )}
-    >
-      {!inChat ? (
-        <div key="pick" className="animate-pane">
-          <PillPreview
-            rows={ROWS}
-            selected={pick.hover}
-            pressed={pick.press}
-            saved={beat >= 5 ? SAVED : undefined}
-            footer={beat >= 5 ? "Ready to attach" : "The conversation itself, not a summary"}
-          />
-        </div>
-      ) : (
-        <div
-          key="chat"
-          className="animate-pane flex h-full flex-col overflow-hidden rounded-[12px] bg-[#141319] ring-1 ring-white/10"
-        >
-          <div className="flex h-7 shrink-0 items-center gap-1.5 bg-white/[0.04] px-3">
-            {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
-              <span key={c} className="size-2 rounded-full" style={{ background: c }} />
-            ))}
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-hidden px-3.5 pt-3 [mask-image:linear-gradient(to_bottom,black_82%,transparent)]">
-            {revealed ? (
-              <>
-                <div className="flex justify-end">
-                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-[8px] bg-white/[0.08] px-2.5 py-1.5 text-[0.75rem] text-white/70 ring-1 ring-white/10">
-                    {ATTACHMENT}
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2 text-left text-[0.8125rem] leading-[1.45] text-white/85">
-                  {streamed.map((line, i) => (
-                    <p
-                      key={i}
-                      className={[
-                        line.text ? "" : "hidden",
-                        line.code
-                          ? "overflow-hidden text-ellipsis whitespace-pre rounded-[4px] bg-white/[0.06] px-2 py-1 font-mono text-[0.6875rem] text-[#B8E6C8]"
-                          : "",
-                      ].join(" ")}
-                    >
-                      {line.text}
-                      {!line.done && line.text && <span className="film-caret" />}
-                    </p>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="pt-16 text-center text-[0.875rem] text-white/30">Ask anything</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+      className="absolute inset-0"
+      style={{
+        background:
+          "radial-gradient(70% 60% at 18% 8%, rgba(255,255,255,0.9), rgba(255,255,255,0) 60%), linear-gradient(180deg, #EEECE6 0%, #E3E0D8 100%)",
+      }}
+    />
   );
 }
 
-/** The menu bar, so the pill is somewhere rather than floating in a void. */
 function MenuBar() {
   return (
-    <div className="absolute inset-x-0 top-0 z-20 flex h-[5.5%] items-center gap-[1.6%] bg-black/35 px-[2%]">
-      <span aria-hidden="true" className="h-[42%] w-[1.1%] rounded-[1px] bg-white/70" />
-      {/*
-       * Hidden on a phone rather than shrunk to fit one. At this width the
-       * labels are eight pixels of smudge, and a smudge shaped like a word
-       * reads as something failing to render. The body of the conversation
-       * below them is illegible too and is fine: an unreadable wall of text
-       * still reads as a screenshot of a wall of text, where four detached
-       * marks along the top read as damage. The line, the traffic lights and
-       * the shape carry the Mac without them.
-       */}
-      {["File", "Edit", "View", "Window"].map((m) => (
-        <span key={m} className="hidden text-[0.5rem] text-white/55 sm:inline">
-          {m}
-        </span>
+    <div className="absolute inset-x-0 top-0 z-10 flex h-[26px] items-center gap-5 bg-white/55 px-4 text-[0.75rem] text-ink/80 backdrop-blur-xl">
+      <svg viewBox="0 0 14 17" className="h-[13px] fill-ink/85" aria-hidden="true">
+        <path d="M11.6 9c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.1.8-.7 0-1.6-.8-2.7-.7C3.2 4.2 1.9 5 1.2 6.3c-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.2 2.6 2.1 1-.1 1.4-.7 2.7-.7s1.6.7 2.7.6c1.1 0 1.8-1 2.5-2 .8-1.2 1.1-2.3 1.1-2.4 0 0-2.3-.9-2.3-3.4ZM9.5 2.9C10.1 2.2 10.5 1.2 10.4.2c-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.5 1 .1 1.9-.5 2.5-1.1Z" />
+      </svg>
+      <span className="font-semibold text-ink">Safari</span>
+      {["File", "Edit", "View", "History", "Window"].map((m) => (
+        <span key={m}>{m}</span>
       ))}
+      <span className="ml-auto tabular-nums">Tue 9:41</span>
     </div>
   );
 }
 
-/*
- * The collapsed bar, at the size and position Rust actually places it.
- *
- * 112 by 24 points, a centimetre below the top of the screen, centred. Those
- * are BAR and FLOAT_GAP in pill_window.rs, and if they change here without
- * changing there the page is showing something that does not exist.
- *
- * The surface is the app's own dot now, not the glass capsule: the bar in the
- * app is one point with light around it, so the page draws exactly that.
- */
-function Pill({ expanded }: { expanded: boolean }) {
+function TrafficLights({ dim = false }: { dim?: boolean }) {
+  return (
+    <span className="flex gap-2" aria-hidden="true">
+      {(dim ? ["#D9D7D1", "#D9D7D1", "#D9D7D1"] : ["#FF5F57", "#FEBC2E", "#28C840"]).map((c, i) => (
+        <span key={i} className="size-3 rounded-full transition-colors duration-500" style={{ background: c }} />
+      ))}
+    </span>
+  );
+}
+
+function Browser({
+  url,
+  dim = false,
+  children,
+}: {
+  url: string;
+  dim?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[12px] bg-white shadow-[0_0_0_1px_rgba(18,18,26,0.1),0_30px_70px_-30px_rgba(18,18,26,0.5)]">
+      <div className="flex h-10 items-center gap-4 border-b border-ink/[0.07] bg-[#F6F5F2] px-4">
+        <TrafficLights dim={dim} />
+        <span className="mx-auto flex h-6 w-[46%] items-center justify-center rounded-[7px] bg-ink/[0.05] text-[0.6875rem] text-ink/55">
+          {url}
+        </span>
+        <span className="w-[52px]" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ChatGPTWindow({ dimmed }: { dimmed: boolean }) {
   return (
     <div
       className={cn(
-        "absolute left-1/2 top-[7.5%] z-30 -translate-x-1/2",
-        "flex h-[3.4%] w-[11%] items-center justify-center",
-        "transition-opacity duration-300",
-        expanded ? "opacity-0" : "opacity-100",
+        "absolute left-[60px] top-[70px] z-10 w-[640px] transition-[opacity,filter] duration-700",
+        dimmed ? "opacity-80" : "opacity-100",
       )}
     >
-      {/*
-       * The same dot the app draws, at the same place. It is the whole bar at
-       * rest in the app too; the capsule that used to be drawn here is gone
-       * from both.
-       */}
-      <SidqDot mood="idle" className="scale-[0.8]" />
+      <Browser url="chatgpt.com" dim={dimmed}>
+        <div className="h-[380px] space-y-3 overflow-hidden px-10 pt-6 text-[0.8125rem] leading-relaxed text-ink [mask-image:linear-gradient(to_bottom,black_75%,transparent)]">
+          <p className="flex items-center gap-2 text-[0.75rem] font-medium text-ink/55">
+            <img src="/openai-logo.svg" alt="" width={14} height={14} className="size-3.5" />
+            Why checkout silently loses payments
+          </p>
+          <Turn you>Payments show as succeeded in Stripe but never reach our orders table. Maybe 1 in 12.</Turn>
+          <Turn>That pattern usually means the webhook handler is not idempotent. Stripe retries a delivery if you answer slowly, and a second, stale delivery can overwrite the first.</Turn>
+          <Turn you>Yes, we answer after writing to the database. So key on the event id?</Turn>
+          <Turn>Key on the event id and store it before anything else. Then backfill what was lost before the fix.</Turn>
+        </div>
+      </Browser>
     </div>
   );
 }
 
-/*
- * A generic assistant window. Deliberately nobody's: no logo, no product name,
- * the empty state every chat box on the internet has.
- */
-type Streamed = ReturnType<typeof sliceIntoLines>;
+function Turn({ you = false, children }: { you?: boolean; children: React.ReactNode }) {
+  return you ? (
+    <p className="ml-auto w-fit max-w-[78%] rounded-[16px] bg-[#F1F0EC] px-3.5 py-2">{children}</p>
+  ) : (
+    <p className="max-w-[92%] text-ink/85">{children}</p>
+  );
+}
 
-/*
- * The reply's lines are passed in rather than streamed here.
- *
- * The film now draws two versions of this shot, one for a desktop and one for a
- * phone, and only one is ever visible. Each owning its own timer meant two
- * intervals re-rendering at 34ms for a single visible block of text. One timer
- * lives in HandoverFilm and both read it.
- */
-function ChatWindow({ revealed, streamed }: { revealed: boolean; streamed: Streamed }) {
-
+function ClaudeWindow({
+  attached,
+  sent,
+  streamed,
+  chipScale,
+  chipOpacity,
+}: {
+  attached: boolean;
+  sent: boolean;
+  streamed: Streamed;
+  chipScale: MotionValue<number>;
+  chipOpacity: MotionValue<number>;
+}) {
   return (
-    /*
-     * It opens rather than appearing. This was the last thing in the film that
-     * arrived in a single frame: the picker was fixed by borrowing the app's
-     * own `animate-pane`, and the window somebody switches to had the same
-     * fault for the same reason. Nothing on a desktop appears instantly.
-     */
-    <div className="animate-pane absolute inset-x-[8%] bottom-[6%] top-[12%] z-10 overflow-hidden rounded-[10px] bg-[#141319] ring-1 ring-white/10 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
-      <div className="flex h-[7%] items-center gap-[0.6%] bg-white/[0.04] px-[1.4%]">
-        {["#FF5F57", "#FEBC2E", "#28C840"].map((c) => (
-          <span key={c} className="h-[26%] w-[0.9%] rounded-full" style={{ background: c }} />
-        ))}
-      </div>
-
-      <div className="h-[76%] overflow-hidden px-[6%] pt-[3%]">
-        {revealed ? (
-          <div>
-            {/* The attachment, as a chip on the person's own turn. */}
-            <div className="flex justify-end">
-              <span className="inline-flex items-center gap-[0.6em] rounded-[8px] bg-white/[0.08] px-[0.9em] py-[0.5em] text-[0.4rem] text-white/70 ring-1 ring-white/10">
-                <svg viewBox="0 0 24 24" className="h-[1.2em]" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                  <path d="M14 2v6h6" />
-                </svg>
-                {ATTACHMENT}
-              </span>
+    <Browser url="claude.ai/new">
+      <div className="relative h-[450px] bg-[#FAF9F5]">
+        <div className="h-[350px] overflow-hidden px-12 pt-7 [mask-image:linear-gradient(to_bottom,black_88%,transparent)]">
+          {!sent ? (
+            <p className="pt-20 text-center font-display text-[1.5rem] font-semibold tracking-[-0.03em] text-ink/80">
+              <img src="/claude-logo.svg" alt="" width={22} height={22} className="mr-2 inline size-[22px] -translate-y-0.5" />
+              How can I help you today?
+            </p>
+          ) : (
+            <div>
+              <div className="flex justify-end">
+                <FileChip />
+              </div>
+              <div className="mt-4 space-y-2.5 text-[0.8125rem] leading-[1.55] text-ink">
+                {streamed.map((line, i) =>
+                  line.text ? (
+                    line.code ? (
+                      <pre
+                        key={i}
+                        className={cn(
+                          "overflow-hidden whitespace-pre bg-[#F1F0EC] px-3 font-mono text-[0.71875rem] leading-[1.7] text-ink",
+                          streamed[i - 1]?.code ? "-mt-2.5 pt-0" : "rounded-t-[8px] pt-2",
+                          streamed[i + 1]?.code && streamed[i + 1]?.text ? "pb-0" : "rounded-b-[8px] pb-2",
+                        )}
+                      >
+                        <Code source={line.text} />
+                        {!line.done && <span className="film-caret" />}
+                      </pre>
+                    ) : (
+                      <p key={i}>
+                        {line.text}
+                        {!line.done && <span className="film-caret" />}
+                      </p>
+                    )
+                  ) : null,
+                )}
+              </div>
             </div>
+          )}
+        </div>
 
-            {/*
-             * The reply. Set in the sans at a normal reading size, because this
-             * is prose an assistant wrote and not a file — the monospace it used
-             * to be is what made it look like source.
-             */}
-            {/*
-              * Every line starts at the same left edge.
-              *
-              * The numbered steps used to carry pl-[3%], which put two of the
-              * six lines on a different left margin from the other four. In a
-              * block this small that does not read as hierarchy, it reads as
-              * text that has slipped.
-              */}
-            {/*
-              * Tighter than prose usually wants. leading-[1.7] with 1.6% between
-              * paragraphs left this looking like a document with air in it; a
-              * chat reply is a dense block and the spacing has to say so.
-              *
-              * Every line starts at the same left edge, including the snippet,
-              * which is why the code rows carry no indent of their own — the
-              * block is marked by its background and its face, not by a margin.
-              */}
-            <div className="mt-[2.4%] space-y-[0.9%] text-left text-[0.42rem] leading-[1.45] text-white/80">
-              {streamed.map((line, i) => (
-                <p
-                  key={i}
-                  className={[
-                    line.text ? "" : "hidden",
-                    line.code
-                      ? "whitespace-pre rounded-[3px] bg-white/[0.06] px-[1.2%] py-[0.35%] font-mono text-[0.38rem] text-[#B8E6C8]"
-                      : "",
-                  ].join(" ")}
-                >
-                  {line.text}
-                  {/* The caret rides whichever line is still being written. */}
-                  {!line.done && line.text && <span className="film-caret" />}
-                </p>
-              ))}
-            </div>
+        <div className="absolute inset-x-10 bottom-6 rounded-[16px] bg-white p-3 shadow-[0_0_0_1px_rgba(18,18,26,0.1),0_4px_14px_-6px_rgba(18,18,26,0.15)]">
+          {attached && !sent && (
+            <motion.div style={{ scale: chipScale, opacity: chipOpacity, originX: 0, originY: 1 }} className="mb-2 w-fit">
+              <FileChip />
+            </motion.div>
+          )}
+          <div className="flex items-center gap-3">
+            <span className="grid size-7 place-items-center rounded-full text-ink/50 ring-1 ring-inset ring-ink/12">
+              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M21 11.5 12.9 19.6a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7L10.5 17a1.7 1.7 0 0 1-2.4-2.4l7.4-7.4" />
+              </svg>
+            </span>
+            <span className="flex-1 text-[0.8125rem] text-ink/40">
+              {attached && !sent ? "Carry on from here" : "Reply to Claude…"}
+            </span>
+            <span
+              className={cn(
+                "grid size-7 place-items-center rounded-[9px] text-[0.8125rem] text-white transition-colors duration-200",
+                attached && !sent ? "bg-[#C96442]" : "bg-[#C96442]/40",
+              )}
+            >
+              ↑
+            </span>
           </div>
-        ) : (
-          <p className="pt-[12%] text-center text-[0.55rem] text-white/25">Ask anything</p>
-        )}
+        </div>
       </div>
+    </Browser>
+  );
+}
 
-      <div className="absolute inset-x-[4%] bottom-[4%] flex h-[9%] items-center gap-[1.5%] rounded-full bg-white/[0.06] px-[2%] ring-1 ring-white/10">
-        <svg viewBox="0 0 24 24" className="h-[46%] text-white/45" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-        </svg>
-        <span className="text-[0.4rem] text-white/30">
-          {revealed ? ATTACHMENT : "Attach a file"}
+function FileChip() {
+  return (
+    <span className="inline-flex items-center gap-2.5 rounded-[10px] bg-white px-2.5 py-2 shadow-[0_0_0_1px_rgba(18,18,26,0.1)]">
+      <span className="grid h-8 w-7 place-items-center rounded-[5px] bg-[#2448E8] text-[0.5625rem] font-semibold text-white">MD</span>
+      <span className="text-left">
+        <span className="block text-[0.71875rem] font-medium leading-tight text-ink">{SAVED.file}</span>
+        <span className="block text-[0.65625rem] leading-tight text-ink/50">
+          {SAVED.words.toLocaleString("en-US")} words · the whole conversation
         </span>
-      </div>
-    </div>
+      </span>
+    </span>
   );
 }
 
 /*
- * The cursor, which is the thread through the whole thing.
- *
- * It moves to whatever the current beat is about, so a viewer who has looked
- * away knows where to look when they come back. Position is a percentage of the
- * stage rather than of the zoomed layer, so it lands in the same place
- * regardless of how far the camera has pushed in.
+ * Just enough highlighting to read as code: keywords in the site's blue,
+ * comments quiet. A real editor's palette in a real editor's weight.
  */
-function Cursor({ at }: { at: { x: number; y: number } }) {
+const KEYWORD = /\b(const|await|if|return)\b/g;
+
+function Code({ source }: { source: string }) {
+  const [code, comment] = source.split(/(?=\/\/)/);
+  const parts = code.split(KEYWORD);
+  return (
+    <>
+      {parts.map((part, i) =>
+        ["const", "await", "if", "return"].includes(part) ? (
+          <span key={i} className="text-[#2448E8]">
+            {part}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+      {comment && <span className="text-ink/40">{comment}</span>}
+    </>
+  );
+}
+
+/** The macOS arrow, drawn: white with a dark edge, and a shadow under it. */
+function Pointer({ pressed }: { pressed: boolean }) {
   return (
     <svg
+      viewBox="0 0 16 24"
+      className={cn(
+        "h-[22px] drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)] transition-[scale] duration-100",
+        pressed ? "scale-90" : "scale-100",
+      )}
       aria-hidden="true"
-      viewBox="0 0 12 18"
-      className="film-cursor absolute z-40 w-[1.6%] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-      style={{ left: `${at.x}%`, top: `${at.y}%` }}
     >
-      <path d="M1 1l9.5 8.2-4.2.5 2.6 5.4-2 1-2.6-5.4-3.3 2.6z" fill="white" stroke="#1a1a24" strokeWidth="0.8" />
+      <path d="M1 1v17.5l4.4-4.1 2.9 6.8 3-1.3-2.9-6.6h6.1Z" fill="#fff" stroke="#12121A" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }

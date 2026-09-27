@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/cn";
-import { SidqMark } from "@/components/SidqMark";
+import { Wordmark } from "@/components/landing/Wordmark";
 import { Hero } from "@/components/landing/Hero";
 import { LaunchFilm } from "@/components/landing/LaunchFilm";
 import { QuestionSpread } from "@/components/landing/QuestionSpread";
@@ -32,18 +31,7 @@ export function Landing() {
     <div className="bg-paper">
       <header className="absolute inset-x-0 top-0 z-20">
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-4 px-5 py-5 sm:gap-6 sm:px-6">
-          <Link
-            to="/"
-            className={cn(
-              "inline-flex min-h-11 items-center sm:min-h-0",
-              "gap-2 font-display text-[1.375rem] leading-none tracking-[-0.05em] text-ink",
-            )}
-          >
-            <span className="text-[#4F46E5]" aria-hidden="true">
-              <SidqMark width={30} height={16} />
-            </span>
-            Sidq
-          </Link>
+          <Wordmark />
 
           {/*
            * Three links, and two of them are the pages this one stopped being.

@@ -184,7 +184,7 @@ function Overlay({ splash, label }: { splash: number; label: string | null }) {
 }
 
 function Caret({ on }: { on: boolean }) {
-  return on ? <span aria-hidden="true" className="film-caret ml-px inline-block h-[1em] w-px translate-y-[2px] bg-ink" /> : null;
+  return on ? <span aria-hidden="true" className="setup-caret ml-px inline-block h-[1em] w-px translate-y-[2px] bg-ink" /> : null;
 }
 
 function Frame({ beat, children }: { beat: number; children: React.ReactNode }) {

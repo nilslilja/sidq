@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/cn";
+import { Wordmark } from "@/components/landing/Wordmark";
 import { Pricing } from "@/components/landing/Pricing";
 import { Faq } from "@/components/landing/Faq";
 import { Receipts } from "@/components/landing/Receipts";
@@ -23,15 +23,7 @@ function Page({ children }: { children: React.ReactNode }) {
     <div className="bg-paper">
       <header className="border-b border-ink/10">
         <div className="mx-auto flex max-w-[76rem] items-center justify-between gap-6 px-6 py-5">
-          <Link
-            to="/"
-            className={cn(
-              "inline-flex min-h-11 items-center sm:min-h-0",
-              "font-display text-[1.375rem] leading-none tracking-[-0.05em]",
-            )}
-          >
-            Sidq
-          </Link>
+          <Wordmark />
 
           <nav className="flex items-center gap-6 sm:gap-7">
             <Link

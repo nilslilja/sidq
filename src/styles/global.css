@@ -2349,10 +2349,10 @@ button:focus-visible .sidq-dot-core {
  * Setup: the caret in the films, and the dot on a button that is waiting for
  * something to happen elsewhere. Opacity only, and still under reduced motion.
  */
-.film-caret {
-  animation: film-caret 1s steps(1) infinite;
+.setup-caret {
+  animation: setup-caret 1s steps(1) infinite;
 }
-@keyframes film-caret {
+@keyframes setup-caret {
   50% {
     opacity: 0;
   }
@@ -2372,7 +2372,7 @@ button:focus-visible .sidq-dot-core {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .film-caret,
+  .setup-caret,
   .listening-dot {
     animation: none;
   }

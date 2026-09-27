@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Wordmark } from "@/components/landing/Wordmark";
 import { track } from '@vercel/analytics';
-import { Link } from 'react-router-dom';
 import { detectPlatform, refinePlatform, type PlatformInfo } from '@/lib/platform';
 import { artifactFor, RELEASE_VERSION } from '@/lib/releases';
 import { InstallFilm } from '@/components/onboarding/Films';
@@ -72,9 +72,7 @@ export function Downloading() {
       {/* ── Instructions ─────────────────────────────────────────────────── */}
       <div className="flex flex-col justify-center px-8 py-16 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-[26rem]">
-          <Link to="/" className="font-display text-[1.25rem] font-semibold leading-none tracking-[-0.05em]">
-            Sidq
-          </Link>
+          <Wordmark />
 
           <h1 className="mt-12 font-display text-[clamp(2.25rem,4vw,3.25rem)] font-semibold leading-[1.02] tracking-[-0.05em]">
             Open Sidq in three steps

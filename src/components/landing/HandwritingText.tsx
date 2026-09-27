@@ -1,14 +1,15 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
-import geometry from "./handwriting";
+import { HANDWRITING, type HandwrittenWord } from "./handwriting";
 
 /*
  * A word that writes itself, then inks in.
  *
  * Adapted from the 21st.dev HandwritingText, with the work moved out of the
  * browser. That version fetched opentype.js from a CDN and parsed a font at
- * runtime before it could draw anything; the word on this page never changes,
- * so scripts/handwriting.mjs converts it once and this renders the result.
+ * runtime before it could draw anything. The words the site writes never
+ * change (the hero's "page." and the "Sidq" in the header), so
+ * scripts/handwriting.mjs converts them once and this renders the result.
  *
  * Three things still make it read as handwriting rather than a fade, and they
  * are the original's:
@@ -26,11 +27,14 @@ import geometry from "./handwriting";
  * Colour is `currentColor`. Under reduced motion the ink is simply there.
  */
 export function HandwritingText({
+  word = "page.",
   className,
   delay = 0.35,
   duration = 1.4,
   strokeWidth = 1.6,
 }: {
+  /** Which of the pre-drawn words to write. See scripts/handwriting.mjs. */
+  word?: HandwrittenWord;
   className?: string;
   /** Seconds before the pen starts. */
   delay?: number;
@@ -39,6 +43,7 @@ export function HandwritingText({
   /** Stroke weight in units of a 100px em. */
   strokeWidth?: number;
 }) {
+  const geometry = HANDWRITING[word];
   const [x, y, w, h] = geometry.viewBox;
   const count = Math.max(1, geometry.contours.length);
   const each = (duration / count) * 2.4;
