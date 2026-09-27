@@ -277,6 +277,11 @@ export interface OnboardingBridge {
    */
   onBriefed: (callback: (source: string) => void) => Promise<() => void>;
   /**
+   * A grab arrived in the new chat it was carried to (`announce_carry`). The
+   * source is the assistant it landed in.
+   */
+  onCarried: (callback: (source: string) => void) => Promise<() => void>;
+  /**
    * A conversation Sidq had never seen before, just read out of a browser.
    *
    * Separate from `onChanged` because it means something different. `onChanged`
@@ -763,6 +768,8 @@ export function desktopBridge(): OnboardingBridge | null {
       event.listen("sidq:grabbed", (e) => callback(typeof e.payload === "string" ? e.payload : "")),
     onBriefed: (callback) =>
       event.listen("sidq:briefed", (e) => callback(typeof e.payload === "string" ? e.payload : "")),
+    onCarried: (callback) =>
+      event.listen("sidq:carried", (e) => callback(typeof e.payload === "string" ? e.payload : "")),
     onFound: (callback) =>
       event.listen("sidq:found", (e) => {
         // Rust's own struct, but it arrives as JSON over an event channel like

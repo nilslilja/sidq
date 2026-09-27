@@ -142,7 +142,7 @@ describe("trying it for real", () => {
     await settle();
 
     expect(screen.getByRole("heading", { name: "That’s it." })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/on your clipboard/);
+    expect(screen.getByRole("status")).toHaveTextContent(/open a new chat in any AI/);
   });
 
   /*

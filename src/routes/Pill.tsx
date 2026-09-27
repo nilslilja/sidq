@@ -142,6 +142,9 @@ const HOP_MS = 1800;
 /** How long the splash plays before the picker opens over it. */
 const OPEN_AFTER_SPLASH_MS = 170;
 
+/** The second ring of a carry, close enough to read as one gesture. */
+const SECOND_SPLASH_MS = 220;
+
 /** How long the dot stays amber after an assistant hits its limit. */
 const PANIC_MS = 6000;
 
@@ -516,14 +519,6 @@ export function Pill() {
   }, [bridge]);
 
   /*
-   * Follow the window.
-   *
-   * Rust owns the resize — the shortcut that triggers it is global, and the
-   * tray reaches it too — so this cannot be driven from a click handler. It is
-   * driven by the resize itself, which is the one signal that is guaranteed to
-   * have already happened by the time anyone could react to it.
-   */
-  /*
    * ── What Sidq did on its own, shown where the eye already is ─────────────
    *
    * Both of these used to be a notification and nothing else, which is a line
@@ -531,9 +526,12 @@ export function Pill() {
    * screen all day; when a grab lands on the clipboard or a brief lands in a
    * blank chat, it splashes and says so in three words, and that is how the
    * person knows the thing is done without having looked for it.
+   *
+   * A carry, a grab arriving in the new chat it was taken to, splashes twice:
+   * it is the one of these that finishes a handover nobody had to press.
    */
   useEffect(() => {
-    if (!bridge?.onGrabbed || !bridge?.onBriefed) return;
+    if (!bridge) return;
     let cancelled = false;
     const offs: (() => void)[] = [];
     const keep = (fn: () => void) => (cancelled ? fn() : offs.push(fn));
@@ -551,12 +549,28 @@ export function Pill() {
         setSplash((n) => n + 1);
       })
       .then(keep);
+    void bridge
+      .onCarried((source) => {
+        playCue("done");
+        setSaved(`In ${labelFor(source)} · ⌘Z`);
+        setSplash((n) => n + 1);
+        window.setTimeout(() => !cancelled && setSplash((n) => n + 1), SECOND_SPLASH_MS);
+      })
+      .then(keep);
     return () => {
       cancelled = true;
       offs.forEach((fn) => fn());
     };
   }, [bridge]);
 
+  /*
+   * Follow the window.
+   *
+   * Rust owns the resize — the shortcut that triggers it is global, and the
+   * tray reaches it too — so this cannot be driven from a click handler. It is
+   * driven by the resize itself, which is the one signal that is guaranteed to
+   * have already happened by the time anyone could react to it.
+   */
   useEffect(() => {
     const follow = () => setMode(modeForWidth(window.innerWidth));
     follow();

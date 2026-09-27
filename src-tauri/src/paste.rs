@@ -208,6 +208,22 @@ pub fn keys_for(send: bool) -> Vec<Key> {
     keys
 }
 
+/**
+ * Paste whatever is already on the pasteboard into the focused composer.
+ *
+ * For the carry, where the pasteboard already holds the grabbed file and must
+ * keep holding it: the file is what the grab promised, so nothing is borrowed
+ * and nothing is restored. Only the paste press, never return; there is no
+ * argument that could make this send.
+ */
+pub fn attach_focused() -> Result<(), Error> {
+    for key in keys_for(false) {
+        post(key)?;
+    }
+    std::thread::sleep(SETTLE);
+    Ok(())
+}
+
 /// Press return into whatever is focused, sending nothing of its own.
 ///
 /// Separate from `into_focused` so a caller can put text in front of somebody,

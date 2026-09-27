@@ -1326,8 +1326,8 @@ function Autopilot({
             body={
               <>
                 Double-tap <Chip>{taps[0]}</Chip> to grab the conversation you
-                were just in, as a file, ready to paste into any AI.{" "}
-                <Chip>{taps[1]}</Chip> twice puts the last one back.
+                were just in, then open a new chat in any AI and it lands there,
+                unsent. <Chip>{taps[1]}</Chip> twice puts the last one back.
               </>
             }
           >

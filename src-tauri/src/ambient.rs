@@ -45,6 +45,8 @@ pub fn is_fresh(url: &str) -> bool {
  * came round. What makes it once per chat is that the answer only counts when
  * the page has changed since it was last asked.
  */
+use std::time::{Duration, Instant};
+
 #[derive(Debug, Default)]
 pub struct Arrivals {
     last: Option<String>,
@@ -87,6 +89,70 @@ pub fn brief_wanted(conn: &rusqlite::Connection) -> bool {
 /// Switch the brief on or off, from the window. Remembered across launches.
 pub fn set_brief_wanted(conn: &rusqlite::Connection, on: bool) -> Option<()> {
     crate::index_store::put_setting(conn, BRIEF_KEY, if on { "1" } else { "0" })
+}
+
+/**
+ * A conversation somebody just grabbed, waiting for the next blank chat.
+ *
+ * ── Why the grab carries itself ─────────────────────────────────────────────
+ * A double tap put the conversation on the clipboard, and then the person had
+ * to switch to another AI, open a chat, and press ⌘V. The last two of those are
+ * the whole handover and neither needs them: opening a new chat is already the
+ * signal, and this loop already sees it. So a grab waits here, and the next
+ * blank chat opened anywhere gets it pasted in, unsent, where the brief would
+ * otherwise have gone.
+ *
+ * `clipboard` is the pasteboard's change count right after the grab wrote to
+ * it. Copying anything else moves it, and that is the person saying they moved
+ * on; the carry is dropped rather than pasted into a chat meant for something
+ * else.
+ */
+#[derive(Debug, Clone)]
+pub struct Carry {
+    /// The handover file the grab wrote and put on the clipboard.
+    pub file: std::path::PathBuf,
+    /// Where it came from, as a person writes it, for the announcement.
+    pub from: String,
+    pub at: Instant,
+    pub clipboard: isize,
+}
+
+/**
+ * How long a grab waits for a new chat before it is only a clipboard again.
+ *
+ * Short on purpose. The real sequence, grab then switch then new chat, takes
+ * seconds; a chat opened five minutes later is usually for something else.
+ */
+pub const CARRY_WINDOW: Duration = Duration::from_secs(3 * 60);
+
+/// What goes into a blank chat that was just opened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Landing {
+    /// The conversation that was just grabbed.
+    Carry,
+    /// The project somebody was last in.
+    Brief,
+    Nothing,
+}
+
+/**
+ * Decide what lands in a new chat.
+ *
+ * A grab wins over the brief, because a grab is somebody asking for exactly
+ * this, seconds ago; the brief is a guess. That is also why a grab lands with
+ * the brief switched off.
+ */
+pub fn what_lands(carry: Option<&Carry>, clipboard_now: isize, now: Instant, brief: bool) -> Landing {
+    let fresh = carry.is_some_and(|c| {
+        c.clipboard == clipboard_now && now.saturating_duration_since(c.at) <= CARRY_WINDOW
+    });
+    if fresh {
+        Landing::Carry
+    } else if brief {
+        Landing::Brief
+    } else {
+        Landing::Nothing
+    }
 }
 
 /**
@@ -207,6 +273,54 @@ mod tests {
         );
     }
 
+    fn grabbed(ago: Duration, now: Instant) -> Carry {
+        Carry {
+            file: std::path::PathBuf::from("/tmp/Stripe webhook retries.md"),
+            from: "Claude Code".into(),
+            at: now - ago,
+            clipboard: 7,
+        }
+    }
+
+    #[test]
+    fn a_fresh_grab_lands_in_the_next_new_chat_instead_of_the_brief() {
+        let now = Instant::now();
+        let carry = grabbed(Duration::from_secs(20), now);
+        assert_eq!(what_lands(Some(&carry), 7, now, true), Landing::Carry);
+    }
+
+    #[test]
+    fn a_grab_lands_even_with_the_brief_off_because_somebody_asked_for_it() {
+        let now = Instant::now();
+        let carry = grabbed(Duration::from_secs(20), now);
+        assert_eq!(what_lands(Some(&carry), 7, now, false), Landing::Carry);
+    }
+
+    #[test]
+    fn a_grab_nobody_carried_in_time_is_just_a_clipboard_again() {
+        let now = Instant::now();
+        let carry = grabbed(CARRY_WINDOW + Duration::from_secs(1), now);
+        assert_eq!(what_lands(Some(&carry), 7, now, true), Landing::Brief);
+        assert_eq!(what_lands(Some(&carry), 7, now, false), Landing::Nothing);
+    }
+
+    /*
+     * Copying anything after the grab means they moved on. A chat opened after
+     * that is for something else, and pasting yesterday's conversation into it
+     * would be the feature doing harm.
+     */
+    #[test]
+    fn copying_something_else_after_the_grab_cancels_it() {
+        let now = Instant::now();
+        let carry = grabbed(Duration::from_secs(20), now);
+        assert_eq!(what_lands(Some(&carry), 8, now, true), Landing::Brief);
+    }
+
+    #[test]
+    fn nothing_grabbed_and_the_brief_off_means_nothing_is_typed() {
+        assert_eq!(what_lands(None, 0, Instant::now(), false), Landing::Nothing);
+    }
+
     fn settings_db() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
@@ -296,6 +410,13 @@ mod tests {
                 "an ambient paste asks to be sent: {call}"
             );
         }
+
+        // The carry pastes with `attach_focused`, which cannot send, and
+        // nothing on this path may press return on its own either.
+        assert!(
+            !source.contains("send_focused("),
+            "the ambient path presses return"
+        );
     }
 
 }

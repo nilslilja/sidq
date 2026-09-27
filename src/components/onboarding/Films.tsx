@@ -341,12 +341,12 @@ function useCues(n: number): number[] {
 
 /* ── Three: the double tap ──────────────────────────────────────────────── */
 
-const DOUBLE_TAP = [700, 950, 1250, 2300, 3100, 3500, 4300] as const;
+const DOUBLE_TAP = [700, 950, 1250, 2300, 3300, 3700] as const;
 
 /**
- * Two taps of a key, the dot throwing its splash, and the whole conversation
- * arriving in a different AI as a file. Nothing is typed and nothing is sent:
- * the person presses send, as they will in real life.
+ * Two taps of a key, the dot throwing its splash, a new chat opened in another
+ * AI, and the whole conversation arriving in it as a file with nothing pressed.
+ * Not sent: the person sends, as they will in real life.
  */
 export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
   const beat = useBeat(DOUBLE_TAP);
@@ -356,10 +356,13 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
   return (
     <Frame beat={beat}>
       <div className="mb-4 flex justify-center">
-        <Overlay splash={at(3) ? 1 : 0} label={at(3) ? 'Copied · ⌘V' : null} />
+        <Overlay
+          splash={at(5) ? 3 : at(3) ? 1 : 0}
+          label={at(5) ? 'In ChatGPT · ⌘Z' : at(3) ? 'Copied · ⌘V' : null}
+        />
       </div>
 
-      <Window app="Claude Code" logo="/claude-logo.svg" className="w-[80%]">
+      <Window app="Claude Code" logo="/claude-logo.svg" className="relative z-0 w-[80%]">
         <Said show>Retries should key on the session id.</Said>
         <Lines show widths={['88%', '70%']} />
         <Said show>Ship it. Then the Apple Pay button.</Said>
@@ -369,7 +372,7 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
       <div className="absolute left-[6%] top-[60%] z-20 flex items-center gap-1.5">
         <span
           className={cn(
-            'grid h-10 place-items-center rounded-[9px] px-3 font-mono text-[0.75rem] transition-[transform,translate,scale,background-color,color,box-shadow] duration-100',
+            'grid h-10 place-items-center rounded-[9px] px-3 font-mono text-[0.75rem] transition-[translate,background-color,color,box-shadow,opacity] duration-100',
             down
               ? 'translate-y-[2px] bg-[#2448E8] text-white shadow-[0_0_0_4px_rgba(36,72,232,0.18)]'
               : 'bg-white text-ink shadow-[0_0_0_1px_rgba(18,18,26,0.12),0_3px_0_rgba(18,18,26,0.1)]',
@@ -384,18 +387,23 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
       </div>
 
       <Window
-        app="ChatGPT"
+        app="ChatGPT · New chat"
         logo="/openai-logo.svg"
         className={cn(
-          'relative z-10 -mt-10 ml-auto w-[80%] transition-[opacity,transform,translate,scale] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'relative z-10 -mt-10 ml-auto w-[80%] transition-[opacity,translate] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
           at(4) ? 'translate-y-0 opacity-100' : 'translate-y-6 opacity-0',
         )}
       >
-        <div className="rounded-[12px] border border-ink/10 p-2.5">
+        <div
+          className={cn(
+            'rounded-[12px] border p-2.5 transition-[border-color,box-shadow] duration-500',
+            at(5) ? 'border-[#2448E8]/40 shadow-[0_0_0_4px_rgba(36,72,232,0.08)]' : 'border-ink/10',
+          )}
+        >
           <div
             className={cn(
-              'mb-2 flex w-fit items-center gap-2 rounded-[8px] bg-[#F1F0EC] px-2 py-1.5 transition-[opacity,transform,translate,scale] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
-              at(6) ? 'scale-100 opacity-100' : 'scale-90 opacity-0',
+              'mb-2 flex w-fit items-center gap-2 rounded-[8px] bg-[#F1F0EC] px-2 py-1.5 transition-[opacity,scale] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+              at(5) ? 'scale-100 opacity-100' : 'scale-90 opacity-0',
             )}
           >
             <span className="grid size-6 place-items-center rounded-[6px] bg-[#2448E8] text-[0.5rem] font-semibold text-white">MD</span>
@@ -406,22 +414,21 @@ export function DoubleTapFilm({ tapKey }: { tapKey: string }) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[0.75rem] text-ink/35">
-              {at(7) ? 'Carry on from here' : 'Ask anything'}
+              {at(6) ? 'Carry on from here' : 'Ask anything'}
               <Caret on={at(5)} />
             </span>
             <span className="grid size-6 place-items-center rounded-full bg-ink/10 text-[0.625rem] text-ink/50">↑</span>
           </div>
         </div>
-        <div className="mt-2.5 flex items-center justify-end gap-1">
-          <span
-            className={cn(
-              'rounded-[5px] bg-white px-1.5 py-0.5 font-mono text-[0.625rem] text-ink shadow-[0_0_0_1px_rgba(18,18,26,0.12)] transition-opacity duration-200',
-              at(5) && !at(6) ? 'opacity-100' : 'opacity-0',
-            )}
-          >
-            ⌘ V
-          </span>
-        </div>
+        <p
+          className={cn(
+            'mt-2 flex items-center gap-1 text-[0.625rem] text-[#4F46E5] transition-opacity duration-500',
+            at(6) ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          <SidqMark width={16} height={9} />
+          Carried by Sidq · not sent
+        </p>
       </Window>
     </Frame>
   );

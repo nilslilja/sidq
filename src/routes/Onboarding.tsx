@@ -297,7 +297,7 @@ export default function Onboarding() {
             }
             subtitle={
               gestureWorks
-                ? "In any AI you have open. The whole conversation is copied as a file, ready to paste into the next one with ⌘V."
+                ? "In any AI you have open. Then open a new chat in another one: the whole conversation is already there."
                 : "From inside anything. Pick a conversation, press Enter, and it is ready to paste into any AI."
             }
           >
@@ -345,7 +345,7 @@ export default function Onboarding() {
               <Runs keys={gestureWorks === false ? "needs reading on" : "automatic"}>
                 Every new chat starts with your project, unsent.
               </Runs>
-              <Runs keys={`${taps[0]} ×2`}>Grab the chat you are in.</Runs>
+              <Runs keys={`${taps[0]} ×2`}>Grab a chat. The next new chat gets it.</Runs>
               <Runs keys={pickerKey ?? undefined}>Carry any conversation anywhere.</Runs>
             </ul>
 
@@ -491,7 +491,7 @@ function Landed({
       </h1>
       <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink/60">
         {kind === "grab"
-          ? "The whole conversation is on your clipboard. Open any AI and press ⌘V."
+          ? "Now open a new chat in any AI. The conversation lands there by itself, not sent. Or press ⌘V anywhere."
           : "It is on your clipboard and in your Downloads folder. Open any AI and press ⌘V."}
       </p>
       <div className="mt-9">

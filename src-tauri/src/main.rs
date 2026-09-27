@@ -430,6 +430,23 @@ fn announce_found(app: &AppHandle, found: &screen_reader::Found) {
  * be built for that. What had to be built is a sentence saying so, because an
  * undo nobody knows about is not an undo.
  */
+/**
+ * A grab arrived in the new chat it was carried to.
+ *
+ * Its own event, not the brief's: the dot says the same short thing for both,
+ * but a carry is the person's own conversation arriving where they took it, and
+ * the notification names it.
+ */
+#[cfg(target_os = "macos")]
+fn announce_carry(app: &AppHandle, source: &str, from: &str) {
+    let _ = app.emit("sidq:carried", source);
+    notify(
+        app,
+        &format!("Carried from {from} to {}", label_for(source)),
+        "Attached, not sent. ⌘Z takes it out.",
+    );
+}
+
 #[cfg(target_os = "macos")]
 fn announce_brief(app: &AppHandle, source: &str) {
     let _ = app.emit("sidq:briefed", source);
@@ -2587,6 +2604,15 @@ async fn tap_keys() -> (String, String) {
  */
 static LAST_GRAB: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
+/**
+ * The grab waiting for the next blank chat. See `ambient::Carry`.
+ *
+ * Set by every grab, taken by the first new chat that gets it, and ignored once
+ * it is stale or the clipboard has moved on. In memory only, like the grab.
+ */
+pub(crate) static PENDING_CARRY: std::sync::Mutex<Option<ambient::Carry>> =
+    std::sync::Mutex::new(None);
+
 /*
  * Whether a quit was asked for on purpose.
  *
@@ -2731,6 +2757,14 @@ fn grab_now(app: &AppHandle) -> Option<quick_grab::Grabbed> {
     if let Ok(mut last) = LAST_GRAB.lock() {
         *last = Some(path.clone());
     }
+    if let Ok(mut pending) = PENDING_CARRY.lock() {
+        *pending = Some(ambient::Carry {
+            file: std::path::PathBuf::from(&path),
+            from: label_for(session.source).to_string(),
+            at: std::time::Instant::now(),
+            clipboard: quick_grab::clipboard_generation(),
+        });
+    }
 
     Some(quick_grab::Grabbed {
         title,
@@ -2780,7 +2814,10 @@ fn grab_and_announce(app: &AppHandle) {
     notify(
         app,
         &format!("{} is on your clipboard", grabbed.source),
-        &format!("{}. Press ⌘V to attach it anywhere.", grabbed.title),
+        &format!(
+            "{}. Open a new chat in any AI and it lands there, or press ⌘V.",
+            grabbed.title
+        ),
     );
 }
 

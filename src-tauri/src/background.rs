@@ -15,7 +15,7 @@ use sidq::{ambient, embed, index_store, indexer, memory, paste, relay, semantic,
 // Imported under the same gate as the thread that uses it, so that the absence
 // is a compile-time fact rather than a runtime branch.
 #[cfg(target_os = "macos")]
-use sidq::screen_reader;
+use sidq::{quick_grab, screen_reader};
 use std::time::Duration;
 
 /// How often to look. Conversations do not change on a scale that needs faster.
@@ -225,14 +225,21 @@ fn offer_the_brief(
     blank: &[screen_reader::Blank],
     arrivals: &mut ambient::Arrivals,
 ) {
-    if !ambient::brief_wanted(conn) {
-        return;
-    }
-
     for page in blank {
         // Edge, not level: without this, sitting in a new chat would be briefed
         // every few seconds for as long as somebody sat there.
         if arrivals.at(Some(page.source), &page.url).is_none() {
+            continue;
+        }
+
+        let carry = crate::PENDING_CARRY.lock().ok().and_then(|c| c.clone());
+        let landing = ambient::what_lands(
+            carry.as_ref(),
+            quick_grab::clipboard_generation(),
+            std::time::Instant::now(),
+            ambient::brief_wanted(conn),
+        );
+        if landing == ambient::Landing::Nothing {
             continue;
         }
 
@@ -245,24 +252,48 @@ fn offer_the_brief(
             continue;
         }
 
-        let Some(path) = ambient::most_recent_project(&index_store::projects(conn, 200))
-        else {
-            continue;
-        };
-        let Some(brief) = memory::build(conn, &path).map(|m| m.as_markdown()) else {
-            continue;
-        };
-
-        /*
-         * `false`, and this is the line that matters most in the file.
-         *
-         * It never sends. The person sends. Sidq putting words into somebody's
-         * account under their name is a failure with no upside anywhere in it,
-         * and all of the value is already there once the text is in the box.
-         */
-        if paste::into_focused(&brief, false).is_ok() {
-            crate::announce_brief(app, page.source);
+        match (landing, carry) {
+            /*
+             * ── The grab, carried ────────────────────────────────────────────
+             *
+             * The file goes back on the clipboard first: it is already there
+             * unless something moved it, and `what_lands` has just checked
+             * nothing did, but writing it again costs nothing and makes the
+             * paste attach the file rather than whatever a race left behind.
+             * Taken, not peeked: a carry lands once.
+             */
+            (ambient::Landing::Carry, Some(carry)) => {
+                if quick_grab::put_on_clipboard(&carry.file) && paste::attach_focused().is_ok() {
+                    if let Ok(mut pending) = crate::PENDING_CARRY.lock() {
+                        *pending = None;
+                    }
+                    crate::announce_carry(app, page.source, &carry.from);
+                }
+            }
+            _ => brief_into(conn, app, page.source),
         }
+    }
+}
+
+/// The project somebody was last in, pasted into the chat that is in front.
+#[cfg(target_os = "macos")]
+fn brief_into(conn: &rusqlite::Connection, app: &tauri::AppHandle, source: &str) {
+    let Some(path) = ambient::most_recent_project(&index_store::projects(conn, 200)) else {
+        return;
+    };
+    let Some(brief) = memory::build(conn, &path).map(|m| m.as_markdown()) else {
+        return;
+    };
+
+    /*
+     * `false`, and this is the line that matters most in the file.
+     *
+     * It never sends. The person sends. Sidq putting words into somebody's
+     * account under their name is a failure with no upside anywhere in it,
+     * and all of the value is already there once the text is in the box.
+     */
+    if paste::into_focused(&brief, false).is_ok() {
+        crate::announce_brief(app, source);
     }
 }
 

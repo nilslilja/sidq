@@ -89,6 +89,17 @@ pub fn put_on_clipboard(file: &std::path::Path) -> bool {
 }
 
 /**
+ * The pasteboard's change count.
+ *
+ * Read right after a grab writes, and again when a new chat opens: if it moved,
+ * somebody copied something else in between and the grab is no longer what
+ * they are carrying.
+ */
+pub fn clipboard_generation() -> isize {
+    objc2_app_kit::NSPasteboard::generalPasteboard().changeCount()
+}
+
+/**
  * The conversation to grab.
  *
  * Whatever was touched most recently, which is the one somebody just had in

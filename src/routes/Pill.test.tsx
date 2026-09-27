@@ -170,11 +170,16 @@ const bridge: Partial<OnboardingBridge> = {
     announceBriefed = cb;
     return () => {};
   }),
+  onCarried: vi.fn(async (cb: (source: string) => void) => {
+    announceCarried = cb;
+    return () => {};
+  }),
 };
 
 /** Set by the mocked `onGrabbed` and `onBriefed` once the pill has subscribed. */
 let announceGrabbed: ((title: string) => void) | undefined;
 let announceBriefed: ((source: string) => void) | undefined;
+let announceCarried: ((source: string) => void) | undefined;
 
 /** Set by the mocked `onStopped` once the pill has subscribed. */
 let announceStopped: (() => void) | undefined;
@@ -420,6 +425,33 @@ describe("the pill, across the two states", () => {
     const bar = getByRole("button", { name: /pick up a conversation/i });
     expect(screen.getByText("Copied · ⌘V")).toBeInTheDocument();
     expect(bar.querySelector(".sidq-dot-splash")).not.toBeNull();
+  });
+
+  /*
+   * The carry finishes a handover nobody pressed, so it is the one that gets
+   * a second ring: the splash is remounted by key, and two different keys
+   * inside half a second is the whole of "twice".
+   */
+  test("a grab carried into a new chat says where, and rings twice", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { getByRole } = render(<Pill />);
+    await settle();
+    const bar = getByRole("button", { name: /pick up a conversation/i });
+
+    await act(async () => {
+      announceCarried?.("gemini");
+    });
+    expect(screen.getByText("In Gemini · ⌘Z")).toBeInTheDocument();
+    const first = bar.querySelector(".sidq-dot-splash");
+    expect(first).not.toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+    const second = bar.querySelector(".sidq-dot-splash");
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first);
+    vi.useRealTimers();
   });
 
   test("a brief in a blank chat says which assistant, and how to undo it", async () => {
