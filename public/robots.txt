@@ -10,7 +10,7 @@ Allow: /
 
 Disallow: /pill
 Disallow: /home
-Disallow: /splash
+Disallow: /intro
 Disallow: /backdrop
 Disallow: /welcome
 Disallow: /desktop-signin

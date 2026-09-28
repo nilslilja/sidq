@@ -717,6 +717,10 @@ export interface OnboardingBridge {
   redeemTeamSeat: (code: string) => Promise<string | null>;
   /** Installed MCP clients as [id, label, already connected to Sidq]. */
   mcpClients: () => Promise<[string, string, boolean][]>;
+  /** First launch: the intro is on screen, so start its sound (played by Rust). */
+  startIntro: () => Promise<void>;
+  /** The intro ran out, or was skipped (which cuts its music): close it, open setup. */
+  finishIntro: (skipped: boolean) => Promise<void>;
   /** Whether Sidq opens at login, and the switch for it (the tray has the same). */
   openAtLogin: () => Promise<boolean>;
   /** Resolves to the state it ended up in, which may not be the one asked for. */
@@ -1046,6 +1050,12 @@ export function desktopBridge(): OnboardingBridge | null {
       [],
     redeemTeamSeat: async (code: string) =>
       ((await invoke("redeem_team_seat", { code })) as string | null) ?? null,
+    startIntro: async () => {
+      await invoke("start_intro");
+    },
+    finishIntro: async (skipped) => {
+      await invoke("finish_intro", { skipped });
+    },
     openAtLogin: async () => ((await invoke("open_at_login")) as boolean) ?? false,
     setOpenAtLogin: async (on: boolean) =>
       ((await invoke("set_open_at_login", { on })) as boolean) ?? false,

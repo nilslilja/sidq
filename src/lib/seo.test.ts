@@ -102,7 +102,7 @@ describe("the crawler files agree with the routes", () => {
     // /pill and /home render inside the packaged Mac app and are an empty
     // overlay on the web. Indexed, they are blank results under this domain.
     const blocked = [...robots.matchAll(/^Disallow:\s*(\S+)/gm)].map((m) => m[1]);
-    for (const window of ["/pill", "/home", "/splash", "/welcome"]) {
+    for (const window of ["/pill", "/home", "/intro", "/welcome"]) {
       expect(blocked).toContain(window);
     }
   });

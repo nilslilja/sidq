@@ -168,6 +168,10 @@ async fn recent_work(limit: usize) -> Vec<work_history::WorkSession> {
  * the same at every call site.
  */
 fn show_pill(w: &tauri::WebviewWindow) -> tauri::Result<()> {
+    // Never over the first-launch intro.
+    if intro_playing() {
+        return Ok(());
+    }
     pill_window::expand(w)
 }
 
@@ -3029,6 +3033,9 @@ async fn index_stats() -> (usize, usize) {
  * cursor out of whatever you were typing in.
  */
 fn present_home(app: &tauri::AppHandle) {
+    if intro_playing() {
+        return;
+    }
     if let Some(w) = app.get_webview_window("home") {
         let _ = w.unminimize();
         let _ = w.show();
@@ -3037,6 +3044,9 @@ fn present_home(app: &tauri::AppHandle) {
 
 #[tauri::command]
 fn open_home(app: tauri::AppHandle) {
+    if intro_playing() {
+        return;
+    }
     if let Some(w) = app.get_webview_window("home") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -3262,6 +3272,179 @@ fn has_onboarded(app: &AppHandle) -> bool {
     onboarding_marker(app).is_some_and(|path| path.exists())
 }
 
+/*
+ * ── The first-launch intro ──────────────────────────────────────────────────
+ *
+ * The first time Sidq opens it plays a few seconds of its own over a bare
+ * desktop (the mark drawing itself, the name, one line on what it does, a
+ * little music) and then setup starts. It replaces the launch card, which
+ * showed on every launch and said nothing.
+ *
+ * It is only ever on screen alone. Nothing else is shown while it plays, and
+ * the paths that would put a window up anyway (the shortcut, opening the app
+ * again, the tray) wait for it to go. An intro drawn over the app it is
+ * introducing is the one thing it must never be.
+ *
+ * Its own marker rather than the onboarding one: somebody who skips it and
+ * quits halfway through setup comes back to setup, not to the intro again, and
+ * somebody updating from a version without it has onboarded already and never
+ * sees it.
+ */
+const INTRO_LABEL: &str = "intro";
+
+/// Well past the intro's own six seconds. If the page never loads or never
+/// says it is done, setup opens anyway rather than leaving an empty desktop.
+const INTRO_DEADLINE: std::time::Duration = std::time::Duration::from_secs(9);
+
+static INTRO_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static INTRO_OVER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static INTRO_SOUND: std::sync::Mutex<Option<std::process::Child>> = std::sync::Mutex::new(None);
+
+fn intro_marker(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join("intro_seen"))
+}
+
+/// Whether this launch opens on the intro: the very first one, and only that.
+fn should_play_intro(onboarded: bool, seen: bool) -> bool {
+    !onboarded && !seen
+}
+
+/// True from the moment the intro opens until it has been asked to go.
+fn intro_playing() -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    INTRO_OPEN.load(SeqCst) && !INTRO_OVER.load(SeqCst)
+}
+
+/// Opens the intro across the main display. False when it could not, and the
+/// caller opens setup straight away instead.
+fn open_intro(app: &AppHandle) -> bool {
+    let Ok(Some(monitor)) = app.primary_monitor() else {
+        return false;
+    };
+    let scale = monitor.scale_factor();
+    let size = monitor.size().to_logical::<f64>(scale);
+    let at = monitor.position().to_logical::<f64>(scale);
+    let built = tauri::WebviewWindowBuilder::new(
+        app,
+        INTRO_LABEL,
+        tauri::WebviewUrl::App("/intro".into()),
+    )
+    .title("Welcome to Sidq")
+    .inner_size(size.width, size.height)
+    .position(at.x, at.y)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .resizable(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .focused(true)
+    .build();
+    let Ok(window) = built else {
+        return false;
+    };
+    INTRO_OPEN.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = window.set_focus();
+
+    let deadline = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(INTRO_DEADLINE);
+        end_intro(&deadline, true);
+    });
+    true
+}
+
+/// The music, next to the app in a build and in the source tree in development.
+fn intro_sound(app: &AppHandle) -> Option<std::path::PathBuf> {
+    const SOUND: &str = "intro/intro.m4a";
+    if let Ok(dir) = app.path().resource_dir() {
+        let bundled = dir.join(SOUND);
+        if bundled.is_file() {
+            return Some(bundled);
+        }
+    }
+    let dev = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join(SOUND);
+    dev.is_file().then_some(dev)
+}
+
+/**
+ * The intro is on screen, so its music starts now, in step with the picture.
+ *
+ * Played here rather than in the page because a webview will not start sound
+ * on its own, and asking for a click first would defeat the point. `afplay`
+ * ships with every Mac and follows the system volume, so a muted Mac stays
+ * muted. No sound file, or no `afplay`, and the intro simply plays silent.
+ */
+#[tauri::command]
+fn start_intro(app: AppHandle) {
+    if INTRO_OVER.load(std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let Some(sound) = intro_sound(&app) else {
+        return;
+    };
+    let Ok(mut playing) = INTRO_SOUND.lock() else {
+        return;
+    };
+    // A reload of the page must not start a second copy over the first.
+    if playing.is_some() {
+        return;
+    }
+    *playing = std::process::Command::new("/usr/bin/afplay")
+        .arg(sound)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok();
+}
+
+/// The intro ran out or was skipped. `skipped` cuts the music; otherwise its
+/// last notes are left to fade on their own.
+#[tauri::command]
+fn finish_intro(app: AppHandle, skipped: bool) {
+    end_intro(&app, skipped);
+}
+
+/// Ends the intro and opens what comes after it. Only the first call does
+/// anything, so the page and the deadline can both ask.
+fn end_intro(app: &AppHandle, cut_sound: bool) {
+    if INTRO_OVER.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let sound = INTRO_SOUND.lock().ok().and_then(|mut s| s.take());
+    if let Some(mut sound) = sound {
+        if cut_sound {
+            let _ = sound.kill();
+        }
+        std::thread::spawn(move || {
+            let _ = sound.wait();
+        });
+    }
+
+    if let Some(path) = intro_marker(app) {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        // Failing to write it means the intro plays once more, which is harmless.
+        let _ = std::fs::write(&path, "1");
+    }
+    if let Some(intro) = app.get_webview_window(INTRO_LABEL) {
+        let _ = intro.close();
+    }
+
+    if has_onboarded(app) {
+        present_home(app);
+    } else if let Some(welcome) = app.get_webview_window("welcome") {
+        let _ = welcome.show();
+        let _ = welcome.set_focus();
+    }
+}
+
 /// Closes first run and brings the card up.
 #[tauri::command]
 fn finish_onboarding(app: AppHandle) -> Result<(), String> {
@@ -3407,6 +3590,8 @@ fn main() {
             open_sign_in,
             open_upgrade,
             finish_onboarding,
+            start_intro,
+            finish_intro,
             set_onboarding_step,
             move_pill,
             aim_at,
@@ -3673,7 +3858,14 @@ fn main() {
             // feature rather than the app.
             background::spawn(app.handle().clone());
 
-            if !has_onboarded(&app.handle().clone()) {
+            let handle = app.handle().clone();
+            let onboarded = has_onboarded(&handle);
+            let seen = intro_marker(&handle).is_some_and(|path| path.exists());
+            // In a development build SIDQ_INTRO=1 plays it again, for looking at.
+            let again = cfg!(debug_assertions) && std::env::var_os("SIDQ_INTRO").is_some();
+            if (should_play_intro(onboarded, seen) || again) && open_intro(&handle) {
+                // Setup, or the app, opens when it ends: see `end_intro`.
+            } else if !onboarded {
                 if let Some(welcome) = app.get_webview_window("welcome") {
                     let _ = welcome.show();
                     let _ = welcome.set_focus();
@@ -3924,37 +4116,17 @@ fn main() {
              * launches nothing.
              *
              * Off the setup thread because the cleanup shells out to launchctl,
-             * and setup must reach the line that closes the splash card.
+             * and nothing on screen should wait for that.
              */
             let mounted = running_from_a_mounted_image();
+            // A development build is a bare binary in target/, and registering
+            // it would leave a login item that opens a blank window at login.
+            let registrable = !mounted && !cfg!(debug_assertions);
             std::thread::spawn(move || {
                 login_item::unregister_stale_agent();
                 login_item::remove_legacy_agent();
-                if !mounted && !login_item::is_enabled() {
+                if registrable && !login_item::is_enabled() {
                     let _ = login_item::enable();
-                }
-            });
-
-            /*
-             * ── Take the launch card away ────────────────────────────────────
-             *
-             * Setup has finished by the time this runs, so the app is ready and
-             * the card could close immediately. It waits anyway: a splash that
-             * appears and vanishes inside a couple of frames reads as a glitch,
-             * and on a fast machine that is exactly what would happen. Just
-             * over a second is long enough to be a deliberate thing somebody
-             * saw and short enough that nobody waits for it.
-             *
-             * Its own thread rather than blocking setup, because everything
-             * after this — the tray, the shortcut, the pill — has to be live
-             * before the card goes, or there is a moment where Sidq has
-             * announced itself and cannot do anything.
-             */
-            let closing = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1100));
-                if let Some(splash) = closing.get_webview_window("splash") {
-                    let _ = splash.close();
                 }
             });
 
@@ -4073,4 +4245,24 @@ fn main() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod intro_tests {
+    use super::should_play_intro;
+
+    #[test]
+    fn plays_on_the_very_first_launch() {
+        assert!(should_play_intro(false, false));
+    }
+
+    #[test]
+    fn never_again_once_seen_even_with_setup_unfinished() {
+        assert!(!should_play_intro(false, true));
+    }
+
+    #[test]
+    fn never_for_somebody_set_up_by_an_older_version() {
+        assert!(!should_play_intro(true, false));
+    }
 }

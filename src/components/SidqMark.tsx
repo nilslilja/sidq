@@ -40,6 +40,9 @@ export function SidqMark({
   height = 16,
   strokeWidth = ICON_STROKE,
   className,
+  strokeClassName,
+  dotClassName,
+  dotColor,
 }: {
   width?: number;
   height?: number;
@@ -50,7 +53,17 @@ export function SidqMark({
    */
   strokeWidth?: number;
   className?: string;
+  /**
+   * For drawing the mark rather than showing it: the two strokes get this
+   * class and `pathLength="1"`, so a dash animation can run from 1 to 0
+   * without measuring anything. The first-launch intro uses it.
+   */
+  strokeClassName?: string;
+  dotClassName?: string;
+  /** The point in its own colour, when it should read apart from the line. */
+  dotColor?: string;
 }) {
+  const draw = strokeClassName ? { className: strokeClassName, pathLength: 1 } : {};
   return (
     <svg
       viewBox="72 116 386 208"
@@ -64,9 +77,9 @@ export function SidqMark({
       aria-hidden="true"
       className={className}
     >
-      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" />
-      <path d="M236 236 C258 196 286 256 324 256 L416 256" />
-      <circle cx="416" cy="256" r="30" fill="currentColor" stroke="none" />
+      <path d="M96 232 C120 168 142 296 168 208 C190 136 210 300 236 236" {...draw} />
+      <path d="M236 236 C258 196 286 256 324 256 L416 256" {...draw} />
+      <circle cx="416" cy="256" r="30" fill={dotColor ?? "currentColor"} stroke="none" className={dotClassName} />
     </svg>
   );
 }
