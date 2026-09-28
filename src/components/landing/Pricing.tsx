@@ -5,6 +5,13 @@ import { usePlatform } from "./DownloadButton";
 import { artifactFor } from "@/lib/releases";
 import { cn } from "@/lib/cn";
 
+/** Static class names, so Tailwind sees every one of them at build time. */
+const COLUMNS: Record<number, string> = {
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
+};
+
 /*
  * Pricing, on the landing page.
  *
@@ -40,7 +47,7 @@ export function Pricing({ top = false }: { top?: boolean } = {}) {
       >
         Free until it works.
         <br />
-        <span className="ink-quiet">Then twenty.</span>
+        <span className="ink-quiet">Then twelve.</span>
       </Heading>
 
       {/*
@@ -52,10 +59,13 @@ export function Pricing({ top = false }: { top?: boolean } = {}) {
        * between cards stay, because they are what makes the three read as one
        * object rather than three floating boxes.
        *
-       * `overflow-hidden` also clips the Duo card's travelling light to the
-       * rounded corner instead of letting it square one off.
+       * `overflow-hidden` also clips the featured card's travelling light to
+       * the rounded corner instead of letting it square one off.
+       *
+       * One column per card. It was a fixed four, and when Duo left the page
+       * the fourth column stayed behind as an empty grey cell.
        */}
-      <div className="mt-14 overflow-hidden rounded-[12px] bg-ink/10 ring-1 ring-ink/10 lg:grid lg:grid-cols-4 lg:gap-px">
+      <div className={`mt-14 overflow-hidden rounded-[12px] bg-ink/10 ring-1 ring-ink/10 lg:grid lg:gap-px ${COLUMNS[PLANS.length] ?? "lg:grid-cols-3"}`}>
         <div className="grid gap-px lg:contents">
           {PLANS.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />

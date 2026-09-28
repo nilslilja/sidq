@@ -954,7 +954,7 @@ function Overview({
     { label: string; walls: number; medianMinutes: number }[]
   >([]);
   /** Days left in the reverse trial, and how long it was meant to be. */
-  const [trial, setTrial] = useState<[number | null, number]>([null, 5]);
+  const [trial, setTrial] = useState<[number | null, number]>([null, 7]);
 
   /*
    * How many distinct AIs are actually in the index.
@@ -2390,7 +2390,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       .finally(() => setBusy(false));
   };
 
-  const heading = <PanelHead eyebrow="Duo" title="Your team" />;
+  const heading = <PanelHead eyebrow="Team" title="Your team" />;
 
   if (!settings) {
     return (
@@ -2414,7 +2414,7 @@ function Team({ bridge }: { bridge: ReturnType<typeof desktopBridge> }) {
       <>
         {heading}
         <p className="mt-4 max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
-          On Duo, the standing instructions on your{" "}
+          On Team, the standing instructions on your{" "}
           <strong>How you work</strong> tab are shared with the people you work
           with, and theirs with you. Every handover any of you makes then
           arrives already knowing how the team works, not just how you do.

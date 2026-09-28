@@ -10,6 +10,7 @@ import {
   type Plan,
   type PlanId,
   PRO_ANNUAL,
+  proMonthlyIfAnnual,
 } from "@/lib/plans";
 import { cn } from "@/lib/cn";
 
@@ -90,7 +91,7 @@ export function Upgrade() {
       </Link>
 
       <h1 className="mt-10 font-display text-[2.75rem] leading-[1.02]">
-        Twenty a month.
+        Twelve a month.
         <br />
         <span className="text-muted">Cancel in one click.</span>
       </h1>
@@ -122,7 +123,7 @@ export function Upgrade() {
       >
         {busy === "pro:annual"
           ? "Opening checkout…"
-          : `Or pay yearly, $${PRO_ANNUAL.price}, two months free`}
+          : `Or pay yearly, $${PRO_ANNUAL.price}, ${proMonthlyIfAnnual()} a month`}
       </button>
 
       {/*
@@ -174,7 +175,7 @@ function PlanCard({
         </p>
       </div>
 
-      {/* Duo's headline price reads as the expensive one until it is divided. */}
+      {/* A second reading of the price, where the headline alone would mislead. */}
       {plan.priceNote && (
         <p className="mt-1 text-right text-xs text-muted">{plan.priceNote}</p>
       )}

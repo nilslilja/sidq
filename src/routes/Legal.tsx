@@ -206,8 +206,8 @@ export function Terms() {
 
       <H>What you may do with it</H>
       <P>
-        Use it for your own work, personal or commercial. A Duo subscription covers two
-        people. Do not resell it, redistribute it, or take it apart and ship the pieces as
+        Use it for your own work, personal or commercial. A Team subscription covers one
+        person per seat. Do not resell it, redistribute it, or take it apart and ship the pieces as
         your own.
       </P>
 

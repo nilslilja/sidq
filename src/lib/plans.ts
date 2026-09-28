@@ -30,12 +30,13 @@ export type PlanId = "free" | "pro" | "duo" | "team";
  * absurd for forty in one direction or the other, and the flat version means
  * every real conversation starts by renegotiating it.
  *
- * Absent by default and deliberately — see the note on the Team plan below.
- * Written as it should appear, e.g. "$12", because the display string and the
- * Stripe price are two decisions and only one of them lives here.
+ * $20 a seat a month since 28 Sep 2026, when the Stripe price was created.
+ * VITE_TEAM_SEAT_PRICE still overrides it, written as it should appear, e.g.
+ * "$20", because the display string and the Stripe price are two decisions and
+ * only one of them lives here. What is charged is STRIPE_PRICE_TEAM_SEAT.
  */
-const TEAM_SEAT: string | undefined =
-  (import.meta.env?.VITE_TEAM_SEAT_PRICE as string | undefined) || undefined;
+const TEAM_SEAT: string =
+  (import.meta.env?.VITE_TEAM_SEAT_PRICE as string | undefined) || "$20";
 
 export interface Plan {
   id: PlanId;
@@ -94,10 +95,11 @@ export interface Plan {
  */
 export const PRO_ANNUAL = {
   /** What the year costs. */
-  price: 192,
-  /** Months paid for out of twelve. Two free is the whole reason to take it. */
-  monthsPaid: 10,
+  price: 99,
 } as const;
+
+/** Pro by the month, as a number, for the arithmetic the page shows. */
+export const PRO_MONTHLY = 12;
 
 /** The yearly price as a monthly figure, for comparing like with like. */
 export function proMonthlyIfAnnual(): string {
@@ -146,7 +148,7 @@ const ALL_PLANS: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "$19.99",
+    price: `$${PRO_MONTHLY}`,
     cadence: "/ month",
     /*
      * The yearly option, on the page where people decide.
@@ -155,19 +157,24 @@ const ALL_PLANS: Plan[] = [
      * after signing in. Somebody comparing Sidq against anything else never
      * reached it, which made the headline number the only number they saw.
      */
-    priceNote: `or $${PRO_ANNUAL.price} a year, two months free`,
+    priceNote: `or $${PRO_ANNUAL.price} a year, ${proMonthlyIfAnnual()} a month`,
     // The one sentence that has to do the work. It names the thing nobody else
     // has rather than listing capacity, because capacity is not why anyone pays.
     promise: "One conversation. Every model. Nobody pressing anything.",
     inherits: "Starter",
     cta: "Subscribe",
     /*
+     * The filled card, since Duo left the page on 28 Sep 2026. It is the plan
+     * somebody arriving from a post can buy on their own, today.
+     */
+    featured: true,
+    /*
      * ── What this card sold before, and why it was indefensible ─────────────
      *
      * "Unlimited handovers, every day" and "Search everything you have ever
      * asked". Both were word-for-word what the free card listed directly above
      * it, because every meter was removed from entitlement.rs and this card was
-     * not moved with them. The page charged $19.99 a month for nothing, live,
+     * not moved with them. The page charged a monthly price for nothing, live,
      * and entitlement.rs had a test whose name said so.
      *
      * The line now is effort rather than capacity. Everything Sidq *is* stays
@@ -210,41 +217,36 @@ const ALL_PLANS: Plan[] = [
    * whole reason the purchase is possible, and it is the one answer a hosted
    * competitor cannot give.
    *
-   * No price and no checkout, deliberately. There is no Stripe product behind
-   * it, the right number is unknown until a few have been sold, and the first
-   * team conversations are worth having by hand.
+   * Priced per seat since 28 Sep 2026. The first team conversations are still
+   * worth having by hand; the card just no longer requires one.
    */
   {
     id: "team",
     name: "Team",
     /*
-     * ── Why this tier is a conversation until a number exists ────────────────
+     * ── From a conversation to a checkout ────────────────────────────────────
      *
-     * Team has been on the pricing page since before it was implemented and
-     * its button has always been a mailto:, which means the tier most likely to
-     * convert is the one that cannot take money. Everything behind it now
-     * works — the folder in team_context.rs does the sharing, mcp.rs gates
-     * publish_to_team on may_share_with_team, and create-checkout maps
-     * team:monthly to a price id.
-     *
-     * What is missing is a price, and a price is a decision rather than a
-     * value with a sensible default. So this reads the number from the build
-     * rather than carrying a placeholder: set VITE_TEAM_SEAT_PRICE and the
-     * card becomes a checkout, leave it unset and it stays the conversation it
-     * is today. A wrong number on a live pricing page is worse than no number,
-     * because somebody can buy at it.
+     * Team was a mailto: while it had no price, because a wrong number on a
+     * live pricing page is worse than no number: somebody can buy at it. The
+     * price was decided on 28 Sep 2026, $20 a seat a month, and created in
+     * Stripe the same day, so the card now sells it. create-checkout maps
+     * team:monthly to STRIPE_PRICE_TEAM_SEAT, and the seat count is the
+     * quantity.
      */
-    price: TEAM_SEAT ?? "Let's talk",
-    cadence: TEAM_SEAT ? "/ seat, month" : null,
+    price: TEAM_SEAT,
+    cadence: "/ seat, month",
     promise:
       "Your whole team working from the same context, on machines nothing leaves.",
-    inherits: "Duo",
-    cta: TEAM_SEAT ? "Subscribe" : "Talk to us",
-    ctaHref: TEAM_SEAT
-      ? undefined
-      : "mailto:nilsliljan@gmail.com?subject=Sidq%20for%20teams",
+    inherits: "Pro",
+    cta: "Subscribe",
+    /*
+     * Duo's lines live here now. Duo was the same folder sold to two people,
+     * and two plans that differ only in headcount were one decision too many on
+     * a page whose job is to explain one number.
+     */
     features: [
       "Every seat on one invoice, priced per seat",
+      "Hand a whole conversation to a teammate when you choose to, never automatically",
       "Join with a six-character code: no paths to send, no folder to describe",
       "One house-rules file: your standards ride along in every AI conversation your team has",
       "Project memory shared across the team: what it started as, where it got to, what was decided",
@@ -288,21 +290,12 @@ const ALL_PLANS: Plan[] = [
     inherits: "Pro",
     cta: "Subscribe",
     /*
-     * The ink fill moved here from Pro.
-     *
-     * A pricing row points at whichever card is filled, and it was pointing at
-     * the middle one out of habit — the SaaS convention of featuring the
-     * second of three. Duo is the plan worth pointing at: it is the most
-     * expensive, it is the only one with a reason to exist beyond capacity, and
-     * it is the one two independent people asked for before it was built.
-     *
-     * It carries the travelling rim light as well, which is the other half of
-     * the same decision. Both effects were written for a dark surface and there
-     * is now exactly one.
+     * Not on the page since 28 Sep 2026: Team carries these lines now, and the
+     * filled card went back to Pro. Kept so an existing Duo subscription still
+     * reads as something, and the webhook still grants it.
      */
-    featured: true,
     features: [
-      "$15 a person, against $19.99 each",
+      "$15 a person",
       "Your standing instructions, shared: every handover knows how the team works",
       "Hand a whole conversation to a teammate when you choose to, never automatically",
       "Share what you know about a project, so the next person does not have to ask you",
@@ -316,15 +309,15 @@ const ALL_PLANS: Plan[] = [
 /**
  * The cards the pricing page actually shows.
  *
- * Team is off. It has been offered since the page was written, it has never
- * been bought, and it is the largest block of concepts on a page whose job is
- * to explain one number. See `FEATURES` for the rest of the same decision.
+ * Starter, Pro and Team. Duo is filtered out: it was the team folder sold to
+ * exactly two people, and four cards for a product nobody had paid for yet was
+ * one decision too many. Team follows `FEATURES.team`.
  *
  * Filtered rather than removed, so the tier and everything written about it
  * stay where they are and turning it back on is one word.
  */
 export const PLANS: Plan[] = ALL_PLANS.filter(
-  (p) => p.id !== "team" || FEATURES.team,
+  (p) => p.id !== "duo" && (p.id !== "team" || FEATURES.team),
 );
 
 /**

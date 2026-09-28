@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 /**
- * What the five days were, and what happens when they are gone.
+ * What the trial was, and what happens when it is gone.
  *
  * ── Why this is not a modal that blocks the window ──────────────────────────
  * Because of what actually changes on day six, which is less than it sounds.

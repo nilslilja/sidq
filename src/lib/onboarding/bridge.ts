@@ -500,9 +500,9 @@ export interface OnboardingBridge {
   /**
    * Days left in the reverse trial, and how long it was.
    *
-   * `[null, 5]` means there is no trial running: it ended, or this account pays
+   * `[null, 7]` means there is no trial running: it ended, or this account pays
    * and never needed one. The length travels with the answer so a panel saying
-   * "your five days are up" reads the same constant that decided.
+   * "your week is up" reads the same constant that decided.
    */
   trialState: () => Promise<[number | null, number]>;
   /**

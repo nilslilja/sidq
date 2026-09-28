@@ -1298,7 +1298,7 @@ fn native_glass() -> bool {
  *
  * `None` days means there is no trial running: it has ended, or this account
  * pays for a plan and never needed one. The length travels with the answer so
- * the panel that says "your five days are up" reads the same constant that
+ * the panel that says "your week is up" reads the same constant that
  * decided, rather than repeating the number and drifting from it.
  */
 #[tauri::command]
@@ -3633,7 +3633,7 @@ fn main() {
              * ── Start the trial clock ─────────────────────────────────────
              *
              * First thing, and idempotent: a new install has everything for
-             * five days and then drops to Free. Here rather than on the read
+             * a week and then drops to Free. Here rather than on the read
              * path so that asking what plan somebody is on never writes to
              * their index, and so that the clock starts on the launch they
              * installed it rather than on the first handover they happen to

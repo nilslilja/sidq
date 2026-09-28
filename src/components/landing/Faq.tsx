@@ -68,7 +68,7 @@ export const FAQS = [
     a: "Nothing. Sidq does not read your screen, take screenshots, record, or watch which app you have open. It reads the conversation files your AIs already write to your Mac, and only when you pick one. An earlier version watched window titles to notice when you drifted off a task; that went with the rest of the planner.",
   },
   {
-    q: "What does Duo actually share between two people?",
+    q: "What does Team actually share between people?",
     a: [
       'Two things automatically, and one only when you say so. The automatic ones are standing instructions and nothing else: the lines on your "How you work" tab are sentences you have typed to assistants more than once. How you want things done, what stack you are on, the conventions you keep repeating. Those are shared with the people you work with, so every handover any of you makes arrives knowing how the team works and not just how one of you does.',
       "The one you choose is a project: its memory, meaning what it started as and what was decided and what was ruled out, published to the team as a Markdown file you can read in full first. Somebody joining picks up months of decisions without booking time with the person who made them. Nothing goes until you press the button on that project, nothing is on a timer, and no conversation of yours is shared because a folder was set up once.",
@@ -101,7 +101,7 @@ export const FAQS = [
      * survive its number changing shape. There is no quantity left to keep in
      * sync here, so there is nothing for a template to protect.
      */
-    a: "Every AI on your Mac read with nothing to connect, search that reaches all the way back including conversations you had before you installed it, and five handovers a week. Word for word, nothing uploaded, no card. Your first five days are unlimited so you can see what it does before the weekly number means anything. What Pro buys is no weekly number at all, plus the part that happens without you: one conversation carried across every model, so whichever assistant you open next already knows where things got to.",
+    a: "Every AI on your Mac read with nothing to connect, search that reaches all the way back including conversations you had before you installed it, and five handovers a week. Word for word, nothing uploaded, no card. Your first week is unlimited so you can see what it does before the weekly number means anything. What Pro buys is no weekly number at all, plus the part that happens without you: one conversation carried across every model, so whichever assistant you open next already knows where things got to.",
   },
   {
     q: "Is there a web version?",

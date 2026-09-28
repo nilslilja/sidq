@@ -143,29 +143,22 @@ describe("subscribing while signed in", () => {
 
 describe("the Team tier", () => {
   /*
-   * Team has been on the pricing page since before it was implemented, with a
-   * mailto: behind it — so the tier most likely to convert is the one that
-   * cannot take money. Everything behind it works now; what is missing is a
-   * price, and a price is a decision rather than a value with a default.
-   *
-   * These two tests pin both halves of that so the tier cannot silently become
-   * a checkout at a placeholder number, which is the failure that costs real
-   * money rather than a sale.
+   * Team was a mailto: until 28 Sep 2026, when its Stripe price was created at
+   * $20 a seat a month. What these pin is that the card and the checkout agree:
+   * the number shown is that price, and its button buys the team plan by the
+   * month, which is the only team price that exists.
    */
-  test("stays a conversation while no price is configured", async () => {
-    token.mockResolvedValue("a-real-token");
+  test("shows the seat price it is sold at", async () => {
+    // VITE_TEAM_SEAT_PRICE is unset here, so this is the shipped default.
     const { PLANS } = await import("@/lib/plans");
     const team = PLANS.find((p) => p.id === "team")!;
 
-    // VITE_TEAM_SEAT_PRICE is unset in the test environment, which is the
-    // shipped default. If this flips, somebody can buy at a number nobody
-    // chose.
-    expect(team.ctaHref).toMatch(/^mailto:/);
-    expect(team.price).toBe("Let's talk");
-    expect(team.cadence).toBeNull();
+    expect(team.price).toBe("$20");
+    expect(team.cadence).toBe("/ seat, month");
+    expect(team.ctaHref).toBeUndefined();
   });
 
-  test("its card never offers checkout while it is a conversation", async () => {
+  test("its button starts a monthly team checkout, never a yearly one", async () => {
     token.mockResolvedValue("a-real-token");
     checkout.mockResolvedValue(undefined);
     show();
@@ -176,16 +169,16 @@ describe("the Team tier", () => {
       ).toBeNull(),
     );
 
-    // The Team card's control is the mailto, so pressing anything on this page
-    // must never start a team checkout.
     for (const button of screen.getAllByRole("button", {
       name: /subscribe/i,
     })) {
       fireEvent.click(button);
     }
-    await waitFor(() => expect(checkout).toHaveBeenCalled());
-    for (const call of checkout.mock.calls) {
-      expect(call[0]).not.toBe("team");
+    await waitFor(() =>
+      expect(checkout.mock.calls.some((call) => call[0] === "team")).toBe(true),
+    );
+    for (const call of checkout.mock.calls.filter((c) => c[0] === "team")) {
+      expect(call[1]).toBe("monthly");
     }
   });
 });

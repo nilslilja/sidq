@@ -45,15 +45,19 @@ const WEEK_SECS: i64 = 7 * 24 * 60 * 60;
  * the handover. They press the key once, watch a conversation land in another
  * AI, and either that was worth paying for or it was not.
  *
- * Five days rather than fourteen. This is a tool for a specific moment — you
- * hit a limit, you move — and somebody who has not hit a limit in five days is
- * not going to hit one in fourteen either. A long trial on a product with a
- * sharp trigger just means the trigger fires after everybody has forgotten.
+ * A week rather than fourteen days. This is a tool for a specific moment — you
+ * hit a limit, you move — and somebody who has not hit a limit in a week is not
+ * going to hit one in two either. A long trial on a product with a sharp
+ * trigger just means the trigger fires after everybody has forgotten.
+ *
+ * A week rather than the five days it was until 28 Sep 2026, because five days
+ * from a Friday install is three working days: the trial ended before the
+ * working week it was meant to show had happened.
  *
  * The frontend reads this number rather than repeating it, so the panel that
- * says "your five days are up" cannot disagree with the clock that decided.
+ * says "your week is up" cannot disagree with the clock that decided.
  */
-pub const TRIAL_DAYS: i64 = 5;
+pub const TRIAL_DAYS: i64 = 7;
 
 const TRIAL_SECS: i64 = TRIAL_DAYS * 24 * 60 * 60;
 
@@ -115,8 +119,8 @@ impl Plan {
      * accepted here deliberately, in exchange for finding out within a month
      * whether anyone will pay at all.
      *
-     * The reverse trial is what makes it defensible: a new install has five
-     * days of everything before this applies, so nobody meets the cap until
+     * The reverse trial is what makes it defensible: a new install has a week
+     * of everything before this applies, so nobody meets the cap until
      * after they have seen what the product does when it is not capped.
      *
      * If thirty direct asks produce no payers, the answer is not a different
@@ -261,7 +265,7 @@ pub fn current(conn: &Connection) -> Plan {
      * The trial lifts a Free account and never lowers a paid one.
      *
      * Taking the better of the two rather than checking the trial first, so
-     * that somebody signed in on the free tier still gets their five days —
+     * that somebody signed in on the free tier still gets their week —
      * signing in to look at the pricing page should not end a trial. And so
      * that a Duo account is never quietly demoted to Pro by it.
      */
@@ -342,7 +346,7 @@ fn confirmed_plan(conn: &Connection) -> Plan {
  *
  * Idempotent, so it can be called from setup on every launch without the trial
  * renewing itself. Someone upgrading from a version that had no trial gets the
- * full five days from the first time they open the new one, which is the
+ * full week from the first time they open the new one, which is the
  * fairest reading of "this used to be free": they are not billed for a window
  * that elapsed while nobody had told them it existed.
  */
@@ -369,7 +373,7 @@ pub fn trial_days_left(conn: &Connection) -> Option<u32> {
 
     /*
      * A start in the future means the clock moved, not that the trial is
-     * enormous. Treated as over rather than as five more days, because the
+     * enormous. Treated as over rather than as a week more, because the
      * alternative is a permanent Pro account for anybody who sets their date
      * forward once and back again.
      */
@@ -801,7 +805,7 @@ mod tests {
         // `begin_trial` runs from setup, so it is called on every single launch.
         // If it were not idempotent the trial would never end.
         let conn = index_store::tests::memory();
-        installed_days_ago(&conn, 4);
+        installed_days_ago(&conn, TRIAL_DAYS - 1);
 
         begin_trial(&conn);
         begin_trial(&conn);
@@ -857,7 +861,7 @@ mod tests {
     fn the_trial_never_demotes_an_account_that_pays_for_more() {
         /*
          * `current` takes the better of the two. Checking the trial first would
-         * quietly serve a Duo account as Pro for its first five days, which is
+         * quietly serve a Duo account as Pro for its first week, which is
          * a paying customer losing the thing they paid extra for.
          */
         let conn = index_store::tests::memory();
@@ -871,7 +875,7 @@ mod tests {
 
     #[test]
     fn signing_in_to_look_at_the_pricing_page_does_not_end_the_trial() {
-        // Someone signed in on the free tier is still inside their five days.
+        // Someone signed in on the free tier is still inside their trial.
         // The account and the trial are different questions.
         let conn = index_store::tests::memory();
         begin_trial(&conn);

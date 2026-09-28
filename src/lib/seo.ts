@@ -65,14 +65,13 @@ const HAND_WRITTEN: Record<string, PageMeta> = {
     /*
      * Both of these described a paywall that no longer exists, live, for weeks.
      *
-     * "Five handovers a week free" — there is no cap and has not been one since
-     * the meters came out. "Pro removes every limit at $19.99" — Free has no
-     * limits to remove. A search result is the first sentence most people read
-     * about Sidq, and both of its claims were false.
+     * A search result is the first sentence most people read about Sidq, so
+     * every number in it has to be the one on the page: five handovers a week
+     * free, and Pro at $12 a month since 28 Sep 2026.
      */
     title: "Pricing. Free on your Mac. Pay for what runs without you.",
     description:
-      "Five handovers a week and full search, free, no card. Pro is $19.99 for no weekly limit and the part you cannot do by hand: one conversation carried across every model.",
+      "Five handovers a week and full search, free, no card. Pro, $12 a month: no weekly limit and the part you cannot do by hand, one conversation across every model.",
     canonical: `${SITE}/pricing`,
     ogTitle: "Sidq pricing",
   },

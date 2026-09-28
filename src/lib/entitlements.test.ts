@@ -143,25 +143,23 @@ describe("the yearly price", () => {
   });
 
   it("is actually cheaper than paying monthly, and says by how much", async () => {
-    const { PRO_ANNUAL, PLANS } = await import("./plans");
+    const { PRO_ANNUAL, PRO_MONTHLY, PLANS, proMonthlyIfAnnual } = await import("./plans");
     const pro = PLANS.find((p) => p.id === "pro")!;
 
+    // The card and the arithmetic read the same number.
+    expect(pro.price).toBe(`$${PRO_MONTHLY}`);
+
     // Twelve months at the monthly price, against the year.
-    const monthly = 19.99 * 12;
-    expect(PRO_ANNUAL.price).toBeLessThan(monthly);
+    expect(PRO_ANNUAL.price).toBeLessThan(PRO_MONTHLY * 12);
 
     /*
-     * The copy says "two months free". $192 is actually 9.6 months, so it gives
-     * slightly more than it promises, and that is the direction this has to
-     * fail in: a page may quietly under-promise a discount and may never
-     * over-promise one, because the reader can do this division.
+     * The note states the year as a month, and the figure has to be the real
+     * division: a page may never round a discount in its own favour, because
+     * the reader can do this division.
      */
-    const promised = 19.99 * PRO_ANNUAL.monthsPaid;
-    expect(PRO_ANNUAL.price).toBeLessThanOrEqual(promised);
-    expect(PRO_ANNUAL.monthsPaid).toBe(10);
-
-    // And it reaches the page somebody actually decides on.
-    expect(pro.priceNote).toContain(String(PRO_ANNUAL.price));
+    expect(proMonthlyIfAnnual()).toBe(`$${(PRO_ANNUAL.price / 12).toFixed(2)}`);
+    expect(pro.priceNote).toContain(`$${PRO_ANNUAL.price} a year`);
+    expect(pro.priceNote).toContain(proMonthlyIfAnnual());
   });
 });
 
@@ -475,7 +473,7 @@ describe("the ladder reads as a ladder", () => {
       inheritedFeatures(id).length;
 
     expect(ticks("pro")).toBeGreaterThan(ticks("free"));
-    expect(ticks("duo")).toBeGreaterThan(ticks("pro"));
+    expect(ticks("team")).toBeGreaterThan(ticks("pro"));
   });
 
   /*
@@ -500,11 +498,13 @@ describe("the ladder reads as a ladder", () => {
   });
 });
 
-describe("what Duo promises", () => {
-  const duo = PLANS.find((p) => p.id === "duo")!;
+describe("what Team promises", () => {
+  const team = PLANS.find((p) => p.id === "team")!;
 
   /*
-   * Duo shares standing instructions through a folder the team already syncs.
+   * Team shares standing instructions through a folder the team already syncs.
+   * (These were Duo's tests until Duo left the page on 28 Sep 2026 and its
+   * lines moved to Team.)
    *
    * This used to say conversations never cross and never would. That stopped
    * being true when `share_handover` and then `share_project` shipped, and the
@@ -519,10 +519,10 @@ describe("what Duo promises", () => {
    * reading is available anywhere on this page the plan is mis-sold to the
    * people most likely to buy it.
    */
-  test("it never suggests conversations cross between the two seats", () => {
+  test("it never suggests conversations cross between seats on their own", () => {
     const text = [
-      duo.promise,
-      ...duo.features,
+      team.promise,
+      ...team.features,
       ...FAQS.flatMap((f) => [f.q, ...(Array.isArray(f.a) ? f.a : [f.a])]),
     ]
       .join(" ")
@@ -540,18 +540,18 @@ describe("what Duo promises", () => {
   });
 
   test("and it says which thing is shared, rather than leaving it to be guessed", () => {
-    const bullets = duo.features.join(" ").toLowerCase();
+    const bullets = team.features.join(" ").toLowerCase();
 
     expect(bullets).toContain("standing instructions");
   });
 
   /*
-   * The whole reason Duo went through a folder rather than Supabase. If a card
+   * The whole reason the team folder is a folder rather than Supabase. If a card
    * ever contradicts the front page, one of the two is a lie and the page is
    * the one people read first.
    */
   test("it does not contradict the page's promise that nothing is uploaded", () => {
-    const answer = FAQS.find((f) => /Duo actually share/.test(f.q));
+    const answer = FAQS.find((f) => /Team actually share/.test(f.q));
     const text = (
       Array.isArray(answer?.a) ? answer.a.join(" ") : (answer?.a ?? "")
     ).toLowerCase();

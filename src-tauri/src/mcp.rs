@@ -692,7 +692,7 @@ fn publish(conn: &rusqlite::Connection, path: &str) -> Value {
      * capability check that lives only in the window is not a capability check.
      */
     if !crate::entitlement::current(conn).may_share_with_team() {
-        return failed("Sharing with a team is on the Duo and Team plans. Nothing was published.");
+        return failed("Sharing with a team is on the Team plan. Nothing was published.");
     }
 
     let Some(folder) = index_store::setting(conn, crate::team_context::FOLDER_KEY)

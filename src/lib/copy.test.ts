@@ -248,3 +248,30 @@ describe("the word saved", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("the price, spelled out", () => {
+  /*
+   * The pricing headline and the upgrade screen say the price in words, and
+   * both said "twenty" for weeks after Pro was $12. A number written as a word
+   * is invisible to every check that looks for "$", so this reads the words.
+   */
+  it("the headlines name the monthly price Pro is actually sold at", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { PRO_MONTHLY } = await import("./plans");
+    const WORDS: Record<string, number> = {
+      ten: 10, eleven: 11, twelve: 12, fifteen: 15, nineteen: 19, twenty: 20,
+    };
+
+    const pricing = readFileSync("src/components/landing/Pricing.tsx", "utf8");
+    const upgrade = readFileSync("src/routes/Upgrade.tsx", "utf8");
+    const spoken = [
+      pricing.match(/Then (\w+)\./)?.[1],
+      upgrade.match(/(\w+) a month\./)?.[1],
+    ];
+
+    for (const word of spoken) {
+      expect(word, "a headline stopped naming the price").toBeTruthy();
+      expect(WORDS[word!.toLowerCase()]).toBe(PRO_MONTHLY);
+    }
+  });
+});
