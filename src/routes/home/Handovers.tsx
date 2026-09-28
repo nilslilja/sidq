@@ -39,10 +39,13 @@ export function Handovers({ bridge, plan }: { bridge: Bridge; plan: PlanStatus |
     [],
   );
   const [shared, setShared] = useState<string | null>(null);
+  // The key the picker really got, which is not always ⌘⇧K.
+  const [picker, setPicker] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bridge) return;
     void bridge.recentHandovers().then(setRows);
+    void bridge.pickerShortcut().then(setPicker, () => setPicker(null));
     void bridge.assistantList().then(setAssistants, () => setAssistants([]));
     void bridge
       .teamSettings()
@@ -60,7 +63,7 @@ export function Handovers({ bridge, plan }: { bridge: Bridge; plan: PlanStatus |
       {rows !== null && rows.length === 0 && (
         <div className="mt-4 border-y border-[var(--w-line)] py-5">
           <p className="max-w-[56ch] text-[0.875rem] leading-relaxed text-[var(--w-text-3)]">
-            Nothing handed over yet. Press <Keys>&#8984;&#8679;K</Keys>, pick a
+            Nothing handed over yet. {picker ? <>Press <Keys>{picker}</Keys></> : "Click the dot at the top of the screen"}, pick a
             conversation, press Enter. Each one is also written to your
             Downloads folder as a Markdown file, so nothing is lost to a
             misclick the way a clipboard is.

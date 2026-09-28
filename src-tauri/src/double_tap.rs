@@ -193,23 +193,47 @@ pub enum Tap {
 }
 
 /**
+ * Whether Accessibility was just granted while Sidq was running.
+ *
+ * A key watcher installed while the process is untrusted is accepted by AppKit
+ * and then never delivered a single event, even after the permission is
+ * granted. Setup grants it halfway through a run, so this is the moment the
+ * watcher has to be installed again.
+ */
+pub fn trust_arrived(was_trusted: bool, now_trusted: bool) -> bool {
+    !was_trusted && now_trusted
+}
+
+type Handler = block2::RcBlock<dyn Fn(core::ptr::NonNull<objc2_app_kit::NSEvent>)>;
+
+thread_local! {
+    /*
+     * The handler, kept so the watcher can be reinstalled without being rebuilt.
+     * Main thread only: AppKit's monitors are added and removed there, and so is
+     * everything that touches this.
+     */
+    static HANDLER: std::cell::RefCell<Option<Handler>> = const { std::cell::RefCell::new(None) };
+}
+
+/**
  * Watch the modifiers and call back on a double tap.
  *
  * `on_tap` receives the mask that fired, so one monitor serves every shortcut.
  * Registering twice is a no-op: AppKit would happily install two monitors and
  * deliver every event to both, which turns one grab into two.
+ *
+ * Call on the main thread. See `rewatch` for the second install.
  */
 pub fn watch(watched: Vec<u64>, on_tap: impl Fn(u64) + Send + Sync + 'static) {
     use block2::RcBlock;
-    use objc2::rc::Retained;
-    use objc2_app_kit::{NSEvent, NSEventMask};
+    use objc2_app_kit::NSEvent;
 
-    if MONITOR.load(Ordering::Relaxed) != 0 {
+    if HANDLER.with(|h| h.borrow().is_some()) {
         return;
     }
 
-    let handler = RcBlock::new(move |event: core::ptr::NonNull<NSEvent>| {
-        // SAFETY: AppKit hands us a live event for the duration of this block.
+    let handler: Handler = RcBlock::new(move |event: core::ptr::NonNull<NSEvent>| {
+        // SAFETY: AppKit hands the handler a live event for the call's duration.
         let flags = unsafe { event.as_ref().modifierFlags().bits() as u64 };
 
         let previous = HELD.swap(flags, Ordering::Relaxed);
@@ -228,8 +252,8 @@ pub fn watch(watched: Vec<u64>, on_tap: impl Fn(u64) + Send + Sync + 'static) {
                 LAST_MASK.store(mask, Ordering::Relaxed);
             }
             Tap::Double(mask) => {
-                // Cleared before firing, so a third tap starts a new pair
-                // rather than firing again immediately.
+                // Reset before firing, so a third tap starts a fresh count
+                // rather than firing again off the tail of this one.
                 LAST_TAP_MS.store(0, Ordering::Relaxed);
                 LAST_MASK.store(0, Ordering::Relaxed);
                 on_tap(mask);
@@ -242,14 +266,46 @@ pub fn watch(watched: Vec<u64>, on_tap: impl Fn(u64) + Send + Sync + 'static) {
         }
     });
 
-    // AppKit retains the block for as long as the monitor is registered, and
-    // this monitor is never removed.
-    let token =
-        NSEvent::addGlobalMonitorForEventsMatchingMask_handler(NSEventMask::FlagsChanged, &handler);
+    HANDLER.with(|h| *h.borrow_mut() = Some(handler));
+    rewatch();
+}
 
-    if let Some(token) = token {
-        MONITOR.store(Retained::into_raw(token) as usize, Ordering::Relaxed);
-    }
+/**
+ * Install the watcher again, replacing the one already there.
+ *
+ * For the moment Accessibility is granted with Sidq running (`trust_arrived`):
+ * the monitor from launch is removed, because it will never hear anything, and
+ * an identical one is added in its place. Main thread only.
+ */
+pub fn rewatch() {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSEvent, NSEventMask};
+
+    HANDLER.with(|h| {
+        let Some(handler) = h.borrow().clone() else {
+            return;
+        };
+
+        let old = MONITOR.swap(0, Ordering::Relaxed);
+        if old != 0 {
+            // SAFETY: this pointer came from `Retained::into_raw` below and is
+            // taken back exactly once, here.
+            let token = unsafe { Retained::from_raw(old as *mut AnyObject) };
+            if let Some(token) = token {
+                // SAFETY: the token is the monitor AppKit returned to us.
+                unsafe { NSEvent::removeMonitor(&token) };
+            }
+        }
+
+        // Global only: fires for events headed to *other* applications, which
+        // is the whole use. It never sees keystrokes typed into Sidq itself.
+        let token =
+            NSEvent::addGlobalMonitorForEventsMatchingMask_handler(NSEventMask::FlagsChanged, &handler);
+        if let Some(token) = token {
+            MONITOR.store(Retained::into_raw(token) as usize, Ordering::Relaxed);
+        }
+    });
 }
 
 #[cfg(test)]
@@ -257,6 +313,20 @@ mod tests {
     use super::*;
 
     const WATCHED: [u64; 2] = [RIGHT_COMMAND, RIGHT_OPTION];
+
+    /*
+     * Found on 27 Sep: setup asks for Accessibility halfway through, after the
+     * watcher was installed at launch, and a watcher installed while untrusted
+     * never hears a key. Both gestures were dead until a restart, for everyone
+     * who granted the permission the way setup asks them to.
+     */
+    #[test]
+    fn the_watcher_is_reinstalled_only_when_trust_arrives() {
+        assert!(trust_arrived(false, true), "granted while running: reinstall");
+        assert!(!trust_arrived(true, true), "already trusted: leave it alone");
+        assert!(!trust_arrived(false, false), "still waiting: nothing to hear yet");
+        assert!(!trust_arrived(true, false), "revoked: nothing to reinstall into");
+    }
 
     #[test]
     fn one_tap_is_not_a_shortcut() {

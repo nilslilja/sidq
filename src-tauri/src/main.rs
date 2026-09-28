@@ -2691,6 +2691,10 @@ fn aim_at(session_id: Option<String>) {
     }
 }
 
+/// How often Sidq looks for the Accessibility grant arriving while it runs.
+#[cfg(target_os = "macos")]
+const TRUST_POLL: std::time::Duration = std::time::Duration::from_secs(2);
+
 static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Quit on purpose, past the guard above.
@@ -3866,6 +3870,35 @@ fn main() {
                     }
                 });
             });
+
+            /*
+             * ── Hearing the taps once Accessibility arrives ──────────────────
+             *
+             * The watcher above is installed at launch, and on a first run that
+             * is before the permission exists: setup asks for it two screens in.
+             * AppKit accepts a watcher from an untrusted process and then never
+             * delivers it a key, so both gestures were dead until Sidq was
+             * restarted, for everybody who did exactly what setup asked.
+             *
+             * So trust is checked every couple of seconds, which costs one cheap
+             * call, and the moment it is granted the watcher is put back on the
+             * main thread, where AppKit wants it.
+             */
+            #[cfg(target_os = "macos")]
+            {
+                let rewatch_handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let mut was = screen_reader::is_trusted();
+                    loop {
+                        std::thread::sleep(TRUST_POLL);
+                        let now = screen_reader::is_trusted();
+                        if double_tap::trust_arrived(was, now) {
+                            let _ = rewatch_handle.run_on_main_thread(double_tap::rewatch);
+                        }
+                        was = now;
+                    }
+                });
+            }
 
             /*
              * On by default, and the card says so on first run.

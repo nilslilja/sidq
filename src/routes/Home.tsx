@@ -1146,6 +1146,12 @@ function Autopilot({
   const [recall, setRecall] = useState<boolean | null>(null);
   const [relay, setRelay] = useState<{ on: boolean; agent: string | null } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /*
+   * The key the picker actually got. ⌘⇧K is only the first choice: when
+   * another app owns it Sidq takes the next free one, and a row that still
+   * said ⌘⇧K sent people to press a key that did nothing.
+   */
+  const [picker, setPicker] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!bridge) return;
@@ -1160,6 +1166,7 @@ function Autopilot({
     }
     void bridge.recall().then(setRecall);
     void bridge.relay().then(setRelay);
+    void bridge.pickerShortcut().then(setPicker, () => setPicker(null));
   }, [bridge]);
 
   return (
@@ -1215,9 +1222,13 @@ function Autopilot({
 
         <AutoRow
           title="Carry any conversation anywhere"
-          body="Opens the picker over whatever you are in. Pick a conversation and the next AI gets it, with what you decided."
+          body={
+            picker === null
+              ? "Another app owns every shortcut Sidq tried, so this one has no key. Click the dot at the top of the screen to open the picker."
+              : "Opens the picker over whatever you are in. Pick a conversation and the next AI gets it, with what you decided."
+          }
         >
-          <Keys>&#8984;&#8679;K</Keys>
+          {picker !== undefined && <Keys>{picker ?? "none"}</Keys>}
         </AutoRow>
 
         {recall !== null && (
