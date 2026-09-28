@@ -304,7 +304,25 @@ PY
 
 echo "── deploying"
 npm run build:web >/dev/null
-npx vercel deploy --prod --yes 2>&1 | grep -E "Aliased|Error"
+#
+# Retried, because Vercel's CLI fails transiently ("fetch failed") and the
+# grep then exits 1 with nothing printed, which `set -e` turns into a release
+# that stops after everything was built and notarised. It did that on 0.9.12
+# and 0.9.17; both times the same command worked on the next try.
+#
+DEPLOYED=0
+for ATTEMPT in 1 2 3; do
+  if npx vercel deploy --prod --yes 2>&1 | grep -E "Aliased"; then
+    DEPLOYED=1
+    break
+  fi
+  echo "   deploy attempt $ATTEMPT failed, retrying"
+  sleep 10
+done
+if [ "$DEPLOYED" != 1 ]; then
+  echo "   REFUSING: could not deploy after three attempts" >&2
+  exit 1
+fi
 
 echo "── verifying the live site"
 sleep 12
