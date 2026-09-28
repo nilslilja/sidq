@@ -649,7 +649,6 @@ export function Pill() {
       await navigator.clipboard.writeText(text);
       playCue("done");
       setPhase({ kind: "done" });
-      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
     } catch {
       setPhase({ kind: "failed" });
     }
@@ -713,23 +712,46 @@ export function Pill() {
         carry,
       });
       setHatch(firstOpenHatch(hatches, result.wall ?? null));
-
-      /*
-       * The panel only closes itself when there is nothing on it to press.
-       *
-       * A success card with a countdown is fine; a picker with one is a
-       * decision taken away mid-thought. The rail makes this panel interactive,
-       * so it waits — and it cannot squat, because a click anywhere outside the
-       * window collapses the picker (`watch_for_outside_clicks` in
-       * pill_window.rs) and Escape closes it from the keyboard.
-       */
-      if (!hatches.length) {
-        setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
-      }
     } catch {
       setPhase({ kind: "failed" });
     }
   }, [bridge, hatches, phase.kind, pickedRow, visible]);
+
+  /*
+   * The panel only closes itself when there is nothing on it to press.
+   *
+   * A success card with a countdown is fine; a picker with one is a decision
+   * taken away mid-thought. The rail makes this panel interactive, so it waits,
+   * and it cannot squat, because a click anywhere outside the window collapses
+   * the picker (`watch_for_outside_clicks` in pill_window.rs) and Escape closes
+   * it from the keyboard.
+   *
+   * An effect rather than a timer set by the save: the assistant list can
+   * arrive after the save has finished, and the countdown it had already
+   * started closed the panel with the rail on it.
+   */
+  const savedFile = phase.kind === "saved";
+  useEffect(() => {
+    if (!savedFile || hatches.length) return;
+    const timer = setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_SAVE_MS);
+    return () => clearTimeout(timer);
+  }, [savedFile, hatches.length, bridge]);
+
+  /*
+   * A finished copy closes itself. Requiring a second keystroke to dismiss the
+   * thing that has already finished is the difference between a tool and a
+   * window.
+   *
+   * Also an effect, so the countdown ends with the state it belongs to. As a
+   * bare timer it outlived it: reopen the picker within the second and the old
+   * copy's countdown collapsed the new one.
+   */
+  const copied = phase.kind === "done";
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
+    return () => clearTimeout(timer);
+  }, [copied, bridge]);
 
   /**
    * The last step, taken for them.
@@ -845,10 +867,6 @@ export function Pill() {
       await navigator.clipboard.writeText(out.text);
       playCue("done");
       setPhase({ kind: "done" });
-
-      // Close itself. Requiring a second keystroke to dismiss the thing that has
-      // already finished is the difference between a tool and a window.
-      setTimeout(() => void bridge?.hidePill(), CLOSE_AFTER_COPY_MS);
     } catch {
       setPhase({ kind: "failed" });
     }
