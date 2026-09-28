@@ -247,14 +247,11 @@ build_one() {
   #
   # ── The window people see when they open it ──────────────────────────────
   #
-  # This was a folder handed to hdiutil, which gives Finder's default window:
-  # two icons on grey. dmgbuild writes the layout itself (the white background
-  # from scripts/dmg, the icons placed either side of the arrow) without asking
-  # Finder to arrange a mounted image, so a release never waits on a prompt.
+  # dmgbuild lays the window out and Finder sets its background, then the
+  # image is checked before it is compressed. See scripts/dmg/build-dmg.sh
+  # for why Finder has to be the one to set it.
   #
-  "$DMGBUILD" -s scripts/dmg/settings.py \
-    -D app="$APP" -D background=scripts/dmg/background.tiff \
-    "Sidq" "$DMG" >/dev/null
+  scripts/dmg/build-dmg.sh "$APP" "$DMG"
   codesign --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG"
 
   echo "── notarising $ARCH disk image"
