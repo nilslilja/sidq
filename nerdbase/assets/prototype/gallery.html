@@ -1,0 +1,22 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nerdbase prototype</title><link rel="stylesheet" href="screens.css">
+<style>
+body{padding:32px;background:#EDE7E0}
+h1{font-size:28px;margin-bottom:6px} p.s{color:#6F6A64;margin-bottom:28px;font-weight:600}
+.grid{display:flex;flex-wrap:wrap;gap:36px}
+.cell{width:430px} .cell h2{font-size:14px;letter-spacing:1px;text-transform:uppercase;color:#6F6A64;margin-bottom:10px}
+.cell .ph{border-radius:44px;box-shadow:0 20px 50px rgba(0,0,0,.2);border:8px solid #14110F;width:446px;height:948px}
+.ph.live{cursor:pointer}
+</style></head><body>
+<h1>Nerdbase: screen prototype</h1>
+<p class="s">Visual spec for the SwiftUI build. Static HTML, not the shipped app. Tap the scan screen to step through the guidance states.</p>
+<div class="grid" id="g"></div>
+<script src="screens.js"></script>
+<script>
+const g=document.getElementById('g');
+const list=[['Opener','opener'],['Founder story','story'],['Path (Learn)','path'],['Lesson: choose','lessonKVA','sel'],['Feedback: wrong','lessonKVA','bad'],['Lesson complete','complete'],
+ ['Scan: live guide (tap to step)','scan','aim'],['Scan: solving','solving'],['Scan: result','result'],['Focus timer','timer'],['Out of lessons','limit'],['Paywall','paywall']];
+list.forEach(([t,k,a],i)=>{const c=document.createElement('div');c.className='cell';c.innerHTML=`<h2>${t}</h2><div class="ph ${k==='scan'?'live':''}" id="p${i}">${NB_SCREENS[k](a)}</div>`;g.appendChild(c);
+ if(k==='scan'){const states=['aim','close','hold','solve'];let n=0;const el=c.querySelector('.ph');el.addEventListener('click',()=>{n=(n+1)%4;el.innerHTML=NB_SCREENS.scan(states[n]);});setInterval(()=>{n=(n+1)%4;el.innerHTML=NB_SCREENS.scan(states[n]);},2400);}});
+const gc=document.getElementById('globe');if(gc){let p=.6;(function f(){drawGlobe(gc,p);p+=.005;requestAnimationFrame(f)})();}
+</script></body></html>
