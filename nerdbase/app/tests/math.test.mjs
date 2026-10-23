@@ -1,0 +1,22 @@
+import { load, t, done } from './run.mjs';
+const NB = load(['mathx.js']); const { equivalent: eq, derive } = NB.math;
+t('0,5==1/2', eq('0,5', '1/2').ok); t('.5==1/2', eq('.5', '1/2').ok); t('0.5==1/2', eq('0.5', '1/2').ok);
+t('2x+2==2(x+1)', eq('2x+2', '2(x+1)').ok); t('sqrt8==2sqrt2', eq('sqrt(8)', '2*sqrt(2)').ok);
+t('x^2-1==(x-1)(x+1)', eq('x^2-1', '(x-1)(x+1)').ok); t('x^2 sup', eq('x²-1', '(x-1)(x+1)').ok);
+t('wrong x', !eq('2x+3', '2(x+1)').ok); t('wrong num', !eq('0,6', '1/2').ok);
+t('complex add', eq('3+4i', '4i+3').ok); t('complex mul', eq('(1+2i)(3-i)', '5+5i').ok);
+t('complex wrong', !eq('5+4i', '5+5i').ok); t('i^2', eq('i^2', '-1').ok); t('i^4', eq('i^4', '1').ok);
+t('div complex', eq('(5+5i)/(1+2i)', '3-i').ok);
+t('unicode minus', eq('−3', '-3').ok); t('mult dot', eq('2·3', '6').ok);
+t('parse error', eq('2+*', '1').parseError === true); t('unbalanced', eq('(2+3', '5').parseError === true);
+t('junk', eq('abc', '1').parseError === true);
+t('pi', eq('2π', '6.283185307').ok); t('e^x', eq('e^(2x)', '(e^x)^2').ok);
+t('-x^2', eq('-x^2', '0-x^2').ok); t('neg exp', eq('2^-1', '0.5').ok);
+t('implicit', eq('3(2+1)', '9').ok); t('x/x', eq('x/x', '1').ok);
+t('3x/2', eq('3x/2', '1.5x').ok);
+const cases = ['x^2*e^(3x)', 'sin(x)*x', 'x^3-2x+1', 'ln(x^2+1)', 'e^(x^2)', '(x+1)/(x-2)', 'sqrt(x^2+1)', 'cos(2x)', 'x*ln(x)', '5x^4', '3e^x+2', '2^x'];
+for (const c of cases) { const r = derive(c); t('verified ' + c, r.verified); }
+const r = derive('x^2*e^(3x)'); t('sample steps', r.steps.length >= 4 && /Produktregeln/.test(r.steps[0].title));
+console.log(r.answer); console.log(r.steps.map((s) => s.title + ': ' + s.text).join('\n'));
+for (const c of ['x^3-2x+1', 'ln(x^2+1)', '(x+1)/(x-2)', 'sin(x)*x']) console.log(c, '=>', derive(c).answer);
+done();
